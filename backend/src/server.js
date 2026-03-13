@@ -1,4 +1,8 @@
-require("dotenv").config()
+try {
+  require("dotenv").config()
+} catch (error) {
+  // Railway injects env vars directly in production, so dotenv is optional there.
+}
 
 const app = require("./app")
 const connectDatabase = require("./config/db")
