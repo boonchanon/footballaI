@@ -1,7 +1,14 @@
-function buildPrediction({ homeTeam, awayTeam, model = "gpt-5", fixtureId = "" }) {
+function buildPrediction({ homeTeam, awayTeam, model = "gpt-5", fixtureId = "", predictedScore }) {
   const homeWinProbability = Math.floor(Math.random() * 30) + 35
   const drawProbability = Math.floor(Math.random() * 20) + 20
   const awayWinProbability = 100 - homeWinProbability - drawProbability
+  const score =
+    predictedScore && Number.isInteger(predictedScore.home) && Number.isInteger(predictedScore.away)
+      ? predictedScore
+      : {
+          home: Math.floor(Math.random() * 3) + 1,
+          away: Math.floor(Math.random() * 2)
+        }
 
   return {
     fixtureId,
@@ -12,10 +19,7 @@ function buildPrediction({ homeTeam, awayTeam, model = "gpt-5", fixtureId = "" }
     homeWinProbability,
     drawProbability,
     awayWinProbability,
-    predictedScore: {
-      home: Math.floor(Math.random() * 3) + 1,
-      away: Math.floor(Math.random() * 2)
-    },
+    predictedScore: score,
     confidence: Math.floor(Math.random() * 20) + 70,
     analysis: `จากฟอร์มล่าสุดและข้อมูลการแข่งขัน ${homeTeam} มีภาษีดีกว่าเล็กน้อย แต่ ${awayTeam} ยังมีโอกาสสร้างปัญหาได้ในช่วงเปลี่ยนเกม`,
     keyFactors: ["ฟอร์ม 5 นัดล่าสุด", "สถิติเจอกัน", "ความได้เปรียบเจ้าบ้าน", "ความพร้อมตัวหลัก"]

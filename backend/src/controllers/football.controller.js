@@ -1,7 +1,22 @@
 const { param, query } = require("express-validator")
 
+const {
+  getCleanSheets,
+  getFixtureEvents,
+  getFixtureLineups,
+  getFixturePrediction,
+  getFixtures,
+  getInjuries,
+  getPlayerDetails,
+  getPlayerStatsSummary,
+  getStandings,
+  getSuspensions,
+  getTeams,
+  getTopAssists,
+  getTopScorers,
+  getTransfers
+} = require("../services/football.service")
 const { asyncHandler } = require("../utils/async-handler")
-const { getCleanSheets, getFixturePrediction, getFixtures, getPlayerDetails, getPlayerStatsSummary, getStandings, getTeams, getTopAssists, getTopScorers } = require("../services/football.service")
 const { ensureValidRequest } = require("../utils/validators")
 
 const fixturesValidation = [
@@ -12,15 +27,16 @@ const fixturesValidation = [
 
 const playerValidation = [param("id").notEmpty()]
 const predictionValidation = [param("id").notEmpty()]
+const fixtureIdValidation = [param("id").notEmpty()]
 
 const standings = asyncHandler(async (req, res) => {
   const data = await getStandings()
-  res.json({ data, season: "2024-2025", source: "api-football" })
+  res.json({ data, season: "2024-2025", source: "mock-or-api-football" })
 })
 
 const teams = asyncHandler(async (req, res) => {
   const data = await getTeams()
-  res.json({ data, source: "api-football" })
+  res.json({ data, source: "mock-or-api-football" })
 })
 
 const fixtures = asyncHandler(async (req, res) => {
@@ -31,7 +47,7 @@ const fixtures = asyncHandler(async (req, res) => {
   res.json({
     data,
     type: req.query.type || "all",
-    source: "api-football",
+    source: "mock-or-api-football",
     rounds: {
       available: availableRounds,
       total: 38,
@@ -41,24 +57,34 @@ const fixtures = asyncHandler(async (req, res) => {
   })
 })
 
+const liveFixtures = asyncHandler(async (req, res) => {
+  const data = await getFixtures({ type: "live" })
+  res.json({ data, source: "mock-or-api-football" })
+})
+
+const results = asyncHandler(async (req, res) => {
+  const data = await getFixtures({ type: "finished", limit: req.query.limit })
+  res.json({ data, source: "mock-or-api-football" })
+})
+
 const topScorers = asyncHandler(async (req, res) => {
   const players = await getTopScorers()
-  res.json({ players, source: "api-football" })
+  res.json({ players, source: "mock-or-api-football" })
 })
 
 const topAssists = asyncHandler(async (req, res) => {
   const players = await getTopAssists()
-  res.json({ players, source: "api-football" })
+  res.json({ players, source: "mock-or-api-football" })
 })
 
 const cleanSheets = asyncHandler(async (req, res) => {
   const teams = await getCleanSheets()
-  res.json({ teams, source: "api-football" })
+  res.json({ teams, source: "mock-or-api-football" })
 })
 
 const playerStats = asyncHandler(async (req, res) => {
   const data = await getPlayerStatsSummary()
-  res.json({ data, source: "api-football" })
+  res.json({ data, source: "mock-or-api-football" })
 })
 
 const playerDetails = asyncHandler(async (req, res) => {
@@ -70,20 +96,55 @@ const playerDetails = asyncHandler(async (req, res) => {
 const fixturePrediction = asyncHandler(async (req, res) => {
   ensureValidRequest(req)
   const data = await getFixturePrediction(req.params.id)
-  res.json({ data, source: "api-football" })
+  res.json({ data, source: "mock-or-api-football" })
+})
+
+const fixtureLineups = asyncHandler(async (req, res) => {
+  ensureValidRequest(req)
+  const data = await getFixtureLineups(req.params.id)
+  res.json({ data, source: "mock-or-api-football" })
+})
+
+const fixtureEvents = asyncHandler(async (req, res) => {
+  ensureValidRequest(req)
+  const data = await getFixtureEvents(req.params.id)
+  res.json({ data, source: "mock-or-api-football" })
+})
+
+const injuries = asyncHandler(async (req, res) => {
+  const data = await getInjuries()
+  res.json({ data, source: "mock-or-api-football" })
+})
+
+const suspensions = asyncHandler(async (req, res) => {
+  const data = await getSuspensions()
+  res.json({ data, source: "mock-or-api-football" })
+})
+
+const transfers = asyncHandler(async (req, res) => {
+  const data = await getTransfers()
+  res.json({ data, source: "mock-or-api-football" })
 })
 
 module.exports = {
   cleanSheets,
+  fixtureEvents,
+  fixtureIdValidation,
+  fixtureLineups,
   fixturePrediction,
   fixtures,
   fixturesValidation,
+  injuries,
+  liveFixtures,
   playerDetails,
   playerStats,
   playerValidation,
   predictionValidation,
+  results,
   standings,
+  suspensions,
   teams,
   topAssists,
-  topScorers
+  topScorers,
+  transfers
 }

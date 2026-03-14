@@ -6,6 +6,6 @@ const { requireAuth } = require("../middleware/auth")
 const router = express.Router()
 
 router.get("/", requireAuth, listPredictionsValidation, listPredictions)
-router.post("/", createPredictionValidation, createPrediction)
+router.post("/", requireAuth, createPredictionValidation, createPrediction)
 
 module.exports = router

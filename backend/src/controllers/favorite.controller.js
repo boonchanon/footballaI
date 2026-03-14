@@ -7,7 +7,7 @@ const { normalizePagination } = require("../utils/football")
 const { ensureValidRequest } = require("../utils/validators")
 
 const favoriteValidation = [
-  body("itemType").isIn(["team", "player", "match", "article"]),
+  body("itemType").isIn(["team", "player", "match", "article", "post"]),
   body("itemId").trim().notEmpty(),
   body("title").trim().notEmpty(),
   body("subtitle").optional().isString(),

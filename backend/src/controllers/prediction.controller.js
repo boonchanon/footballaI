@@ -10,7 +10,9 @@ const createPredictionValidation = [
   body("homeTeam").trim().notEmpty(),
   body("awayTeam").trim().notEmpty(),
   body("model").optional().isString(),
-  body("fixtureId").optional().isString()
+  body("fixtureId").optional().isString(),
+  body("predictedScore.home").optional().isInt({ min: 0, max: 20 }),
+  body("predictedScore.away").optional().isInt({ min: 0, max: 20 })
 ]
 
 const listPredictionsValidation = [query("page").optional().isInt({ min: 1 }), query("limit").optional().isInt({ min: 1, max: 100 })]
