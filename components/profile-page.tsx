@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
 import { motion } from "framer-motion"
-import { Edit, Mail, Heart, Shield, Settings, LogOut, Bell, Trophy, Save, KeyRound } from "lucide-react"
+import { Bell, Bookmark, Edit, Heart, KeyRound, LogOut, Mail, MessageSquare, Save, Settings, Shield, Trophy } from "lucide-react"
 
 import { apiUrl, fetchJson } from "@/lib/api-client"
 import { saveAuthSession } from "@/lib/auth-client"
@@ -60,6 +60,10 @@ export function ProfilePage() {
   const { data: postsData } = useSWR(
     token ? ["/community/posts?mine=true&limit=5", token] : null,
     ([url, authToken]) => authorizedFetcher<{ items: any[] }>(url, authToken),
+  )
+  const { data: activityData } = useSWR(
+    token ? ["/users/me/activity", token] : null,
+    ([url, authToken]) => authorizedFetcher<any>(url, authToken),
   )
 
   const currentUser = profileData?.user || user
@@ -151,12 +155,7 @@ export function ProfilePage() {
 
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="space-y-6"
-      >
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="space-y-6">
         <Card className="overflow-hidden border-border/50">
           <div className="h-24 bg-gradient-to-r from-primary/20 via-primary/10 to-transparent" />
           <CardContent className="relative pb-6 pt-0">
@@ -338,6 +337,30 @@ export function ProfilePage() {
                 )}
               </CardContent>
             </Card>
+
+            <Card className="border-border/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <MessageSquare className="h-5 w-5 text-primary" />
+                  ความคิดเห็นล่าสุด
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {(activityData?.comments || []).length > 0 ? (
+                  activityData.comments.map((item: any) => (
+                    <div key={item.id} className="rounded-lg border border-border/50 p-3">
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <Badge variant="outline">{item.targetType}</Badge>
+                        <span className="text-xs text-muted-foreground">{item.timeAgo}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{item.content}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">ยังไม่มีประวัติการคอมเมนต์</p>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           <div className="space-y-6">
@@ -361,10 +384,69 @@ export function ProfilePage() {
                 <Separator />
                 <div>
                   <p className="text-xs text-muted-foreground">สมาชิกตั้งแต่</p>
-                  <p className="font-medium">
-                    {currentUser.createdAt ? new Date(currentUser.createdAt).toLocaleDateString("th-TH") : "-"}
-                  </p>
+                  <p className="font-medium">{currentUser.createdAt ? new Date(currentUser.createdAt).toLocaleDateString("th-TH") : "-"}</p>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Bookmark className="h-5 w-5 text-primary" />
+                  รายการที่บันทึกไว้
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <p className="mb-2 text-xs text-muted-foreground">ข่าวที่บันทึกไว้</p>
+                  <div className="space-y-2">
+                    {(activityData?.saved?.articles || []).slice(0, 3).map((item: any) => (
+                      <div key={item.id} className="rounded-lg border border-border/50 p-3">
+                        <p className="text-sm font-medium">{item.title}</p>
+                        <p className="text-xs text-muted-foreground">{item.timeAgo}</p>
+                      </div>
+                    ))}
+                    {(activityData?.saved?.articles || []).length === 0 && <p className="text-sm text-muted-foreground">ยังไม่มีข่าวที่บันทึกไว้</p>}
+                  </div>
+                </div>
+                <Separator />
+                <div>
+                  <p className="mb-2 text-xs text-muted-foreground">โพสต์ที่บันทึกไว้</p>
+                  <div className="space-y-2">
+                    {(activityData?.saved?.posts || []).slice(0, 3).map((item: any) => (
+                      <div key={item.id} className="rounded-lg border border-border/50 p-3">
+                        <p className="text-sm font-medium">{item.title}</p>
+                        <p className="text-xs text-muted-foreground">{item.subtitle || item.timeAgo}</p>
+                      </div>
+                    ))}
+                    {(activityData?.saved?.posts || []).length === 0 && <p className="text-sm text-muted-foreground">ยังไม่มีโพสต์ที่บันทึกไว้</p>}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">ประวัติการทายผล</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {(activityData?.predictions || []).length > 0 ? (
+                  activityData.predictions.map((item: any) => (
+                    <div key={item.id} className="rounded-lg border border-border/50 p-3">
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium">
+                          {item.homeTeam} vs {item.awayTeam}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{item.timeAgo}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        ทายสกอร์ {item.predictedScore?.home ?? 0} - {item.predictedScore?.away ?? 0} · ความมั่นใจ {item.confidence ?? 0}%
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">ยังไม่มีประวัติการทำนาย</p>
+                )}
               </CardContent>
             </Card>
 
@@ -382,11 +464,7 @@ export function ProfilePage() {
                   การแจ้งเตือน
                 </Button>
                 <Separator />
-                <Button
-                  variant="ghost"
-                  className="h-10 w-full justify-start gap-2 text-destructive hover:text-destructive"
-                  onClick={logout}
-                >
+                <Button variant="ghost" className="h-10 w-full justify-start gap-2 text-destructive hover:text-destructive" onClick={logout}>
                   <LogOut className="h-4 w-4" />
                   ออกจากระบบ
                 </Button>

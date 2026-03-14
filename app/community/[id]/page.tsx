@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import useSWR from "swr"
-import { ArrowLeft, Clock, Eye, Loader2, MessageCircle, Send, ThumbsUp } from "lucide-react"
+import { ArrowLeft, Bookmark, Clock, Eye, Flag, Loader2, MessageCircle, Send, ThumbsUp } from "lucide-react"
 
 import { Navigation } from "@/components/navigation"
 import { Button } from "@/components/ui/button"
@@ -68,6 +68,58 @@ export default function CommunityPostDetailPage() {
     }
   }
 
+  async function handleSavePost() {
+    const token = getAuthToken()
+    if (!token || !post) {
+      toast({ title: "ต้องเข้าสู่ระบบก่อน", description: "กรุณาเข้าสู่ระบบเพื่อบันทึกโพสต์", variant: "destructive" })
+      return
+    }
+
+    try {
+      await fetchJson("/favorites", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          itemType: "post",
+          itemId: post.id,
+          title: post.title,
+          subtitle: post.categoryLabel,
+          meta: { route: `/community/${post.id}` },
+        }),
+      })
+      toast({ title: "บันทึกโพสต์แล้ว", description: "เพิ่มโพสต์นี้ในรายการที่บันทึกแล้ว" })
+    } catch (error) {
+      toast({
+        title: "บันทึกโพสต์ไม่สำเร็จ",
+        description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      })
+    }
+  }
+
+  async function handleReportPost() {
+    const token = getAuthToken()
+    if (!token) {
+      toast({ title: "ต้องเข้าสู่ระบบก่อน", description: "กรุณาเข้าสู่ระบบเพื่อรายงานโพสต์", variant: "destructive" })
+      return
+    }
+
+    try {
+      await fetchJson(`/community/posts/${postId}/report`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reason: "off-topic", description: "รายงานจากหน้ารายละเอียดโพสต์" }),
+      })
+      toast({ title: "รายงานโพสต์แล้ว", description: "ระบบได้รับรายงานของคุณเรียบร้อย" })
+    } catch (error) {
+      toast({
+        title: "รายงานโพสต์ไม่สำเร็จ",
+        description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      })
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
@@ -110,7 +162,7 @@ export default function CommunityPostDetailPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="whitespace-pre-wrap leading-7">{post.content}</p>
-                <div className="flex items-center gap-4 border-t border-border/50 pt-4">
+                <div className="flex flex-wrap items-center gap-3 border-t border-border/50 pt-4">
                   <Button variant={post.isLiked ? "default" : "outline"} onClick={handleLike} className="gap-2">
                     <ThumbsUp className="h-4 w-4" />
                     {post.likes}
@@ -119,6 +171,14 @@ export default function CommunityPostDetailPage() {
                     <MessageCircle className="h-4 w-4" />
                     {post.comments} ความคิดเห็น
                   </div>
+                  <Button variant="outline" onClick={handleSavePost} className="gap-2">
+                    <Bookmark className="h-4 w-4" />
+                    บันทึก
+                  </Button>
+                  <Button variant="outline" onClick={handleReportPost} className="gap-2">
+                    <Flag className="h-4 w-4" />
+                    รายงาน
+                  </Button>
                 </div>
               </CardContent>
             </Card>

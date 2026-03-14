@@ -5,11 +5,14 @@ import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Newspaper, Clock, RefreshCw, Loader2, ImageOff, TrendingUp, Filter } from "lucide-react"
+import { Newspaper, Clock, RefreshCw, Loader2, ImageOff, TrendingUp, Filter, Bookmark } from "lucide-react"
 import { useState } from "react"
 import useSWR from "swr"
 import Image from "next/image"
 import { NewsHeroCarousel } from "@/components/news-hero-carousel"
+import { fetchJson } from "@/lib/api-client"
+import { getAuthToken } from "@/lib/auth-client"
+import { useToast } from "@/hooks/use-toast"
 
 interface NewsArticle {
   id: string
@@ -57,6 +60,7 @@ function NewsImage({ src, alt }: { src: string; alt: string }) {
 export default function NewsPage() {
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const { toast } = useToast()
 
   const { data, error, isLoading, mutate } = useSWR("/api/news", fetcher, {
     refreshInterval: 30 * 60 * 1000,
@@ -73,6 +77,38 @@ export default function NewsPage() {
     setIsRefreshing(true)
     await mutate()
     setIsRefreshing(false)
+  }
+
+  async function handleSaveArticle(article: NewsArticle) {
+    const token = getAuthToken()
+    if (!token) {
+      toast({ title: "ต้องเข้าสู่ระบบก่อน", description: "กรุณาเข้าสู่ระบบเพื่อบันทึกข่าว", variant: "destructive" })
+      return
+    }
+
+    try {
+      await fetchJson("/favorites", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          itemType: "article",
+          itemId: article.id,
+          title: article.title,
+          subtitle: article.source,
+          image: article.image,
+          meta: { url: article.url, category: article.category || "general" },
+        }),
+      })
+      toast({ title: "บันทึกข่าวแล้ว", description: "เพิ่มข่าวนี้ในรายการที่บันทึกไว้เรียบร้อย" })
+    } catch (error) {
+      toast({
+        title: "บันทึกข่าวไม่สำเร็จ",
+        description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      })
+    }
   }
 
   const regularArticles = filteredArticles
@@ -161,8 +197,7 @@ export default function NewsPage() {
         {/* Articles Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {regularArticles.map((article: NewsArticle) => (
-            <a key={article.id} href={article.url} target="_blank" rel="noopener noreferrer" className="block group">
-              <Card className="overflow-hidden border-border/50 hover:border-primary/50 transition-all h-full">
+            <Card key={article.id} className="overflow-hidden border-border/50 hover:border-primary/50 transition-all h-full group">
                 <div className="relative aspect-video bg-muted">
                   <NewsImage src={article.image} alt={article.title} />
                   {article.category && (
@@ -178,9 +213,11 @@ export default function NewsPage() {
                   )}
                 </div>
                 <CardHeader>
-                  <CardTitle className="text-lg group-hover:text-primary transition-colors line-clamp-2">
-                    {article.title}
-                  </CardTitle>
+                  <a href={article.url} target="_blank" rel="noopener noreferrer" className="block">
+                    <CardTitle className="text-lg group-hover:text-primary transition-colors line-clamp-2">
+                      {article.title}
+                    </CardTitle>
+                  </a>
                   {article.description && (
                     <CardDescription className="line-clamp-2">{article.description}</CardDescription>
                   )}
@@ -194,9 +231,19 @@ export default function NewsPage() {
                       <Clock className="w-3 h-3" /> {article.timeAgo}
                     </div>
                   </div>
+                  <div className="mt-4 flex items-center gap-2">
+                    <Button asChild variant="outline" size="sm" className="flex-1 bg-transparent">
+                      <a href={article.url} target="_blank" rel="noopener noreferrer">
+                        อ่านต่อ
+                      </a>
+                    </Button>
+                    <Button variant="outline" size="sm" className="gap-2 bg-transparent" onClick={() => handleSaveArticle(article)}>
+                      <Bookmark className="w-4 h-4" />
+                      บันทึก
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
-            </a>
           ))}
         </div>
 

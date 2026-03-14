@@ -1,34 +1,27 @@
 import { NextResponse } from "next/server"
-import { getTeams, translateTeamName } from "@/lib/sportmonks"
+
+import { footballService } from "../service"
 
 export async function GET() {
   try {
-    const teams = await getTeams()
-
-    const formattedTeams = teams.map((item: any) => ({
+    const teams = await footballService.getTeams()
+    const data = teams.map((item: any) => ({
       team: {
-        id: item.id?.toString() || "",
-        name: translateTeamName(item.name || ""),
-        nameEn: item.name || "",
-        logo: item.image_path || "",
-        founded: item.founded,
-        code: item.short_code || "",
+        id: item.id,
+        name: item.name,
+        nameEn: item.nameEn,
+        logo: item.logo,
       },
       venue: {
         name: item.venue?.name || "",
-        city: item.venue?.city_name || "",
+        city: item.venue?.city || "",
         capacity: item.venue?.capacity || 0,
-        image: item.venue?.image_path || "",
+        image: item.venue?.image || "",
       },
     }))
 
-    return NextResponse.json({
-      data: formattedTeams,
-      source: "sportmonks",
-    })
+    return NextResponse.json({ data, source: "internal-football-service" })
   } catch (error) {
-    console.error("Teams API error:", error)
-
     return NextResponse.json(
       {
         data: [],

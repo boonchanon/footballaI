@@ -4,6 +4,8 @@ import { useMemo, useState } from "react"
 import Link from "next/link"
 import useSWR from "swr"
 import {
+  Bookmark,
+  Flag,
   MessageSquare,
   ThumbsUp,
   MessageCircle,
@@ -80,6 +82,59 @@ export default function CommunityPage() {
   const posts: CommunityPost[] = data?.items || []
   const stats = data?.stats || { total: 0 }
   const session = getAuthSession()
+
+  async function savePost(post: CommunityPost) {
+    const token = getAuthToken()
+    if (!token) {
+      toast({ title: "ต้องเข้าสู่ระบบก่อน", description: "กรุณาเข้าสู่ระบบเพื่อบันทึกโพสต์", variant: "destructive" })
+      return
+    }
+
+    try {
+      await fetchJson("/favorites", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          itemType: "post",
+          itemId: post.id,
+          title: post.title,
+          subtitle: post.categoryLabel,
+          meta: { route: `/community/${post.id}` },
+        }),
+      })
+      toast({ title: "บันทึกโพสต์แล้ว", description: "เพิ่มโพสต์นี้ไว้ในรายการที่บันทึกแล้ว" })
+    } catch (error) {
+      toast({
+        title: "บันทึกโพสต์ไม่สำเร็จ",
+        description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      })
+    }
+  }
+
+  async function reportPost(postId: string) {
+    const token = getAuthToken()
+    if (!token) {
+      toast({ title: "ต้องเข้าสู่ระบบก่อน", description: "กรุณาเข้าสู่ระบบเพื่อรายงานโพสต์", variant: "destructive" })
+      return
+    }
+
+    try {
+      await fetchJson(`/community/posts/${postId}/report`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reason: "off-topic", description: "รายงานจากหน้า community" }),
+      })
+      toast({ title: "รายงานโพสต์แล้ว", description: "ระบบได้รับรายงานของคุณเรียบร้อย" })
+      await mutate()
+    } catch (error) {
+      toast({
+        title: "รายงานโพสต์ไม่สำเร็จ",
+        description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      })
+    }
+  }
 
   async function handleCreatePost() {
     const token = getAuthToken()
@@ -308,6 +363,20 @@ export default function CommunityPage() {
                               <Eye className="h-4 w-4" />
                               <span>{post.views}</span>
                             </div>
+                            <button
+                              onClick={() => savePost(post)}
+                              className="flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-primary"
+                            >
+                              <Bookmark className="h-4 w-4" />
+                              <span>บันทึก</span>
+                            </button>
+                            <button
+                              onClick={() => reportPost(post.id)}
+                              className="flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-destructive"
+                            >
+                              <Flag className="h-4 w-4" />
+                              <span>รายงาน</span>
+                            </button>
                           </div>
 
                           <span className="flex items-center gap-1 text-xs text-muted-foreground">
