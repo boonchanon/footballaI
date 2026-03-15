@@ -5,30 +5,32 @@ import Link from "next/link"
 import useSWR from "swr"
 import {
   Bookmark,
-  Flag,
-  MessageSquare,
-  ThumbsUp,
-  MessageCircle,
-  Plus,
   Clock,
   Eye,
-  Users,
+  Flag,
   Flame,
-  Search,
+  Loader2,
+  MessageCircle,
+  MessageSquare,
   Pin,
+  Plus,
+  Search,
   Send,
+  ThumbsUp,
+  Users,
 } from "lucide-react"
 
 import { Navigation } from "@/components/navigation"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
+import { getAuthSession, getAuthToken } from "@/lib/auth-client"
 import { backendFetcher, fetchJson } from "@/lib/api-client"
-import { getAuthToken, getAuthSession } from "@/lib/auth-client"
+import { cn } from "@/lib/utils"
 
 type CommunityPost = {
   id: string
@@ -50,6 +52,12 @@ type CommunityPost = {
   }
 }
 
+type FavoriteItem = {
+  _id: string
+  itemId: string
+  itemType: string
+}
+
 const categories = [
   { id: "all", label: "ทั้งหมด" },
   { id: "match-discussion", label: "วิเคราะห์แมตช์" },
@@ -59,6 +67,24 @@ const categories = [
   { id: "general", label: "ทั่วไป" },
 ]
 
+function actionButtonClass(active = false, tone: "primary" | "danger" = "primary") {
+  if (tone === "danger") {
+    return cn(
+      "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all disabled:pointer-events-none disabled:opacity-60",
+      active
+        ? "border-destructive/40 bg-destructive/10 text-destructive shadow-sm"
+        : "border-border/60 bg-background/70 text-muted-foreground hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive",
+    )
+  }
+
+  return cn(
+    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all disabled:pointer-events-none disabled:opacity-60",
+    active
+      ? "border-primary/40 bg-primary/10 text-primary shadow-sm"
+      : "border-border/60 bg-background/70 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-primary",
+  )
+}
+
 export default function CommunityPage() {
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
@@ -67,6 +93,9 @@ export default function CommunityPage() {
   const [content, setContent] = useState("")
   const [category, setCategory] = useState("general")
   const [submitting, setSubmitting] = useState(false)
+  const [likingPostId, setLikingPostId] = useState<string | null>(null)
+  const [savingPostId, setSavingPostId] = useState<string | null>(null)
+  const [reportingPostId, setReportingPostId] = useState<string | null>(null)
   const { toast } = useToast()
 
   const query = useMemo(() => {
@@ -77,20 +106,41 @@ export default function CommunityPage() {
     return `/community/posts?${params.toString()}`
   }, [searchQuery, selectedCategory])
 
+  const token = getAuthToken()
+  const session = getAuthSession()
   const { data, isLoading, mutate } = useSWR(query, backendFetcher)
+  const { data: favoritesData, mutate: mutateFavorites } = useSWR(
+    token ? ["/favorites", token] : null,
+    ([url, authToken]) =>
+      fetchJson<{ items: FavoriteItem[] }>(url, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      }),
+  )
 
   const posts: CommunityPost[] = data?.items || []
   const stats = data?.stats || { total: 0 }
-  const session = getAuthSession()
+  const savedPostIds = useMemo(
+    () =>
+      new Set(
+        (favoritesData?.items || [])
+          .filter((item) => item.itemType === "post")
+          .map((item) => String(item.itemId)),
+      ),
+    [favoritesData?.items],
+  )
 
   async function savePost(post: CommunityPost) {
-    const token = getAuthToken()
     if (!token) {
-      toast({ title: "ต้องเข้าสู่ระบบก่อน", description: "กรุณาเข้าสู่ระบบเพื่อบันทึกโพสต์", variant: "destructive" })
+      toast({
+        title: "ต้องเข้าสู่ระบบก่อน",
+        description: "กรุณาเข้าสู่ระบบเพื่อบันทึกโพสต์",
+        variant: "destructive",
+      })
       return
     }
 
     try {
+      setSavingPostId(post.id)
       await fetchJson("/favorites", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -102,48 +152,74 @@ export default function CommunityPage() {
           meta: { route: `/community/${post.id}` },
         }),
       })
-      toast({ title: "บันทึกโพสต์แล้ว", description: "เพิ่มโพสต์นี้ไว้ในรายการที่บันทึกแล้ว" })
+      await mutateFavorites()
+      toast({
+        title: "บันทึกโพสต์แล้ว",
+        description: "เพิ่มโพสต์นี้ไว้ในรายการที่บันทึกแล้ว",
+      })
     } catch (error) {
       toast({
         title: "บันทึกโพสต์ไม่สำเร็จ",
         description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
         variant: "destructive",
       })
+    } finally {
+      setSavingPostId(null)
     }
   }
 
   async function reportPost(postId: string) {
-    const token = getAuthToken()
     if (!token) {
-      toast({ title: "ต้องเข้าสู่ระบบก่อน", description: "กรุณาเข้าสู่ระบบเพื่อรายงานโพสต์", variant: "destructive" })
+      toast({
+        title: "ต้องเข้าสู่ระบบก่อน",
+        description: "กรุณาเข้าสู่ระบบเพื่อรายงานโพสต์",
+        variant: "destructive",
+      })
       return
     }
 
     try {
+      setReportingPostId(postId)
       await fetchJson(`/community/posts/${postId}/report`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ reason: "off-topic", description: "รายงานจากหน้า community" }),
+        body: JSON.stringify({
+          reason: "off-topic",
+          description: "รายงานจากหน้าชุมชน",
+        }),
       })
-      toast({ title: "รายงานโพสต์แล้ว", description: "ระบบได้รับรายงานของคุณเรียบร้อย" })
       await mutate()
+      toast({
+        title: "รายงานโพสต์แล้ว",
+        description: "ระบบได้รับรายงานของคุณเรียบร้อย",
+      })
     } catch (error) {
       toast({
         title: "รายงานโพสต์ไม่สำเร็จ",
         description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
         variant: "destructive",
       })
+    } finally {
+      setReportingPostId(null)
     }
   }
 
   async function handleCreatePost() {
-    const token = getAuthToken()
     if (!token) {
-      toast({ title: "ต้องเข้าสู่ระบบก่อน", description: "กรุณาเข้าสู่ระบบเพื่อสร้างโพสต์", variant: "destructive" })
+      toast({
+        title: "ต้องเข้าสู่ระบบก่อน",
+        description: "กรุณาเข้าสู่ระบบเพื่อสร้างโพสต์",
+        variant: "destructive",
+      })
       return
     }
+
     if (!title.trim() || !content.trim()) {
-      toast({ title: "ข้อมูลไม่ครบ", description: "กรุณากรอกหัวข้อและเนื้อหา", variant: "destructive" })
+      toast({
+        title: "ข้อมูลไม่ครบ",
+        description: "กรุณากรอกหัวข้อและเนื้อหา",
+        variant: "destructive",
+      })
       return
     }
 
@@ -159,7 +235,10 @@ export default function CommunityPage() {
       setCategory("general")
       setShowCreatePost(false)
       await mutate()
-      toast({ title: "โพสต์สำเร็จ", description: "กระทู้ของคุณถูกเผยแพร่แล้ว" })
+      toast({
+        title: "โพสต์สำเร็จ",
+        description: "กระทู้ของคุณถูกเผยแพร่แล้ว",
+      })
     } catch (error) {
       toast({
         title: "โพสต์ไม่สำเร็จ",
@@ -172,24 +251,42 @@ export default function CommunityPage() {
   }
 
   async function handleLike(postId: string) {
-    const token = getAuthToken()
     if (!token) {
-      toast({ title: "ต้องเข้าสู่ระบบก่อน", description: "กรุณาเข้าสู่ระบบเพื่อกดไลก์", variant: "destructive" })
+      toast({
+        title: "ต้องเข้าสู่ระบบก่อน",
+        description: "กรุณาเข้าสู่ระบบเพื่อกดไลก์",
+        variant: "destructive",
+      })
       return
     }
 
     try {
-      await fetchJson(`/community/posts/${postId}/like`, {
+      setLikingPostId(postId)
+      const result = await fetchJson<{ liked: boolean; likes: number }>(`/community/posts/${postId}/like`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       })
-      await mutate()
+
+      await mutate(
+        (current: { items: CommunityPost[]; stats: { total: number } } | undefined) =>
+          current
+            ? {
+                ...current,
+                items: current.items.map((item) =>
+                  item.id === postId ? { ...item, isLiked: result.liked, likes: result.likes } : item,
+                ),
+              }
+            : current,
+        false,
+      )
     } catch (error) {
       toast({
         title: "ไม่สามารถกดไลก์ได้",
         description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
         variant: "destructive",
       })
+    } finally {
+      setLikingPostId(null)
     }
   }
 
@@ -233,7 +330,7 @@ export default function CommunityPage() {
                 placeholder="ค้นหากระทู้หรือหัวข้อ..."
                 className="bg-card/50 pl-10"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(event) => setSearchQuery(event.target.value)}
               />
             </div>
             <Button onClick={() => setShowCreatePost((value) => !value)} className="gap-2">
@@ -265,12 +362,12 @@ export default function CommunityPage() {
                       </Button>
                     ))}
                   </div>
-                  <Input placeholder="หัวข้อกระทู้..." value={title} onChange={(e) => setTitle(e.target.value)} />
+                  <Input placeholder="หัวข้อกระทู้..." value={title} onChange={(event) => setTitle(event.target.value)} />
                   <Textarea
                     placeholder="เขียนสิ่งที่อยากคุยกับชุมชน..."
                     className="min-h-28 resize-none"
                     value={content}
-                    onChange={(e) => setContent(e.target.value)}
+                    onChange={(event) => setContent(event.target.value)}
                   />
                   <div className="flex justify-end gap-2">
                     <Button variant="outline" onClick={() => setShowCreatePost(false)}>
@@ -300,98 +397,113 @@ export default function CommunityPage() {
             </div>
 
             <div className="space-y-3">
-              {posts.map((post) => (
-                <Card
-                  key={post.id}
-                  className={`border-border/50 transition-all hover:border-primary/30 hover:shadow-md ${
-                    post.isPinned ? "border-primary/50 bg-primary/5" : ""
-                  }`}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex gap-4">
-                      <Avatar className="hidden h-12 w-12 ring-2 ring-border sm:block">
-                        <AvatarImage src={post.author.avatar || "/placeholder-user.jpg"} />
-                        <AvatarFallback>{post.author.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
+              {posts.map((post) => {
+                const isSaved = savedPostIds.has(post.id)
 
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-2 flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-medium">{post.author.name}</span>
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                            {post.categoryLabel}
-                          </Badge>
-                          {post.isPinned && (
-                            <Badge variant="secondary" className="gap-1 text-[10px] px-1.5 py-0">
-                              <Pin className="h-2.5 w-2.5" />
-                              ปักหมุด
+                return (
+                  <Card
+                    key={post.id}
+                    className={cn(
+                      "border-border/50 transition-all hover:border-primary/30 hover:shadow-md",
+                      post.isPinned && "border-primary/50 bg-primary/5",
+                    )}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex gap-4">
+                        <Avatar className="hidden h-12 w-12 ring-2 ring-border sm:block">
+                          <AvatarImage src={post.author.avatar || "/placeholder-user.jpg"} />
+                          <AvatarFallback>{post.author.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-medium">{post.author.name}</span>
+                            <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+                              {post.categoryLabel}
                             </Badge>
-                          )}
-                          {post.isHot && (
-                            <Badge className="bg-red-500/10 text-[10px] text-red-500">
-                              <Flame className="mr-1 h-2.5 w-2.5" />
-                              Hot
-                            </Badge>
-                          )}
-                        </div>
-
-                        <Link href={`/community/${post.id}`}>
-                          <h3 className="mb-1.5 text-base font-semibold transition-colors hover:text-primary md:text-lg">
-                            {post.title}
-                          </h3>
-                        </Link>
-                        <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">{post.excerpt}</p>
-
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4 text-sm">
-                            <button
-                              onClick={() => handleLike(post.id)}
-                              className={`flex items-center gap-1.5 transition-colors ${
-                                post.isLiked ? "text-primary" : "text-muted-foreground hover:text-primary"
-                              }`}
-                            >
-                              <ThumbsUp className="h-4 w-4" />
-                              <span>{post.likes}</span>
-                            </button>
-                            <Link
-                              href={`/community/${post.id}`}
-                              className="flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-primary"
-                            >
-                              <MessageCircle className="h-4 w-4" />
-                              <span>{post.comments}</span>
-                            </Link>
-                            <div className="flex items-center gap-1.5 text-muted-foreground">
-                              <Eye className="h-4 w-4" />
-                              <span>{post.views}</span>
-                            </div>
-                            <button
-                              onClick={() => savePost(post)}
-                              className="flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-primary"
-                            >
-                              <Bookmark className="h-4 w-4" />
-                              <span>บันทึก</span>
-                            </button>
-                            <button
-                              onClick={() => reportPost(post.id)}
-                              className="flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-destructive"
-                            >
-                              <Flag className="h-4 w-4" />
-                              <span>รายงาน</span>
-                            </button>
+                            {post.isPinned && (
+                              <Badge variant="secondary" className="gap-1 px-1.5 py-0 text-[10px]">
+                                <Pin className="h-2.5 w-2.5" />
+                                ปักหมุด
+                              </Badge>
+                            )}
+                            {post.isHot && (
+                              <Badge className="bg-red-500/10 text-[10px] text-red-500">
+                                <Flame className="mr-1 h-2.5 w-2.5" />
+                                Hot
+                              </Badge>
+                            )}
                           </div>
 
-                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            {post.timeAgo}
-                          </span>
+                          <Link href={`/community/${post.id}`}>
+                            <h3 className="mb-1.5 text-base font-semibold transition-colors hover:text-primary md:text-lg">
+                              {post.title}
+                            </h3>
+                          </Link>
+                          <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">{post.excerpt}</p>
+
+                          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                onClick={() => handleLike(post.id)}
+                                disabled={likingPostId === post.id}
+                                className={actionButtonClass(post.isLiked)}
+                              >
+                                {likingPostId === post.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <ThumbsUp className={cn("h-4 w-4", post.isLiked && "fill-current")} />
+                                )}
+                                <span>{post.likes}</span>
+                              </button>
+
+                              <Link href={`/community/${post.id}`} className={actionButtonClass(false)}>
+                                <MessageCircle className="h-4 w-4" />
+                                <span>{post.comments}</span>
+                              </Link>
+
+                              <div className={actionButtonClass(false)}>
+                                <Eye className="h-4 w-4" />
+                                <span>{post.views}</span>
+                              </div>
+
+                              <button
+                                onClick={() => savePost(post)}
+                                disabled={savingPostId === post.id}
+                                className={actionButtonClass(isSaved)}
+                              >
+                                {savingPostId === post.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Bookmark className={cn("h-4 w-4", isSaved && "fill-current")} />
+                                )}
+                                <span>{isSaved ? "บันทึกแล้ว" : "บันทึก"}</span>
+                              </button>
+
+                              <button
+                                onClick={() => reportPost(post.id)}
+                                disabled={reportingPostId === post.id}
+                                className={actionButtonClass(false, "danger")}
+                              >
+                                {reportingPostId === post.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Flag className="h-4 w-4" />}
+                                <span>รายงาน</span>
+                              </button>
+                            </div>
+
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Clock className="h-3 w-3" />
+                              {post.timeAgo}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                )
+              })}
 
               {!isLoading && posts.length === 0 && (
-                <Card className="border-dashed border-2 border-border/50">
+                <Card className="border-2 border-dashed border-border/50">
                   <CardContent className="py-16 text-center">
                     <MessageSquare className="mx-auto mb-4 h-12 w-12 text-muted-foreground/30" />
                     <h3 className="mb-2 text-lg font-semibold text-muted-foreground">ยังไม่พบกระทู้</h3>
@@ -420,7 +532,7 @@ export default function CommunityPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Pin className="h-4 w-4 text-primary" />
-                    <span>แอดมินปักหมุดโพสต์เด่นได้</span>
+                    <span>โพสต์เด่นจะมีสถานะชัดเจน</span>
                   </div>
                 </div>
               </CardContent>

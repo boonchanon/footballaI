@@ -1,21 +1,22 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import useSWR from "swr"
 import { ArrowLeft, Bookmark, Clock, Eye, Flag, Loader2, MessageCircle, Pencil, Send, ThumbsUp, Trash2 } from "lucide-react"
 
 import { Navigation } from "@/components/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { backendFetcher, fetchJson } from "@/lib/api-client"
 import { useAuthSession } from "@/hooks/use-auth-session"
+import { cn } from "@/lib/utils"
 
 const categories = [
   { id: "match-discussion", label: "วิเคราะห์แมตช์" },
@@ -24,6 +25,29 @@ const categories = [
   { id: "predictions", label: "ทายผล" },
   { id: "general", label: "ทั่วไป" },
 ]
+
+type FavoriteItem = {
+  itemId: string
+  itemType: string
+}
+
+function actionButtonClass(active = false, tone: "primary" | "danger" = "primary") {
+  if (tone === "danger") {
+    return cn(
+      "gap-2 rounded-full border px-4 transition-all disabled:pointer-events-none disabled:opacity-60",
+      active
+        ? "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/15"
+        : "border-border/60 bg-background text-muted-foreground hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive",
+    )
+  }
+
+  return cn(
+    "gap-2 rounded-full border px-4 transition-all disabled:pointer-events-none disabled:opacity-60",
+    active
+      ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15"
+      : "border-border/60 bg-background text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-primary",
+  )
+}
 
 export default function CommunityPostDetailPage() {
   const params = useParams()
@@ -37,11 +61,26 @@ export default function CommunityPostDetailPage() {
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [postForm, setPostForm] = useState({ title: "", content: "", category: "general" })
   const [commentForm, setCommentForm] = useState("")
+  const [liking, setLiking] = useState(false)
+  const [savingPost, setSavingPost] = useState(false)
+  const [reportingPost, setReportingPost] = useState(false)
 
   const { data, isLoading, mutate } = useSWR(`/community/posts/${postId}`, backendFetcher)
+  const { data: favoritesData, mutate: mutateFavorites } = useSWR(
+    token ? ["/favorites", token] : null,
+    ([url, authToken]) =>
+      fetchJson<{ items: FavoriteItem[] }>(url, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      }),
+  )
+
   const post = data?.item
   const comments = data?.comments || []
   const isPostOwner = Boolean(user && post?.author?.id === user.id)
+  const isSaved = useMemo(
+    () => (favoritesData?.items || []).some((item) => item.itemType === "post" && item.itemId === post?.id),
+    [favoritesData?.items, post?.id],
+  )
 
   function requireLogin(message: string) {
     if (token) return true
@@ -65,11 +104,37 @@ export default function CommunityPostDetailPage() {
 
   async function handleLike() {
     if (!requireLogin("กรุณาเข้าสู่ระบบเพื่อกดไลก์")) return
-    await fetchJson(`/community/posts/${postId}/like`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    await mutate()
+
+    try {
+      setLiking(true)
+      const result = await fetchJson<{ liked: boolean; likes: number }>(`/community/posts/${postId}/like`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      await mutate(
+        (current: any) =>
+          current
+            ? {
+                ...current,
+                item: {
+                  ...current.item,
+                  isLiked: result.liked,
+                  likes: result.likes,
+                },
+              }
+            : current,
+        false,
+      )
+    } catch (error) {
+      toast({
+        title: "ไม่สามารถกดไลก์ได้",
+        description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      })
+    } finally {
+      setLiking(false)
+    }
   }
 
   async function handleComment() {
@@ -101,6 +166,7 @@ export default function CommunityPostDetailPage() {
     if (!post) return
 
     try {
+      setSavingPost(true)
       await fetchJson("/favorites", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -112,13 +178,19 @@ export default function CommunityPostDetailPage() {
           meta: { route: `/community/${post.id}` },
         }),
       })
-      toast({ title: "บันทึกโพสต์แล้ว", description: "เพิ่มโพสต์นี้ในรายการที่บันทึกแล้ว" })
+      await mutateFavorites()
+      toast({
+        title: "บันทึกโพสต์แล้ว",
+        description: "เพิ่มโพสต์นี้ในรายการที่บันทึกแล้ว",
+      })
     } catch (error) {
       toast({
         title: "บันทึกโพสต์ไม่สำเร็จ",
         description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
         variant: "destructive",
       })
+    } finally {
+      setSavingPost(false)
     }
   }
 
@@ -126,18 +198,27 @@ export default function CommunityPostDetailPage() {
     if (!requireLogin("กรุณาเข้าสู่ระบบเพื่อรายงานโพสต์")) return
 
     try {
+      setReportingPost(true)
       await fetchJson(`/community/posts/${postId}/report`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ reason: "off-topic", description: "รายงานจากหน้ารายละเอียดโพสต์" }),
+        body: JSON.stringify({
+          reason: "off-topic",
+          description: "รายงานจากหน้ารายละเอียดโพสต์",
+        }),
       })
-      toast({ title: "รายงานโพสต์แล้ว", description: "ระบบได้รับรายงานของคุณเรียบร้อย" })
+      toast({
+        title: "รายงานโพสต์แล้ว",
+        description: "ระบบได้รับรายงานของคุณเรียบร้อย",
+      })
     } catch (error) {
       toast({
         title: "รายงานโพสต์ไม่สำเร็จ",
         description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
         variant: "destructive",
       })
+    } finally {
+      setReportingPost(false)
     }
   }
 
@@ -152,7 +233,10 @@ export default function CommunityPostDetailPage() {
       })
       setEditingPost(false)
       await mutate()
-      toast({ title: "อัปเดตโพสต์แล้ว", description: "แก้ไขโพสต์เรียบร้อย" })
+      toast({
+        title: "อัปเดตโพสต์แล้ว",
+        description: "แก้ไขโพสต์เรียบร้อย",
+      })
     } catch (error) {
       toast({
         title: "อัปเดตโพสต์ไม่สำเร็จ",
@@ -171,7 +255,10 @@ export default function CommunityPostDetailPage() {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       })
-      toast({ title: "ลบโพสต์แล้ว", description: "โพสต์ถูกลบเรียบร้อย" })
+      toast({
+        title: "ลบโพสต์แล้ว",
+        description: "โพสต์ถูกลบเรียบร้อย",
+      })
       window.location.href = "/community"
     } catch (error) {
       toast({
@@ -199,7 +286,10 @@ export default function CommunityPostDetailPage() {
       setEditingCommentId(null)
       setCommentForm("")
       await mutate()
-      toast({ title: "อัปเดตคอมเมนต์แล้ว", description: "แก้ไขความคิดเห็นเรียบร้อย" })
+      toast({
+        title: "อัปเดตคอมเมนต์แล้ว",
+        description: "แก้ไขความคิดเห็นเรียบร้อย",
+      })
     } catch (error) {
       toast({
         title: "อัปเดตคอมเมนต์ไม่สำเร็จ",
@@ -219,7 +309,10 @@ export default function CommunityPostDetailPage() {
         headers: { Authorization: `Bearer ${token}` },
       })
       await mutate()
-      toast({ title: "ลบคอมเมนต์แล้ว", description: "ความคิดเห็นถูกลบเรียบร้อย" })
+      toast({
+        title: "ลบคอมเมนต์แล้ว",
+        description: "ความคิดเห็นถูกลบเรียบร้อย",
+      })
     } catch (error) {
       toast({
         title: "ลบคอมเมนต์ไม่สำเร็จ",
@@ -254,7 +347,7 @@ export default function CommunityPostDetailPage() {
 
                 {editingPost ? (
                   <div className="space-y-3">
-                    <Input value={postForm.title} onChange={(e) => setPostForm((prev) => ({ ...prev, title: e.target.value }))} />
+                    <Input value={postForm.title} onChange={(event) => setPostForm((prev) => ({ ...prev, title: event.target.value }))} />
                     <div className="flex flex-wrap gap-2">
                       {categories.map((item) => (
                         <Button
@@ -268,7 +361,11 @@ export default function CommunityPostDetailPage() {
                         </Button>
                       ))}
                     </div>
-                    <Textarea value={postForm.content} onChange={(e) => setPostForm((prev) => ({ ...prev, content: e.target.value }))} className="min-h-32" />
+                    <Textarea
+                      value={postForm.content}
+                      onChange={(event) => setPostForm((prev) => ({ ...prev, content: event.target.value }))}
+                      className="min-h-32"
+                    />
                     <div className="flex flex-wrap justify-end gap-2">
                       <Button variant="outline" onClick={() => setEditingPost(false)}>
                         ยกเลิก
@@ -302,22 +399,26 @@ export default function CommunityPostDetailPage() {
               <CardContent className="space-y-4">
                 {!editingPost && <p className="whitespace-pre-wrap leading-7">{post.content}</p>}
                 <div className="flex flex-wrap items-center gap-3 border-t border-border/50 pt-4">
-                  <Button variant={post.isLiked ? "default" : "outline"} onClick={handleLike} className="gap-2">
-                    <ThumbsUp className="h-4 w-4" />
+                  <Button variant="outline" onClick={handleLike} disabled={liking} className={actionButtonClass(post.isLiked)}>
+                    {liking ? <Loader2 className="h-4 w-4 animate-spin" /> : <ThumbsUp className={cn("h-4 w-4", post.isLiked && "fill-current")} />}
                     {post.likes}
                   </Button>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+
+                  <div className={actionButtonClass(false)}>
                     <MessageCircle className="h-4 w-4" />
                     {post.comments} ความคิดเห็น
                   </div>
-                  <Button variant="outline" onClick={handleSavePost} className="gap-2">
-                    <Bookmark className="h-4 w-4" />
-                    บันทึก
+
+                  <Button variant="outline" onClick={handleSavePost} disabled={savingPost} className={actionButtonClass(isSaved)}>
+                    {savingPost ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className={cn("h-4 w-4", isSaved && "fill-current")} />}
+                    {isSaved ? "บันทึกแล้ว" : "บันทึก"}
                   </Button>
-                  <Button variant="outline" onClick={handleReportPost} className="gap-2">
-                    <Flag className="h-4 w-4" />
+
+                  <Button variant="outline" onClick={handleReportPost} disabled={reportingPost} className={actionButtonClass(false, "danger")}>
+                    {reportingPost ? <Loader2 className="h-4 w-4 animate-spin" /> : <Flag className="h-4 w-4" />}
                     รายงาน
                   </Button>
+
                   {isPostOwner && !editingPost && (
                     <>
                       <Button variant="outline" onClick={startEditPost} className="gap-2">
@@ -342,7 +443,7 @@ export default function CommunityPostDetailPage() {
                 <Textarea
                   placeholder="พิมพ์ความคิดเห็นของคุณ..."
                   value={comment}
-                  onChange={(e) => setComment(e.target.value)}
+                  onChange={(event) => setComment(event.target.value)}
                   className="min-h-24"
                 />
                 <div className="flex justify-end">
@@ -371,9 +472,10 @@ export default function CommunityPostDetailPage() {
                           <span className="font-medium">{item.user.name}</span>
                           <span className="text-xs text-muted-foreground">{item.timeAgo}</span>
                         </div>
+
                         {editingCommentId === item.id ? (
                           <div className="space-y-2">
-                            <Textarea value={commentForm} onChange={(e) => setCommentForm(e.target.value)} className="min-h-20" />
+                            <Textarea value={commentForm} onChange={(event) => setCommentForm(event.target.value)} className="min-h-20" />
                             <div className="flex flex-wrap gap-2">
                               <Button size="sm" variant="outline" onClick={() => setEditingCommentId(null)}>
                                 ยกเลิก
