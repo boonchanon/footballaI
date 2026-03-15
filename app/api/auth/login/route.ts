@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
       user: sanitizeUser(user),
     })
   } catch (error) {
+    console.error("POST /api/auth/login failed", error)
     return errorResponse(error instanceof Error ? error.message : "Login failed", 500)
   }
 }

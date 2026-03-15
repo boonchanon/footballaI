@@ -1,4 +1,4 @@
-const mongoose = require("mongoose")
+const mongoose = require("../../../node_modules/mongoose")
 
 const communityPostSchema = new mongoose.Schema(
   {

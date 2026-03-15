@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import useSWR from "swr"
-import { ArrowLeft, Bookmark, Clock, Eye, Flag, Loader2, MessageCircle, Send, ThumbsUp } from "lucide-react"
+import { ArrowLeft, Bookmark, Clock, Eye, Flag, Loader2, MessageCircle, Pencil, Send, ThumbsUp, Trash2 } from "lucide-react"
 
 import { Navigation } from "@/components/navigation"
 import { Button } from "@/components/ui/button"
@@ -12,27 +12,59 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { backendFetcher, fetchJson } from "@/lib/api-client"
-import { getAuthToken } from "@/lib/auth-client"
+import { useAuthSession } from "@/hooks/use-auth-session"
+
+const categories = [
+  { id: "match-discussion", label: "วิเคราะห์แมตช์" },
+  { id: "transfer-rumors", label: "ข่าวย้ายทีม" },
+  { id: "player-discussion", label: "พูดคุยนักเตะ" },
+  { id: "predictions", label: "ทายผล" },
+  { id: "general", label: "ทั่วไป" },
+]
 
 export default function CommunityPostDetailPage() {
   const params = useParams()
   const postId = params.id as string
+  const { toast } = useToast()
+  const { token, user } = useAuthSession()
+
   const [comment, setComment] = useState("")
   const [submitting, setSubmitting] = useState(false)
-  const { toast } = useToast()
+  const [editingPost, setEditingPost] = useState(false)
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [postForm, setPostForm] = useState({ title: "", content: "", category: "general" })
+  const [commentForm, setCommentForm] = useState("")
 
   const { data, isLoading, mutate } = useSWR(`/community/posts/${postId}`, backendFetcher)
   const post = data?.item
   const comments = data?.comments || []
+  const isPostOwner = Boolean(user && post?.author?.id === user.id)
+
+  function requireLogin(message: string) {
+    if (token) return true
+    toast({
+      title: "ต้องเข้าสู่ระบบก่อน",
+      description: message,
+      variant: "destructive",
+    })
+    return false
+  }
+
+  function startEditPost() {
+    if (!post) return
+    setPostForm({
+      title: post.title || "",
+      content: post.content || "",
+      category: post.category || "general",
+    })
+    setEditingPost(true)
+  }
 
   async function handleLike() {
-    const token = getAuthToken()
-    if (!token) {
-      toast({ title: "ต้องเข้าสู่ระบบก่อน", description: "กรุณาเข้าสู่ระบบเพื่อกดไลก์", variant: "destructive" })
-      return
-    }
+    if (!requireLogin("กรุณาเข้าสู่ระบบเพื่อกดไลก์")) return
     await fetchJson(`/community/posts/${postId}/like`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
@@ -41,11 +73,7 @@ export default function CommunityPostDetailPage() {
   }
 
   async function handleComment() {
-    const token = getAuthToken()
-    if (!token) {
-      toast({ title: "ต้องเข้าสู่ระบบก่อน", description: "กรุณาเข้าสู่ระบบเพื่อคอมเมนต์", variant: "destructive" })
-      return
-    }
+    if (!requireLogin("กรุณาเข้าสู่ระบบเพื่อคอมเมนต์")) return
     if (!comment.trim()) return
 
     setSubmitting(true)
@@ -69,11 +97,8 @@ export default function CommunityPostDetailPage() {
   }
 
   async function handleSavePost() {
-    const token = getAuthToken()
-    if (!token || !post) {
-      toast({ title: "ต้องเข้าสู่ระบบก่อน", description: "กรุณาเข้าสู่ระบบเพื่อบันทึกโพสต์", variant: "destructive" })
-      return
-    }
+    if (!requireLogin("กรุณาเข้าสู่ระบบเพื่อบันทึกโพสต์")) return
+    if (!post) return
 
     try {
       await fetchJson("/favorites", {
@@ -98,11 +123,7 @@ export default function CommunityPostDetailPage() {
   }
 
   async function handleReportPost() {
-    const token = getAuthToken()
-    if (!token) {
-      toast({ title: "ต้องเข้าสู่ระบบก่อน", description: "กรุณาเข้าสู่ระบบเพื่อรายงานโพสต์", variant: "destructive" })
-      return
-    }
+    if (!requireLogin("กรุณาเข้าสู่ระบบเพื่อรายงานโพสต์")) return
 
     try {
       await fetchJson(`/community/posts/${postId}/report`, {
@@ -114,6 +135,94 @@ export default function CommunityPostDetailPage() {
     } catch (error) {
       toast({
         title: "รายงานโพสต์ไม่สำเร็จ",
+        description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      })
+    }
+  }
+
+  async function handleUpdatePost() {
+    if (!token) return
+
+    try {
+      await fetchJson(`/community/posts/${postId}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify(postForm),
+      })
+      setEditingPost(false)
+      await mutate()
+      toast({ title: "อัปเดตโพสต์แล้ว", description: "แก้ไขโพสต์เรียบร้อย" })
+    } catch (error) {
+      toast({
+        title: "อัปเดตโพสต์ไม่สำเร็จ",
+        description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      })
+    }
+  }
+
+  async function handleDeletePost() {
+    if (!token) return
+    if (!window.confirm("ลบโพสต์นี้ใช่หรือไม่")) return
+
+    try {
+      await fetchJson(`/community/posts/${postId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      toast({ title: "ลบโพสต์แล้ว", description: "โพสต์ถูกลบเรียบร้อย" })
+      window.location.href = "/community"
+    } catch (error) {
+      toast({
+        title: "ลบโพสต์ไม่สำเร็จ",
+        description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      })
+    }
+  }
+
+  function startEditComment(item: any) {
+    setEditingCommentId(item.id)
+    setCommentForm(item.content)
+  }
+
+  async function handleUpdateComment(commentId: string) {
+    if (!token) return
+
+    try {
+      await fetchJson(`/community/comments/${commentId}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ content: commentForm }),
+      })
+      setEditingCommentId(null)
+      setCommentForm("")
+      await mutate()
+      toast({ title: "อัปเดตคอมเมนต์แล้ว", description: "แก้ไขความคิดเห็นเรียบร้อย" })
+    } catch (error) {
+      toast({
+        title: "อัปเดตคอมเมนต์ไม่สำเร็จ",
+        description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      })
+    }
+  }
+
+  async function handleDeleteComment(commentId: string) {
+    if (!token) return
+    if (!window.confirm("ลบคอมเมนต์นี้ใช่หรือไม่")) return
+
+    try {
+      await fetchJson(`/community/comments/${commentId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      await mutate()
+      toast({ title: "ลบคอมเมนต์แล้ว", description: "ความคิดเห็นถูกลบเรียบร้อย" })
+    } catch (error) {
+      toast({
+        title: "ลบคอมเมนต์ไม่สำเร็จ",
         description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
         variant: "destructive",
       })
@@ -140,8 +249,37 @@ export default function CommunityPostDetailPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline">{post.categoryLabel}</Badge>
                   {post.isPinned && <Badge variant="secondary">ปักหมุด</Badge>}
+                  {isPostOwner && <Badge variant="secondary">โพสต์ของคุณ</Badge>}
                 </div>
-                <CardTitle className="text-2xl">{post.title}</CardTitle>
+
+                {editingPost ? (
+                  <div className="space-y-3">
+                    <Input value={postForm.title} onChange={(e) => setPostForm((prev) => ({ ...prev, title: e.target.value }))} />
+                    <div className="flex flex-wrap gap-2">
+                      {categories.map((item) => (
+                        <Button
+                          key={item.id}
+                          type="button"
+                          size="sm"
+                          variant={postForm.category === item.id ? "default" : "outline"}
+                          onClick={() => setPostForm((prev) => ({ ...prev, category: item.id }))}
+                        >
+                          {item.label}
+                        </Button>
+                      ))}
+                    </div>
+                    <Textarea value={postForm.content} onChange={(e) => setPostForm((prev) => ({ ...prev, content: e.target.value }))} className="min-h-32" />
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <Button variant="outline" onClick={() => setEditingPost(false)}>
+                        ยกเลิก
+                      </Button>
+                      <Button onClick={handleUpdatePost}>บันทึกการแก้ไข</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <CardTitle className="text-2xl">{post.title}</CardTitle>
+                )}
+
                 <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <Avatar className="h-8 w-8">
@@ -160,8 +298,9 @@ export default function CommunityPostDetailPage() {
                   </span>
                 </div>
               </CardHeader>
+
               <CardContent className="space-y-4">
-                <p className="whitespace-pre-wrap leading-7">{post.content}</p>
+                {!editingPost && <p className="whitespace-pre-wrap leading-7">{post.content}</p>}
                 <div className="flex flex-wrap items-center gap-3 border-t border-border/50 pt-4">
                   <Button variant={post.isLiked ? "default" : "outline"} onClick={handleLike} className="gap-2">
                     <ThumbsUp className="h-4 w-4" />
@@ -179,6 +318,18 @@ export default function CommunityPostDetailPage() {
                     <Flag className="h-4 w-4" />
                     รายงาน
                   </Button>
+                  {isPostOwner && !editingPost && (
+                    <>
+                      <Button variant="outline" onClick={startEditPost} className="gap-2">
+                        <Pencil className="h-4 w-4" />
+                        แก้ไข
+                      </Button>
+                      <Button variant="destructive" onClick={handleDeletePost} className="gap-2">
+                        <Trash2 className="h-4 w-4" />
+                        ลบโพสต์
+                      </Button>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -220,7 +371,35 @@ export default function CommunityPostDetailPage() {
                           <span className="font-medium">{item.user.name}</span>
                           <span className="text-xs text-muted-foreground">{item.timeAgo}</span>
                         </div>
-                        <p className="text-sm text-muted-foreground">{item.content}</p>
+                        {editingCommentId === item.id ? (
+                          <div className="space-y-2">
+                            <Textarea value={commentForm} onChange={(e) => setCommentForm(e.target.value)} className="min-h-20" />
+                            <div className="flex flex-wrap gap-2">
+                              <Button size="sm" variant="outline" onClick={() => setEditingCommentId(null)}>
+                                ยกเลิก
+                              </Button>
+                              <Button size="sm" onClick={() => handleUpdateComment(item.id)}>
+                                บันทึก
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="text-sm text-muted-foreground">{item.content}</p>
+                            {user?.id === item.user.id && (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <Button size="sm" variant="outline" onClick={() => startEditComment(item)} className="gap-2">
+                                  <Pencil className="h-3.5 w-3.5" />
+                                  แก้ไข
+                                </Button>
+                                <Button size="sm" variant="destructive" onClick={() => handleDeleteComment(item.id)} className="gap-2">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  ลบ
+                                </Button>
+                              </div>
+                            )}
+                          </>
+                        )}
                       </div>
                     </div>
                   ))

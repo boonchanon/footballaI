@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
 import { motion } from "framer-motion"
-import { Bell, Bookmark, Edit, Heart, KeyRound, LogOut, Mail, MessageSquare, Save, Settings, Shield, Trophy } from "lucide-react"
+import { Bell, Bookmark, Edit, Heart, KeyRound, LogOut, Mail, MessageSquare, Save, Settings, Shield, Trash2, Trophy } from "lucide-react"
 
 import { apiUrl, fetchJson } from "@/lib/api-client"
 import { saveAuthSession } from "@/lib/auth-client"
@@ -49,11 +49,11 @@ export function ProfilePage() {
     token ? ["/auth/me", token] : null,
     ([url, authToken]) => authorizedFetcher<{ user: any }>(url, authToken),
   )
-  const { data: favoritesData } = useSWR(
+  const { data: favoritesData, mutate: mutateFavorites } = useSWR(
     token ? ["/favorites", token] : null,
     ([url, authToken]) => authorizedFetcher<{ items: any[] }>(url, authToken),
   )
-  const { data: predictionsData } = useSWR(
+  const { data: predictionsData, mutate: mutatePredictions } = useSWR(
     token ? ["/predictions", token] : null,
     ([url, authToken]) => authorizedFetcher<{ items: any[] }>(url, authToken),
   )
@@ -61,7 +61,7 @@ export function ProfilePage() {
     token ? ["/community/posts?mine=true&limit=5", token] : null,
     ([url, authToken]) => authorizedFetcher<{ items: any[] }>(url, authToken),
   )
-  const { data: activityData } = useSWR(
+  const { data: activityData, mutate: mutateActivity } = useSWR(
     token ? ["/users/me/activity", token] : null,
     ([url, authToken]) => authorizedFetcher<any>(url, authToken),
   )
@@ -134,6 +134,69 @@ export function ProfilePage() {
       })
     } finally {
       setSavingPassword(false)
+    }
+  }
+
+  async function handleRemoveFavorite(favoriteId: string) {
+    if (!token) return
+
+    try {
+      await fetchJson(`/favorites/${favoriteId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      await Promise.all([mutateFavorites(), mutateActivity()])
+      toast({ title: "ลบรายการโปรดแล้ว", description: "รายการที่บันทึกถูกลบเรียบร้อย" })
+    } catch (error) {
+      toast({
+        title: "ลบรายการโปรดไม่สำเร็จ",
+        description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      })
+    }
+  }
+
+  async function handleDeletePrediction(predictionId: string) {
+    if (!token) return
+
+    try {
+      await fetchJson(`/predictions/${predictionId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      await Promise.all([mutatePredictions(), mutateActivity()])
+      toast({ title: "ลบประวัติการทายผลแล้ว", description: "รายการนี้ถูกลบเรียบร้อย" })
+    } catch (error) {
+      toast({
+        title: "ลบประวัติการทายผลไม่สำเร็จ",
+        description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      })
+    }
+  }
+
+  async function handleDeleteComment(commentId: string) {
+    if (!token) return
+
+    try {
+      await fetchJson(`/community/comments/${commentId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      await mutateActivity()
+      toast({ title: "ลบคอมเมนต์แล้ว", description: "ความคิดเห็นถูกลบเรียบร้อย" })
+    } catch (error) {
+      toast({
+        title: "ลบคอมเมนต์ไม่สำเร็จ",
+        description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      })
     }
   }
 
@@ -351,7 +414,12 @@ export function ProfilePage() {
                     <div key={item.id} className="rounded-lg border border-border/50 p-3">
                       <div className="mb-1 flex items-center justify-between gap-2">
                         <Badge variant="outline">{item.targetType}</Badge>
-                        <span className="text-xs text-muted-foreground">{item.timeAgo}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">{item.timeAgo}</span>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteComment(item.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
                       <p className="text-sm text-muted-foreground">{item.content}</p>
                     </div>
@@ -402,8 +470,15 @@ export function ProfilePage() {
                   <div className="space-y-2">
                     {(activityData?.saved?.articles || []).slice(0, 3).map((item: any) => (
                       <div key={item.id} className="rounded-lg border border-border/50 p-3">
-                        <p className="text-sm font-medium">{item.title}</p>
-                        <p className="text-xs text-muted-foreground">{item.timeAgo}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-medium">{item.title}</p>
+                            <p className="text-xs text-muted-foreground">{item.timeAgo}</p>
+                          </div>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleRemoveFavorite(item.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                     {(activityData?.saved?.articles || []).length === 0 && <p className="text-sm text-muted-foreground">ยังไม่มีข่าวที่บันทึกไว้</p>}
@@ -415,8 +490,15 @@ export function ProfilePage() {
                   <div className="space-y-2">
                     {(activityData?.saved?.posts || []).slice(0, 3).map((item: any) => (
                       <div key={item.id} className="rounded-lg border border-border/50 p-3">
-                        <p className="text-sm font-medium">{item.title}</p>
-                        <p className="text-xs text-muted-foreground">{item.subtitle || item.timeAgo}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-medium">{item.title}</p>
+                            <p className="text-xs text-muted-foreground">{item.subtitle || item.timeAgo}</p>
+                          </div>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleRemoveFavorite(item.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                     {(activityData?.saved?.posts || []).length === 0 && <p className="text-sm text-muted-foreground">ยังไม่มีโพสต์ที่บันทึกไว้</p>}
@@ -437,7 +519,12 @@ export function ProfilePage() {
                         <span className="text-sm font-medium">
                           {item.homeTeam} vs {item.awayTeam}
                         </span>
-                        <span className="text-xs text-muted-foreground">{item.timeAgo}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">{item.timeAgo}</span>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeletePrediction(item.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
                       <p className="text-sm text-muted-foreground">
                         ทายสกอร์ {item.predictedScore?.home ?? 0} - {item.predictedScore?.away ?? 0} · ความมั่นใจ {item.confidence ?? 0}%

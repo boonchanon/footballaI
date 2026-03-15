@@ -12,7 +12,11 @@ export async function connectDatabase() {
 
   if (!global.__mongoose_connection__) {
     mongoose.set("strictQuery", true)
-    global.__mongoose_connection__ = mongoose.connect(mongoUri)
+    global.__mongoose_connection__ = mongoose.connect(mongoUri).catch((error) => {
+      console.error("MongoDB connection failed", error)
+      global.__mongoose_connection__ = undefined
+      throw error
+    })
   }
 
   return global.__mongoose_connection__
