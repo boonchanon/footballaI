@@ -1,16 +1,16 @@
 import { Suspense } from "react"
 
-import { Navigation } from "@/components/navigation"
 import { Footer } from "@/components/footer"
-import { LoginForm } from "@/components/login-form"
+import { Navigation } from "@/components/navigation"
+import { VerifyResetOtpForm } from "@/components/verify-reset-otp-form"
 
-export default function LoginPage() {
+export default function VerifyOtpPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
       <main className="flex-1 flex items-center justify-center py-12 px-4">
         <Suspense fallback={null}>
-          <LoginForm />
+          <VerifyResetOtpForm />
         </Suspense>
       </main>
       <Footer />

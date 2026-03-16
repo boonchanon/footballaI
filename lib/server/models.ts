@@ -14,6 +14,13 @@ const userSchema =
       favoriteTeam: { type: String, default: "" },
       role: { type: String, enum: ["user", "admin"], default: "user" },
       bio: { type: String, default: "", maxlength: 280 },
+      googleId: { type: String, default: "" },
+      githubId: { type: String, default: "" },
+      resetPasswordOtpHash: { type: String, default: "" },
+      resetPasswordOtpExpiresAt: { type: Date, default: null },
+      resetPasswordOtpAttempts: { type: Number, default: 0 },
+      resetPasswordToken: { type: String, default: "" },
+      resetPasswordExpiresAt: { type: Date, default: null },
     },
     { timestamps: true },
   )

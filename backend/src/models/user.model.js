@@ -9,7 +9,12 @@ const userSchema = new mongoose.Schema(
     avatar: { type: String, default: "" },
     favoriteTeam: { type: String, default: "" },
     role: { type: String, enum: ["user", "admin"], default: "user" },
-    bio: { type: String, default: "", maxlength: 280 }
+    bio: { type: String, default: "", maxlength: 280 },
+    resetPasswordOtpHash: { type: String, default: "" },
+    resetPasswordOtpExpiresAt: { type: Date, default: null },
+    resetPasswordOtpAttempts: { type: Number, default: 0 },
+    resetPasswordToken: { type: String, default: "" },
+    resetPasswordExpiresAt: { type: Date, default: null }
   },
   { timestamps: true }
 )
@@ -25,3 +30,4 @@ userSchema.methods.comparePassword = function comparePassword(candidatePassword)
 }
 
 module.exports = mongoose.model("User", userSchema)
+

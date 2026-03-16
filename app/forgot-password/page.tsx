@@ -1,17 +1,13 @@
-import { Suspense } from "react"
-
-import { Navigation } from "@/components/navigation"
 import { Footer } from "@/components/footer"
-import { LoginForm } from "@/components/login-form"
+import { ForgotPasswordForm } from "@/components/forgot-password-form"
+import { Navigation } from "@/components/navigation"
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
       <main className="flex-1 flex items-center justify-center py-12 px-4">
-        <Suspense fallback={null}>
-          <LoginForm />
-        </Suspense>
+        <ForgotPasswordForm />
       </main>
       <Footer />
     </div>
