@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server"
+﻿import { NextResponse } from "next/server"
+
 import { formatDateThai, getTimeAgoThai } from "@/lib/sportmonks"
 
-// News categories
 type NewsCategory = "match" | "transfer" | "preview" | "result" | "general"
 
 interface NewsArticle {
@@ -20,203 +20,126 @@ interface NewsArticle {
   category: NewsCategory
 }
 
-async function fetchRealNews(): Promise<NewsArticle[]> {
-  const apiKey = process.env.GNEWS_API_KEY || "2d59fcd313d1e012b7ea784cf1380dd5"
-
-  if (!apiKey) {
-    console.log("[v0] GNEWS_API_KEY not configured, using fallback news")
-    return []
+interface RawNewsArticle {
+  title: string
+  description?: string
+  url: string
+  image?: string
+  source?: {
+    name?: string
   }
-
-  try {
-    // Search for Premier League news
-    const response = await fetch(
-      `https://gnews.io/api/v4/search?q=Premier+League+football&lang=en&country=uk&max=20&apikey=${apiKey}`,
-      { next: { revalidate: 600 } }, // Cache for 10 minutes
-    )
-
-    if (!response.ok) {
-      console.error("GNews API error:", response.status)
-      return []
-    }
-
-    const data = await response.json()
-    const articles: NewsArticle[] = []
-
-    if (data.articles && Array.isArray(data.articles)) {
-      data.articles.forEach((article: any, index: number) => {
-        // Translate title to Thai (simple translation for common terms)
-        const titleThai = translateNewsTitleToThai(article.title)
-        const descriptionThai = translateNewsDescriptionToThai(article.description || "")
-
-        // Categorize news
-        const category = categorizeNews(article.title, article.description)
-
-        articles.push({
-          id: `gnews-${index}-${Date.now()}`,
-          title: titleThai,
-          titleEn: article.title,
-          description: descriptionThai,
-          descriptionEn: article.description || "",
-          url: article.url,
-          image: article.image || "/premier-league-news.jpg",
-          source: article.source?.name || "GNews",
-          timeAgo: getTimeAgoThai(article.publishedAt),
-          publishedAt: article.publishedAt,
-          publishedAtThai: formatDateThai(article.publishedAt),
-          isFeatured: index === 0,
-          category: category,
-        })
-      })
-    }
-
-    return articles
-  } catch (error) {
-    console.error("Failed to fetch real news:", error)
-    return []
-  }
+  publishedAt: string
 }
 
-// Translate news title to Thai
-function translateNewsTitleToThai(title: string): string {
-  let translated = title
+interface AiTranslationItem {
+  titleThai?: string
+  descriptionThai?: string
+}
 
-  // Team names
-  const teamTranslations: Record<string, string> = {
-    "Manchester United": "แมนเชสเตอร์ ยูไนเต็ด",
-    "Manchester City": "แมนเชสเตอร์ ซิตี้",
-    "Man United": "แมนฯ ยูไนเต็ด",
-    "Man City": "แมนฯ ซิตี้",
-    Liverpool: "ลิเวอร์พูล",
-    Arsenal: "อาร์เซนอล",
-    Chelsea: "เชลซี",
-    Tottenham: "ท็อตแนม",
-    Spurs: "สเปอร์ส",
-    Newcastle: "นิวคาสเซิล",
-    "Aston Villa": "แอสตัน วิลล่า",
-    "West Ham": "เวสต์แฮม",
-    Brighton: "ไบรท์ตัน",
-    Fulham: "ฟูแล่ม",
-    Brentford: "เบรนท์ฟอร์ด",
-    "Crystal Palace": "คริสตัล พาเลซ",
-    Wolves: "วูล์ฟส์",
-    Everton: "เอฟเวอร์ตัน",
-    "Nottingham Forest": "น็อตติงแฮม ฟอเรสต์",
-    Bournemouth: "บอร์นมัธ",
-    Leicester: "เลสเตอร์",
-    Southampton: "เซาแธมป์ตัน",
-    Ipswich: "อิปสวิช",
+interface AiTranslationResponse {
+  items?: AiTranslationItem[]
+}
+
+const GNEWS_QUERY = "Premier League football"
+const GNEWS_MAX_ARTICLES = 20
+const AI_TRANSLATION_LIMIT = 10
+
+const TEAM_TRANSLATIONS: Record<string, string> = {
+  "Manchester United": "แมนเชสเตอร์ ยูไนเต็ด",
+  "Manchester City": "แมนเชสเตอร์ ซิตี้",
+  "Liverpool": "ลิเวอร์พูล",
+  "Arsenal": "อาร์เซนอล",
+  "Chelsea": "เชลซี",
+  "Tottenham": "ท็อตแนม ฮ็อตสเปอร์",
+  "Spurs": "สเปอร์ส",
+  "Newcastle": "นิวคาสเซิล",
+  "Aston Villa": "แอสตัน วิลลา",
+  "West Ham": "เวสต์แฮม",
+  "Brighton": "ไบรท์ตัน",
+  "Everton": "เอฟเวอร์ตัน",
+  "Leicester": "เลสเตอร์",
+  "Nottingham Forest": "น็อตติงแฮม ฟอเรสต์",
+}
+
+const TERM_TRANSLATIONS: Record<string, string> = {
+  "Premier League": "พรีเมียร์ลีก",
+  football: "ฟุตบอล",
+  Football: "ฟุตบอล",
+  transfer: "ย้ายทีม",
+  Transfer: "ย้ายทีม",
+  transfers: "ดีลย้ายทีม",
+  Transfers: "ดีลย้ายทีม",
+  manager: "กุนซือ",
+  Manager: "กุนซือ",
+  coach: "โค้ช",
+  Coach: "โค้ช",
+  player: "นักเตะ",
+  Player: "นักเตะ",
+  players: "นักเตะ",
+  Players: "นักเตะ",
+  striker: "กองหน้า",
+  Striker: "กองหน้า",
+  midfielder: "กองกลาง",
+  Midfielder: "กองกลาง",
+  defender: "กองหลัง",
+  Defender: "กองหลัง",
+  goalkeeper: "ผู้รักษาประตู",
+  Goalkeeper: "ผู้รักษาประตู",
+  injury: "อาการบาดเจ็บ",
+  Injury: "อาการบาดเจ็บ",
+  injuries: "ปัญหาอาการบาดเจ็บ",
+  Injuries: "ปัญหาอาการบาดเจ็บ",
+  win: "ชนะ",
+  Win: "ชนะ",
+  wins: "เก็บชัย",
+  Wins: "เก็บชัย",
+  loss: "ความพ่ายแพ้",
+  Loss: "ความพ่ายแพ้",
+  draw: "เสมอ",
+  Draw: "เสมอ",
+  preview: "พรีวิว",
+  Preview: "พรีวิว",
+  result: "ผลการแข่งขัน",
+  Result: "ผลการแข่งขัน",
+  results: "ผลการแข่งขัน",
+  Results: "ผลการแข่งขัน",
+  update: "อัปเดต",
+  Update: "อัปเดต",
+  report: "รายงาน",
+  Report: "รายงาน",
+  signs: "เซ็นสัญญา",
+  Signs: "เซ็นสัญญา",
+  agrees: "บรรลุข้อตกลง",
+  Agrees: "บรรลุข้อตกลง",
+  agrees: "บรรลุข้อตกลง",
+  deal: "ดีล",
+  Deal: "ดีล",
+  race: "การลุ้นแชมป์",
+  Race: "การลุ้นแชมป์",
+  title: "แชมป์",
+  Title: "แชมป์",
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+function translateWithDictionary(text: string): string {
+  if (!text) return ""
+
+  let translated = text
+
+  for (const [english, thai] of Object.entries(TEAM_TRANSLATIONS)) {
+    translated = translated.replace(new RegExp(escapeRegExp(english), "gi"), thai)
   }
 
-  // Common football terms
-  const termTranslations: Record<string, string> = {
-    "Premier League": "พรีเมียร์ลีก",
-    "2024/25": "ฤดูกาล 2024/25",
-    "2024-25": "ฤดูกาล 2024/25",
-    transfer: "ย้ายทีม",
-    Transfer: "ย้ายทีม",
-    signs: "เซ็นสัญญา",
-    Signs: "เซ็นสัญญา",
-    injury: "อาการบาดเจ็บ",
-    Injury: "อาการบาดเจ็บ",
-    goal: "ประตู",
-    Goal: "ประตู",
-    goals: "ประตู",
-    Goals: "ประตู",
-    manager: "กุนซือ",
-    Manager: "กุนซือ",
-    coach: "โค้ช",
-    Coach: "โค้ช",
-    win: "ชนะ",
-    Win: "ชนะ",
-    wins: "ชนะ",
-    Wins: "ชนะ",
-    lose: "แพ้",
-    Lose: "แพ้",
-    loss: "พ่ายแพ้",
-    Loss: "พ่ายแพ้",
-    draw: "เสมอ",
-    Draw: "เสมอ",
-    match: "แมตช์",
-    Match: "แมตช์",
-    player: "นักเตะ",
-    Player: "นักเตะ",
-    players: "นักเตะ",
-    Players: "นักเตะ",
-    team: "ทีม",
-    Team: "ทีม",
-    football: "ฟุตบอล",
-    Football: "ฟุตบอล",
-    season: "ฤดูกาล",
-    Season: "ฤดูกาล",
-    vs: "พบ",
-    VS: "พบ",
-    against: "พบ",
-    beats: "เอาชนะ",
-    Beats: "เอาชนะ",
-    defeated: "พ่ายแพ้ต่อ",
-    Defeated: "พ่ายแพ้ต่อ",
-    defeats: "เอาชนะ",
-    Defeats: "เอาชนะ",
-    news: "ข่าว",
-    News: "ข่าว",
-    update: "อัปเดต",
-    Update: "อัปเดต",
-    breaking: "ด่วน",
-    Breaking: "ด่วน",
-    exclusive: "เอ็กซ์คลูซีฟ",
-    Exclusive: "เอ็กซ์คลูซีฟ",
-    report: "รายงาน",
-    Report: "รายงาน",
-    confirms: "ยืนยัน",
-    Confirms: "ยืนยัน",
-    striker: "กองหน้า",
-    Striker: "กองหน้า",
-    midfielder: "กองกลาง",
-    Midfielder: "กองกลาง",
-    defender: "กองหลัง",
-    Defender: "กองหลัง",
-    goalkeeper: "ผู้รักษาประตู",
-    Goalkeeper: "ผู้รักษาประตู",
-    captain: "กัปตัน",
-    Captain: "กัปตัน",
-    scored: "ยิง",
-    Scored: "ยิง",
-    scoring: "ทำประตู",
-    Scoring: "ทำประตู",
-    assist: "แอสซิสต์",
-    Assist: "แอสซิสต์",
-    assists: "แอสซิสต์",
-    Assists: "แอสซิสต์",
-    "hat-trick": "แฮตทริก",
-    "Hat-trick": "แฮตทริก",
-    derby: "ดาร์บี้",
-    Derby: "ดาร์บี้",
-    title: "แชมป์",
-    Title: "แชมป์",
-    race: "การแข่งขัน",
-    Race: "การแข่งขัน",
-  }
-
-  // Apply team translations
-  for (const [eng, thai] of Object.entries(teamTranslations)) {
-    translated = translated.replace(new RegExp(eng, "gi"), thai)
-  }
-
-  // Apply term translations
-  for (const [eng, thai] of Object.entries(termTranslations)) {
-    translated = translated.replace(new RegExp(`\\b${eng}\\b`, "g"), thai)
+  for (const [english, thai] of Object.entries(TERM_TRANSLATIONS)) {
+    translated = translated.replace(new RegExp(`\\b${escapeRegExp(english)}\\b`, "g"), thai)
   }
 
   return translated
 }
 
-// Translate news description to Thai
-function translateNewsDescriptionToThai(description: string): string {
-  return translateNewsTitleToThai(description)
-}
-
-// Categorize news based on content
 function categorizeNews(title: string, description: string): NewsCategory {
   const text = `${title} ${description}`.toLowerCase()
 
@@ -247,14 +170,183 @@ function categorizeNews(title: string, description: string): NewsCategory {
   return "general"
 }
 
+function sanitizeThaiText(value: string | undefined, fallback: string): string {
+  const text = value?.trim()
+  if (!text) return fallback
+  return text.replace(/\s+/g, " ")
+}
+
+function normalizeCompletionsUrl(baseUrl: string): string {
+  const trimmed = baseUrl.replace(/\/+$/, "")
+  if (trimmed.endsWith("/chat/completions")) return trimmed
+  return `${trimmed}/chat/completions`
+}
+
+function extractJsonPayload(content: string): AiTranslationResponse | null {
+  const trimmed = content.trim()
+
+  try {
+    const parsed = JSON.parse(trimmed) as AiTranslationResponse | AiTranslationItem[]
+    if (Array.isArray(parsed)) return { items: parsed }
+    return parsed
+  } catch {}
+
+  const match = trimmed.match(/```json\s*([\s\S]*?)```/i) || trimmed.match(/(\{[\s\S]*\})/)
+  if (!match?.[1]) return null
+
+  try {
+    const parsed = JSON.parse(match[1]) as AiTranslationResponse | AiTranslationItem[]
+    if (Array.isArray(parsed)) return { items: parsed }
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function getMessageContent(messageContent: unknown): string | null {
+  if (typeof messageContent === "string") {
+    return messageContent
+  }
+
+  if (Array.isArray(messageContent)) {
+    const text = messageContent
+      .map((item) => {
+        if (typeof item === "string") return item
+        if (item && typeof item === "object" && "text" in item && typeof item.text === "string") {
+          return item.text
+        }
+        return ""
+      })
+      .join("")
+      .trim()
+
+    return text || null
+  }
+
+  return null
+}
+
+async function translateArticlesWithAi(articles: RawNewsArticle[]): Promise<AiTranslationItem[] | null> {
+  const apiKey = process.env.INTELSPHERE_API_KEY
+  const baseUrl = process.env.INTELSPHERE_BASE_URL
+  const model = process.env.INTELSPHERE_MODEL
+
+  if (!apiKey || !baseUrl || !model || articles.length === 0) {
+    return null
+  }
+
+  const payload = {
+    model,
+    temperature: 0.3,
+    stream: false,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a Thai sports news editor. Translate English football news into Thai. Keep facts unchanged. Write Thai that is clear, polished, and punchy. Add only light playful flavor suitable for a news site, never clickbait, never invent details. Preserve team and player names in Thai transliteration when natural. Return valid JSON only.",
+      },
+      {
+        role: "user",
+        content: JSON.stringify({
+          instruction:
+            "Translate each item into Thai. Return JSON with shape {\"items\":[{\"titleThai\":\"...\",\"descriptionThai\":\"...\"}]}. Keep the same number and order as input. Each title should be concise. Each description should be 1-2 Thai sentences.",
+          items: articles.map((article) => ({
+            title: article.title,
+            description: article.description || "",
+          })),
+        }),
+      },
+    ],
+  }
+
+  try {
+    const response = await fetch(normalizeCompletionsUrl(baseUrl), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(payload),
+      next: { revalidate: 0 },
+    })
+
+    if (!response.ok) {
+      console.error("IntelSphere translation error:", response.status)
+      return null
+    }
+
+    const data = await response.json()
+    const content = getMessageContent(data?.choices?.[0]?.message?.content)
+    if (!content) return null
+
+    const parsed = extractJsonPayload(content)
+    if (!parsed?.items || !Array.isArray(parsed.items)) return null
+
+    return parsed.items
+  } catch (error) {
+    console.error("IntelSphere translation failed:", error)
+    return null
+  }
+}
+
+async function fetchRealNews(): Promise<NewsArticle[]> {
+  const apiKey = process.env.GNEWS_API_KEY
+
+  if (!apiKey) {
+    console.log("GNEWS_API_KEY not configured, using fallback news")
+    return []
+  }
+
+  try {
+    const response = await fetch(
+      `https://gnews.io/api/v4/search?q=${encodeURIComponent(GNEWS_QUERY)}&lang=en&country=uk&max=${GNEWS_MAX_ARTICLES}&apikey=${apiKey}`,
+      { next: { revalidate: 600 } },
+    )
+
+    if (!response.ok) {
+      console.error("GNews API error:", response.status)
+      return []
+    }
+
+    const data = await response.json()
+    const rawArticles: RawNewsArticle[] = Array.isArray(data.articles) ? data.articles : []
+    const aiTranslations = await translateArticlesWithAi(rawArticles.slice(0, AI_TRANSLATION_LIMIT))
+
+    return rawArticles.map((article, index) => {
+      const translated = aiTranslations?.[index]
+      const titleEn = article.title || "Premier League news update"
+      const descriptionEn = article.description || ""
+
+      return {
+        id: `gnews-${index}-${new Date(article.publishedAt).getTime() || Date.now()}`,
+        title: sanitizeThaiText(translated?.titleThai, translateWithDictionary(titleEn)),
+        titleEn,
+        description: sanitizeThaiText(translated?.descriptionThai, translateWithDictionary(descriptionEn)),
+        descriptionEn,
+        url: article.url,
+        image: article.image || "/premier-league-news.jpg",
+        source: article.source?.name || "GNews",
+        timeAgo: getTimeAgoThai(article.publishedAt),
+        publishedAt: article.publishedAt,
+        publishedAtThai: formatDateThai(article.publishedAt),
+        isFeatured: index === 0,
+        category: categorizeNews(titleEn, descriptionEn),
+      }
+    })
+  } catch (error) {
+    console.error("Failed to fetch real news:", error)
+    return []
+  }
+}
+
 function getFallbackNews(): NewsArticle[] {
   const now = new Date()
   return [
     {
       id: "fallback-1",
-      title: "พรีเมียร์ลีก อัปเดตตารางคะแนนล่าสุด",
+      title: "อัปเดตตารางคะแนนพรีเมียร์ลีกล่าสุด",
       titleEn: "Premier League Latest Standings Update",
-      description: "ติดตามความเคลื่อนไหวล่าสุดของตารางคะแนนพรีเมียร์ลีก ฤดูกาล 2024/25",
+      description: "ตามติดความเคลื่อนไหวบนหัวตารางและโซนลุ้นหนีตกชั้นแบบไม่กะพริบตา",
       descriptionEn: "Follow the latest Premier League standings for the 2024/25 season",
       url: "#",
       image: "/premier-league-news.jpg",
@@ -267,9 +359,9 @@ function getFallbackNews(): NewsArticle[] {
     },
     {
       id: "fallback-2",
-      title: "สรุปผลการแข่งขันพรีเมียร์ลีกสัปดาห์นี้",
+      title: "สรุปผลพรีเมียร์ลีกประจำสัปดาห์ ใครเฮ ใครมีเรื่องให้โค้ชปวดหัว",
       titleEn: "Premier League Weekly Results Summary",
-      description: "รวมผลการแข่งขันที่น่าสนใจในสัปดาห์ที่ผ่านมา",
+      description: "รวมผลการแข่งขันคู่สำคัญ พร้อมประเด็นที่แฟนบอลน่าจะหยิบไปคุยยาวหลังจบเกม",
       descriptionEn: "Compilation of interesting match results from this week",
       url: "#",
       image: "/premier-league-news.jpg",
@@ -282,9 +374,9 @@ function getFallbackNews(): NewsArticle[] {
     },
     {
       id: "fallback-3",
-      title: "ตารางแข่งขันพรีเมียร์ลีกสัปดาห์หน้า",
+      title: "โปรแกรมพรีเมียร์ลีกสัปดาห์หน้า คู่ไหนเดือดมีแววต้องปักหมุด",
       titleEn: "Next Week Premier League Fixtures",
-      description: "เตรียมพร้อมสำหรับแมตช์ที่น่าจับตามองในสัปดาห์หน้า",
+      description: "รวมโปรแกรมน่าจับตาของสัปดาห์หน้า เผื่อจัดเวลานั่งเชียร์กันล่วงหน้า",
       descriptionEn: "Get ready for the exciting matches coming next week",
       url: "#",
       image: "/premier-league-news.jpg",
@@ -297,9 +389,9 @@ function getFallbackNews(): NewsArticle[] {
     },
     {
       id: "fallback-4",
-      title: "ข่าวการย้ายทีมล่าสุดในพรีเมียร์ลีก",
+      title: "ตลาดนักเตะเริ่มคึก อัปเดตดีลล่าสุดแบบไม่ปล่อยให้ข่าวลือวิ่งนำ",
       titleEn: "Latest Premier League Transfer News",
-      description: "อัปเดตข่าวการย้ายทีมของนักเตะในพรีเมียร์ลีก",
+      description: "สรุปความคืบหน้าดีลเด่นในพรีเมียร์ลีกแบบกระชับ อ่านจบแล้วรู้เรื่องไม่ต้องเดาต่อ",
       descriptionEn: "Updates on player transfers in the Premier League",
       url: "#",
       image: "/premier-league-news.jpg",
@@ -315,13 +407,10 @@ function getFallbackNews(): NewsArticle[] {
 
 export async function GET() {
   try {
-    // Fetch real news from GNews API
     const realNews = await fetchRealNews()
-
     const articles = realNews.length > 0 ? realNews : getFallbackNews()
     const source = realNews.length > 0 ? "gnews" : "fallback"
 
-    // Sort by date (newest first)
     const sortedArticles = articles.sort((a, b) => {
       if (a.isFeatured) return -1
       if (b.isFeatured) return 1
@@ -332,7 +421,7 @@ export async function GET() {
       articles: sortedArticles,
       lastUpdated: new Date().toISOString(),
       lastUpdatedThai: formatDateThai(new Date().toISOString()),
-      source: source,
+      source,
       stats: {
         total: sortedArticles.length,
         results: sortedArticles.filter((a) => a.category === "result").length,
