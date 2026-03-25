@@ -9,7 +9,7 @@ export interface AuthUser {
   createdAt?: string
 }
 
-interface AuthSession {
+export interface AuthSession {
   token: string
   user: AuthUser
 }

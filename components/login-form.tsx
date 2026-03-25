@@ -1,27 +1,22 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { ArrowRight, Github, Lock, LogIn, Mail, ShieldCheck, Sparkles, Trophy } from "lucide-react"
+import { useEffect, useState } from "react"
 
-import { fetchJson } from "@/lib/api-client"
 import { saveAuthSession } from "@/lib/auth-client"
+import type { AuthSession } from "@/lib/auth-client"
+import { fetchJson } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 
-function GoogleMark() {
-  return (
-    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[11px] font-bold text-black shadow-sm">
-      G
-    </span>
-  )
-}
+type LoginField = "email" | "password"
 
 const highlights = [
   {
@@ -41,11 +36,24 @@ const highlights = [
   },
 ]
 
+function GoogleMark() {
+  return (
+    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[11px] font-bold text-black shadow-sm">
+      G
+    </span>
+  )
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+}
+
 export function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState<"" | "google" | "github">("")
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<LoginField, string>>>({})
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -63,12 +71,35 @@ export function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    const trimmedEmail = email.trim()
+    const nextErrors: Partial<Record<LoginField, string>> = {}
+
+    if (!isValidEmail(trimmedEmail)) {
+      nextErrors.email = "กรุณากรอกอีเมลให้ถูกต้อง"
+    }
+
+    if (!password) {
+      nextErrors.password = "กรุณากรอกรหัสผ่าน"
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors)
+      toast({
+        title: "เข้าสู่ระบบไม่สำเร็จ",
+        description: Object.values(nextErrors)[0],
+        variant: "destructive",
+      })
+      return
+    }
+
+    setFieldErrors({})
     setIsLoading(true)
 
     try {
-      const data = await fetchJson<{ token: string; user: unknown }>("/auth/login", {
+      const data = await fetchJson<AuthSession>("/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: trimmedEmail, password }),
       })
 
       saveAuthSession(data)
@@ -78,9 +109,18 @@ export function LoginForm() {
       })
       router.push("/profile")
     } catch (error) {
+      const message = error instanceof Error ? error.message : "เกิดข้อผิดพลาดบางอย่าง"
+
+      if (message.includes("อีเมล")) {
+        setFieldErrors((current) => ({ ...current, email: message }))
+      }
+      if (message.includes("รหัสผ่าน")) {
+        setFieldErrors((current) => ({ ...current, password: message }))
+      }
+
       toast({
         title: "เข้าสู่ระบบไม่สำเร็จ",
-        description: error instanceof Error ? error.message : "เกิดข้อผิดพลาดบางอย่าง",
+        description: message,
         variant: "destructive",
       })
     } finally {
@@ -109,15 +149,16 @@ export function LoginForm() {
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-primary">
                   <LogIn className="h-3.5 w-3.5" />
-                  ทางเข้าใช้งานสมาชิก
+                  ทางเข้าสมาชิก
                 </div>
                 <h1 className="mt-8 max-w-md font-display text-5xl leading-[0.95] text-foreground">
-                  เเข้าสู่ระบบ
+                  เข้าสู่ระบบ
                   <br />
-                  เพื่อเข้าสู่โลกของ FootballAI
+                  เพื่อกลับสู่โลกของ FootballAI
                 </h1>
                 <p className="mt-5 max-w-lg text-sm leading-7 text-muted-foreground">
-                  เข้าสู่ระบบเพื่อใช้งาน FootballAI แบบเต็มรูปแบบ ทั้งการทำนายผลด้วย AI การติดตามสถิติ และคอมมูนิตี้แฟนบอลในที่เดียว
+                  เข้าสู่ระบบเพื่อใช้งาน FootballAI แบบเต็มรูปแบบ ทั้งการติดตามสถิติ การทำนายผลด้วย AI
+                  และคอมมูนิตี้แฟนบอลในที่เดียว
                 </p>
               </div>
 
@@ -193,11 +234,15 @@ export function LoginForm() {
                       type="email"
                       placeholder="your@email.com"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        setEmail(e.target.value)
+                        setFieldErrors((current) => ({ ...current, email: undefined }))
+                      }}
                       className="h-12 rounded-xl border-border/80 bg-secondary/35 pl-10"
                       required
                     />
                   </div>
+                  {fieldErrors.email ? <p className="text-sm text-destructive">{fieldErrors.email}</p> : null}
                 </div>
 
                 <div className="space-y-2">
@@ -216,11 +261,15 @@ export function LoginForm() {
                       type="password"
                       placeholder="••••••••"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value)
+                        setFieldErrors((current) => ({ ...current, password: undefined }))
+                      }}
                       className="h-12 rounded-xl border-border/80 bg-secondary/35 pl-10"
                       required
                     />
                   </div>
+                  {fieldErrors.password ? <p className="text-sm text-destructive">{fieldErrors.password}</p> : null}
                 </div>
 
                 <Button type="submit" className="mt-2 h-12 w-full rounded-xl text-sm font-semibold" disabled={isLoading}>

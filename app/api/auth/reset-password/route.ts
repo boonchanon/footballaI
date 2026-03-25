@@ -12,8 +12,12 @@ export async function POST(request: NextRequest) {
     const resetToken = String(body.resetToken || "").trim()
     const password = String(body.password || "")
 
-    if (!resetToken || password.length < 6) {
-      return errorResponse("Validation failed", 422)
+    if (!resetToken) {
+      return errorResponse("ลิงก์รีเซ็ตรหัสผ่านไม่ถูกต้องหรือหมดอายุแล้ว", 422, [{ path: "resetToken" }])
+    }
+
+    if (password.length < 6) {
+      return errorResponse("รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร", 422, [{ path: "password" }])
     }
 
     const user = await User.findOne({

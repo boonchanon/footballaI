@@ -12,13 +12,20 @@ export async function POST(request: NextRequest) {
     const email = String(body.email || "").trim().toLowerCase()
     const password = String(body.password || "")
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !password) {
-      return errorResponse("Validation failed", 422)
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return errorResponse("กรุณากรอกอีเมลให้ถูกต้อง", 422, [{ path: "email" }])
+    }
+
+    if (!password) {
+      return errorResponse("กรุณากรอกรหัสผ่าน", 422, [{ path: "password" }])
     }
 
     const user = await User.findOne({ email })
     if (!user || !(await user.comparePassword(password))) {
-      return errorResponse("Invalid email or password", 401)
+      return errorResponse("อีเมลหรือรหัสผ่านไม่ถูกต้อง", 401, [
+        { path: "email" },
+        { path: "password" },
+      ])
     }
 
     return ok({

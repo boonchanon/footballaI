@@ -1,19 +1,22 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { ArrowRight, CheckCircle2, Lock, Mail, ShieldCheck, Star, User, UserPlus, Users } from "lucide-react"
+import { useState } from "react"
 
-import { fetchJson } from "@/lib/api-client"
 import { saveAuthSession } from "@/lib/auth-client"
+import type { AuthSession } from "@/lib/auth-client"
+import { fetchJson } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
+
+type RegisterField = "name" | "email" | "password" | "confirmPassword"
 
 const highlights = [
   {
@@ -33,6 +36,10 @@ const highlights = [
   },
 ]
 
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+}
+
 export function RegisterForm() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -40,6 +47,7 @@ export function RegisterForm() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [favoriteTeam, setFavoriteTeam] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<RegisterField, string>>>({})
   const router = useRouter()
   const { toast } = useToast()
 
@@ -49,38 +57,39 @@ export function RegisterForm() {
     const trimmedName = name.trim()
     const trimmedEmail = email.trim()
     const trimmedFavoriteTeam = favoriteTeam.trim()
+    const nextErrors: Partial<Record<RegisterField, string>> = {}
 
     if (trimmedName.length < 2) {
-      toast({
-        title: "สมัครสมาชิกไม่สำเร็จ",
-        description: "กรุณากรอกชื่ออย่างน้อย 2 ตัวอักษร",
-        variant: "destructive",
-      })
-      return
+      nextErrors.name = "ชื่อต้องมีอย่างน้อย 2 ตัวอักษร"
+    }
+
+    if (!isValidEmail(trimmedEmail)) {
+      nextErrors.email = "กรุณากรอกอีเมลให้ถูกต้อง"
     }
 
     if (password.length < 6) {
-      toast({
-        title: "สมัครสมาชิกไม่สำเร็จ",
-        description: "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร",
-        variant: "destructive",
-      })
-      return
+      nextErrors.password = "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร"
     }
 
     if (password !== confirmPassword) {
+      nextErrors.confirmPassword = "รหัสผ่านและยืนยันรหัสผ่านต้องตรงกัน"
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors)
       toast({
         title: "สมัครสมาชิกไม่สำเร็จ",
-        description: "รหัสผ่านและการยืนยันรหัสผ่านไม่ตรงกัน",
+        description: Object.values(nextErrors)[0],
         variant: "destructive",
       })
       return
     }
 
+    setFieldErrors({})
     setIsLoading(true)
 
     try {
-      const data = await fetchJson<{ token: string; user: unknown }>("/auth/register", {
+      const data = await fetchJson<AuthSession>("/auth/register", {
         method: "POST",
         body: JSON.stringify({
           name: trimmedName,
@@ -97,9 +106,21 @@ export function RegisterForm() {
       })
       router.push("/profile")
     } catch (error) {
+      const message = error instanceof Error ? error.message : "เกิดข้อผิดพลาดบางอย่าง"
+
+      if (message.includes("ชื่อ")) {
+        setFieldErrors((current) => ({ ...current, name: message }))
+      }
+      if (message.includes("อีเมล")) {
+        setFieldErrors((current) => ({ ...current, email: message }))
+      }
+      if (message.includes("รหัสผ่าน")) {
+        setFieldErrors((current) => ({ ...current, password: message }))
+      }
+
       toast({
         title: "สมัครสมาชิกไม่สำเร็จ",
-        description: error instanceof Error ? error.message : "เกิดข้อผิดพลาดบางอย่าง",
+        description: message,
         variant: "destructive",
       })
     } finally {
@@ -131,7 +152,8 @@ export function RegisterForm() {
                   แล้วเข้าสู่โลกฟุตบอลที่ไม่เหมือนใครกับ FootballAI
                 </h1>
                 <p className="mt-5 max-w-lg text-sm leading-7 text-muted-foreground">
-                  สมัครสมาชิกเพื่อเริ่มใช้งาน FootballAI แบบเต็มรูปแบบ ไม่ว่าจะเป็นการติดตามสถิติ การทำนายผล และการมีส่วนร่วมในคอมมูนิตี้ฟุตบอล
+                  สมัครสมาชิกเพื่อเริ่มใช้งาน FootballAI แบบเต็มรูปแบบ ไม่ว่าจะเป็นการติดตามสถิติ การทำนายผล
+                  และการมีส่วนร่วมในคอมมูนิตี้ฟุตบอล
                 </p>
               </div>
 
@@ -175,11 +197,15 @@ export function RegisterForm() {
                       type="text"
                       placeholder="ชื่อของคุณ"
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      onChange={(e) => {
+                        setName(e.target.value)
+                        setFieldErrors((current) => ({ ...current, name: undefined }))
+                      }}
                       className="h-12 rounded-xl border-border/80 bg-secondary/35 pl-10"
                       required
                     />
                   </div>
+                  {fieldErrors.name ? <p className="text-sm text-destructive">{fieldErrors.name}</p> : null}
                 </div>
 
                 <div className="space-y-2">
@@ -193,11 +219,15 @@ export function RegisterForm() {
                       type="email"
                       placeholder="your@email.com"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        setEmail(e.target.value)
+                        setFieldErrors((current) => ({ ...current, email: undefined }))
+                      }}
                       className="h-12 rounded-xl border-border/80 bg-secondary/35 pl-10"
                       required
                     />
                   </div>
+                  {fieldErrors.email ? <p className="text-sm text-destructive">{fieldErrors.email}</p> : null}
                 </div>
 
                 <div className="grid gap-5 sm:grid-cols-2">
@@ -212,11 +242,15 @@ export function RegisterForm() {
                         type="password"
                         placeholder="อย่างน้อย 6 ตัวอักษร"
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        onChange={(e) => {
+                          setPassword(e.target.value)
+                          setFieldErrors((current) => ({ ...current, password: undefined, confirmPassword: undefined }))
+                        }}
                         className="h-12 rounded-xl border-border/80 bg-secondary/35 pl-10"
                         required
                       />
                     </div>
+                    {fieldErrors.password ? <p className="text-sm text-destructive">{fieldErrors.password}</p> : null}
                   </div>
 
                   <div className="space-y-2">
@@ -230,11 +264,17 @@ export function RegisterForm() {
                         type="password"
                         placeholder="กรอกรหัสผ่านอีกครั้ง"
                         value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        onChange={(e) => {
+                          setConfirmPassword(e.target.value)
+                          setFieldErrors((current) => ({ ...current, confirmPassword: undefined }))
+                        }}
                         className="h-12 rounded-xl border-border/80 bg-secondary/35 pl-10"
                         required
                       />
                     </div>
+                    {fieldErrors.confirmPassword ? (
+                      <p className="text-sm text-destructive">{fieldErrors.confirmPassword}</p>
+                    ) : null}
                   </div>
                 </div>
 

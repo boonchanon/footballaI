@@ -7,12 +7,14 @@ import { motion } from "framer-motion"
 import { ArrowRight, CheckCircle2, KeyRound, Lock } from "lucide-react"
 import { useState } from "react"
 
+import { fetchJson } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { fetchJson } from "@/lib/api-client"
+
+type ResetField = "password" | "confirmPassword"
 
 export function ResetPasswordForm() {
   const searchParams = useSearchParams()
@@ -23,37 +25,41 @@ export function ResetPasswordForm() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<ResetField, string>>>({})
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
 
+    const nextErrors: Partial<Record<ResetField, string>> = {}
+
     if (!resetToken) {
       toast({
-        title: "Missing reset token",
-        description: "Verify your OTP again before setting a new password.",
+        title: "ลิงก์ไม่ถูกต้อง",
+        description: "กรุณายืนยัน OTP ใหม่ก่อนตั้งรหัสผ่านใหม่",
         variant: "destructive",
       })
       return
     }
 
     if (password.length < 6) {
-      toast({
-        title: "Password too short",
-        description: "Use at least 6 characters.",
-        variant: "destructive",
-      })
-      return
+      nextErrors.password = "รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร"
     }
 
     if (password !== confirmPassword) {
+      nextErrors.confirmPassword = "รหัสผ่านและยืนยันรหัสผ่านต้องตรงกัน"
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors)
       toast({
-        title: "Password mismatch",
-        description: "The confirmation password does not match.",
+        title: "รีเซ็ตรหัสผ่านไม่สำเร็จ",
+        description: Object.values(nextErrors)[0],
         variant: "destructive",
       })
       return
     }
 
+    setFieldErrors({})
     setIsLoading(true)
 
     try {
@@ -64,14 +70,20 @@ export function ResetPasswordForm() {
 
       setIsSuccess(true)
       toast({
-        title: "Password updated",
-        description: "You can sign in with your new password now.",
+        title: "เปลี่ยนรหัสผ่านแล้ว",
+        description: "ตอนนี้คุณเข้าสู่ระบบด้วยรหัสผ่านใหม่ได้เลย",
       })
       window.setTimeout(() => router.push("/login"), 1200)
     } catch (error) {
+      const message = error instanceof Error ? error.message : "เกิดข้อผิดพลาดบางอย่าง"
+
+      if (message.includes("รหัสผ่าน")) {
+        setFieldErrors((current) => ({ ...current, password: message }))
+      }
+
       toast({
-        title: "Reset failed",
-        description: error instanceof Error ? error.message : "Something went wrong",
+        title: "รีเซ็ตรหัสผ่านไม่สำเร็จ",
+        description: message,
         variant: "destructive",
       })
     } finally {
@@ -86,53 +98,61 @@ export function ResetPasswordForm() {
           <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10">
             {isSuccess ? <CheckCircle2 className="h-7 w-7 text-primary" /> : <KeyRound className="h-7 w-7 text-primary" />}
           </div>
-          <CardTitle className="text-2xl font-display">{isSuccess ? "Password updated" : "Create new password"}</CardTitle>
+          <CardTitle className="text-2xl font-display">{isSuccess ? "เปลี่ยนรหัสผ่านแล้ว" : "ตั้งรหัสผ่านใหม่"}</CardTitle>
           <CardDescription>
-            {isSuccess ? "Your password has been changed successfully." : "Enter your new password below."}
+            {isSuccess ? "รหัสผ่านของคุณถูกอัปเดตเรียบร้อยแล้ว" : "กรอกรหัสผ่านใหม่และยืนยันอีกครั้ง"}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {isSuccess ? (
             <Button type="button" className="h-11 w-full" onClick={() => router.push("/login")}>
-              Back to login
+              กลับไปหน้าเข้าสู่ระบบ
             </Button>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="password">New password</Label>
+                <Label htmlFor="password">รหัสผ่านใหม่</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="password"
                     type="password"
-                    placeholder="At least 6 characters"
+                    placeholder="อย่างน้อย 6 ตัวอักษร"
                     value={password}
-                    onChange={(event) => setPassword(event.target.value)}
+                    onChange={(event) => {
+                      setPassword(event.target.value)
+                      setFieldErrors((current) => ({ ...current, password: undefined, confirmPassword: undefined }))
+                    }}
                     className="pl-10"
                     required
                   />
                 </div>
+                {fieldErrors.password ? <p className="text-sm text-destructive">{fieldErrors.password}</p> : null}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm password</Label>
+                <Label htmlFor="confirmPassword">ยืนยันรหัสผ่าน</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="confirmPassword"
                     type="password"
-                    placeholder="Enter the same password again"
+                    placeholder="กรอกรหัสผ่านเดิมอีกครั้ง"
                     value={confirmPassword}
-                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    onChange={(event) => {
+                      setConfirmPassword(event.target.value)
+                      setFieldErrors((current) => ({ ...current, confirmPassword: undefined }))
+                    }}
                     className="pl-10"
                     required
                   />
                 </div>
+                {fieldErrors.confirmPassword ? <p className="text-sm text-destructive">{fieldErrors.confirmPassword}</p> : null}
               </div>
 
               <Button type="submit" className="h-11 w-full" disabled={isLoading}>
-                {isLoading ? "Updating password..." : "Update password"}
-                {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
+                {isLoading ? "กำลังอัปเดตรหัสผ่าน..." : "อัปเดตรหัสผ่าน"}
+                {!isLoading ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
               </Button>
             </form>
           )}
@@ -140,7 +160,7 @@ export function ResetPasswordForm() {
         <CardFooter className="justify-center border-t border-border pt-6">
           <p className="text-sm text-muted-foreground">
             <Link href="/login" className="font-medium text-primary hover:underline">
-              Return to login
+              กลับไปหน้าเข้าสู่ระบบ
             </Link>
           </p>
         </CardFooter>
