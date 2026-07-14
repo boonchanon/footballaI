@@ -27,7 +27,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       content,
     })
 
-    post.commentsCount += 1
+    const nextComments = Math.max(Number(post.commentsCount || 0), Array.isArray(post.comments) ? post.comments.length : 0) + 1
+    post.commentsCount = nextComments
+    if (Array.isArray(post.comments)) {
+      post.comments = [
+        ...post.comments,
+        {
+          user: user._id,
+          content,
+          createdAt: comment.createdAt,
+        },
+      ]
+    }
     await post.save()
 
     const populated = await comment.populate("user", "name avatar favoriteTeam")
@@ -40,11 +51,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           timeAgo: getTimeAgoThai(populated.createdAt),
           user: {
             id: populated.user?._id?.toString?.() || "",
-            name: populated.user?.name || "ผู้ใช้งาน",
+            name: populated.user?.name || "?????????",
             avatar: populated.user?.avatar || "",
           },
         },
-        commentsCount: post.commentsCount,
+        commentsCount: nextComments,
       },
       { status: 201 },
     )

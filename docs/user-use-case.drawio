@@ -1,0 +1,178 @@
+<mxfile host="app.diagrams.net" modified="2026-03-19T00:00:00.000Z" agent="Codex" version="24.7.17">
+  <diagram id="user-use-case" name="User Use Case">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="2" value="Guest" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="170" width="40" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="3" value="User" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="480" width="40" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="4" value="FootballAI" style="rounded=0;whiteSpace=wrap;html=1;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="140" y="40" width="1360" height="820" as="geometry" />
+        </mxCell>
+        <mxCell id="5" value="Authentication" style="text;html=1;align=center;verticalAlign=middle;fontStyle=1;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="210" y="70" width="240" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="6" value="Profile" style="text;html=1;align=center;verticalAlign=middle;fontStyle=1;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="520" y="70" width="220" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="7" value="Community" style="text;html=1;align=center;verticalAlign=middle;fontStyle=1;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="810" y="70" width="300" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="8" value="Favorites &amp; Activity" style="text;html=1;align=center;verticalAlign=middle;fontStyle=1;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="1170" y="70" width="240" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="10" value="สมัครสมาชิก" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="210" y="120" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="11" value="เข้าสู่ระบบ" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="210" y="200" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="12" value="เข้าสู่ระบบด้วย Google/GitHub" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="210" y="280" width="240" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="13" value="ลืมรหัสผ่าน" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="210" y="360" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="14" value="ยืนยัน OTP" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="210" y="440" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="15" value="ตั้งรหัสผ่านใหม่" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="210" y="520" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="20" value="ดูโปรไฟล์ตัวเอง" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="520" y="170" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="21" value="แก้ไขโปรไฟล์" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="520" y="260" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="22" value="เปลี่ยนรหัสผ่าน" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="520" y="350" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="23" value="ลบบัญชี" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="520" y="440" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="30" value="ดูโพสต์คอมมูนิตี้" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="830" y="120" width="240" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="31" value="สร้างโพสต์" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="830" y="210" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="32" value="แก้ไขโพสต์ตัวเอง" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="830" y="300" width="240" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="33" value="ลบโพสต์ตัวเอง" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="830" y="390" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="34" value="คอมเมนต์โพสต์" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="830" y="480" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="35" value="แก้ไขคอมเมนต์ตัวเอง" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="830" y="570" width="250" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="36" value="ลบคอมเมนต์ตัวเอง" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="830" y="660" width="240" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="37" value="กดไลก์โพสต์" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="260" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="38" value="รายงานโพสต์" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="350" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="40" value="บันทึกรายการโปรด" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="140" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="41" value="ลบรายการโปรด" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="230" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="42" value="ดูประวัติการทำนาย" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="470" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="43" value="ลบประวัติการทำนาย" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="560" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="44" value="ดูกิจกรรมของตัวเอง" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="650" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="100" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="2" target="10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="101" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="2" target="11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="102" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="2" target="12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="103" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="2" target="13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="104" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="2" target="30">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="105" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="3" target="20">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="106" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="3" target="21">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="107" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="3" target="22">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="108" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="3" target="23">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="109" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="3" target="30">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="110" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="3" target="31">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="111" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="3" target="32">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="112" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="3" target="33">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="113" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="3" target="34">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="114" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="3" target="35">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="115" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="3" target="36">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="116" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="3" target="37">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="117" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="3" target="38">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="118" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="3" target="40">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="119" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="3" target="41">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="120" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="3" target="42">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="121" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="3" target="43">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="122" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="3" target="44">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="130" value="&lt;&lt;include&gt;&gt;" style="endArrow=block;dashed=1;html=1;rounded=0;" edge="1" parent="1" source="13" target="14">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="131" value="&lt;&lt;include&gt;&gt;" style="endArrow=block;dashed=1;html=1;rounded=0;" edge="1" parent="1" source="14" target="15">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

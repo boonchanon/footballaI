@@ -33,10 +33,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="th" suppressHydrationWarning>
-      <body className="font-sans antialiased">
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-          {children}
+    <html lang="th" suppressHydrationWarning className="bg-background text-foreground">
+      <body className="min-h-screen bg-background font-sans text-foreground antialiased">
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange storageKey="footballai-theme-v3">
+          <div className="min-h-screen bg-background text-foreground">
+            {children}
+          </div>
         </ThemeProvider>
         <Analytics />
       </body>

@@ -2,6 +2,9 @@ const User = require("../models/user.model")
 const { ApiError } = require("../utils/api-error")
 const { verifyToken } = require("../utils/jwt")
 
+const ADMIN_ROLES = ["superadmin", "admin", "admincommunity"]
+const FULL_ADMIN_ROLES = ["superadmin", "admin"]
+
 async function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization || ""
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null
@@ -25,10 +28,24 @@ async function requireAuth(req, res, next) {
 }
 
 function requireAdmin(req, res, next) {
-  if (!req.user || req.user.role !== "admin") {
+  if (!req.user || !FULL_ADMIN_ROLES.includes(req.user.role)) {
     return next(new ApiError(403, "Admin access required"))
   }
   next()
 }
 
-module.exports = { requireAuth, requireAdmin }
+function requireAnyAdmin(req, res, next) {
+  if (!req.user || !ADMIN_ROLES.includes(req.user.role)) {
+    return next(new ApiError(403, "Admin access required"))
+  }
+  next()
+}
+
+function requireCommunityAdmin(req, res, next) {
+  if (!req.user || !["superadmin", "admincommunity"].includes(req.user.role)) {
+    return next(new ApiError(403, "Community admin access required"))
+  }
+  next()
+}
+
+module.exports = { requireAuth, requireAdmin, requireAnyAdmin, requireCommunityAdmin }

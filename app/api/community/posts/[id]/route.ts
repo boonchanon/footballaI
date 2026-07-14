@@ -2,6 +2,7 @@ import { NextRequest } from "next/server"
 
 import { getAuthUser, requireAuthUser } from "@/lib/server/auth"
 import { mapCommunityPost } from "@/lib/server/community"
+import { getLegacyComments, getLegacyLikeState } from "@/lib/server/community-admin"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, getTimeAgoThai, ok } from "@/lib/server/http"
 import { Comment, CommunityPost, PostLike } from "@/lib/server/models"
@@ -17,28 +18,50 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return errorResponse("Post not found", 404)
     }
 
-    await CommunityPost.findByIdAndUpdate(post._id, { $inc: { viewsCount: 1 } })
+    const nextViews = Math.max(Number(post.viewsCount || 0), Number(post.views || 0)) + 1
+    post.viewsCount = nextViews
+    if (typeof post.views === "number") {
+      post.views = nextViews
+    }
+    await post.save()
+
     const isLiked = viewer ? await PostLike.exists({ post: post._id, user: viewer._id }) : false
-    const comments = await Comment.find({ targetType: "post", targetId: post._id.toString(), isApproved: true })
+    const legacyLiked = viewer ? getLegacyLikeState(post, viewer._id.toString()) : false
+
+    const dbComments = await Comment.find({ targetType: "post", targetId: post._id.toString(), isApproved: true })
       .populate("user", "name avatar favoriteTeam")
       .sort({ createdAt: -1 })
 
+    const comments =
+      dbComments.length > 0
+        ? dbComments.map((comment: any) => ({
+            id: comment._id.toString(),
+            content: comment.content,
+            createdAt: comment.createdAt,
+            timeAgo: getTimeAgoThai(comment.createdAt),
+            user: {
+              id: comment.user?._id?.toString?.() || "",
+              name: comment.user?.name || "?????????",
+              avatar: comment.user?.avatar || "",
+            },
+          }))
+        : getLegacyComments(post).map((comment: any, index: number) => ({
+            id: comment?._id?.toString?.() || `legacy-${post._id.toString()}-${index}`,
+            content: comment?.content || comment?.text || "",
+            createdAt: comment?.createdAt || post.createdAt,
+            timeAgo: getTimeAgoThai(comment?.createdAt || post.createdAt),
+            user: {
+              id: comment?.user?._id?.toString?.() || comment?.user?.toString?.() || "",
+              name: comment?.user?.name || comment?.authorName || "?????????",
+              avatar: comment?.user?.avatar || "",
+            },
+          }))
+
     return ok({
       item: {
-        ...mapCommunityPost(post, viewer, new Set(isLiked ? [post._id.toString()] : [])),
-        views: post.viewsCount + 1,
+        ...mapCommunityPost(post, viewer, new Set(isLiked || legacyLiked ? [post._id.toString()] : [])),
       },
-      comments: comments.map((comment: any) => ({
-        id: comment._id.toString(),
-        content: comment.content,
-        createdAt: comment.createdAt,
-        timeAgo: getTimeAgoThai(comment.createdAt),
-        user: {
-          id: comment.user?._id?.toString?.() || "",
-          name: comment.user?.name || "ผู้ใช้งาน",
-          avatar: comment.user?.avatar || "",
-        },
-      })),
+      comments,
     })
   } catch (error) {
     return errorResponse(error instanceof Error ? error.message : "Failed to load post", 500)
@@ -57,11 +80,21 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return errorResponse("Not allowed to delete this post", 403)
     }
 
+    const sharedPostId =
+      post.sharedItem && typeof post.sharedItem === "object" && post.sharedItem.type === "post" && typeof post.sharedItem.postId === "string"
+        ? post.sharedItem.postId
+        : ""
+
     await Promise.all([
       CommunityPost.findByIdAndDelete(post._id),
+      sharedPostId ? CommunityPost.findByIdAndUpdate(sharedPostId, { $inc: { repostsCount: -1 } }) : Promise.resolve(null),
       PostLike.deleteMany({ post: post._id }),
       Comment.deleteMany({ targetType: "post", targetId: post._id.toString() }),
     ])
+
+    if (sharedPostId) {
+      await CommunityPost.updateOne({ _id: sharedPostId, repostsCount: { $lt: 0 } }, { $set: { repostsCount: 0 } })
+    }
 
     return ok({ message: "Post deleted" })
   } catch (error) {

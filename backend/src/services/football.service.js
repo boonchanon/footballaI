@@ -240,10 +240,24 @@ async function getTopAssists() {
 
 async function getPlayerStatsSummary() {
   return withMockFallback(async () => {
-    const [scorers, assists] = await Promise.all([
-      fetchFromFootballApi(`/players/topscorers?league=${PREMIER_LEAGUE_ID}&season=${CURRENT_SEASON}`),
-      fetchFromFootballApi(`/players/topassists?league=${PREMIER_LEAGUE_ID}&season=${CURRENT_SEASON}`)
-    ])
+    let scorers = { response: [] }
+    let assists = { response: [] }
+
+    try {
+      scorers = await fetchFromFootballApi(`/players/topscorers?league=${PREMIER_LEAGUE_ID}&season=${CURRENT_SEASON}`)
+    } catch (error) {
+      scorers = { response: [] }
+    }
+
+    try {
+      assists = await fetchFromFootballApi(`/players/topassists?league=${PREMIER_LEAGUE_ID}&season=${CURRENT_SEASON}`)
+    } catch (error) {
+      assists = { response: [] }
+    }
+
+    if ((scorers.response || []).length === 0 && (assists.response || []).length === 0) {
+      throw new ApiError(502, "Player stats summary could not be built from API-Football")
+    }
 
     const merged = new Map()
     ;[...(scorers.response || []), ...(assists.response || [])].forEach((item) => {
@@ -352,14 +366,14 @@ async function getPlayerDetails(playerId) {
           date: item.date,
           type: item.type,
           fromTeam: {
-            id: String(item.teams.out.id),
-            name: translateTeamName(item.teams.out.name),
-            logo: item.teams.out.logo
+            id: String(item.teams?.out?.id || ""),
+            name: translateTeamName(item.teams?.out?.name || ""),
+            logo: item.teams?.out?.logo || ""
           },
           toTeam: {
-            id: String(item.teams.in.id),
-            name: translateTeamName(item.teams.in.name),
-            logo: item.teams.in.logo
+            id: String(item.teams?.in?.id || ""),
+            name: translateTeamName(item.teams?.in?.name || ""),
+            logo: item.teams?.in?.logo || ""
           }
         }))
       },

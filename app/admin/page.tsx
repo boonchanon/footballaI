@@ -1,184 +1,191 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Calendar, Newspaper, TrendingUp, Eye, Activity, ArrowUpRight, ArrowDownRight } from "lucide-react"
+"use client"
+
+import { useEffect, useState } from "react"
 import Link from "next/link"
+import { Activity, ArrowRight, Calendar, Eye, MessageSquare, Newspaper, Shield, TrendingUp, Users } from "lucide-react"
 
-const stats = [
-  {
-    title: "ผู้ใช้ทั้งหมด",
-    value: "12,543",
-    change: "+12.5%",
-    trend: "up",
-    icon: Users,
-    description: "เทียบกับเดือนที่แล้ว",
-  },
-  {
-    title: "แมตช์ที่กำลังแข่ง",
-    value: "48",
-    change: "+8.2%",
-    trend: "up",
-    icon: Calendar,
-    description: "สัปดาห์นี้",
-  },
-  {
-    title: "ข่าวที่เผยแพร่",
-    value: "256",
-    change: "+23.1%",
-    trend: "up",
-    icon: Newspaper,
-    description: "เดือนนี้",
-  },
-  {
-    title: "ยอดเข้าชม",
-    value: "1.2M",
-    change: "-2.4%",
-    trend: "down",
-    icon: Eye,
-    description: "เทียบกับสัปดาห์ที่แล้ว",
-  },
-]
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { fetchJson } from "@/lib/api-client"
+import { getAuthToken } from "@/lib/auth-client"
 
-const recentActivities = [
-  { action: "ผู้ใช้ใหม่ลงทะเบียน", user: "john@example.com", time: "2 นาทีที่แล้ว" },
-  { action: "อัปเดตผลการแข่งขัน", user: "admin", time: "15 นาทีที่แล้ว" },
-  { action: "เผยแพร่บทความข่าว", user: "editor", time: "1 ชั่วโมงที่แล้ว" },
-  { action: "เปลี่ยนบทบาทผู้ใช้", user: "admin", time: "2 ชั่วโมงที่แล้ว" },
-  { action: "สำรองข้อมูลระบบเสร็จสิ้น", user: "system", time: "3 ชั่วโมงที่แล้ว" },
-]
+type DashboardData = {
+  stats: {
+    totalUsers: number
+    totalAdmins: number
+    totalPosts: number
+    totalComments: number
+    totalReports: number
+    pendingReports: number
+    hiddenPosts: number
+    totalPredictions: number
+    totalFavorites: number
+  }
+  recentActivity: Array<{
+    id: string
+    action: string
+    actor: string
+    target: string
+    timeAgo: string
+  }>
+  topSections: Array<{
+    label: string
+    value: number
+    description: string
+  }>
+}
 
-const topPages = [
-  { page: "/matches", views: "45,234", percentage: 32 },
-  { page: "/standings", views: "32,456", percentage: 23 },
-  { page: "/players", views: "28,123", percentage: 20 },
-  { page: "/news", views: "18,567", percentage: 13 },
-  { page: "/ai-prediction", views: "16,890", percentage: 12 },
-]
+const statCards = [
+  { key: "totalUsers", title: "ผู้ใช้ทั้งหมด", icon: Users, color: "text-cyan-400" },
+  { key: "totalPosts", title: "โพสต์คอมมูนิตี้", icon: Newspaper, color: "text-lime-400" },
+  { key: "pendingReports", title: "รายงานรอตรวจ", icon: Shield, color: "text-amber-400" },
+  { key: "totalPredictions", title: "การทำนาย AI", icon: TrendingUp, color: "text-fuchsia-400" },
+] as const
 
 export default function AdminDashboard() {
+  const [data, setData] = useState<DashboardData | null>(null)
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const token = getAuthToken()
+    if (!token) {
+      setError("ไม่พบสิทธิ์แอดมิน กรุณาเข้าสู่ระบบใหม่")
+      setLoading(false)
+      return
+    }
+
+    fetchJson<DashboardData>("/admin/dashboard", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(setData)
+      .catch((fetchError) => setError(fetchError instanceof Error ? fetchError.message : "โหลดแดชบอร์ดไม่สำเร็จ"))
+      .finally(() => setLoading(false))
+  }, [])
+
   return (
     <div className="space-y-6">
-      {/* Page Header */}
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold">แดชบอร์ด</h1>
-        <p className="text-muted-foreground">ยินดีต้อนรับกลับ ผู้ดูแลระบบ นี่คือสิ่งที่เกิดขึ้นวันนี้</p>
+        <h1 className="text-2xl font-bold md:text-3xl">แดชบอร์ด</h1>
+        <p className="text-muted-foreground">ภาพรวมข้อมูลจริงจาก MongoDB สำหรับการดูแลระบบ</p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => (
-          <Card key={stat.title}>
+      {error ? (
+        <Card>
+          <CardContent className="p-6 text-sm text-destructive">{error}</CardContent>
+        </Card>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {statCards.map((item) => (
+          <Card key={item.key}>
             <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <stat.icon className="h-5 w-5 text-primary" />
+              {loading || !data ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-5 w-24" />
+                  <Skeleton className="h-8 w-20" />
                 </div>
-                <div className={`flex items-center gap-1 text-sm ${
-                  stat.trend === "up" ? "text-green-500" : "text-red-500"
-                }`}>
-                  {stat.trend === "up" ? (
-                    <ArrowUpRight className="h-4 w-4" />
-                  ) : (
-                    <ArrowDownRight className="h-4 w-4" />
-                  )}
-                  {stat.change}
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">{item.title}</p>
+                    <item.icon className={`h-5 w-5 ${item.color}`} />
+                  </div>
+                  <p className="text-3xl font-bold">{data.stats[item.key]}</p>
                 </div>
-              </div>
-              <div className="mt-4">
-                <p className="text-2xl font-bold">{stat.value}</p>
-                <p className="text-sm text-muted-foreground">{stat.title}</p>
-              </div>
+              )}
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Activity */}
-        <Card className="lg:col-span-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <Card className="xl:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />
               กิจกรรมล่าสุด
             </CardTitle>
-            <CardDescription>การดำเนินการล่าสุดบนแพลตฟอร์ม</CardDescription>
+            <CardDescription>รายการล่าสุดจากผู้ใช้ คอมมูนิตี้ และรายงาน</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentActivities.map((activity, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between py-3 border-b border-border last:border-0"
-                >
-                  <div>
+          <CardContent className="space-y-4">
+            {loading ? (
+              Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-14 w-full" />)
+            ) : data?.recentActivity.length ? (
+              data.recentActivity.map((activity) => (
+                <div key={activity.id} className="flex items-start justify-between gap-4 rounded-xl border border-border p-4">
+                  <div className="space-y-1">
                     <p className="font-medium">{activity.action}</p>
-                    <p className="text-sm text-muted-foreground">โดย {activity.user}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {activity.actor} • {activity.target}
+                    </p>
                   </div>
-                  <span className="text-sm text-muted-foreground">{activity.time}</span>
+                  <span className="shrink-0 text-sm text-muted-foreground">{activity.timeAgo}</span>
                 </div>
-              ))}
-            </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">ยังไม่พบกิจกรรมในระบบ</p>
+            )}
           </CardContent>
         </Card>
 
-        {/* Top Pages */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              หน้ายอดนิยม
+              <Eye className="h-5 w-5" />
+              หมวดที่มีข้อมูลมากสุด
             </CardTitle>
-            <CardDescription>หน้าที่มีผู้เข้าชมมากที่สุดในสัปดาห์นี้</CardDescription>
+            <CardDescription>สรุปจาก collection ที่ใช้งานจริง</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {topPages.map((page, index) => (
-                <div key={index} className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium">{page.page}</span>
-                    <span className="text-muted-foreground">{page.views}</span>
+          <CardContent className="space-y-4">
+            {loading ? (
+              Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-16 w-full" />)
+            ) : (
+              data?.topSections.map((section) => (
+                <div key={section.label} className="rounded-xl border border-border p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium">{section.label}</p>
+                    <p className="text-xl font-bold">{section.value}</p>
                   </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary rounded-full"
-                      style={{ width: `${page.percentage}%` }}
-                    />
-                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">{section.description}</p>
                 </div>
-              ))}
-            </div>
+              ))
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Quick Actions */}
       <Card>
         <CardHeader>
-          <CardTitle>การดำเนินการด่วน</CardTitle>
-          <CardDescription>งานบริหารทั่วไป</CardDescription>
+          <CardTitle>ทางลัด</CardTitle>
+          <CardDescription>ไปยังหน้าที่ใช้บ่อยในระบบแอดมิน</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Link href="/admin/users/add" className="p-4 rounded-lg border border-border hover:bg-muted transition-colors text-left">
-              <Users className="h-6 w-6 text-primary mb-2" />
-              <p className="font-medium">เพิ่มผู้ใช้</p>
-              <p className="text-sm text-muted-foreground">สร้างบัญชีใหม่</p>
+        <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-4">
+          <Button asChild variant="outline" className="justify-between">
+            <Link href="/admin/users">
+              จัดการผู้ใช้
+              <ArrowRight className="h-4 w-4" />
             </Link>
-            <Link href="/admin/matches/add" className="p-4 rounded-lg border border-border hover:bg-muted transition-colors text-left">
-              <Calendar className="h-6 w-6 text-primary mb-2" />
-              <p className="font-medium">เพิ่มแมตช์</p>
-              <p className="text-sm text-muted-foreground">กำหนดการแข่งขันใหม่</p>
+          </Button>
+          <Button asChild variant="outline" className="justify-between">
+            <Link href="/admin/community">
+              คุมคอมมูนิตี้
+              <MessageSquare className="h-4 w-4" />
             </Link>
-            <Link href="/admin/news" className="p-4 rounded-lg border border-border hover:bg-muted transition-colors text-left">
-              <Newspaper className="h-6 w-6 text-primary mb-2" />
-              <p className="font-medium">เขียนข่าว</p>
-              <p className="text-sm text-muted-foreground">เผยแพร่บทความ</p>
+          </Button>
+          <Button asChild variant="outline" className="justify-between">
+            <Link href="/admin/community/reports">
+              ดูรายงาน
+              <Shield className="h-4 w-4" />
             </Link>
-            <Link href="/admin/analytics" className="p-4 rounded-lg border border-border hover:bg-muted transition-colors text-left">
-              <TrendingUp className="h-6 w-6 text-primary mb-2" />
-              <p className="font-medium">ดูรายงาน</p>
-              <p className="text-sm text-muted-foreground">ข้อมูลวิเคราะห์</p>
+          </Button>
+          <Button asChild variant="outline" className="justify-between">
+            <Link href="/admin/matches">
+              แมตช์และโปรแกรม
+              <Calendar className="h-4 w-4" />
             </Link>
-          </div>
+          </Button>
         </CardContent>
       </Card>
     </div>

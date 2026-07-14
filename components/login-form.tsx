@@ -4,7 +4,7 @@ import type React from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
-import { ArrowRight, Github, Lock, LogIn, Mail, ShieldCheck, Sparkles, Trophy } from "lucide-react"
+import { ArrowRight, Lock, LogIn, Mail, ShieldCheck, Sparkles, Trophy } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { saveAuthSession } from "@/lib/auth-client"
@@ -16,29 +16,29 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 
-type LoginField = "email" | "password"
+type OauthProvider = "" | "google"
 
 const highlights = [
   {
     icon: Sparkles,
     title: "อินไซต์การแข่งขันอัจฉริยะ",
-    description: "ติดตามทรรศนะจาก AI ตัวจริง และสถิติสำคัญได้ในที่เดียว",
+    description: "ติดตามทรรศนะจาก AI และข้อมูลสำคัญของแต่ละเกมได้ในที่เดียว",
   },
   {
     icon: Trophy,
     title: "คอมมูนิตี้คอบอล",
-    description: "ร่วมคุยก่อนเกม แชร์มุมมอง และบันทึกทีมกับนักเตะที่คุณชอบ",
+    description: "คุยก่อนเกม แชร์มุมมอง และบันทึกทีมกับนักเตะที่คุณชอบไว้ได้ครบ",
   },
   {
     icon: ShieldCheck,
-    title: "เข้าใช้งานอย่างปลอดภัย",
-    description: "ล็อกอินด้วยอีเมล หรือใช้งานต่อผ่าน Google และ GitHub ได้ทันที",
+    title: "ล็อกอินแบบเรียบและชัด",
+    description: "ใช้ Google หรืออีเมลกับรหัสผ่านเพื่อเข้าสู่ระบบได้ทันที โดยตัดช่องทางที่ยังไม่จำเป็นออก",
   },
 ]
 
 function GoogleMark() {
   return (
-    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[11px] font-bold text-black shadow-sm">
+    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-card text-[11px] font-bold text-foreground shadow-sm dark:bg-white dark:text-black">
       G
     </span>
   )
@@ -52,8 +52,7 @@ export function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [oauthLoading, setOauthLoading] = useState<"" | "google" | "github">("")
-  const [fieldErrors, setFieldErrors] = useState<Partial<Record<LoginField, string>>>({})
+  const [oauthLoading, setOauthLoading] = useState<OauthProvider>("")
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -69,37 +68,33 @@ export function LoginForm() {
     })
   }, [searchParams, toast])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
 
     const trimmedEmail = email.trim()
-    const nextErrors: Partial<Record<LoginField, string>> = {}
-
     if (!isValidEmail(trimmedEmail)) {
-      nextErrors.email = "กรุณากรอกอีเมลให้ถูกต้อง"
-    }
-
-    if (!password) {
-      nextErrors.password = "กรุณากรอกรหัสผ่าน"
-    }
-
-    if (Object.keys(nextErrors).length > 0) {
-      setFieldErrors(nextErrors)
       toast({
-        title: "เข้าสู่ระบบไม่สำเร็จ",
-        description: Object.values(nextErrors)[0],
+        title: "ข้อมูลไม่ถูกต้อง",
+        description: "กรุณากรอกอีเมลให้ถูกต้อง",
         variant: "destructive",
       })
       return
     }
 
-    setFieldErrors({})
-    setIsLoading(true)
+    if (!password) {
+      toast({
+        title: "ข้อมูลไม่ครบ",
+        description: "กรุณากรอกรหัสผ่าน",
+        variant: "destructive",
+      })
+      return
+    }
 
+    setIsLoading(true)
     try {
       const data = await fetchJson<AuthSession>("/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email: trimmedEmail, password }),
+        body: JSON.stringify({ identifier: trimmedEmail, password }),
       })
 
       saveAuthSession(data)
@@ -109,18 +104,9 @@ export function LoginForm() {
       })
       router.push("/profile")
     } catch (error) {
-      const message = error instanceof Error ? error.message : "เกิดข้อผิดพลาดบางอย่าง"
-
-      if (message.includes("อีเมล")) {
-        setFieldErrors((current) => ({ ...current, email: message }))
-      }
-      if (message.includes("รหัสผ่าน")) {
-        setFieldErrors((current) => ({ ...current, password: message }))
-      }
-
       toast({
         title: "เข้าสู่ระบบไม่สำเร็จ",
-        description: message,
+        description: error instanceof Error ? error.message : "เกิดข้อผิดพลาดบางอย่าง",
         variant: "destructive",
       })
     } finally {
@@ -128,7 +114,7 @@ export function LoginForm() {
     }
   }
 
-  const handleOauthLogin = (provider: "google" | "github") => {
+  const handleOauthLogin = (provider: Exclude<OauthProvider, "">) => {
     setOauthLoading(provider)
     window.location.href = `/api/auth/oauth/${provider}/start`
   }
@@ -140,16 +126,16 @@ export function LoginForm() {
       transition={{ duration: 0.45, ease: "easeOut" }}
       className="w-full max-w-6xl"
     >
-      <Card className="overflow-hidden border-border/70 bg-card/90 shadow-[0_30px_80px_rgba(0,0,0,0.45)] backdrop-blur">
+      <Card className="overflow-hidden border-border/70 bg-card/90 shadow-[0_30px_80px_rgba(114,95,57,0.14)] backdrop-blur dark:shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
         <CardContent className="grid p-0 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="relative hidden overflow-hidden border-r border-border/70 lg:block">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(229,184,48,0.22),transparent_35%),radial-gradient(circle_at_80%_20%,rgba(185,28,28,0.22),transparent_28%),linear-gradient(180deg,#0b0b0e_0%,#050507_100%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(229,184,48,0.18),transparent_35%),radial-gradient(circle_at_80%_20%,rgba(185,28,28,0.12),transparent_28%),linear-gradient(180deg,#f8f3ea_0%,#efe5d2_100%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(229,184,48,0.22),transparent_35%),radial-gradient(circle_at_80%_20%,rgba(185,28,28,0.22),transparent_28%),linear-gradient(180deg,#0b0b0e_0%,#050507_100%)]" />
             <div className="absolute inset-0 bg-[linear-gradient(130deg,transparent_0%,rgba(255,255,255,0.04)_35%,transparent_70%)]" />
             <div className="relative flex h-full flex-col justify-between p-10">
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-primary">
                   <LogIn className="h-3.5 w-3.5" />
-                  ทางเข้าสมาชิก
+                  ช่องทางเข้าสมาชิก
                 </div>
                 <h1 className="mt-8 max-w-md font-display text-5xl leading-[0.95] text-foreground">
                   เข้าสู่ระบบ
@@ -164,7 +150,7 @@ export function LoginForm() {
 
               <div className="space-y-4">
                 {highlights.map(({ icon: Icon, title, description }) => (
-                  <div key={title} className="flex items-start gap-4 rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                  <div key={title} className="flex items-start gap-4 rounded-2xl border border-border/60 bg-card/75 p-4 dark:border-white/8 dark:bg-white/[0.03]">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary">
                       <Icon className="h-5 w-5" />
                     </div>
@@ -178,7 +164,7 @@ export function LoginForm() {
             </div>
           </div>
 
-          <div className="relative bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent_16%)] p-6 sm:p-8 lg:p-10">
+          <div className="relative bg-[linear-gradient(180deg,rgba(184,137,23,0.06),transparent_16%)] p-6 sm:p-8 lg:p-10 dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent_16%)]">
             <div className="mx-auto max-w-md">
               <div className="mb-8 text-center lg:text-left">
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/12 text-primary lg:mx-0">
@@ -186,7 +172,7 @@ export function LoginForm() {
                 </div>
                 <h2 className="font-display text-3xl text-foreground">เข้าสู่ระบบ</h2>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  เลือกเข้าสู่ระบบผ่านโซเชียล หรือใช้อีเมลและรหัสผ่านของคุณ
+                  เลือกเข้าสู่ระบบผ่าน Google หรือใช้อีเมลกับรหัสผ่านของคุณ
                 </p>
               </div>
 
@@ -200,16 +186,6 @@ export function LoginForm() {
                 >
                   <GoogleMark />
                   <span className="ml-2">{oauthLoading === "google" ? "กำลังไปยัง Google..." : "เข้าสู่ระบบด้วย Google"}</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-12 w-full justify-center rounded-xl border-border/80 bg-secondary/40 text-foreground hover:bg-secondary"
-                  disabled={oauthLoading !== ""}
-                  onClick={() => handleOauthLogin("github")}
-                >
-                  <Github className="h-4 w-4" />
-                  <span className="ml-2">{oauthLoading === "github" ? "กำลังไปยัง GitHub..." : "เข้าสู่ระบบด้วย GitHub"}</span>
                 </Button>
               </div>
 
@@ -234,15 +210,11 @@ export function LoginForm() {
                       type="email"
                       placeholder="your@email.com"
                       value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value)
-                        setFieldErrors((current) => ({ ...current, email: undefined }))
-                      }}
+                      onChange={(e) => setEmail(e.target.value)}
                       className="h-12 rounded-xl border-border/80 bg-secondary/35 pl-10"
                       required
                     />
                   </div>
-                  {fieldErrors.email ? <p className="text-sm text-destructive">{fieldErrors.email}</p> : null}
                 </div>
 
                 <div className="space-y-2">
@@ -261,34 +233,22 @@ export function LoginForm() {
                       type="password"
                       placeholder="••••••••"
                       value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value)
-                        setFieldErrors((current) => ({ ...current, password: undefined }))
-                      }}
+                      onChange={(e) => setPassword(e.target.value)}
                       className="h-12 rounded-xl border-border/80 bg-secondary/35 pl-10"
                       required
                     />
                   </div>
-                  {fieldErrors.password ? <p className="text-sm text-destructive">{fieldErrors.password}</p> : null}
                 </div>
 
-                <Button type="submit" className="mt-2 h-12 w-full rounded-xl text-sm font-semibold" disabled={isLoading}>
-                  {isLoading ? (
-                    "กำลังเข้าสู่ระบบ..."
-                  ) : (
-                    <>
-                      เข้าสู่ระบบ FootballAI
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </>
-                  )}
+                <Button type="submit" className="h-12 w-full rounded-xl text-sm font-semibold" disabled={isLoading}>
+                  {isLoading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ FootballAI"}
+                  {!isLoading ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
                 </Button>
               </form>
 
               <div className="mt-6 rounded-2xl border border-primary/20 bg-primary/8 p-4 text-sm text-muted-foreground">
                 <p className="font-medium text-foreground">ยังไม่มีบัญชี?</p>
-                <p className="mt-1 leading-6">
-                  สมัครสมาชิกเพื่อบันทึกทีมโปรด ติดตามทรรศนะของคุณ และเข้าร่วมคอมมูนิตี้แฟนบอลของ FootballAI
-                </p>
+                <p className="mt-1 leading-6">สมัครสมาชิกเพื่อบันทึกทีมโปรดและเข้าร่วมคอมมูนิตี้แฟนบอลของ FootballAI</p>
                 <Link href="/register" className="mt-3 inline-flex items-center font-medium text-primary hover:underline">
                   สมัครสมาชิกตอนนี้
                   <ArrowRight className="ml-2 h-4 w-4" />

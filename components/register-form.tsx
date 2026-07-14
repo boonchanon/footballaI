@@ -4,7 +4,7 @@ import type React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { ArrowRight, CheckCircle2, Lock, Mail, ShieldCheck, Star, User, UserPlus, Users } from "lucide-react"
+import { ArrowRight, CheckCircle2, Lock, Mail, Phone, ShieldCheck, Star, User, UserPlus, Users } from "lucide-react"
 import { useState } from "react"
 
 import { saveAuthSession } from "@/lib/auth-client"
@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 
-type RegisterField = "name" | "email" | "password" | "confirmPassword"
+type RegisterField = "name" | "email" | "phone" | "password" | "confirmPassword"
 
 const highlights = [
   {
@@ -32,7 +32,7 @@ const highlights = [
   {
     icon: ShieldCheck,
     title: "บัญชีเดียวครบทุกการใช้งาน",
-    description: "ใช้บัญชีเดียวสำหรับการทำนายผล รายการโปรด โปรไฟล์ และการกู้คืนรหัสผ่าน",
+    description: "ใช้บัญชีเดียวสำหรับการทำนายผล รายการโปรด โปรไฟล์ และล็อกอินผ่านอีเมลหรือเบอร์โทร",
   },
 ]
 
@@ -40,9 +40,15 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 }
 
+function isValidPhone(value: string) {
+  const normalized = value.trim().replace(/[^\d+]/g, "")
+  return !normalized || /^(\+?\d{9,15})$/.test(normalized)
+}
+
 export function RegisterForm() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [favoriteTeam, setFavoriteTeam] = useState("")
@@ -56,6 +62,7 @@ export function RegisterForm() {
 
     const trimmedName = name.trim()
     const trimmedEmail = email.trim()
+    const normalizedPhone = phone.trim().replace(/[^\d+]/g, "")
     const trimmedFavoriteTeam = favoriteTeam.trim()
     const nextErrors: Partial<Record<RegisterField, string>> = {}
 
@@ -65,6 +72,10 @@ export function RegisterForm() {
 
     if (!isValidEmail(trimmedEmail)) {
       nextErrors.email = "กรุณากรอกอีเมลให้ถูกต้อง"
+    }
+
+    if (!isValidPhone(normalizedPhone)) {
+      nextErrors.phone = "กรุณากรอกเบอร์โทรให้ถูกต้อง"
     }
 
     if (password.length < 6) {
@@ -94,6 +105,7 @@ export function RegisterForm() {
         body: JSON.stringify({
           name: trimmedName,
           email: trimmedEmail,
+          phone: normalizedPhone,
           password,
           favoriteTeam: trimmedFavoriteTeam,
         }),
@@ -107,17 +119,6 @@ export function RegisterForm() {
       router.push("/profile")
     } catch (error) {
       const message = error instanceof Error ? error.message : "เกิดข้อผิดพลาดบางอย่าง"
-
-      if (message.includes("ชื่อ")) {
-        setFieldErrors((current) => ({ ...current, name: message }))
-      }
-      if (message.includes("อีเมล")) {
-        setFieldErrors((current) => ({ ...current, email: message }))
-      }
-      if (message.includes("รหัสผ่าน")) {
-        setFieldErrors((current) => ({ ...current, password: message }))
-      }
-
       toast({
         title: "สมัครสมาชิกไม่สำเร็จ",
         description: message,
@@ -135,10 +136,10 @@ export function RegisterForm() {
       transition={{ duration: 0.45, ease: "easeOut" }}
       className="w-full max-w-6xl"
     >
-      <Card className="overflow-hidden border-border/70 bg-card/90 shadow-[0_30px_80px_rgba(0,0,0,0.45)] backdrop-blur">
+      <Card className="overflow-hidden border-border/70 bg-card/90 shadow-[0_30px_80px_rgba(114,95,57,0.14)] backdrop-blur dark:shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
         <CardContent className="grid p-0 lg:grid-cols-[0.98fr_1.02fr]">
           <div className="relative hidden overflow-hidden border-r border-border/70 lg:block">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(229,184,48,0.22),transparent_35%),radial-gradient(circle_at_80%_20%,rgba(185,28,28,0.22),transparent_28%),linear-gradient(180deg,#0b0b0e_0%,#050507_100%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(229,184,48,0.18),transparent_35%),radial-gradient(circle_at_80%_20%,rgba(185,28,28,0.12),transparent_28%),linear-gradient(180deg,#f8f3ea_0%,#efe5d2_100%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(229,184,48,0.22),transparent_35%),radial-gradient(circle_at_80%_20%,rgba(185,28,28,0.22),transparent_28%),linear-gradient(180deg,#0b0b0e_0%,#050507_100%)]" />
             <div className="absolute inset-0 bg-[linear-gradient(130deg,transparent_0%,rgba(255,255,255,0.04)_35%,transparent_70%)]" />
             <div className="relative flex h-full flex-col justify-between p-10">
               <div>
@@ -149,17 +150,17 @@ export function RegisterForm() {
                 <h1 className="mt-8 max-w-md font-display text-5xl leading-[0.95] text-foreground">
                   สร้างบัญชี
                   <br />
-                  แล้วเข้าสู่โลกฟุตบอลที่ไม่เหมือนใครกับ FootballAI
+                  แล้วเข้าสู่โลกฟุตบอลกับ FootballAI
                 </h1>
                 <p className="mt-5 max-w-lg text-sm leading-7 text-muted-foreground">
-                  สมัครสมาชิกเพื่อเริ่มใช้งาน FootballAI แบบเต็มรูปแบบ ไม่ว่าจะเป็นการติดตามสถิติ การทำนายผล
-                  และการมีส่วนร่วมในคอมมูนิตี้ฟุตบอล
+                  สมัครสมาชิกเพื่อเริ่มใช้งาน FootballAI แบบเต็มรูปแบบ ทั้งการติดตามสถิติ การทำนายผล
+                  และคอมมูนิตี้แฟนบอล
                 </p>
               </div>
 
               <div className="space-y-4">
                 {highlights.map(({ icon: Icon, title, description }) => (
-                  <div key={title} className="flex items-start gap-4 rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                  <div key={title} className="flex items-start gap-4 rounded-2xl border border-border/60 bg-card/75 p-4 dark:border-white/8 dark:bg-white/[0.03]">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary">
                       <Icon className="h-5 w-5" />
                     </div>
@@ -173,7 +174,7 @@ export function RegisterForm() {
             </div>
           </div>
 
-          <div className="relative bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent_16%)] p-6 sm:p-8 lg:p-10">
+          <div className="relative bg-[linear-gradient(180deg,rgba(184,137,23,0.06),transparent_16%)] p-6 sm:p-8 lg:p-10 dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent_16%)]">
             <div className="mx-auto max-w-md">
               <div className="mb-8 text-center lg:text-left">
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/12 text-primary lg:mx-0">
@@ -181,7 +182,7 @@ export function RegisterForm() {
                 </div>
                 <h2 className="font-display text-3xl text-foreground">สมัครสมาชิก</h2>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  ตั้งค่าบัญชีของคุณ แล้วเริ่มใช้งานระบบวิเคราะห์ฟุตบอล รายการโปรด และคอมมูนิตี้ของ FootballAI
+                  ตั้งค่าบัญชีของคุณ พร้อมผูกเบอร์โทรไว้สำหรับใช้ล็อกอินภายหลังได้
                 </p>
               </div>
 
@@ -197,10 +198,7 @@ export function RegisterForm() {
                       type="text"
                       placeholder="ชื่อของคุณ"
                       value={name}
-                      onChange={(e) => {
-                        setName(e.target.value)
-                        setFieldErrors((current) => ({ ...current, name: undefined }))
-                      }}
+                      onChange={(e) => setName(e.target.value)}
                       className="h-12 rounded-xl border-border/80 bg-secondary/35 pl-10"
                       required
                     />
@@ -208,26 +206,43 @@ export function RegisterForm() {
                   {fieldErrors.name ? <p className="text-sm text-destructive">{fieldErrors.name}</p> : null}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                    อีเมล
-                  </Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="your@email.com"
-                      value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value)
-                        setFieldErrors((current) => ({ ...current, email: undefined }))
-                      }}
-                      className="h-12 rounded-xl border-border/80 bg-secondary/35 pl-10"
-                      required
-                    />
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      อีเมล
+                    </Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="your@email.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="h-12 rounded-xl border-border/80 bg-secondary/35 pl-10"
+                        required
+                      />
+                    </div>
+                    {fieldErrors.email ? <p className="text-sm text-destructive">{fieldErrors.email}</p> : null}
                   </div>
-                  {fieldErrors.email ? <p className="text-sm text-destructive">{fieldErrors.email}</p> : null}
+
+                  <div className="space-y-2">
+                    <Label htmlFor="phone" className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      เบอร์โทร
+                    </Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="0812345678"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="h-12 rounded-xl border-border/80 bg-secondary/35 pl-10"
+                      />
+                    </div>
+                    {fieldErrors.phone ? <p className="text-sm text-destructive">{fieldErrors.phone}</p> : null}
+                  </div>
                 </div>
 
                 <div className="grid gap-5 sm:grid-cols-2">
@@ -242,10 +257,7 @@ export function RegisterForm() {
                         type="password"
                         placeholder="อย่างน้อย 6 ตัวอักษร"
                         value={password}
-                        onChange={(e) => {
-                          setPassword(e.target.value)
-                          setFieldErrors((current) => ({ ...current, password: undefined, confirmPassword: undefined }))
-                        }}
+                        onChange={(e) => setPassword(e.target.value)}
                         className="h-12 rounded-xl border-border/80 bg-secondary/35 pl-10"
                         required
                       />
@@ -264,10 +276,7 @@ export function RegisterForm() {
                         type="password"
                         placeholder="กรอกรหัสผ่านอีกครั้ง"
                         value={confirmPassword}
-                        onChange={(e) => {
-                          setConfirmPassword(e.target.value)
-                          setFieldErrors((current) => ({ ...current, confirmPassword: undefined }))
-                        }}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
                         className="h-12 rounded-xl border-border/80 bg-secondary/35 pl-10"
                         required
                       />
@@ -306,9 +315,7 @@ export function RegisterForm() {
 
               <div className="mt-6 rounded-2xl border border-primary/20 bg-primary/8 p-4 text-sm text-muted-foreground">
                 <p className="font-medium text-foreground">มีบัญชีอยู่แล้ว?</p>
-                <p className="mt-1 leading-6">
-                  เข้าสู่ระบบเพื่อใช้งานต่อจากทีมโปรด โปรไฟล์ และกิจกรรมต่าง ๆ ที่คุณบันทึกไว้
-                </p>
+                <p className="mt-1 leading-6">เข้าสู่ระบบต่อจากอีเมล เบอร์โทร หรือโซเชียลที่คุณเชื่อมไว้ได้ทันที</p>
                 <Link href="/login" className="mt-3 inline-flex items-center font-medium text-primary hover:underline">
                   ไปหน้าเข้าสู่ระบบ
                   <ArrowRight className="ml-2 h-4 w-4" />

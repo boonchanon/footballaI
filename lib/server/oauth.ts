@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken"
 import { signToken, sanitizeUser } from "./auth"
 import { User } from "./models"
 
-type SupportedProvider = "google" | "github"
+type SupportedProvider = "google" | "facebook"
 
 type ProviderProfile = {
   email: string
@@ -24,14 +24,14 @@ const PROVIDERS: Record<
     clientIdEnv: "GOOGLE_CLIENT_ID",
     clientSecretEnv: "GOOGLE_CLIENT_SECRET",
   },
-  github: {
-    clientIdEnv: "GITHUB_CLIENT_ID",
-    clientSecretEnv: "GITHUB_CLIENT_SECRET",
+  facebook: {
+    clientIdEnv: "FACEBOOK_CLIENT_ID",
+    clientSecretEnv: "FACEBOOK_CLIENT_SECRET",
   },
 }
 
 export function isSupportedProvider(value: string): value is SupportedProvider {
-  return value === "google" || value === "github"
+  return value === "google" || value === "facebook"
 }
 
 function getJwtSecret() {
@@ -95,11 +95,12 @@ export function getOauthStartUrl(provider: SupportedProvider, origin?: string) {
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
-    scope: "read:user user:email",
+    response_type: "code",
+    scope: "email,public_profile",
     state,
   })
 
-  return `https://github.com/login/oauth/authorize?${params.toString()}`
+  return `https://www.facebook.com/v23.0/dialog/oauth?${params.toString()}`
 }
 
 async function getGoogleProfile(code: string, origin?: string): Promise<ProviderProfile> {
@@ -154,85 +155,65 @@ async function getGoogleProfile(code: string, origin?: string): Promise<Provider
   }
 }
 
-async function getGithubProfile(code: string, origin?: string): Promise<ProviderProfile> {
-  const { clientId, clientSecret } = getProviderConfig("github")
-  const redirectUri = `${getAppBaseUrl(origin)}/api/auth/oauth/github/callback`
+async function getFacebookProfile(code: string, origin?: string): Promise<ProviderProfile> {
+  const { clientId, clientSecret } = getProviderConfig("facebook")
+  const redirectUri = `${getAppBaseUrl(origin)}/api/auth/oauth/facebook/callback`
 
-  const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      code,
-      client_id: clientId,
-      client_secret: clientSecret,
-      redirect_uri: redirectUri,
-    }),
+  const tokenParams = new URLSearchParams({
+    client_id: clientId,
+    client_secret: clientSecret,
+    redirect_uri: redirectUri,
+    code,
   })
 
+  const tokenResponse = await fetch(`https://graph.facebook.com/v23.0/oauth/access_token?${tokenParams.toString()}`)
+
   if (!tokenResponse.ok) {
-    throw new Error("GitHub token exchange failed")
+    throw new Error("Facebook token exchange failed")
   }
 
   const tokenData = (await tokenResponse.json()) as { access_token?: string }
   if (!tokenData.access_token) {
-    throw new Error("GitHub access token is missing")
+    throw new Error("Facebook access token is missing")
   }
 
-  const [profileResponse, emailsResponse] = await Promise.all([
-    fetch("https://api.github.com/user", {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-        Accept: "application/vnd.github+json",
-      },
-    }),
-    fetch("https://api.github.com/user/emails", {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-        Accept: "application/vnd.github+json",
-      },
-    }),
-  ])
+  const profileParams = new URLSearchParams({
+    fields: "id,name,email,picture.type(large)",
+    access_token: tokenData.access_token,
+  })
 
-  if (!profileResponse.ok || !emailsResponse.ok) {
-    throw new Error("GitHub profile fetch failed")
+  const profileResponse = await fetch(`https://graph.facebook.com/me?${profileParams.toString()}`)
+
+  if (!profileResponse.ok) {
+    throw new Error("Facebook profile fetch failed")
   }
 
   const profile = (await profileResponse.json()) as {
-    id?: number
+    id?: string
     name?: string
-    login?: string
-    avatar_url?: string
-  }
-  const emails = (await emailsResponse.json()) as Array<{
     email?: string
-    primary?: boolean
-    verified?: boolean
-  }>
+    picture?: { data?: { url?: string } }
+  }
 
-  const primaryEmail = emails.find((entry) => entry.primary && entry.verified)?.email || emails.find((entry) => entry.verified)?.email
-
-  if (!profile.id || !primaryEmail) {
-    throw new Error("GitHub account does not provide a verified email")
+  if (!profile.id || !profile.email) {
+    throw new Error("Facebook account does not provide a valid email")
   }
 
   return {
-    email: primaryEmail.toLowerCase(),
-    name: profile.name?.trim() || profile.login || primaryEmail.split("@")[0],
-    avatar: profile.avatar_url || "",
-    providerId: String(profile.id),
+    email: profile.email.toLowerCase(),
+    name: profile.name?.trim() || profile.email.split("@")[0],
+    avatar: profile.picture?.data?.url || "",
+    providerId: profile.id,
   }
 }
 
 export async function getOauthProfile(provider: SupportedProvider, code: string, origin?: string) {
   if (provider === "google") return getGoogleProfile(code, origin)
-  return getGithubProfile(code, origin)
+  return getFacebookProfile(code, origin)
 }
 
 export async function getOrCreateOauthSession(provider: SupportedProvider, profile: ProviderProfile) {
-  const providerField = provider === "google" ? "googleId" : "githubId"
+  const providerField = provider === "google" ? "googleId" : "facebookId"
   let user = await User.findOne({ [providerField]: profile.providerId })
 
   if (!user) {

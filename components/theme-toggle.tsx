@@ -1,73 +1,51 @@
 "use client"
 
-import { Moon, Sun, Monitor } from "lucide-react"
+import { Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useEffect, useState } from "react"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 
 export function ThemeToggle() {
-  const { theme, setTheme, resolvedTheme } = useTheme()
+  const { theme, resolvedTheme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  if (!mounted) {
-    return (
-      <Button variant="outline" size="icon" className="rounded-full w-10 h-10 border-primary/30 bg-transparent">
-        <div className="h-5 w-5" />
-      </Button>
-    )
-  }
-
-  const currentTheme = theme === "system" ? resolvedTheme : theme
-  const isDark = currentTheme === "dark"
-
-  console.log("[v0] Theme state:", { theme, resolvedTheme, currentTheme, isDark })
+  const activeTheme = mounted ? (theme === "system" ? resolvedTheme : theme) : "dark"
+  const isDark = activeTheme === "dark"
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          size="icon"
-          className="relative rounded-full w-10 h-10 border-primary/30 hover:border-primary hover:bg-primary/10 transition-all duration-300 bg-transparent"
-          aria-label="เลือก Theme"
+    <button
+      type="button"
+      onClick={() => {
+        if (!mounted) return
+        setTheme(isDark ? "light" : "dark")
+      }}
+      className="flex items-center gap-3 rounded-full border border-border/80 bg-card/80 px-3 py-2 text-foreground shadow-sm backdrop-blur-sm"
+      aria-label="Color scheme toggle"
+      suppressHydrationWarning
+    >
+      <div className="hidden text-right sm:block">
+        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Color Scheme</p>
+        <p className="text-xs font-medium" suppressHydrationWarning>{isDark ? "Dark Theme" : "Light Theme"}</p>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Moon className={`h-4 w-4 transition-colors ${isDark ? "text-primary" : "text-muted-foreground"}`} />
+        <span
+          className={`relative inline-flex h-[1.15rem] w-8 shrink-0 rounded-full border border-transparent transition-all ${
+            isDark ? "bg-primary" : "bg-input"
+          }`}
         >
-          <Sun className="h-5 w-5 rotate-0 scale-100 transition-all duration-500 dark:-rotate-90 dark:scale-0 text-primary" />
-          <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all duration-500 dark:rotate-0 dark:scale-100 text-primary" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-40">
-        <DropdownMenuItem 
-          onClick={() => setTheme("light")}
-          className={`gap-2 cursor-pointer ${theme === "light" ? "bg-primary/10 text-primary" : ""}`}
-        >
-          <Sun className="h-4 w-4" />
-          <span>สว่าง (Light)</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem 
-          onClick={() => setTheme("dark")}
-          className={`gap-2 cursor-pointer ${theme === "dark" ? "bg-primary/10 text-primary" : ""}`}
-        >
-          <Moon className="h-4 w-4" />
-          <span>มืด (Dark)</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem 
-          onClick={() => setTheme("system")}
-          className={`gap-2 cursor-pointer ${theme === "system" ? "bg-primary/10 text-primary" : ""}`}
-        >
-          <Monitor className="h-4 w-4" />
-          <span>ตามระบบ</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <span
+            className={`absolute top-[1px] block h-4 w-4 rounded-full bg-background transition-transform ${
+              mounted && isDark ? "translate-x-[14px]" : "translate-x-0"
+            }`}
+          />
+        </span>
+        <Sun className={`h-4 w-4 transition-colors ${isDark ? "text-muted-foreground" : "text-primary"}`} />
+      </div>
+    </button>
   )
 }

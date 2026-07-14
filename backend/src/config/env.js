@@ -1,3 +1,12 @@
+const path = require("path")
+
+try {
+  require("dotenv").config({ path: path.resolve(__dirname, "../../.env") })
+  require("dotenv").config({ path: path.resolve(__dirname, "../../../.env.local") })
+} catch (error) {
+  // Env injection may come from the runtime directly.
+}
+
 function parseClientUrls(rawValue) {
   return (rawValue || "http://localhost:3000")
     .split(",")
@@ -14,6 +23,9 @@ const env = {
   clientUrls: parseClientUrls(process.env.CLIENT_URL),
   apiFootballKey: process.env.API_FOOTBALL_KEY || "",
   gnewsApiKey: process.env.GNEWS_API_KEY || "",
+  intelsphereApiKey: process.env.INTELSPHERE_API_KEY || "",
+  intelsphereBaseUrl: process.env.INTELSPHERE_BASE_URL || "",
+  intelsphereModel: process.env.INTELSPHERE_MODEL || "",
 }
 
 env.isProduction = env.nodeEnv === "production"

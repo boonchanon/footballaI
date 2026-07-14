@@ -1,10 +1,12 @@
+import { PREMIER_LEAGUE_DATA_SEASON } from "@/lib/season"
+
 // API-Football Integration
 // Documentation: https://www.api-football.com/documentation-v3
 // Premier League ID = 39 (English Premier League in API-Football)
 
 const API_BASE = "https://v3.football.api-sports.io"
 const PREMIER_LEAGUE_ID = 39
-const CURRENT_SEASON = 2024 // 2024-2025 season
+const CURRENT_SEASON = PREMIER_LEAGUE_DATA_SEASON.apiYear
 
 // For backwards compatibility
 const CURRENT_SEASON_ID = CURRENT_SEASON

@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs"
 import mongoose from "mongoose"
 
 const { Schema, models, model } = mongoose
+const adminRoleEnum = ["superadmin", "admin", "admincommunity"] as const
 
 const userSchema =
   models.User?.schema ||
@@ -11,11 +12,16 @@ const userSchema =
       email: { type: String, required: true, unique: true, lowercase: true, trim: true },
       password: { type: String, required: true, minlength: 6 },
       avatar: { type: String, default: "" },
+      phone: { type: String, unique: true, sparse: true, trim: true },
       favoriteTeam: { type: String, default: "" },
       role: { type: String, enum: ["user", "admin"], default: "user" },
       bio: { type: String, default: "", maxlength: 280 },
       googleId: { type: String, default: "" },
-      githubId: { type: String, default: "" },
+      facebookId: { type: String, default: "" },
+      phoneOtpHash: { type: String, default: "" },
+      phoneOtpExpiresAt: { type: Date, default: null },
+      phoneOtpAttempts: { type: Number, default: 0 },
+      phoneVerifiedAt: { type: Date, default: null },
       resetPasswordOtpHash: { type: String, default: "" },
       resetPasswordOtpExpiresAt: { type: Date, default: null },
       resetPasswordOtpAttempts: { type: Number, default: 0 },
@@ -33,6 +39,25 @@ if (!models.User) {
   })
 
   userSchema.methods.comparePassword = function comparePassword(candidatePassword: string) {
+    return bcrypt.compare(candidatePassword, this.password)
+  }
+}
+
+const adminSchema =
+  models.Admin?.schema ||
+  new Schema(
+    {
+      email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+      password: { type: String, required: true },
+      role: { type: String, enum: adminRoleEnum, default: "admin" },
+      permissions: { type: [String], default: [] },
+      isActive: { type: Boolean, default: true },
+    },
+    { timestamps: true, collection: "admins" },
+  )
+
+if (!models.Admin) {
+  adminSchema.methods.comparePassword = function comparePassword(candidatePassword: string) {
     return bcrypt.compare(candidatePassword, this.password)
   }
 }
@@ -86,10 +111,25 @@ const communityPostSchema =
       status: { type: String, enum: ["published", "flagged", "hidden"], default: "published", index: true },
       isPinned: { type: Boolean, default: false },
       likesCount: { type: Number, default: 0 },
+      repostsCount: { type: Number, default: 0 },
       commentsCount: { type: Number, default: 0 },
       viewsCount: { type: Number, default: 0 },
       reportsCount: { type: Number, default: 0 },
       tags: { type: [String], default: [] },
+      images: { type: [String], default: [] },
+      sharedItem: {
+        type: {
+          type: String,
+          enum: ["article", "post"],
+          default: null,
+        },
+        title: { type: String, default: "" },
+        description: { type: String, default: "" },
+        url: { type: String, default: "" },
+        image: { type: String, default: "" },
+        source: { type: String, default: "" },
+        postId: { type: String, default: "" },
+      },
     },
     { timestamps: true },
   )
@@ -126,6 +166,91 @@ if (!models.PostLike) {
   postLikeSchema.index({ post: 1, user: 1 }, { unique: true })
 }
 
+const friendRequestSchema =
+  models.FriendRequest?.schema ||
+  new Schema(
+    {
+      requester: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+      recipient: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+      status: { type: String, enum: ["pending", "accepted", "declined"], default: "pending", index: true },
+    },
+    { timestamps: true },
+  )
+
+if (!models.FriendRequest) {
+  friendRequestSchema.index({ requester: 1, recipient: 1 }, { unique: true })
+}
+
+const friendshipSchema =
+  models.Friendship?.schema ||
+  new Schema(
+    {
+      users: {
+        type: [{ type: Schema.Types.ObjectId, ref: "User", required: true }],
+        validate: [(value: unknown[]) => Array.isArray(value) && value.length === 2, "Friendship requires two users"],
+      },
+    },
+    { timestamps: true },
+  )
+
+if (!models.Friendship) {
+  friendshipSchema.index({ users: 1 }, { unique: true })
+}
+
+const conversationSchema =
+  models.Conversation?.schema ||
+  new Schema(
+    {
+      members: {
+        type: [{ type: Schema.Types.ObjectId, ref: "User", required: true }],
+        validate: [(value: unknown[]) => Array.isArray(value) && value.length >= 2, "Conversation requires at least two members"],
+        index: true,
+      },
+      lastMessageText: { type: String, default: "" },
+      lastMessageAt: { type: Date, default: null, index: true },
+    },
+    { timestamps: true },
+  )
+
+const directMessageSchema =
+  models.DirectMessage?.schema ||
+  new Schema(
+    {
+      conversation: { type: Schema.Types.ObjectId, ref: "Conversation", required: true, index: true },
+      sender: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+      content: { type: String, default: "", trim: true, maxlength: 2000 },
+      images: { type: [String], default: [] },
+      sharedItem: {
+        type: {
+          type: String,
+          enum: ["article", "post"],
+          default: null,
+        },
+        title: { type: String, default: "" },
+        url: { type: String, default: "" },
+        image: { type: String, default: "" },
+        source: { type: String, default: "" },
+        postId: { type: String, default: "" },
+      },
+      readBy: { type: [{ type: Schema.Types.ObjectId, ref: "User" }], default: [] },
+    },
+    { timestamps: true },
+  )
+
+const communityStorySchema =
+  models.CommunityStory?.schema ||
+  new Schema(
+    {
+      author: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+      image: { type: String, required: true, trim: true },
+      caption: { type: String, default: "", trim: true, maxlength: 180 },
+      expiresAt: { type: Date, required: true, index: true },
+      viewsCount: { type: Number, default: 0 },
+      viewedBy: { type: [{ type: Schema.Types.ObjectId, ref: "User" }], default: [] },
+    },
+    { timestamps: true },
+  )
+
 const predictionSchema =
   models.Prediction?.schema ||
   new Schema(
@@ -149,10 +274,86 @@ const predictionSchema =
     { timestamps: true },
   )
 
+const premierLeagueFixtureSchema =
+  models.PremierLeagueFixture?.schema ||
+  new Schema(
+    {
+      externalId: { type: String, required: true, unique: true, index: true },
+      season: { type: String, required: true, index: true },
+      roundNumber: { type: Number, default: null, index: true },
+      roundLabel: { type: String, default: "" },
+      kickoffAt: { type: Date, required: true, index: true },
+      kickoffLabel: { type: String, default: "" },
+      homeTeam: {
+        id: { type: String, default: "" },
+        name: { type: String, required: true },
+        nameEn: { type: String, default: "" },
+        logo: { type: String, default: "" },
+      },
+      awayTeam: {
+        id: { type: String, default: "" },
+        name: { type: String, required: true },
+        nameEn: { type: String, default: "" },
+        logo: { type: String, default: "" },
+      },
+      venue: {
+        name: { type: String, default: "" },
+        city: { type: String, default: "" },
+      },
+      status: {
+        short: { type: String, default: "" },
+        long: { type: String, default: "" },
+        isLive: { type: Boolean, default: false },
+        isFinished: { type: Boolean, default: false },
+        isUpcoming: { type: Boolean, default: true },
+      },
+      score: {
+        home: { type: Number, default: null },
+        away: { type: Number, default: null },
+      },
+      source: { type: String, default: "internal-football-service" },
+      syncedAt: { type: Date, default: Date.now, index: true },
+      metadata: { type: Schema.Types.Mixed, default: {} },
+    },
+    { timestamps: true },
+  )
+
+const premierLeagueSnapshotSchema =
+  models.PremierLeagueSnapshot?.schema ||
+  new Schema(
+    {
+      key: { type: String, required: true, unique: true, index: true },
+      season: { type: String, default: "Premier League" },
+      summary: { type: String, default: "" },
+      model: { type: String, default: "" },
+      searchVerified: { type: Boolean, default: false },
+      standings: { type: [Schema.Types.Mixed], default: [] },
+      fixtures: { type: [Schema.Types.Mixed], default: [] },
+      topScorers: { type: [Schema.Types.Mixed], default: [] },
+      topAssists: { type: [Schema.Types.Mixed], default: [] },
+      cleanSheets: { type: [Schema.Types.Mixed], default: [] },
+      sources: { type: [Schema.Types.Mixed], default: [] },
+      warnings: { type: [String], default: [] },
+      syncedAt: { type: Date, default: Date.now, index: true },
+      status: { type: String, enum: ["ready", "error"], default: "ready" },
+      lastError: { type: String, default: "" },
+    },
+    { timestamps: true },
+  )
+
 export const User = models.User || model("User", userSchema)
+export const Admin = models.Admin || model("Admin", adminSchema)
 export const Favorite = models.Favorite || model("Favorite", favoriteSchema)
 export const Comment = models.Comment || model("Comment", commentSchema)
 export const CommunityPost = models.CommunityPost || model("CommunityPost", communityPostSchema)
 export const CommunityReport = models.CommunityReport || model("CommunityReport", communityReportSchema)
 export const PostLike = models.PostLike || model("PostLike", postLikeSchema)
+export const FriendRequest = models.FriendRequest || model("FriendRequest", friendRequestSchema)
+export const Friendship = models.Friendship || model("Friendship", friendshipSchema)
+export const Conversation = models.Conversation || model("Conversation", conversationSchema)
+export const DirectMessage = models.DirectMessage || model("DirectMessage", directMessageSchema)
+export const CommunityStory = models.CommunityStory || model("CommunityStory", communityStorySchema)
 export const Prediction = models.Prediction || model("Prediction", predictionSchema)
+export const PremierLeagueFixture = models.PremierLeagueFixture || model("PremierLeagueFixture", premierLeagueFixtureSchema)
+export const PremierLeagueSnapshot =
+  models.PremierLeagueSnapshot || model("PremierLeagueSnapshot", premierLeagueSnapshotSchema)

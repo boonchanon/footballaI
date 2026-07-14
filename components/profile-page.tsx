@@ -32,8 +32,11 @@ export function ProfilePage() {
   const { toast } = useToast()
   const [editOpen, setEditOpen] = useState(false)
   const [passwordOpen, setPasswordOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
   const [savingPassword, setSavingPassword] = useState(false)
+  const [deletingAccount, setDeletingAccount] = useState(false)
+  const [postTab, setPostTab] = useState<"posts" | "reposts">("posts")
   const [profileForm, setProfileForm] = useState({
     name: "",
     avatar: "",
@@ -43,6 +46,9 @@ export function ProfilePage() {
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",
+  })
+  const [deleteForm, setDeleteForm] = useState({
+    currentPassword: "",
   })
 
   const { data: profileData, mutate: mutateProfile } = useSWR(
@@ -58,7 +64,7 @@ export function ProfilePage() {
     ([url, authToken]) => authorizedFetcher<{ items: any[] }>(url, authToken),
   )
   const { data: postsData } = useSWR(
-    token ? ["/community/posts?mine=true&limit=5", token] : null,
+    token ? ["/community/posts?mine=true&limit=12", token] : null,
     ([url, authToken]) => authorizedFetcher<{ items: any[] }>(url, authToken),
   )
   const { data: activityData, mutate: mutateActivity } = useSWR(
@@ -84,6 +90,14 @@ export function ProfilePage() {
   const favoriteTeams = useMemo(
     () => (favoritesData?.items || []).filter((item) => item.itemType === "team").map((item) => item.title).slice(0, 5),
     [favoritesData?.items],
+  )
+  const ownPosts = useMemo(
+    () => (postsData?.items || []).filter((item) => item.sharedItem?.type !== "post"),
+    [postsData?.items],
+  )
+  const ownReposts = useMemo(
+    () => (postsData?.items || []).filter((item) => item.sharedItem?.type === "post"),
+    [postsData?.items],
   )
 
   async function handleSaveProfile() {
@@ -134,6 +148,35 @@ export function ProfilePage() {
       })
     } finally {
       setSavingPassword(false)
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (!token) return
+    setDeletingAccount(true)
+    try {
+      await fetchJson("/auth/me", {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(deleteForm),
+      })
+      logout()
+      setDeleteOpen(false)
+      toast({
+        title: "ลบบัญชีเรียบร้อย",
+        description: "บัญชีและข้อมูลที่เกี่ยวข้องถูกลบออกจากระบบแล้ว",
+      })
+      window.location.href = "/"
+    } catch (error) {
+      toast({
+        title: "ลบบัญชีไม่สำเร็จ",
+        description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      })
+    } finally {
+      setDeletingAccount(false)
     }
   }
 
@@ -324,6 +367,42 @@ export function ProfilePage() {
                     </div>
                   </DialogContent>
                 </Dialog>
+
+                <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="destructive" className="gap-2">
+                      <Trash2 className="h-4 w-4" />
+                      ลบบัญชี
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>ยืนยันการลบบัญชี</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        การลบบัญชีจะลบโปรไฟล์ รายการโปรด ประวัติการทำนาย และข้อมูลชุมชนที่เกี่ยวข้องออกจากระบบถาวร
+                      </p>
+                      <div className="space-y-2">
+                        <Label htmlFor="deletePassword">รหัสผ่านปัจจุบัน</Label>
+                        <Input
+                          id="deletePassword"
+                          type="password"
+                          value={deleteForm.currentPassword}
+                          onChange={(e) => setDeleteForm({ currentPassword: e.target.value })}
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+                          ยกเลิก
+                        </Button>
+                        <Button variant="destructive" onClick={handleDeleteAccount} disabled={deletingAccount}>
+                          {deletingAccount ? "กำลังลบบัญชี..." : "ยืนยันการลบ"}
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
           </CardContent>
@@ -331,6 +410,46 @@ export function ProfilePage() {
 
         <div className="grid gap-6 md:grid-cols-3">
           <div className="space-y-6 md:col-span-2">
+            <Card className="border-border/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Profile Feed</CardTitle>
+                <CardDescription>Switch between your original posts and reposted posts.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="inline-flex rounded-full border border-border/60 bg-muted/30 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setPostTab("posts")}
+                    className={`rounded-full px-3 py-1 text-xs transition ${postTab === "posts" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                  >
+                    Posts
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPostTab("reposts")}
+                    className={`rounded-full px-3 py-1 text-xs transition ${postTab === "reposts" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                  >
+                    Reposts
+                  </button>
+                </div>
+
+                {(postTab === "posts" ? ownPosts : ownReposts).length > 0 ? (
+                  (postTab === "posts" ? ownPosts : ownReposts).map((post: any) => (
+                    <div key={`profile-feed-${post.id}`} className="rounded-lg border border-border/50 p-3">
+                      <div className="mb-1 flex items-center gap-2">
+                        <Badge variant="outline">{post.categoryLabel}</Badge>
+                        {post.sharedItem?.type === "post" ? <Badge className="bg-primary/15 text-primary hover:bg-primary/15">Reposted</Badge> : null}
+                        <span className="text-xs text-muted-foreground">{post.timeAgo}</span>
+                      </div>
+                      <p className="font-medium">{post.title}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{post.excerpt}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">{postTab === "posts" ? "No profile posts yet." : "No reposts on this profile yet."}</p>
+                )}
+              </CardContent>
+            </Card>
             <Card className="border-border/50">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">

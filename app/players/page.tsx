@@ -1,24 +1,27 @@
 "use client"
 
 import { useState } from "react"
-import { Navigation } from "@/components/navigation"
-import { Footer } from "@/components/footer"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import {
-  Trophy,
-  Target,
-  Crosshair,
-  AlertTriangle,
-  CircleDot,
-  Users,
-  Shield,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react"
+import Image from "next/image"
 import Link from "next/link"
 import useSWR from "swr"
-import Image from "next/image"
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  CircleDot,
+  Crosshair,
+  Shield,
+  Sparkles,
+  Target,
+  Trophy,
+  Users,
+} from "lucide-react"
+
+import { Footer } from "@/components/footer"
+import { Navigation } from "@/components/navigation"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+import { PREMIER_LEAGUE_DATA_SEASON } from "@/lib/season"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -31,372 +34,315 @@ interface PlayerStat {
   value: number
 }
 
-function splitName(fullName: string): { first: string; last: string } {
-  const parts = fullName.split(" ")
-  if (parts.length === 1) return { first: "", last: parts[0] }
+type TeamCleanSheet = {
+  rank: number
+  teamName: string
+  teamNameThai: string
+  teamLogo: string
+  cleanSheets: number
+}
+
+function splitName(fullName: string) {
+  const parts = fullName.trim().split(" ")
+  if (parts.length <= 1) return { first: "", last: parts[0] || fullName }
   return { first: parts.slice(0, -1).join(" "), last: parts[parts.length - 1] }
 }
 
-/* ──────────────────────────────────────────────
-   Hero Stat Card  (matches Bundesliga screenshot)
-   ────────────────────────────────────────────── */
-function HeroStatCard({
+function PlayerCategoryCard({
   title,
-  icon: Icon,
-  accentColor,
+  subtitle,
+  valueLabel,
   players,
+  icon: Icon,
+  accent,
 }: {
   title: string
-  icon: React.ElementType
-  accentColor: string
+  subtitle: string
+  valueLabel: string
   players: PlayerStat[]
+  icon: React.ElementType
+  accent: string
 }) {
   const [expanded, setExpanded] = useState(false)
   const hero = players[0]
-  const runnersUp = players.slice(1, 3)
-  const fullList = players.slice(3)
+  const rest = players.slice(1)
 
   if (!hero) return null
+
   const heroName = splitName(hero.name)
 
   return (
-    <Card className="border-border/50 overflow-hidden bg-card group">
-      {/* ── Hero section ── */}
-      <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-b from-muted/80 to-muted/30">
-        {/* background glow */}
-        <div
-          className="absolute inset-0 opacity-15"
-          style={{
-            background: `radial-gradient(ellipse at 60% 90%, ${accentColor}, transparent 70%)`,
-          }}
-        />
-
-        {/* category pill */}
-        <div className="absolute top-3 left-3 z-10">
-          <span
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-black uppercase tracking-wider text-white"
-            style={{ backgroundColor: accentColor }}
-          >
-            <Icon className="w-3.5 h-3.5" />
-            {title}
-          </span>
-        </div>
-
-        {/* player image */}
-        <div className="absolute inset-0 flex items-end justify-center">
-          <div className="relative w-[75%] h-[82%]">
-            <Image
-              src={hero.photo}
-              alt={hero.name}
-              fill
-              className="object-contain object-bottom drop-shadow-2xl"
-              sizes="(max-width:640px) 75vw,(max-width:1024px) 35vw,22vw"
-            />
-          </div>
-        </div>
-
-        {/* team badge */}
-        {hero.teamLogo && (
-          <div className="absolute bottom-14 left-3 z-10">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-background/80 backdrop-blur p-1 shadow-lg">
-              <Image
-                src={hero.teamLogo}
-                alt={hero.team}
-                width={36}
-                height={36}
-                className="w-full h-full object-contain"
-              />
+    <Card className="overflow-hidden border-border/60 bg-card shadow-none">
+      <CardContent className="p-0">
+        <div className="border-b border-border/60 px-5 pb-3 pt-5">
+          <div className="text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">{subtitle}</p>
+            <div className="mt-3 flex items-end justify-center gap-3">
+              <span className="text-6xl font-black leading-none text-foreground md:text-7xl">{hero.value}</span>
+              <div className="pb-1 text-left">
+                <p className="text-2xl font-black uppercase leading-none text-foreground md:text-3xl">{valueLabel}</p>
+                <p className="mt-1 text-xs uppercase tracking-[0.24em] text-muted-foreground">{title}</p>
+              </div>
             </div>
           </div>
-        )}
-
-        {/* accent bar with name + stat */}
-        <div
-          className="absolute bottom-0 inset-x-0 px-3 py-2.5 flex items-center justify-between"
-          style={{ backgroundColor: accentColor }}
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-white/60 font-bold text-xs flex-shrink-0">1</span>
-            <span className="text-white text-sm font-bold truncate">
-              {heroName.first}{" "}
-              <span className="uppercase font-black">{heroName.last}</span>
-            </span>
-          </div>
-          <span className="text-white text-2xl font-black flex-shrink-0 tabular-nums ml-2">
-            {hero.value}
-          </span>
         </div>
-      </div>
 
-      {/* ── Runners-up #2 & #3 ── */}
-      <div className="divide-y divide-border/20">
-        {runnersUp.map((p, i) => {
-          const pn = splitName(p.name)
-          return (
-            <Link key={p.id} href={`/players/${p.id}`} className="block">
-              <div className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted/30 transition-colors">
-                <span className="text-muted-foreground font-bold text-xs w-4 text-center flex-shrink-0">
-                  {i + 2}
-                </span>
-                <div className="w-8 h-8 rounded-full overflow-hidden bg-muted flex-shrink-0">
-                  <Image src={p.photo} alt={p.name} width={32} height={32} className="w-full h-full object-cover" />
+        <div className="p-4 md:p-5">
+          <div className="relative overflow-hidden rounded-[28px] border border-border bg-background">
+            <div className={`absolute inset-x-0 top-0 h-1 ${accent}`} />
+            <div className="absolute right-4 top-4 rounded-full border border-border bg-card p-2.5 text-muted-foreground">
+              <Icon className="h-4 w-4" />
+            </div>
+
+            <div className="px-4 pt-4">
+              <Badge className="border-0 bg-primary text-primary-foreground">อันดับ 1</Badge>
+            </div>
+
+            <Link href={`/players/${hero.id}`} className="block">
+              <div className="relative mt-3 h-[290px]">
+                <div className="absolute inset-x-5 top-0 h-[150px] rounded-[26px] bg-gradient-to-b from-muted/40 to-muted/10" />
+                <div className="absolute inset-x-0 bottom-0 mx-auto h-[250px] w-[74%]">
+                  <Image
+                    src={hero.photo}
+                    alt={hero.name}
+                    fill
+                    className="object-contain object-bottom drop-shadow-[0_18px_22px_rgba(0,0,0,0.38)]"
+                    sizes="(max-width: 768px) 70vw, (max-width: 1280px) 30vw, 20vw"
+                  />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs sm:text-sm font-medium truncate">
-                    {pn.first} <span className="uppercase font-bold">{pn.last}</span>
-                  </p>
+              </div>
+
+              <div className="border-t border-border/60 px-4 py-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-2xl font-black uppercase leading-none text-foreground">{heroName.last}</h3>
+                    {heroName.first ? (
+                      <p className="mt-1 truncate text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">{heroName.first}</p>
+                    ) : null}
+                  </div>
+                  {hero.teamLogo ? (
+                    <div className="h-10 w-10 flex-shrink-0 rounded-full bg-card p-1.5">
+                      <Image src={hero.teamLogo} alt={hero.team} width={32} height={32} className="h-full w-full object-contain" />
+                    </div>
+                  ) : null}
                 </div>
-                {p.teamLogo && (
-                  <Image src={p.teamLogo} alt="" width={18} height={18} className="w-[18px] h-[18px] object-contain flex-shrink-0" />
-                )}
-                <span className="font-bold text-xs sm:text-sm tabular-nums flex-shrink-0 w-7 text-right">
-                  {p.value}
-                </span>
+
+                <p className="mb-4 text-xs uppercase tracking-[0.22em] text-muted-foreground">{hero.team}</p>
               </div>
             </Link>
-          )
-        })}
-      </div>
 
-      {/* ── Expanded full list ── */}
-      {expanded && fullList.length > 0 && (
-        <div className="divide-y divide-border/10 border-t border-border/20">
-          {fullList.map((p, i) => {
-            const pn = splitName(p.name)
-            return (
-              <Link key={p.id} href={`/players/${p.id}`} className="block">
-                <div className="flex items-center gap-2.5 px-3 py-2 hover:bg-muted/30 transition-colors">
-                  <span className="text-muted-foreground text-[10px] w-4 text-center flex-shrink-0">
-                    {i + 4}
-                  </span>
-                  <div className="w-6 h-6 rounded-full overflow-hidden bg-muted flex-shrink-0">
-                    <Image src={p.photo} alt={p.name} width={24} height={24} className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-medium truncate">
-                      {pn.first} <span className="uppercase font-semibold">{pn.last}</span>
-                    </p>
-                  </div>
-                  {p.teamLogo && (
-                    <Image src={p.teamLogo} alt="" width={14} height={14} className="w-3.5 h-3.5 object-contain flex-shrink-0" />
-                  )}
-                  <span className="font-semibold text-[11px] tabular-nums flex-shrink-0 w-7 text-right">
-                    {p.value}
-                  </span>
-                </div>
-              </Link>
-            )
-          })}
+            <div className="border-t border-border/60 px-4 py-4">
+              <div className="space-y-2.5">
+                {rest.slice(0, expanded ? rest.length : 2).map((player, index) => {
+                  const name = splitName(player.name)
+                  return (
+                    <Link
+                      key={player.id}
+                      href={`/players/${player.id}`}
+                      className="flex items-center gap-3 rounded-2xl border border-border bg-muted/20 px-3 py-2.5 transition-colors hover:bg-muted/40"
+                    >
+                      <span className="w-5 flex-shrink-0 text-center text-xs font-black text-muted-foreground">{index + 2}</span>
+                      <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-background">
+                        <Image src={player.photo} alt={player.name} width={36} height={36} className="h-full w-full object-cover" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-foreground">
+                          {name.first} <span className="font-black uppercase">{name.last}</span>
+                        </p>
+                      </div>
+                      <span className="text-lg font-black tabular-nums text-foreground">{player.value}</span>
+                    </Link>
+                  )
+                })}
+              </div>
+
+              {rest.length > 2 ? (
+                <button
+                  type="button"
+                  onClick={() => setExpanded((prev) => !prev)}
+                  className="mt-4 inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {expanded ? "ซ่อนรายการ" : "ดูทั้งหมด"}
+                  {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </button>
+              ) : null}
+            </div>
+          </div>
         </div>
-      )}
-
-      {/* ── Show full list toggle ── */}
-      {fullList.length > 0 && (
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="w-full py-2.5 text-[10px] sm:text-xs font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors border-t border-border/20 flex items-center justify-center gap-1"
-        >
-          {expanded ? (
-            <>{"ย่อรายการ"}<ChevronUp className="w-3 h-3" /></>
-          ) : (
-            <>{"แสดงทั้งหมด"}<ChevronDown className="w-3 h-3" /></>
-          )}
-        </button>
-      )}
+      </CardContent>
     </Card>
   )
 }
 
-/* ──────────────────────────────────────────────
-   Clean Sheet Card (team-based, not players)
-   ────────────────────────────────────────────── */
-function CleanSheetCard({
-  teams,
-}: {
-  teams: { rank: number; teamName: string; teamNameThai: string; teamLogo: string; cleanSheets: number }[]
-}) {
+function CleanSheetCategoryCard({ teams }: { teams: TeamCleanSheet[] }) {
   const [expanded, setExpanded] = useState(false)
   const hero = teams[0]
-  const runnersUp = teams.slice(1, 3)
-  const fullList = teams.slice(3)
+  const rest = teams.slice(1)
 
   if (!hero) return null
 
   return (
-    <Card className="border-border/50 overflow-hidden bg-card">
-      {/* Hero */}
-      <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-b from-muted/80 to-muted/30">
-        <div
-          className="absolute inset-0 opacity-15"
-          style={{ background: "radial-gradient(ellipse at 60% 90%, #3b82f6, transparent 70%)" }}
-        />
-        <div className="absolute top-3 left-3 z-10">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-black uppercase tracking-wider text-white bg-blue-600">
-            <Shield className="w-3.5 h-3.5" />
-            {"CLEAN SHEETS"}
-          </span>
-        </div>
-
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="relative w-[45%] aspect-square">
-            {hero.teamLogo && (
-              <Image
-                src={hero.teamLogo}
-                alt={hero.teamNameThai}
-                fill
-                className="object-contain drop-shadow-2xl"
-                sizes="(max-width:640px) 40vw,18vw"
-              />
-            )}
-          </div>
-        </div>
-
-        <div className="absolute bottom-0 inset-x-0 px-3 py-2.5 flex items-center justify-between bg-blue-600">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-white/60 font-bold text-xs flex-shrink-0">1</span>
-            <span className="text-white text-sm font-black uppercase truncate">{hero.teamNameThai}</span>
-          </div>
-          <span className="text-white text-2xl font-black flex-shrink-0 tabular-nums ml-2">{hero.cleanSheets}</span>
-        </div>
-      </div>
-
-      {/* Runners */}
-      <div className="divide-y divide-border/20">
-        {runnersUp.map((t, i) => (
-          <div key={t.teamName} className="flex items-center gap-2.5 px-3 py-2.5">
-            <span className="text-muted-foreground font-bold text-xs w-4 text-center flex-shrink-0">{i + 2}</span>
-            <div className="w-8 h-8 rounded-full bg-muted/40 p-1 flex-shrink-0">
-              {t.teamLogo && <Image src={t.teamLogo} alt="" width={28} height={28} className="w-full h-full object-contain" />}
-            </div>
-            <span className="flex-1 text-xs sm:text-sm font-bold uppercase truncate">{t.teamNameThai}</span>
-            <span className="font-bold text-xs sm:text-sm tabular-nums flex-shrink-0 w-7 text-right">{t.cleanSheets}</span>
-          </div>
-        ))}
-      </div>
-
-      {expanded && fullList.length > 0 && (
-        <div className="divide-y divide-border/10 border-t border-border/20">
-          {fullList.map((t, i) => (
-            <div key={t.teamName} className="flex items-center gap-2.5 px-3 py-2">
-              <span className="text-muted-foreground text-[10px] w-4 text-center flex-shrink-0">{i + 4}</span>
-              <div className="w-6 h-6 rounded-full bg-muted/40 p-0.5 flex-shrink-0">
-                {t.teamLogo && <Image src={t.teamLogo} alt="" width={20} height={20} className="w-full h-full object-contain" />}
+    <Card className="overflow-hidden border-border/60 bg-card shadow-none">
+      <CardContent className="p-0">
+        <div className="border-b border-border/60 px-5 pb-3 pt-5">
+          <div className="text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">defensive table</p>
+            <div className="mt-3 flex items-end justify-center gap-3">
+              <span className="text-6xl font-black leading-none text-foreground md:text-7xl">{hero.cleanSheets}</span>
+              <div className="pb-1 text-left">
+                <p className="text-2xl font-black uppercase leading-none text-foreground md:text-3xl">CLEAN SHEETS</p>
+                <p className="mt-1 text-xs uppercase tracking-[0.24em] text-muted-foreground">best defensive team</p>
               </div>
-              <span className="flex-1 text-[11px] font-semibold uppercase truncate">{t.teamNameThai}</span>
-              <span className="font-semibold text-[11px] tabular-nums flex-shrink-0 w-7 text-right">{t.cleanSheets}</span>
             </div>
-          ))}
+          </div>
         </div>
-      )}
 
-      {fullList.length > 0 && (
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="w-full py-2.5 text-[10px] sm:text-xs font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors border-t border-border/20 flex items-center justify-center gap-1"
-        >
-          {expanded ? (
-            <>{"ย่อรายการ"}<ChevronUp className="w-3 h-3" /></>
-          ) : (
-            <>{"แสดงทั้งหมด"}<ChevronDown className="w-3 h-3" /></>
-          )}
-        </button>
-      )}
+        <div className="p-4 md:p-5">
+          <div className="relative overflow-hidden rounded-[28px] border border-border bg-background">
+            <div className="absolute inset-x-0 top-0 h-1 bg-sky-500" />
+            <div className="absolute right-4 top-4 rounded-full border border-border bg-card p-2.5 text-muted-foreground">
+              <Shield className="h-4 w-4" />
+            </div>
+
+            <div className="px-4 pt-4">
+              <Badge className="border-0 bg-primary text-primary-foreground">อันดับ 1</Badge>
+            </div>
+
+            <div className="relative mt-3 h-[290px]">
+              <div className="absolute inset-x-5 top-0 h-[150px] rounded-[26px] bg-gradient-to-b from-muted/40 to-muted/10" />
+              <div className="absolute inset-x-0 bottom-8 mx-auto flex h-[180px] w-[180px] items-center justify-center rounded-full bg-card p-6">
+                <Image src={hero.teamLogo} alt={hero.teamNameThai} width={140} height={140} className="h-full w-full object-contain" />
+              </div>
+            </div>
+
+            <div className="border-t border-border/60 px-4 py-4">
+              <div className="mb-3 min-w-0">
+                <h3 className="truncate text-2xl font-black uppercase leading-none text-foreground">{hero.teamNameThai}</h3>
+                <p className="mt-1 truncate text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">{hero.teamName}</p>
+              </div>
+
+              <div className="space-y-2.5">
+                {rest.slice(0, expanded ? rest.length : 2).map((team, index) => (
+                  <div key={team.teamName} className="flex items-center gap-3 rounded-2xl border border-border bg-muted/20 px-3 py-2.5">
+                    <span className="w-5 flex-shrink-0 text-center text-xs font-black text-muted-foreground">{index + 2}</span>
+                    <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-background p-1">
+                      <Image src={team.teamLogo} alt={team.teamNameThai} width={36} height={36} className="h-full w-full object-contain" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-foreground">{team.teamNameThai}</p>
+                    </div>
+                    <span className="text-lg font-black tabular-nums text-foreground">{team.cleanSheets}</span>
+                  </div>
+                ))}
+              </div>
+
+              {rest.length > 2 ? (
+                <button
+                  type="button"
+                  onClick={() => setExpanded((prev) => !prev)}
+                  className="mt-4 inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {expanded ? "ซ่อนรายการ" : "ดูทั้งหมด"}
+                  {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </CardContent>
     </Card>
   )
 }
 
-/* ──────────────────────────────────────────────
-   Skeleton loader
-   ────────────────────────────────────────────── */
 function SkeletonCard() {
   return (
-    <Card className="border-border/50 overflow-hidden">
-      <div className="aspect-[4/5] bg-muted animate-pulse" />
-      <div className="p-3 space-y-2">
-        <div className="h-9 bg-muted animate-pulse rounded" />
-        <div className="h-9 bg-muted animate-pulse rounded" />
-      </div>
-      <div className="h-9 bg-muted/50 animate-pulse" />
+    <Card className="overflow-hidden border-border/60 bg-card shadow-none">
+      <CardContent className="p-0">
+        <div className="h-28 animate-pulse border-b border-border/60 bg-muted/30" />
+        <div className="p-4 md:p-5">
+          <div className="h-[420px] animate-pulse rounded-[28px] bg-muted/30" />
+        </div>
+      </CardContent>
     </Card>
   )
 }
 
-/* ──────────────────────────────────────────────
-   Page
-   ────────────────────────────────────────────── */
 export default function PlayersPage() {
   const { data: statsData, isLoading: statsLoading } = useSWR("/api/football/player-stats", fetcher)
   const { data: cleanData, isLoading: cleanLoading } = useSWR("/api/football/cleansheets", fetcher)
 
   const isLoading = statsLoading || cleanLoading
   const cats = statsData?.data || {}
+  const cleanSheetTeams = cleanData?.teams || []
 
-  const cardConfig: {
+  const cardConfig: Array<{
     key: string
     title: string
+    subtitle: string
+    valueLabel: string
     icon: React.ElementType
-    color: string
-  }[] = [
-    { key: "goals", title: "GOALS", icon: Trophy, color: "#dc2626" },
-    { key: "assists", title: "ASSISTS", icon: Target, color: "#dc2626" },
-    { key: "shots", title: "SHOTS", icon: Crosshair, color: "#dc2626" },
-    { key: "penalties", title: "PENALTIES", icon: CircleDot, color: "#f59e0b" },
-    { key: "yellowCards", title: "YELLOW CARDS", icon: AlertTriangle, color: "#eab308" },
-    { key: "appearances", title: "APPEARANCES", icon: Users, color: "#16a34a" },
+    accent: string
+  }> = [
+    { key: "goals", title: "Goals", subtitle: "golden boot race", valueLabel: "GOALS", icon: Trophy, accent: "bg-primary" },
+    { key: "assists", title: "Assists", subtitle: "chance creators", valueLabel: "ASSISTS", icon: Target, accent: "bg-emerald-500" },
+    { key: "shots", title: "Shots", subtitle: "shot volume", valueLabel: "SHOTS", icon: Crosshair, accent: "bg-amber-500" },
+    { key: "penalties", title: "Penalties", subtitle: "from the spot", valueLabel: "PENS", icon: CircleDot, accent: "bg-orange-500" },
+    { key: "yellowCards", title: "Yellow Cards", subtitle: "discipline watch", valueLabel: "YELLOWS", icon: AlertTriangle, accent: "bg-yellow-500" },
+    { key: "appearances", title: "Appearances", subtitle: "most used players", valueLabel: "APPS", icon: Users, accent: "bg-sky-500" },
   ]
-
-  const cleanSheetTeams = cleanData?.teams || []
 
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
 
-      {/* ── Header ── */}
-      <div className="border-b border-border/50 bg-gradient-to-b from-muted/50 to-transparent">
-        <div className="container mx-auto px-4 py-6 md:py-10">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-            <div>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black uppercase tracking-tight text-balance">
-                {"Premier League Stats"}
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                {"สถิตินักเตะพรีเมียร์ลีก ฤดูกาล 2024/25"}
-              </p>
+      <section className="border-b border-border/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.005))]">
+        <div className="container mx-auto px-4 py-8 md:py-12">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
+              <Sparkles className="h-3.5 w-3.5" />
+              Player Categories
             </div>
-            <Badge variant="outline" className="self-start sm:self-auto text-xs py-1 px-3">
-              {"Season 2024-2025"}
-            </Badge>
+            <h1 className="text-4xl font-black uppercase tracking-tight text-foreground md:text-6xl">Premier League Players</h1>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-muted-foreground md:text-base">
+              สรุปหมวดสถิตินักเตะพรีเมียร์ลีกแบบดูง่ายในหน้าเดียว ทั้งดาวซัลโว แอสซิสต์ ยิงเยอะ จุดโทษ ใบเหลือง
+              และจำนวนนัดลงสนาม โดยดึงข้อมูลจริงของฤดูกาลนี้มาแสดงเป็นการ์ดแยกหมวด
+            </p>
+            <div className="mt-5">
+              <Badge variant="outline" className="px-3 py-1 text-xs uppercase tracking-[0.2em]">
+                Season {PREMIER_LEAGUE_DATA_SEASON.labelLong}
+              </Badge>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* ── Main grid ── */}
       <main className="container mx-auto px-4 py-6 md:py-10">
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <SkeletonCard key={i} />
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <SkeletonCard key={index} />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
-            {/* Player stat cards */}
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {cardConfig.map((cfg) => {
               const players: PlayerStat[] = cats[cfg.key] || []
               if (players.length === 0) return null
+
               return (
-                <HeroStatCard
+                <PlayerCategoryCard
                   key={cfg.key}
                   title={cfg.title}
-                  icon={cfg.icon}
-                  accentColor={cfg.color}
+                  subtitle={cfg.subtitle}
+                  valueLabel={cfg.valueLabel}
                   players={players}
+                  icon={cfg.icon}
+                  accent={cfg.accent}
                 />
               )
             })}
 
-            {/* Clean Sheets (team-based) */}
-            {cleanSheetTeams.length > 0 && <CleanSheetCard teams={cleanSheetTeams} />}
+            {cleanSheetTeams.length > 0 ? <CleanSheetCategoryCard teams={cleanSheetTeams} /> : null}
           </div>
         )}
       </main>

@@ -6,7 +6,8 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "eslint .",
-    "start": "next start"
+    "start": "next start",
+    "seed:admins": "node scripts/seed-admins.js"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "latest",

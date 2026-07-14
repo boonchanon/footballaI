@@ -1,8 +1,9 @@
-﻿import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 
 import { formatDateThai, getTimeAgoThai } from "@/lib/sportmonks"
 
 type NewsCategory = "match" | "transfer" | "preview" | "result" | "general"
+type NewsTopic = "premier-league" | "worldcup"
 
 interface NewsArticle {
   id: string
@@ -40,29 +41,53 @@ interface AiTranslationResponse {
   items?: AiTranslationItem[]
 }
 
-const GNEWS_QUERY = "Premier League football"
 const GNEWS_MAX_ARTICLES = 20
 const AI_TRANSLATION_LIMIT = 10
+
+const TOPIC_CONFIG: Record<NewsTopic, { query: string; fallbackImage: string }> = {
+  "premier-league": {
+    query: "Premier League football",
+    fallbackImage: "/premier-league-news.jpg",
+  },
+  worldcup: {
+    query: '"FIFA World Cup 2026" OR "World Cup 2026" OR "2026 World Cup"',
+    fallbackImage: "/worldcup-2026-popup-bg.jpg",
+  },
+}
 
 const TEAM_TRANSLATIONS: Record<string, string> = {
   "Manchester United": "แมนเชสเตอร์ ยูไนเต็ด",
   "Manchester City": "แมนเชสเตอร์ ซิตี้",
-  "Liverpool": "ลิเวอร์พูล",
-  "Arsenal": "อาร์เซนอล",
-  "Chelsea": "เชลซี",
-  "Tottenham": "ท็อตแนม ฮ็อตสเปอร์",
-  "Spurs": "สเปอร์ส",
-  "Newcastle": "นิวคาสเซิล",
+  Liverpool: "ลิเวอร์พูล",
+  Arsenal: "อาร์เซนอล",
+  Chelsea: "เชลซี",
+  Tottenham: "ท็อตแนม ฮ็อตสเปอร์",
+  Spurs: "สเปอร์ส",
+  Newcastle: "นิวคาสเซิล",
   "Aston Villa": "แอสตัน วิลลา",
   "West Ham": "เวสต์แฮม",
-  "Brighton": "ไบรท์ตัน",
-  "Everton": "เอฟเวอร์ตัน",
-  "Leicester": "เลสเตอร์",
+  Brighton: "ไบรท์ตัน",
+  Everton: "เอฟเวอร์ตัน",
+  Leicester: "เลสเตอร์",
   "Nottingham Forest": "น็อตติงแฮม ฟอเรสต์",
+  Argentina: "อาร์เจนตินา",
+  Brazil: "บราซิล",
+  France: "ฝรั่งเศส",
+  England: "อังกฤษ",
+  Spain: "สเปน",
+  Germany: "เยอรมนี",
+  Portugal: "โปรตุเกส",
+  Netherlands: "เนเธอร์แลนด์",
+  Belgium: "เบลเยียม",
+  Mexico: "เม็กซิโก",
+  Canada: "แคนาดา",
+  "United States": "สหรัฐอเมริกา",
+  FIFA: "ฟีฟ่า",
 }
 
 const TERM_TRANSLATIONS: Record<string, string> = {
   "Premier League": "พรีเมียร์ลีก",
+  "World Cup": "ฟุตบอลโลก",
   football: "ฟุตบอล",
   Football: "ฟุตบอล",
   transfer: "ย้ายทีม",
@@ -111,13 +136,26 @@ const TERM_TRANSLATIONS: Record<string, string> = {
   Signs: "เซ็นสัญญา",
   agrees: "บรรลุข้อตกลง",
   Agrees: "บรรลุข้อตกลง",
-  agrees: "บรรลุข้อตกลง",
   deal: "ดีล",
   Deal: "ดีล",
   race: "การลุ้นแชมป์",
   Race: "การลุ้นแชมป์",
   title: "แชมป์",
   Title: "แชมป์",
+  qualification: "การคัดเลือก",
+  Qualification: "การคัดเลือก",
+  qualified: "ผ่านเข้ารอบ",
+  Qualified: "ผ่านเข้ารอบ",
+  host: "เจ้าภาพ",
+  Host: "เจ้าภาพ",
+  stadium: "สนาม",
+  Stadium: "สนาม",
+  squad: "ขุมกำลัง",
+  Squad: "ขุมกำลัง",
+}
+
+function parseTopic(raw: string | null): NewsTopic {
+  return raw === "worldcup" ? "worldcup" : "premier-league"
 }
 
 function escapeRegExp(value: string): string {
@@ -204,9 +242,7 @@ function extractJsonPayload(content: string): AiTranslationResponse | null {
 }
 
 function getMessageContent(messageContent: unknown): string | null {
-  if (typeof messageContent === "string") {
-    return messageContent
-  }
+  if (typeof messageContent === "string") return messageContent
 
   if (Array.isArray(messageContent)) {
     const text = messageContent
@@ -226,7 +262,7 @@ function getMessageContent(messageContent: unknown): string | null {
   return null
 }
 
-async function translateArticlesWithAi(articles: RawNewsArticle[]): Promise<AiTranslationItem[] | null> {
+async function translateArticlesWithAi(articles: RawNewsArticle[], topic: NewsTopic): Promise<AiTranslationItem[] | null> {
   const apiKey = process.env.INTELSPHERE_API_KEY
   const baseUrl = process.env.INTELSPHERE_BASE_URL
   const model = process.env.INTELSPHERE_MODEL
@@ -249,7 +285,9 @@ async function translateArticlesWithAi(articles: RawNewsArticle[]): Promise<AiTr
         role: "user",
         content: JSON.stringify({
           instruction:
-            "Translate each item into Thai. Return JSON with shape {\"items\":[{\"titleThai\":\"...\",\"descriptionThai\":\"...\"}]}. Keep the same number and order as input. Each title should be concise. Each description should be 1-2 Thai sentences.",
+            topic === "worldcup"
+              ? "Translate each football world cup news item into Thai. Return JSON with shape {\"items\":[{\"titleThai\":\"...\",\"descriptionThai\":\"...\"}]}. Keep the same number and order as input. Each title should feel like a polished sports website headline. Each description should be 1-2 Thai sentences."
+              : "Translate each item into Thai. Return JSON with shape {\"items\":[{\"titleThai\":\"...\",\"descriptionThai\":\"...\"}]}. Keep the same number and order as input. Each title should be concise. Each description should be 1-2 Thai sentences.",
           items: articles.map((article) => ({
             title: article.title,
             description: article.description || "",
@@ -289,8 +327,9 @@ async function translateArticlesWithAi(articles: RawNewsArticle[]): Promise<AiTr
   }
 }
 
-async function fetchRealNews(): Promise<NewsArticle[]> {
+async function fetchRealNews(topic: NewsTopic): Promise<NewsArticle[]> {
   const apiKey = process.env.GNEWS_API_KEY
+  const config = TOPIC_CONFIG[topic]
 
   if (!apiKey) {
     console.log("GNEWS_API_KEY not configured, using fallback news")
@@ -299,7 +338,7 @@ async function fetchRealNews(): Promise<NewsArticle[]> {
 
   try {
     const response = await fetch(
-      `https://gnews.io/api/v4/search?q=${encodeURIComponent(GNEWS_QUERY)}&lang=en&country=uk&max=${GNEWS_MAX_ARTICLES}&apikey=${apiKey}`,
+      `https://gnews.io/api/v4/search?q=${encodeURIComponent(config.query)}&lang=en&max=${GNEWS_MAX_ARTICLES}&apikey=${apiKey}`,
       { next: { revalidate: 600 } },
     )
 
@@ -310,21 +349,21 @@ async function fetchRealNews(): Promise<NewsArticle[]> {
 
     const data = await response.json()
     const rawArticles: RawNewsArticle[] = Array.isArray(data.articles) ? data.articles : []
-    const aiTranslations = await translateArticlesWithAi(rawArticles.slice(0, AI_TRANSLATION_LIMIT))
+    const aiTranslations = await translateArticlesWithAi(rawArticles.slice(0, AI_TRANSLATION_LIMIT), topic)
 
     return rawArticles.map((article, index) => {
       const translated = aiTranslations?.[index]
-      const titleEn = article.title || "Premier League news update"
+      const titleEn = article.title || "Football news update"
       const descriptionEn = article.description || ""
 
       return {
-        id: `gnews-${index}-${new Date(article.publishedAt).getTime() || Date.now()}`,
+        id: `${topic}-${index}-${new Date(article.publishedAt).getTime() || Date.now()}`,
         title: sanitizeThaiText(translated?.titleThai, translateWithDictionary(titleEn)),
         titleEn,
         description: sanitizeThaiText(translated?.descriptionThai, translateWithDictionary(descriptionEn)),
         descriptionEn,
         url: article.url,
-        image: article.image || "/premier-league-news.jpg",
+        image: article.image || config.fallbackImage,
         source: article.source?.name || "GNews",
         timeAgo: getTimeAgoThai(article.publishedAt),
         publishedAt: article.publishedAt,
@@ -339,7 +378,7 @@ async function fetchRealNews(): Promise<NewsArticle[]> {
   }
 }
 
-function getFallbackNews(): NewsArticle[] {
+function getPremierLeagueFallbackNews(): NewsArticle[] {
   const now = new Date()
   return [
     {
@@ -405,10 +444,96 @@ function getFallbackNews(): NewsArticle[] {
   ]
 }
 
-export async function GET() {
+function getWorldCupFallbackNews(): NewsArticle[] {
+  const now = new Date()
+  return [
+    {
+      id: "wc-fallback-1",
+      title: "เจ้าภาพร่วม 3 ประเทศเร่งเตรียมความพร้อมโค้งสุดท้ายก่อนฟุตบอลโลก 2026",
+      titleEn: "Hosts intensify preparations for World Cup 2026",
+      description: "สหรัฐฯ เม็กซิโก และแคนาดาเดินหน้าอัปเดตสนามแข่งขัน ระบบคมนาคม และแผนรองรับแฟนบอล เพื่อให้ทัวร์นาเมนต์ครั้งใหญ่ที่สุดเดินหน้าอย่างราบรื่น",
+      descriptionEn: "Host nations continue preparing venues, transport and fan operations for the tournament.",
+      url: "#",
+      image: "/worldcup-2026-popup-bg.jpg",
+      source: "World Cup Desk",
+      timeAgo: "เมื่อสักครู่",
+      publishedAt: now.toISOString(),
+      publishedAtThai: formatDateThai(now.toISOString()),
+      isFeatured: true,
+      category: "general",
+    },
+    {
+      id: "wc-fallback-2",
+      title: "สรุปชาติเข้ารอบล่าสุด ใครการันตีตั๋วฟุตบอลโลก 2026 ไปแล้วบ้าง",
+      titleEn: "Latest qualified teams for World Cup 2026",
+      description: "รวมรายชื่อทีมที่ผ่านเข้ารอบแล้ว พร้อมมุมมองว่าการคัดเลือกในแต่ละทวีปกำลังเข้มข้นขึ้นแค่ไหน",
+      descriptionEn: "Latest snapshot of teams that have qualified for the World Cup.",
+      url: "#",
+      image: "/worldcup/worldcup4.webp",
+      source: "World Cup Desk",
+      timeAgo: "45 นาทีที่แล้ว",
+      publishedAt: new Date(now.getTime() - 2700000).toISOString(),
+      publishedAtThai: formatDateThai(new Date(now.getTime() - 2700000).toISOString()),
+      isFeatured: false,
+      category: "result",
+    },
+    {
+      id: "wc-fallback-3",
+      title: "พรีวิวเส้นทางลุ้นแชมป์ ทีมเต็งกลุ่มแรกมีจุดแข็งอะไรบ้างก่อนจับตารอบสุดท้าย",
+      titleEn: "Early title contenders preview for World Cup 2026",
+      description: "ส่องขุมกำลัง ฟอร์ม และผู้เล่นแกนหลักของบรรดาทีมเต็งที่ถูกจับตามองว่าจะไปได้ไกลในทัวร์นาเมนต์นี้",
+      descriptionEn: "Early look at leading contenders and their strengths ahead of the finals.",
+      url: "#",
+      image: "/worldcup/messi2022.jpg",
+      source: "World Cup Desk",
+      timeAgo: "1 ชั่วโมงที่แล้ว",
+      publishedAt: new Date(now.getTime() - 3600000).toISOString(),
+      publishedAtThai: formatDateThai(new Date(now.getTime() - 3600000).toISOString()),
+      isFeatured: false,
+      category: "preview",
+    },
+    {
+      id: "wc-fallback-4",
+      title: "อัปเดตอาการบาดเจ็บแข้งตัวหลัก ทีมใหญ่เริ่มบริหารความเสี่ยงก่อนเข้าสู่ปีฟุตบอลโลก",
+      titleEn: "Key injury updates ahead of World Cup year",
+      description: "หลายทีมชาติเริ่มจับตาความฟิตของสตาร์ดังอย่างใกล้ชิด เพราะแต่ละรายอาจกระทบสมดุลทีมอย่างมีนัยสำคัญ",
+      descriptionEn: "National teams monitor fitness concerns of star players ahead of the tournament year.",
+      url: "#",
+      image: "/worldcup/france2018.jpg",
+      source: "World Cup Desk",
+      timeAgo: "2 ชั่วโมงที่แล้ว",
+      publishedAt: new Date(now.getTime() - 7200000).toISOString(),
+      publishedAtThai: formatDateThai(new Date(now.getTime() - 7200000).toISOString()),
+      isFeatured: false,
+      category: "match",
+    },
+    {
+      id: "wc-fallback-5",
+      title: "สนามแข่งขันหลักแต่ละเมืองมีอะไรน่าจับตา แฟนบอลควรรู้อะไรก่อนเดินทาง",
+      titleEn: "Key venue guide for World Cup 2026 cities",
+      description: "รวมข้อมูลเบื้องต้นของสนามเด่น เมืองเจ้าภาพ และบรรยากาศที่น่าจะเป็นหัวใจของทัวร์นาเมนต์ครั้งนี้",
+      descriptionEn: "Venue overview for key host cities and stadiums.",
+      url: "#",
+      image: "/worldcup/trophy.jpg",
+      source: "World Cup Desk",
+      timeAgo: "3 ชั่วโมงที่แล้ว",
+      publishedAt: new Date(now.getTime() - 10800000).toISOString(),
+      publishedAtThai: formatDateThai(new Date(now.getTime() - 10800000).toISOString()),
+      isFeatured: false,
+      category: "general",
+    },
+  ]
+}
+
+function getFallbackNews(topic: NewsTopic): NewsArticle[] {
+  return topic === "worldcup" ? getWorldCupFallbackNews() : getPremierLeagueFallbackNews()
+}
+
+export async function GET(request: NextRequest) {
   try {
-    const realNews = await fetchRealNews()
-    const articles = realNews.length > 0 ? realNews : getFallbackNews()
+    const topic = parseTopic(request.nextUrl.searchParams.get("topic"))
+    const realNews = await fetchRealNews(topic)
+    const articles = realNews.length > 0 ? realNews : getFallbackNews(topic)
     const source = realNews.length > 0 ? "gnews" : "fallback"
 
     const sortedArticles = articles.sort((a, b) => {
@@ -418,6 +543,7 @@ export async function GET() {
     })
 
     return NextResponse.json({
+      topic,
       articles: sortedArticles,
       lastUpdated: new Date().toISOString(),
       lastUpdatedThai: formatDateThai(new Date().toISOString()),
@@ -434,8 +560,10 @@ export async function GET() {
   } catch (error) {
     console.error("News API error:", error)
 
-    const fallbackNews = getFallbackNews()
+    const topic = parseTopic(request.nextUrl.searchParams.get("topic"))
+    const fallbackNews = getFallbackNews(topic)
     return NextResponse.json({
+      topic,
       articles: fallbackNews,
       lastUpdated: new Date().toISOString(),
       lastUpdatedThai: formatDateThai(new Date().toISOString()),

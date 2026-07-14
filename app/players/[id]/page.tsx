@@ -246,6 +246,72 @@ const mockShots = [
   },
 ]
 
+function normalizePlayer(rawPlayer: any) {
+  const fallback = mockPlayer
+  const incoming = rawPlayer ?? {}
+  const incomingStats = incoming.statistics ?? {}
+  const fallbackStats = fallback.statistics
+
+  return {
+    ...fallback,
+    ...incoming,
+    birth: {
+      ...fallback.birth,
+      ...(incoming.birth ?? {}),
+    },
+    team: {
+      ...fallback.team,
+      ...(incoming.team ?? {}),
+    },
+    statistics: {
+      ...fallbackStats,
+      ...incomingStats,
+      games: {
+        ...fallbackStats.games,
+        ...(incomingStats.games ?? {}),
+      },
+      goals: {
+        ...fallbackStats.goals,
+        ...(incomingStats.goals ?? {}),
+      },
+      shots: {
+        ...fallbackStats.shots,
+        ...(incomingStats.shots ?? {}),
+      },
+      passes: {
+        ...fallbackStats.passes,
+        ...(incomingStats.passes ?? {}),
+      },
+      tackles: {
+        ...fallbackStats.tackles,
+        ...(incomingStats.tackles ?? {}),
+      },
+      duels: {
+        ...fallbackStats.duels,
+        ...(incomingStats.duels ?? {}),
+      },
+      dribbles: {
+        ...fallbackStats.dribbles,
+        ...(incomingStats.dribbles ?? {}),
+      },
+      fouls: {
+        ...fallbackStats.fouls,
+        ...(incomingStats.fouls ?? {}),
+      },
+      cards: {
+        ...fallbackStats.cards,
+        ...(incomingStats.cards ?? {}),
+      },
+      penalty: {
+        ...fallbackStats.penalty,
+        ...(incomingStats.penalty ?? {}),
+      },
+    },
+    allSeasonStats: Array.isArray(incoming.allSeasonStats) ? incoming.allSeasonStats : fallback.allSeasonStats,
+    transfers: Array.isArray(incoming.transfers) ? incoming.transfers : fallback.transfers,
+  }
+}
+
 // Stat progress bar component
 function StatBar({
   value,
@@ -284,7 +350,7 @@ export default function PlayerDetailPage() {
 
   const { data, isLoading, error } = useSWR(`/api/football/players/${playerId}`, fetcher)
 
-  const player = data?.data || mockPlayer
+  const player = normalizePlayer(data?.data)
   const hasApiData = !!data?.data
 
   if (isLoading) {
@@ -403,11 +469,11 @@ export default function PlayerDetailPage() {
                         alt={player.name}
                         width={140}
                         height={140}
-                        className="w-28 h-28 md:w-32 md:h-32 rounded-full bg-white/10 object-cover border-4 border-white/30 shadow-xl"
+                        className="h-28 w-28 rounded-full border-4 border-border/70 bg-card/80 object-cover shadow-xl md:h-32 md:w-32 dark:border-white/30 dark:bg-white/10"
                       />
                     ) : (
-                      <div className="w-28 h-28 md:w-32 md:h-32 rounded-full bg-white/10 flex items-center justify-center border-4 border-white/30 shadow-xl">
-                        <Users className="w-14 h-14 text-white/60" />
+                      <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-border/70 bg-card/80 shadow-xl md:h-32 md:w-32 dark:border-white/30 dark:bg-white/10">
+                        <Users className="h-14 w-14 text-foreground/45 dark:text-white/60" />
                       </div>
                     )}
                     {player.injured && (
@@ -419,7 +485,7 @@ export default function PlayerDetailPage() {
 
                   {/* Player Name & Team */}
                   <div className="flex-1 text-center sm:text-left">
-                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white tracking-tight">
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl lg:text-4xl dark:text-white">
                       {player.name}
                     </h1>
                     <div className="flex items-center gap-3 justify-center sm:justify-start mt-2">
@@ -432,7 +498,7 @@ export default function PlayerDetailPage() {
                           className="w-6 h-6"
                         />
                       )}
-                      <span className="text-base text-white/90 font-medium">{player.team?.name}</span>
+                      <span className="text-base font-medium text-foreground/85 dark:text-white/90">{player.team?.name}</span>
                     </div>
                   </div>
 
@@ -440,7 +506,7 @@ export default function PlayerDetailPage() {
                   <Button
                     variant="secondary"
                     size="default"
-                    className="gap-2 shrink-0 bg-white hover:bg-white/90 text-red-600 font-semibold shadow-lg"
+                    className="shrink-0 gap-2 bg-card text-primary shadow-lg hover:bg-card/90 dark:bg-white dark:text-red-600 dark:hover:bg-white/90"
                   >
                     <Star className="w-4 h-4" />
                     ติดตาม

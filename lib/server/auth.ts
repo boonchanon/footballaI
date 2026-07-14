@@ -1,14 +1,17 @@
 import jwt from "jsonwebtoken"
 import { NextRequest } from "next/server"
 
+import { type AdminRole, isAdminRole } from "@/lib/admin-access"
+
 import { connectDatabase } from "./db"
-import { User } from "./models"
+import { Admin, User } from "./models"
 
 export type AuthUser = {
   _id: { toString(): string }
   id?: string
   name: string
   email: string
+  phone?: string
   avatar?: string
   favoriteTeam?: string
   bio?: string
@@ -18,7 +21,16 @@ export type AuthUser = {
   comparePassword?: (password: string) => Promise<boolean>
 }
 
-export function signToken(payload: { sub: string; role?: string }) {
+export type AdminUser = {
+  _id: { toString(): string }
+  email: string
+  role?: AdminRole | string
+  permissions?: string[]
+  isActive?: boolean
+  comparePassword?: (password: string) => Promise<boolean>
+}
+
+export function signToken(payload: { sub: string; role?: string; type?: string }) {
   const secret = process.env.JWT_SECRET
   if (!secret) {
     throw new Error("JWT_SECRET is not configured")
@@ -50,6 +62,28 @@ export async function getAuthUser(request: NextRequest): Promise<AuthUser | null
   }
 }
 
+export async function getAdminUser(request: NextRequest): Promise<AdminUser | null> {
+  const authHeader = request.headers.get("authorization") || ""
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null
+  if (!token) return null
+
+  const secret = process.env.JWT_SECRET
+  if (!secret) {
+    throw new Error("JWT_SECRET is not configured")
+  }
+
+  try {
+    const payload = jwt.verify(token, secret) as { sub: string; type?: string }
+    if (payload.type !== "admin") return null
+    await connectDatabase()
+    const admin = await Admin.findById(payload.sub)
+    if (!admin || admin.isActive === false) return null
+    return admin as AdminUser
+  } catch {
+    return null
+  }
+}
+
 export async function requireAuthUser(request: NextRequest) {
   const user = await getAuthUser(request)
   if (!user) {
@@ -58,11 +92,28 @@ export async function requireAuthUser(request: NextRequest) {
   return user
 }
 
+export async function requireAdminUser(request: NextRequest) {
+  const admin = await getAdminUser(request)
+  if (!admin) {
+    throw new Error("Admin authentication required")
+  }
+  return admin
+}
+
+export async function requireAdminRoles(request: NextRequest, roles: AdminRole[]) {
+  const admin = await requireAdminUser(request)
+  if (!isAdminRole(admin.role) || !roles.includes(admin.role)) {
+    throw new Error("Admin permission denied")
+  }
+  return admin
+}
+
 export function sanitizeUser(user: AuthUser) {
   return {
     id: user._id.toString(),
     name: user.name,
     email: user.email,
+    phone: user.phone || "",
     avatar: user.avatar || "",
     favoriteTeam: user.favoriteTeam || "",
     bio: user.bio || "",

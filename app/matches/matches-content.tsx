@@ -1,691 +1,747 @@
 "use client"
 
-import { Navigation } from "@/components/navigation"
-import { Footer } from "@/components/footer"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-  RefreshCw,
-  Play,
-  Clock,
-  CheckCircle,
-  Trophy,
-  MapPin,
-  TrendingUp,
-} from "lucide-react"
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
-import useSWR from "swr"
 import Image from "next/image"
+import useSWR from "swr"
+import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Loader2, MapPin, RefreshCw, Shield, Sparkles, Trophy } from "lucide-react"
+
+import { Footer } from "@/components/footer"
+import { Navigation } from "@/components/navigation"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import { Card, CardContent } from "@/components/ui/card"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { PREMIER_LEAGUE_DATA_SEASON } from "@/lib/season"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
+type MatchStatus = "live" | "finished" | "upcoming"
+type SidePanel = "detail" | "lineup" | "statistics" | "table"
+
+type MatchItem = {
+  id: string
+  round: number
+  homeTeam: string
+  awayTeam: string
+  homeId: string
+  awayId: string
+  homeLogo: string
+  awayLogo: string
+  homeScore: number | null
+  awayScore: number | null
+  dateLabel: string
+  timeLabel: string
+  isoDate: string
+  dateKey: string
+  status: MatchStatus
+  venue: string
+}
+
+const dateFormatter = new Intl.DateTimeFormat("th-TH", {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+})
+
+const fullDateFormatter = new Intl.DateTimeFormat("th-TH", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+})
+
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+function buildDateLabel(targetDate: Date, now: Date) {
+  const current = startOfDay(now)
+  const target = startOfDay(targetDate)
+  const diffDays = Math.round((target.getTime() - current.getTime()) / 86400000)
+
+  if (diffDays === 0) return "วันนี้"
+  if (diffDays === 1) return "พรุ่งนี้"
+  if (diffDays === -1) return "เมื่อวาน"
+  return fullDateFormatter.format(targetDate)
+}
+
+function buildDateKey(date: Date) {
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, "0")
+  const day = `${date.getDate()}`.padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function buildStatusLabel(status: MatchStatus) {
+  if (status === "live") return "กำลังแข่ง"
+  if (status === "finished") return "จบการแข่งขัน"
+  return "ยังไม่แข่ง"
+}
+
+function buildStatRows(match: MatchItem) {
+  const homeScore = match.homeScore ?? 0
+  const awayScore = match.awayScore ?? 0
+  const scoreBase = Math.max(homeScore + awayScore, 1)
+  const homeMomentum = 50 + (homeScore - awayScore) * 10
+  const awayMomentum = 100 - homeMomentum
+
+  return [
+    { label: "โมเมนตัม", home: Math.min(Math.max(homeMomentum, 12), 88), away: Math.min(Math.max(awayMomentum, 12), 88) },
+    { label: "สัดส่วนประตู", home: Math.max(10, Math.round((homeScore / scoreBase) * 100)), away: Math.max(10, Math.round((awayScore / scoreBase) * 100)) },
+    { label: "สถานะเกม", home: match.status === "live" ? 66 : match.status === "finished" ? 52 : 48, away: match.status === "live" ? 34 : match.status === "finished" ? 48 : 52 },
+  ]
+}
+
 export default function MatchesContent() {
-  const searchParams = useSearchParams()
-  const filterParam = searchParams.get("filter")
-
-  const getDefaultTab = () => {
-    switch (filterParam) {
-      case "live":
-        return "live"
-      case "upcoming":
-        return "upcoming"
-      case "finished":
-        return "finished"
-      default:
-        return "upcoming"
-    }
-  }
-
-  const [activeTab, setActiveTab] = useState(getDefaultTab())
-  const [selectedRound, setSelectedRound] = useState<number>(0)
-  const [selectedTeam, setSelectedTeam] = useState<string>("all")
-  const [selectedStatus, setSelectedStatus] = useState<string>("all")
-  const [showCount, setShowCount] = useState(20)
-  const [roundInitialized, setRoundInitialized] = useState(false)
-
-  useEffect(() => {
-    setActiveTab(getDefaultTab())
-  }, [filterParam])
-
-  const {
-    data: allData,
-    isLoading,
-    mutate,
-  } = useSWR("/api/football/fixtures?type=all", fetcher, {
+  const { data: allData, isLoading, mutate } = useSWR("/api/football/fixtures?type=all", fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 60000,
   })
+  const { data: standingsData } = useSWR("/api/football/standings", fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 300000,
+  })
 
-  const transformFixture = (fixture: any) => {
-    const date = new Date(fixture.date)
-    const today = new Date()
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
-
-    let dateStr = date.toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" })
-    if (date.toDateString() === today.toDateString()) dateStr = "วันนี้"
-    else if (date.toDateString() === tomorrow.toDateString()) dateStr = "พรุ่งนี้"
-
-    return {
-      id: fixture.id?.toString(),
-      round: fixture.roundNumber || 1,
-      homeTeam: fixture.teams.home.name,
-      awayTeam: fixture.teams.away.name,
-      homeTeamEn: fixture.teams.home.nameEn || fixture.teams.home.name,
-      awayTeamEn: fixture.teams.away.nameEn || fixture.teams.away.name,
-      homeId: fixture.teams.home.id,
-      awayId: fixture.teams.away.id,
-      homeLogo: fixture.teams.home.logo,
-      awayLogo: fixture.teams.away.logo,
-      homeScore: fixture.goals.home,
-      awayScore: fixture.goals.away,
-      date: dateStr,
-      fullDate: date,
-      time: date.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }),
-      status: fixture.status.isLive ? "live" : fixture.status.isFinished ? "finished" : "upcoming",
-      venue: fixture.venue?.name || "",
-    }
-  }
-
-  const allFixtures = (allData?.data || []).map(transformFixture)
-  const availableRounds: number[] = allData?.rounds?.available || []
-  const totalRounds = allData?.rounds?.total || 38
-
-  // Auto-select round to the latest round with finished matches or the first upcoming round
-  useEffect(() => {
-    if (!roundInitialized && allFixtures.length > 0 && availableRounds.length > 0) {
-      const finishedRounds = allFixtures
-        .filter((m: any) => m.status === "finished")
-        .map((m: any) => m.round)
-      const maxFinishedRound = finishedRounds.length > 0 ? Math.max(...finishedRounds) : 0
-
-      const upcomingRounds = allFixtures
-        .filter((m: any) => m.status === "upcoming")
-        .map((m: any) => m.round)
-      const minUpcomingRound = upcomingRounds.length > 0 ? Math.min(...upcomingRounds) : 0
-
-      // Pick the current round (the one with a mix of finished and upcoming, or latest finished)
-      const currentRound = minUpcomingRound || maxFinishedRound || availableRounds[0] || 1
-      setSelectedRound(currentRound)
-      setRoundInitialized(true)
-    }
-  }, [allFixtures, availableRounds, roundInitialized])
-
-  // Extract unique team list from fixtures
-  const teamList = (() => {
-    const teams = new Map<string, { id: string; name: string; logo: string }>()
-    allFixtures.forEach((m: any) => {
-      if (m.homeId && !teams.has(m.homeId)) teams.set(m.homeId, { id: m.homeId, name: m.homeTeam, logo: m.homeLogo })
-      if (m.awayId && !teams.has(m.awayId)) teams.set(m.awayId, { id: m.awayId, name: m.awayTeam, logo: m.awayLogo })
+  const allFixtures: MatchItem[] = useMemo(() => {
+    const now = new Date()
+    return (allData?.data || []).map((fixture: any) => {
+      const fixtureDate = new Date(fixture.date)
+      return {
+        id: String(fixture.id ?? ""),
+        round: fixture.roundNumber || 1,
+        homeTeam: fixture.teams.home.name,
+        awayTeam: fixture.teams.away.name,
+        homeId: String(fixture.teams.home.id || ""),
+        awayId: String(fixture.teams.away.id || ""),
+        homeLogo: fixture.teams.home.logo || "",
+        awayLogo: fixture.teams.away.logo || "",
+        homeScore: fixture.goals.home ?? null,
+        awayScore: fixture.goals.away ?? null,
+        dateLabel: buildDateLabel(fixtureDate, now),
+        timeLabel: fixtureDate.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }),
+        isoDate: fixture.date,
+        dateKey: buildDateKey(fixtureDate),
+        status: fixture.status.isLive ? "live" : fixture.status.isFinished ? "finished" : "upcoming",
+        venue: fixture.venue?.name || "สนามแข่งขัน",
+      }
     })
-    return Array.from(teams.values()).sort((a, b) => a.name.localeCompare(b.name, "th"))
-  })()
+  }, [allData])
 
-  // Apply team filter
-  const filterByTeam = (matches: any[]) => {
-    if (selectedTeam === "all") return matches
-    return matches.filter((m: any) => m.homeId === selectedTeam || m.awayId === selectedTeam)
-  }
+  const dateOptions = useMemo(() => {
+    const grouped = new Map<string, { key: string; date: Date; label: string; sublabel: string; matches: number }>()
+    for (const match of allFixtures) {
+      if (!grouped.has(match.dateKey)) {
+        const date = new Date(match.isoDate)
+        grouped.set(match.dateKey, {
+          key: match.dateKey,
+          date,
+          label: buildDateLabel(date, new Date()),
+          sublabel: dateFormatter.format(date),
+          matches: 0,
+        })
+      }
+      grouped.get(match.dateKey)!.matches += 1
+    }
 
-  // Apply status filter
-  const filterByStatus = (matches: any[]) => {
-    if (selectedStatus === "all") return matches
-    return matches.filter((m: any) => m.status === selectedStatus)
-  }
+    return Array.from(grouped.values())
+      .sort((a, b) => a.date.getTime() - b.date.getTime())
+  }, [allFixtures])
 
-  const roundFixtures = filterByTeam(allFixtures.filter((m: any) => m.round === selectedRound))
-  const liveMatches = filterByTeam(allFixtures.filter((m: any) => m.status === "live"))
-  const upcomingMatches = filterByTeam(allFixtures.filter((m: any) => m.status === "upcoming"))
-  const finishedMatches = filterByTeam(allFixtures.filter((m: any) => m.status === "finished"))
+  const [selectedDateKey, setSelectedDateKey] = useState("")
+  const [selectedMatchId, setSelectedMatchId] = useState("")
+  const [activePanel, setActivePanel] = useState<SidePanel>("detail")
 
-  // Get next upcoming match for featured section
-  const nextMatch = upcomingMatches[0]
+  useEffect(() => {
+    if (!dateOptions.length) return
+    if (selectedDateKey && dateOptions.some((item) => item.key === selectedDateKey)) return
 
-  const FeaturedMatchCard = ({ match }: { match: any }) => {
-    if (!match) return null
+    const preferred =
+      dateOptions.find((item) => item.date >= startOfDay(new Date())) ||
+      dateOptions[0]
+
+    setSelectedDateKey(preferred.key)
+  }, [dateOptions, selectedDateKey])
+
+  const selectedDateMatches = useMemo(
+    () =>
+      allFixtures
+        .filter((match) => match.dateKey === selectedDateKey)
+        .sort((a, b) => new Date(a.isoDate).getTime() - new Date(b.isoDate).getTime()),
+    [allFixtures, selectedDateKey],
+  )
+
+  useEffect(() => {
+    if (!selectedDateMatches.length) return
+    if (selectedMatchId && selectedDateMatches.some((match) => match.id === selectedMatchId)) return
+
+    const preferredMatch =
+      selectedDateMatches.find((match) => match.status === "live") ||
+      selectedDateMatches.find((match) => match.status === "upcoming") ||
+      selectedDateMatches[0]
+
+    setSelectedMatchId(preferredMatch.id)
+  }, [selectedDateMatches, selectedMatchId])
+
+  const selectedMatch = selectedDateMatches.find((match) => match.id === selectedMatchId) || selectedDateMatches[0] || null
+
+  const heroStatRows = selectedMatch ? buildStatRows(selectedMatch) : []
+  const selectedDateLabel = dateOptions.find((item) => item.key === selectedDateKey)
+  const liveCount = allFixtures.filter((match) => match.status === "live").length
+  const upcomingCount = allFixtures.filter((match) => match.status === "upcoming").length
+  const finishedCount = allFixtures.filter((match) => match.status === "finished").length
+  const totalMatchesLoaded = allData?.totalMatches || 0
+  const expectedMatches = allData?.expectedMatches || 380
+  const availableRounds = allData?.rounds?.available || []
+  const expectedRounds = allData?.rounds?.total || 38
+  const isCompleteSeason = Boolean(allData?.isCompleteSeason)
+  const selectedDateIndex = dateOptions.findIndex((item) => item.key === selectedDateKey)
+  const visibleDateStart = selectedDateIndex <= 3 ? 0 : Math.max(0, Math.min(selectedDateIndex - 3, Math.max(0, dateOptions.length - 7)))
+  const visibleDateOptions = dateOptions.slice(visibleDateStart, visibleDateStart + 7)
+  const calendarSelectedDate = selectedDateLabel?.date
+  const enabledCalendarDates = dateOptions.map((item) => item.date)
+  const railMatches = useMemo(() => {
+    const primary = selectedDateMatches
+    const extras = allFixtures.filter((match) => match.dateKey !== selectedDateKey)
+    const sortedExtras = [...extras].sort((a, b) => {
+      const aDiff = Math.abs(new Date(a.isoDate).getTime() - new Date(selectedDateKey || a.dateKey).getTime())
+      const bDiff = Math.abs(new Date(b.isoDate).getTime() - new Date(selectedDateKey || b.dateKey).getTime())
+      return aDiff - bDiff
+    })
+
+    return [...primary, ...sortedExtras].slice(0, 8)
+  }, [allFixtures, selectedDateKey, selectedDateMatches])
+  const standings = (standingsData?.data || []).slice(0, 5)
+  const quickPanelItems: Array<{ key: SidePanel; label: string }> = [
+    { key: "detail", label: "รายละเอียดแมตช์" },
+    { key: "lineup", label: "ไลน์อัป" },
+    { key: "statistics", label: "สถิติ" },
+    { key: "table", label: "ตารางคะแนน" },
+  ]
+
+  const DateCard = ({ item }: { item: (typeof dateOptions)[number] }) => {
+    const isActive = item.key === selectedDateKey
+    const dayName = item.date.toLocaleDateString("th-TH", { weekday: "short" })
+    const dayNumber = item.date.getDate()
 
     return (
-      <Link href={`/matches/${match.id}`} className="block">
-        <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent overflow-hidden">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Badge className="bg-primary/20 text-primary border-0">แมตช์ถัดไป</Badge>
-              <span className="text-sm text-muted-foreground">นัดที่ {match.round}</span>
-            </div>
-
-            <div className="flex items-center justify-between gap-6">
-              {/* Home Team */}
-              <div className="flex-1 text-center">
-                <div className="w-20 h-20 mx-auto mb-3 rounded-full bg-card border border-border/50 flex items-center justify-center p-2">
-                  {match.homeLogo ? (
-                    <Image
-                      src={match.homeLogo || "/placeholder.svg"}
-                      alt={match.homeTeam}
-                      width={64}
-                      height={64}
-                      className="w-16 h-16 object-contain"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 bg-muted rounded-full" />
-                  )}
-                </div>
-                <h3 className="font-semibold text-lg">{match.homeTeam}</h3>
-                <span className="text-sm text-muted-foreground">เจ้าบ้าน</span>
-              </div>
-
-              {/* VS and Time */}
-              <div className="text-center px-6">
-                <div className="text-3xl font-bold text-muted-foreground mb-2">VS</div>
-                <div className="bg-card border border-border/50 rounded-lg px-4 py-2">
-                  <div className="text-primary font-semibold">{match.date}</div>
-                  <div className="text-2xl font-bold">{match.time}</div>
-                </div>
-              </div>
-
-              {/* Away Team */}
-              <div className="flex-1 text-center">
-                <div className="w-20 h-20 mx-auto mb-3 rounded-full bg-card border border-border/50 flex items-center justify-center p-2">
-                  {match.awayLogo ? (
-                    <Image
-                      src={match.awayLogo || "/placeholder.svg"}
-                      alt={match.awayTeam}
-                      width={64}
-                      height={64}
-                      className="w-16 h-16 object-contain"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 bg-muted rounded-full" />
-                  )}
-                </div>
-                <h3 className="font-semibold text-lg">{match.awayTeam}</h3>
-                <span className="text-sm text-muted-foreground">ทีมเยือน</span>
-              </div>
-            </div>
-
-            {match.venue && (
-              <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-border/50 text-sm text-muted-foreground">
-                <MapPin className="w-4 h-4" />
-                <span>{match.venue}</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </Link>
+      <button
+        type="button"
+        onClick={() => setSelectedDateKey(item.key)}
+        className={`flex min-h-[118px] min-w-[78px] flex-col items-center justify-between rounded-[999px] border px-3 py-4 text-center transition-all ${
+          isActive
+            ? "border-lime-300 bg-lime-300 text-slate-950 shadow-[0_16px_40px_rgba(190,242,100,0.35)]"
+            : "border-white/10 bg-white/5 text-white hover:border-lime-300/40 hover:bg-white/10"
+        }`}
+        aria-pressed={isActive}
+      >
+        <div>
+          <p className={`text-lg font-medium ${isActive ? "text-slate-800" : "text-white/78"}`}>{dayName}</p>
+        </div>
+        <div
+          className={`flex h-11 w-11 items-center justify-center rounded-full text-2xl font-semibold ${
+            isActive ? "bg-slate-950 text-white" : "border border-white/10 bg-black/20 text-white"
+          }`}
+        >
+          {dayNumber}
+        </div>
+        <div className={`text-[11px] ${isActive ? "text-slate-700" : "text-white/45"}`}>{item.matches} แมตช์</div>
+      </button>
     )
   }
 
-  const MatchCard = ({ match, showDate = true }: { match: any; showDate?: boolean }) => (
-    <Link href={`/matches/${match.id}`} className="block group">
-      <Card className="border-border/50 hover:border-primary/50 transition-all duration-200 overflow-hidden">
-        <CardContent className="p-0">
-          {/* Status bar */}
-          <div
-            className={`h-1 ${match.status === "live" ? "bg-red-500" : match.status === "finished" ? "bg-muted" : "bg-primary/50"}`}
-          />
+  const MatchRailCard = ({ match }: { match: MatchItem }) => {
+    const isActive = selectedMatch?.id === match.id
+    const isSameDay = match.dateKey === selectedDateKey
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          if (!isSameDay) {
+            setSelectedDateKey(match.dateKey)
+          }
+          setSelectedMatchId(match.id)
+        }}
+        className={`min-w-[230px] rounded-[28px] border p-4 text-left transition-all ${
+          isActive
+            ? "border-lime-300 bg-lime-300 text-slate-950 shadow-[0_16px_40px_rgba(190,242,100,0.35)]"
+            : "border-white/10 bg-[#262626] text-white hover:border-lime-300/30 hover:bg-[#2d2d2d]"
+        }`}
+      >
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <Badge className={isActive ? "border-0 bg-slate-950/10 text-slate-800" : "border-0 bg-white/10 text-white/80"}>
+            {isSameDay ? buildStatusLabel(match.status) : match.dateLabel}
+          </Badge>
+          <span className={`text-xs ${isActive ? "text-slate-700" : "text-white/55"}`}>{match.timeLabel}</span>
+        </div>
 
-          <div className="p-4">
-            {/* Header with status and round */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                {match.status === "live" && (
-                  <Badge variant="destructive" className="gap-1">
-                    <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                    LIVE
-                  </Badge>
-                )}
-                {match.status === "finished" && (
-                  <Badge variant="secondary" className="gap-1">
-                    <CheckCircle className="w-3 h-3" /> จบแล้ว
-                  </Badge>
-                )}
-                {match.status === "upcoming" && showDate && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">{match.date}</span>
-                    <span className="font-semibold text-primary">{match.time}</span>
-                  </div>
-                )}
-              </div>
-              <Badge variant="outline" className="text-xs">
-                นัด {match.round}
-              </Badge>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+          <div className="min-w-0">
+            <div className="mb-2 flex items-center gap-2">
+              {match.homeLogo ? <Image src={match.homeLogo} alt={match.homeTeam} width={28} height={28} className="h-7 w-7 object-contain" /> : <Shield className="h-7 w-7" />}
+              <span className="truncate text-sm font-medium">{match.homeTeam}</span>
             </div>
-
-            {/* Teams */}
-            <div className="flex items-center gap-4">
-              {/* Home Team */}
-              <div className="flex-1 flex items-center gap-3">
-                <div className="w-12 h-12 rounded-lg bg-card border border-border/50 flex items-center justify-center p-1 shrink-0">
-                  {match.homeLogo ? (
-                    <Image
-                      src={match.homeLogo || "/placeholder.svg"}
-                      alt={match.homeTeam}
-                      width={40}
-                      height={40}
-                      className="w-10 h-10 object-contain"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 bg-muted rounded" />
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <p className="font-semibold truncate">{match.homeTeam}</p>
-                  <p className="text-xs text-muted-foreground">เจ้าบ้าน</p>
-                </div>
-              </div>
-
-              {/* Score */}
-              <div className="px-4 text-center shrink-0">
-                {match.status === "upcoming" ? (
-                  <div className="text-2xl font-bold text-muted-foreground">-</div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <span className={`text-2xl font-bold ${match.homeScore > match.awayScore ? "text-primary" : ""}`}>
-                      {match.homeScore}
-                    </span>
-                    <span className="text-muted-foreground">:</span>
-                    <span className={`text-2xl font-bold ${match.awayScore > match.homeScore ? "text-primary" : ""}`}>
-                      {match.awayScore}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Away Team */}
-              <div className="flex-1 flex items-center gap-3 justify-end">
-                <div className="min-w-0 text-right">
-                  <p className="font-semibold truncate">{match.awayTeam}</p>
-                  <p className="text-xs text-muted-foreground">ทีมเยือน</p>
-                </div>
-                <div className="w-12 h-12 rounded-lg bg-card border border-border/50 flex items-center justify-center p-1 shrink-0">
-                  {match.awayLogo ? (
-                    <Image
-                      src={match.awayLogo || "/placeholder.svg"}
-                      alt={match.awayTeam}
-                      width={40}
-                      height={40}
-                      className="w-10 h-10 object-contain"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 bg-muted rounded" />
-                  )}
-                </div>
-              </div>
+            <div className="mb-2 flex items-center gap-2">
+              {match.awayLogo ? <Image src={match.awayLogo} alt={match.awayTeam} width={28} height={28} className="h-7 w-7 object-contain" /> : <Shield className="h-7 w-7" />}
+              <span className="truncate text-sm font-medium">{match.awayTeam}</span>
             </div>
+          </div>
 
-            {/* Venue */}
-            {match.venue && (
-              <div className="flex items-center justify-center gap-1.5 mt-3 pt-3 border-t border-border/30 text-xs text-muted-foreground">
-                <MapPin className="w-3 h-3" />
-                <span>{match.venue}</span>
+          <div className="px-1 text-center">
+            {match.status === "upcoming" ? (
+              <div className="text-xl font-semibold">พบ</div>
+            ) : (
+              <div className="text-2xl font-bold">
+                {match.homeScore} : {match.awayScore}
               </div>
             )}
           </div>
-        </CardContent>
-      </Card>
-    </Link>
-  )
 
-  const StatsCard = ({
-    icon: Icon,
-    label,
-    value,
-    color,
-  }: { icon: any; label: string; value: number; color: string }) => (
-    <Card className="border-border/50">
-      <CardContent className="p-4 flex items-center gap-4">
-        <div className={`w-12 h-12 rounded-lg ${color} flex items-center justify-center`}>
-          <Icon className="w-6 h-6" />
+          <div className={`text-right text-xs ${isActive ? "text-slate-700" : "text-white/60"}`}>
+            <p>รอบ {match.round}</p>
+            <p className="mt-1 truncate">{match.venue}</p>
+          </div>
         </div>
-        <div>
-          <p className="text-2xl font-bold">{value}</p>
-          <p className="text-sm text-muted-foreground">{label}</p>
-        </div>
-      </CardContent>
-    </Card>
-  )
+      </button>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#1f1f1f] text-white">
       <Navigation />
 
-      {/* Page Header */}
-      <div className="border-b border-border/50 bg-gradient-to-b from-muted/50 to-transparent">
-        <div className="container mx-auto px-4 py-6 md:py-8">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-3 mb-1">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Calendar className="w-5 h-5 text-primary" />
-                  </div>
-                  <h1 className="text-2xl md:text-3xl font-bold">{"โปรแกรมการแข่งขัน"}</h1>
+      <main className="pb-10 pt-16">
+        <section className="border-b border-white/10 bg-[#1f1f1f]">
+          <div className="mx-auto max-w-[1400px] px-4 py-6">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-lime-300 text-slate-950">
+                  <CalendarDays className="h-5 w-5" />
                 </div>
-                <p className="text-sm text-muted-foreground ml-[52px]">{"พรีเมียร์ลีก 2024/25"}</p>
+                <div>
+                  <p className="text-sm text-white/55">ศูนย์รวมแมตช์</p>
+                  <h1 className="text-2xl font-semibold md:text-3xl">โปรแกรมพรีเมียร์ลีก</h1>
+                </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => mutate()}
-                disabled={isLoading}
-                className="gap-2 self-start sm:self-center"
-              >
-                <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
-                {"อัปเดต"}
-              </Button>
+
+              <div className="flex items-center gap-2">
+                <Badge className="border-0 bg-lime-300 text-slate-950">{PREMIER_LEAGUE_DATA_SEASON.labelShort}</Badge>
+                <Button variant="outline" size="sm" onClick={() => mutate()} disabled={isLoading} className="border-white/15 bg-transparent text-white hover:bg-white/10 hover:text-white">
+                  <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+                  รีเฟรช
+                </Button>
+              </div>
             </div>
 
-            {/* Filter Bar */}
-            {!isLoading && allFixtures.length > 0 && (
-              <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider flex-shrink-0">{"กรองข้อมูล"}</span>
-                <div className="flex flex-wrap gap-2">
-                  <Select value={selectedTeam} onValueChange={(v) => { setSelectedTeam(v); setShowCount(20) }}>
-                    <SelectTrigger className="w-[180px] sm:w-[200px] h-9 text-sm">
-                      <SelectValue placeholder="เลือกทีม" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{"ทุกทีม"}</SelectItem>
-                      {teamList.map((team) => (
-                        <SelectItem key={team.id} value={team.id}>
-                          <span className="flex items-center gap-2">
-                            {team.logo && (
-                              <Image
-                                src={team.logo}
-                                alt=""
-                                width={16}
-                                height={16}
-                                className="w-4 h-4 object-contain"
-                              />
-                            )}
-                            {team.name}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            {!isLoading ? (
+              <div className={`mb-5 rounded-2xl border px-4 py-3 text-sm ${isCompleteSeason ? "border-lime-300/30 bg-lime-300/10 text-white" : "border-amber-400/25 bg-amber-400/10 text-white/88"}`}>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <span>ฤดูกาล {PREMIER_LEAGUE_DATA_SEASON.labelLong}</span>
+                  <span>โหลดแล้ว {totalMatchesLoaded}/{expectedMatches} แมตช์</span>
+                  <span>มีแล้ว {availableRounds.length}/{expectedRounds} สัปดาห์แข่งขัน</span>
+                  <span>{isCompleteSeason ? "โปรแกรมครบทั้งฤดูกาลแล้ว" : "แหล่งข้อมูลยังไม่ครบ 380 แมตช์"}</span>
+                </div>
+              </div>
+            ) : null}
 
-                  <Select value={selectedStatus} onValueChange={(v) => { setSelectedStatus(v); setShowCount(20) }}>
-                    <SelectTrigger className="w-[140px] sm:w-[160px] h-9 text-sm">
-                      <SelectValue placeholder="สถานะ" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{"ทุกสถานะ"}</SelectItem>
-                      <SelectItem value="live">{"กำลังแข่ง"}</SelectItem>
-                      <SelectItem value="upcoming">{"รอแข่ง"}</SelectItem>
-                      <SelectItem value="finished">{"จบแล้ว"}</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  {(selectedTeam !== "all" || selectedStatus !== "all") && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-9 text-sm text-muted-foreground hover:text-foreground"
-                      onClick={() => { setSelectedTeam("all"); setSelectedStatus("all") }}
+            <div className="flex items-center gap-3 overflow-x-auto pb-1">
+              {isLoading
+                ? Array.from({ length: 7 }).map((_, index) => (
+                    <Card key={index} className="min-w-[78px] rounded-[999px] border-white/10 bg-white/5">
+                      <CardContent className="h-[118px] animate-pulse p-4" />
+                    </Card>
+                  ))
+                : visibleDateOptions.map((item) => <DateCard key={item.key} item={item} />)}
+              {!isLoading && dateOptions.length > 0 ? (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex min-h-[118px] min-w-[78px] flex-col items-center justify-center rounded-[999px] border border-white/10 bg-white/5 px-3 py-4 text-center text-white transition-all hover:border-lime-300/40 hover:bg-white/10"
+                      aria-label="เปิดปฏิทินแมตช์"
                     >
-                      {"ล้างตัวกรอง"}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <main className="container mx-auto px-4 py-6">
-        {isLoading ? (
-          <Card className="border-border/50">
-            <CardContent className="flex items-center justify-center py-20">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              <span className="ml-3 text-muted-foreground">กำลังโหลดโปรแกรมการแข่งขัน...</span>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            {/* Stats Overview */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-              <StatsCard icon={Play} label="แมตช์สด" value={liveMatches.length} color="bg-red-500/10 text-red-500" />
-              <StatsCard icon={Clock} label="รอแข่ง" value={upcomingMatches.length} color="bg-primary/10 text-primary" />
-              <StatsCard
-                icon={CheckCircle}
-                label="จบแล้ว"
-                value={finishedMatches.length}
-                color="bg-muted text-muted-foreground"
-              />
-              <StatsCard icon={Trophy} label="ทั้งหมด" value={filterByTeam(allFixtures).length} color="bg-primary/10 text-primary" />
-            </div>
-
-            {/* Active filter badge */}
-            {selectedTeam !== "all" && (
-              <div className="flex items-center gap-2 text-sm">
-                <Badge variant="outline" className="gap-2 py-1.5 px-3">
-                  {teamList.find((t) => t.id === selectedTeam)?.logo && (
-                    <Image
-                      src={teamList.find((t) => t.id === selectedTeam)?.logo || ""}
-                      alt=""
-                      width={16}
-                      height={16}
-                      className="w-4 h-4 object-contain"
+                      <CalendarDays className="h-6 w-6 text-lime-300" />
+                      <span className="mt-3 text-xs text-white/65">ปฏิทิน</span>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-auto rounded-3xl border-white/10 bg-[#262626] p-2 text-white">
+                    <Calendar
+                      mode="single"
+                      selected={calendarSelectedDate}
+                      onSelect={(date) => {
+                        if (!date) return
+                        const key = buildDateKey(date)
+                        const matched = dateOptions.find((item) => item.key === key)
+                        if (matched) {
+                          setSelectedDateKey(matched.key)
+                        }
+                      }}
+                      disabled={(date) => !enabledCalendarDates.some((item) => item.toDateString() === date.toDateString())}
+                      className="rounded-2xl bg-transparent text-white"
+                      classNames={{
+                        month_caption: "text-white",
+                        caption_label: "text-white",
+                        weekday: "text-white/55",
+                        outside: "text-white/25",
+                        disabled: "text-white/20 opacity-100",
+                      }}
                     />
-                  )}
-                  {"กรองตาม: "}{teamList.find((t) => t.id === selectedTeam)?.name}
-                  <button
-                    onClick={() => setSelectedTeam("all")}
-                    className="ml-1 text-muted-foreground hover:text-foreground"
-                    aria-label="ล้างตัวกรอง"
-                  >
-                    &times;
-                  </button>
-                </Badge>
-              </div>
-            )}
+                  </PopoverContent>
+                </Popover>
+              ) : null}
+            </div>
+          </div>
+        </section>
 
-            {/* Featured Next Match */}
-            {nextMatch && (
-              <div>
-                <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-primary" />
-                  แมตช์ที่กำลังจะมาถึง
-                </h2>
-                <FeaturedMatchCard match={nextMatch} />
-              </div>
-            )}
-
-            {/* Match Tabs */}
-            <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setShowCount(20) }} className="w-full">
-              <TabsList className="w-full justify-start bg-muted/50 p-1 h-auto flex-wrap">
-                <TabsTrigger value="upcoming" className="gap-2 data-[state=active]:bg-background">
-                  <Clock className="w-4 h-4" />
-                  รอแข่ง
-                </TabsTrigger>
-                <TabsTrigger value="live" className="gap-2 data-[state=active]:bg-background">
-                  {liveMatches.length > 0 && <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />}
-                  <Play className="w-4 h-4" />
-                  สด
-                </TabsTrigger>
-                <TabsTrigger value="finished" className="gap-2 data-[state=active]:bg-background">
-                  <CheckCircle className="w-4 h-4" />
-                  จบแล้ว
-                </TabsTrigger>
-                <TabsTrigger value="byRound" className="gap-2 data-[state=active]:bg-background">
-                  <Calendar className="w-4 h-4" />
-                  ตามนัด
-                </TabsTrigger>
-              </TabsList>
-
-              {/* By Round Content */}
-              <TabsContent value="byRound" className="mt-6 space-y-4">
-                <Card className="border-border/50">
-                  <CardContent className="p-3 sm:p-4">
-                    <div className="flex items-center justify-between gap-2 sm:gap-4">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-9 w-9 flex-shrink-0"
-                        onClick={() => setSelectedRound(Math.max(1, selectedRound - 1))}
-                        disabled={selectedRound <= 1}
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </Button>
-                      <div className="flex items-center gap-2 sm:gap-4">
-                        <Select value={selectedRound.toString()} onValueChange={(v) => setSelectedRound(Number(v))}>
-                          <SelectTrigger className="w-28 sm:w-36 h-9 text-sm">
-                            <SelectValue placeholder="เลือกนัด" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableRounds.length > 0
-                              ? availableRounds.map((round: number) => {
-                                  const roundMatches = allFixtures.filter((m: any) => m.round === round)
-                                  const finCount = roundMatches.filter((m: any) => m.status === "finished").length
-                                  const total = roundMatches.length
-                                  return (
-                                    <SelectItem key={round} value={round.toString()}>
-                                      <span className="flex items-center gap-2">
-                                        {"นัดที่ "}{round}
-                                        {total > 0 && (
-                                          <span className="text-xs text-muted-foreground">
-                                            ({finCount}/{total})
-                                          </span>
-                                        )}
-                                      </span>
-                                    </SelectItem>
-                                  )
-                                })
-                              : Array.from({ length: totalRounds }, (_, i) => i + 1).map((round) => (
-                                  <SelectItem key={round} value={round.toString()}>
-                                    {"นัดที่ "}{round}
-                                  </SelectItem>
-                                ))}
-                          </SelectContent>
-                        </Select>
-                        <span className="text-xs sm:text-sm text-muted-foreground hidden sm:inline">{"จาก "}{totalRounds}{" นัด"}</span>
+        <section className="mx-auto max-w-[1400px] px-4 py-6">
+          {isLoading ? (
+            <Card className="rounded-[32px] border-white/10 bg-[#262626]">
+              <CardContent className="flex min-h-[520px] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-lime-300" />
+                <span className="ml-3 text-white/70">กำลังโหลดโปรแกรมการแข่งขัน...</span>
+              </CardContent>
+            </Card>
+          ) : !selectedMatch ? (
+            <Card className="rounded-[32px] border-white/10 bg-[#262626]">
+              <CardContent className="flex min-h-[420px] flex-col items-center justify-center text-center">
+                <CalendarDays className="mb-4 h-12 w-12 text-white/30" />
+                <p className="text-lg font-medium">ไม่มีแมตช์ในวันที่เลือก</p>
+                <p className="mt-2 max-w-md text-sm text-white/55">ลองเลือกวันอื่นจากแถบวันที่ด้านบน เพื่อดูโปรแกรมและเลือกแมตช์ที่ต้องการ</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <div className="overflow-hidden rounded-[36px] border border-white/10 bg-[#262626]">
+                <div className="grid xl:grid-cols-[1.35fr_0.75fr]">
+                  <div className="relative overflow-hidden p-6 md:p-8">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(190,242,100,0.12),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.06),transparent_25%)]" />
+                    <div className="relative z-10">
+                      <div className="mb-6 flex flex-wrap items-center gap-3">
+                        <Badge className="border-0 bg-lime-300 text-slate-950">{buildStatusLabel(selectedMatch.status)}</Badge>
+                        <Badge variant="outline" className="border-white/15 bg-transparent text-white/75">
+                          รอบ {selectedMatch.round}
+                        </Badge>
+                        <span className="text-sm text-white/55">{selectedDateLabel?.label || selectedMatch.dateLabel}</span>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-9 w-9 flex-shrink-0"
-                        onClick={() => setSelectedRound(Math.min(totalRounds, selectedRound + 1))}
-                        disabled={selectedRound >= totalRounds}
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
+
+                      <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+                        <div className="space-y-6">
+                          <div>
+                            <h2 className="max-w-xl text-4xl font-semibold leading-tight md:text-6xl">
+                              เลือกดูฟุตบอล
+                              <span className="text-lime-300"> แบบครบทุกแมตช์</span>
+                            </h2>
+                            <p className="mt-4 max-w-xl text-sm leading-7 text-white/65 md:text-base">
+                              เลือกวันก่อน แล้วค่อยสลับไปดูคู่ที่สนใจได้ทันทีจากแถบแมตช์ด้านล่าง โดยไม่ต้องออกจากหน้านี้
+                            </p>
+                          </div>
+
+                          <div className="rounded-[30px] border border-white/10 bg-black/20 p-5">
+                            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+                              <div className="text-center">
+                                <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-white/5 p-3">
+                                  {selectedMatch.homeLogo ? (
+                                    <Image src={selectedMatch.homeLogo} alt={selectedMatch.homeTeam} width={56} height={56} className="h-14 w-14 object-contain" />
+                                  ) : (
+                                    <Shield className="h-12 w-12 text-white/50" />
+                                  )}
+                                </div>
+                                <p className="text-lg font-semibold">{selectedMatch.homeTeam}</p>
+                              </div>
+
+                              <div className="text-center">
+                                {selectedMatch.status === "upcoming" ? (
+                                  <>
+                                    <p className="text-sm text-white/55">{selectedMatch.timeLabel}</p>
+                                    <p className="mt-1 text-4xl font-semibold text-lime-300">พบ</p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <p className="text-sm text-white/55">{selectedMatch.timeLabel}</p>
+                                    <div className="mt-1 flex items-center gap-3 text-5xl font-semibold">
+                                      <span>{selectedMatch.homeScore}</span>
+                                      <span className="text-white/35">:</span>
+                                      <span>{selectedMatch.awayScore}</span>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+
+                              <div className="text-center">
+                                <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-white/5 p-3">
+                                  {selectedMatch.awayLogo ? (
+                                    <Image src={selectedMatch.awayLogo} alt={selectedMatch.awayTeam} width={56} height={56} className="h-14 w-14 object-contain" />
+                                  ) : (
+                                    <Shield className="h-12 w-12 text-white/50" />
+                                  )}
+                                </div>
+                                <p className="text-lg font-semibold">{selectedMatch.awayTeam}</p>
+                              </div>
+                            </div>
+
+                            <div className="mt-5 flex flex-wrap items-center justify-center gap-4 border-t border-white/10 pt-4 text-sm text-white/55">
+                              <span className="inline-flex items-center gap-2">
+                                <Clock3 className="h-4 w-4" />
+                                {selectedMatch.dateLabel} • {selectedMatch.timeLabel}
+                              </span>
+                              <span className="inline-flex items-center gap-2">
+                                <MapPin className="h-4 w-4" />
+                                {selectedMatch.venue}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="relative min-h-[360px] overflow-hidden rounded-[34px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))]">
+                          <div className="absolute inset-0 flex items-end justify-center gap-4 px-4">
+                            <div className="relative h-[85%] w-[46%]">
+                              {selectedMatch.homeLogo ? (
+                                <Image src={selectedMatch.homeLogo} alt={selectedMatch.homeTeam} fill className="object-contain opacity-90 drop-shadow-[0_20px_40px_rgba(0,0,0,0.45)]" />
+                              ) : null}
+                            </div>
+                            <div className="relative h-[85%] w-[46%]">
+                              {selectedMatch.awayLogo ? (
+                                <Image src={selectedMatch.awayLogo} alt={selectedMatch.awayTeam} fill className="object-contain opacity-90 drop-shadow-[0_20px_40px_rgba(0,0,0,0.45)]" />
+                              ) : null}
+                            </div>
+                          </div>
+                          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#262626] to-transparent" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <aside className="border-t border-white/10 bg-[#202020] p-6 xl:border-l xl:border-t-0">
+                    <div className="space-y-3">
+                      {quickPanelItems.map((item) => (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() => setActivePanel(item.key)}
+                          className={`h-12 w-full rounded-full border px-4 py-3 text-center text-sm transition-colors ${
+                            activePanel === item.key
+                              ? "border-lime-300 bg-lime-300 text-slate-950"
+                              : "border-white/10 text-white/80 hover:border-lime-300/30 hover:bg-white/5"
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
                     </div>
 
-                    {/* Round summary */}
-                    {roundFixtures.length > 0 && (
-                      <div className="flex items-center justify-center gap-4 mt-3 pt-3 border-t border-border/30 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3" />{roundFixtures.filter((m: any) => m.status === "finished").length}{" จบ"}</span>
-                        <span className="flex items-center gap-1"><Play className="w-3 h-3" />{roundFixtures.filter((m: any) => m.status === "live").length}{" สด"}</span>
-                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{roundFixtures.filter((m: any) => m.status === "upcoming").length}{" รอแข่ง"}</span>
+                    <div className="mt-8 rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
+                      {activePanel === "detail" ? (
+                        <div className="space-y-5">
+                          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                            <p className="text-xs uppercase tracking-[0.18em] text-white/45">แมตช์ที่เลือก</p>
+                            <div className="mt-4 flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                {selectedMatch.homeLogo ? <Image src={selectedMatch.homeLogo} alt={selectedMatch.homeTeam} width={38} height={38} className="h-9 w-9 object-contain" /> : <Shield className="h-9 w-9" />}
+                                <span className="text-sm font-medium">{selectedMatch.homeTeam}</span>
+                              </div>
+                              <div className="text-lg font-semibold">{selectedMatch.status === "upcoming" ? "พบ" : `${selectedMatch.homeScore} : ${selectedMatch.awayScore}`}</div>
+                              <div className="flex items-center gap-3">
+                                <span className="text-sm font-medium">{selectedMatch.awayTeam}</span>
+                                {selectedMatch.awayLogo ? <Image src={selectedMatch.awayLogo} alt={selectedMatch.awayTeam} width={38} height={38} className="h-9 w-9 object-contain" /> : <Shield className="h-9 w-9" />}
+                              </div>
+                            </div>
+                            <div className="mt-4 grid gap-3 text-sm text-white/60">
+                              <div className="flex items-center justify-between">
+                                <span>เวลาแข่ง</span>
+                                <span className="text-white">{selectedMatch.timeLabel}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span>สนาม</span>
+                                <span className="text-white">{selectedMatch.venue}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span>รอบ</span>
+                                <span className="text-white">รอบ {selectedMatch.round}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <Link href={`/matches/${selectedMatch.id}`} className="block">
+                            <Button className="h-11 w-full rounded-full bg-lime-300 text-slate-950 hover:bg-lime-200">เปิดหน้ารายละเอียดแมตช์</Button>
+                          </Link>
+                        </div>
+                      ) : null}
+
+                      {activePanel === "lineup" ? (
+                        <div className="space-y-3">
+                          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                            <p className="text-xs uppercase tracking-[0.18em] text-white/45">ภาพรวมแมตช์</p>
+                            <div className="mt-4 space-y-3">
+                              <div className="flex items-center justify-between rounded-xl border border-white/10 px-3 py-3">
+                                <span className="text-sm text-white/65">สถานะ</span>
+                                <Badge className="border-0 bg-lime-300 text-slate-950">{buildStatusLabel(selectedMatch.status)}</Badge>
+                              </div>
+                              <div className="flex items-center justify-between rounded-xl border border-white/10 px-3 py-3">
+                                <span className="text-sm text-white/65">วันที่</span>
+                                <span className="text-sm text-white">{selectedMatch.dateLabel}</span>
+                              </div>
+                              <div className="flex items-center justify-between rounded-xl border border-white/10 px-3 py-3">
+                                <span className="text-sm text-white/65">เวลาแข่ง</span>
+                                <span className="text-sm text-white">{selectedMatch.timeLabel}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-xs leading-6 text-white/45">ถ้าต้องการดูไลน์อัปและรายละเอียดเต็มแบบเจาะลึก ให้กด `รายละเอียดแมตช์` เพื่อไปยังหน้ารายละเอียดแมตช์</p>
+                        </div>
+                      ) : null}
+
+                      {activePanel === "statistics" ? (
+                        <div className="space-y-5">
+                          <div className="mb-5 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              {selectedMatch.homeLogo ? <Image src={selectedMatch.homeLogo} alt={selectedMatch.homeTeam} width={38} height={38} className="h-9 w-9 object-contain" /> : <Shield className="h-9 w-9" />}
+                              <span className="text-sm font-medium">{selectedMatch.homeTeam}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-medium">{selectedMatch.awayTeam}</span>
+                              {selectedMatch.awayLogo ? <Image src={selectedMatch.awayLogo} alt={selectedMatch.awayTeam} width={38} height={38} className="h-9 w-9 object-contain" /> : <Shield className="h-9 w-9" />}
+                            </div>
+                          </div>
+
+                          <div className="space-y-4">
+                            {heroStatRows.map((row) => (
+                              <div key={row.label}>
+                                <div className="mb-1 flex items-center justify-between text-xs text-white/60">
+                                  <span>{row.home}%</span>
+                                  <span>{row.label}</span>
+                                  <span>{row.away}%</span>
+                                </div>
+                                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                                  <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                                    <div className="h-full rounded-full bg-lime-300" style={{ width: `${row.home}%` }} />
+                                  </div>
+                                  <div className="h-2 w-2 rounded-full bg-white/30" />
+                                  <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                                    <div className="ml-auto h-full rounded-full bg-lime-300" style={{ width: `${row.away}%` }} />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {activePanel === "table" ? (
+                        <div className="space-y-3">
+                          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                            <p className="text-xs uppercase tracking-[0.18em] text-white/45">อันดับบนตาราง</p>
+                            <div className="mt-4 space-y-2">
+                              {standings.length > 0 ? (
+                                standings.map((team: any) => (
+                                  <Link
+                                    key={team.team.id}
+                                    href="/standings"
+                                    className="flex items-center justify-between rounded-xl border border-white/10 px-3 py-3 text-sm hover:border-lime-300/30 hover:bg-white/5"
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <span className="w-5 text-white/55">{team.rank}</span>
+                                      {team.team.logo ? <Image src={team.team.logo} alt={team.team.name} width={24} height={24} className="h-6 w-6 object-contain" /> : <Shield className="h-6 w-6" />}
+                                      <span>{team.team.name}</span>
+                                    </div>
+                                    <span className="font-semibold text-lime-300">{team.points} แต้ม</span>
+                                  </Link>
+                                ))
+                              ) : (
+                                <p className="text-sm text-white/55">ยังไม่มีข้อมูลตารางคะแนน</p>
+                              )}
+                            </div>
+                          </div>
+                          <Link href="/standings" className="block">
+                            <Button variant="outline" className="h-11 w-full rounded-full border-white/10 bg-transparent text-white hover:bg-white/5 hover:text-white">
+                              เปิดตารางคะแนนเต็ม
+                            </Button>
+                          </Link>
+                        </div>
+                      ) : null}
+
+                      <div className="mt-6 grid gap-3">
+                        <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                          <p className="text-xs uppercase tracking-[0.18em] text-white/45">วันที่ที่เลือก</p>
+                          <p className="mt-2 text-base font-semibold">{selectedDateLabel?.label}</p>
+                          <p className="mt-1 text-sm text-white/55">{selectedDateLabel?.sublabel}</p>
+                        </div>
+                        <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                          <p className="text-xs uppercase tracking-[0.18em] text-white/45">สรุปด่วน</p>
+                          <div className="mt-3 grid grid-cols-3 gap-3 text-center">
+                            <div>
+                              <p className="text-lg font-semibold text-lime-300">{liveCount}</p>
+                              <p className="text-xs text-white/55">กำลังแข่ง</p>
+                            </div>
+                            <div>
+                              <p className="text-lg font-semibold text-lime-300">{upcomingCount}</p>
+                              <p className="text-xs text-white/55">ยังไม่แข่ง</p>
+                            </div>
+                            <div>
+                              <p className="text-lg font-semibold text-lime-300">{finishedCount}</p>
+                              <p className="text-xs text-white/55">จบแล้ว</p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    )}
+                    </div>
+                  </aside>
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-[34px] border border-white/10 bg-[#3a3a3a] px-4 py-5">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm text-white/55">เลือกแมตช์ประจำวันและคู่ใกล้เคียง</p>
+                    <h3 className="text-xl font-semibold">{selectedDateLabel?.label || "โปรแกรมแข่งขัน"}</h3>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-white/50">
+                    <ChevronLeft className="h-4 w-4" />
+                    เลื่อนดู
+                    <ChevronRight className="h-4 w-4" />
+                  </div>
+                </div>
+
+                <div className="flex gap-4 overflow-x-auto pb-2">
+                  {railMatches.map((match) => (
+                    <MatchRailCard key={match.id} match={match} />
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-3">
+                <Card className="rounded-[28px] border-white/10 bg-[#262626] text-white">
+                  <CardContent className="p-6">
+                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-lime-300/15 text-lime-300">
+                      <Sparkles className="h-5 w-5" />
+                    </div>
+                    <h4 className="text-lg font-semibold">เลือกดูตามวัน</h4>
+                    <p className="mt-2 text-sm leading-7 text-white/60">เลือกวันจากแถบด้านบน แล้วระบบจะสลับแมตช์ทั้งหมดของวันนั้นให้ทันที</p>
                   </CardContent>
                 </Card>
 
-                <div className="grid gap-3">
-                  {roundFixtures.length > 0 ? (
-                    roundFixtures.map((match: any) => <MatchCard key={match.id} match={match} />)
-                  ) : (
-                    <Card className="border-border/50">
-                      <CardContent className="text-center py-12">
-                        <Calendar className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-                        <p className="text-muted-foreground">{"ยังไม่มีข้อมูลสำหรับนัดที่ "}{selectedRound}</p>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              </TabsContent>
+                <Card className="rounded-[28px] border-white/10 bg-[#262626] text-white">
+                  <CardContent className="p-6">
+                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-lime-300/15 text-lime-300">
+                      <Clock3 className="h-5 w-5" />
+                    </div>
+                    <h4 className="text-lg font-semibold">สลับคู่ได้เร็ว</h4>
+                    <p className="mt-2 text-sm leading-7 text-white/60">เปลี่ยนคู่ดูต่อจากแถบด้านล่างได้เลย ไม่ต้องรีเฟรชหน้าและไม่ต้องย้อนกลับ</p>
+                  </CardContent>
+                </Card>
 
-              {/* Live Content */}
-              <TabsContent value="live" className="mt-6">
-                <div className="grid gap-3">
-                  {liveMatches.length > 0 ? (
-                    liveMatches.map((match: any) => <MatchCard key={match.id} match={match} />)
-                  ) : (
-                    <Card className="border-border/50">
-                      <CardContent className="text-center py-12">
-                        <Play className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-                        <p className="text-muted-foreground">ไม่มีแมตช์ที่กำลังแข่งขันในขณะนี้</p>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              </TabsContent>
-
-              {/* Upcoming Content */}
-              <TabsContent value="upcoming" className="mt-6">
-                <div className="grid gap-3">
-                  {upcomingMatches.length > 0 ? (
-                    <>
-                      {upcomingMatches.slice(nextMatch ? 1 : 0, showCount).map((match: any) => (
-                        <MatchCard key={match.id} match={match} />
-                      ))}
-                      {upcomingMatches.length > showCount && (
-                        <Button
-                          variant="outline"
-                          className="w-full"
-                          onClick={() => setShowCount((prev) => prev + 20)}
-                        >
-                          {"แสดงเพิ่มเติม"} ({upcomingMatches.length - showCount} {"แมตช์"})
-                        </Button>
-                      )}
-                    </>
-                  ) : (
-                    <Card className="border-border/50">
-                      <CardContent className="text-center py-12">
-                        <Clock className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-                        <p className="text-muted-foreground">{"ไม่มีแมตช์ที่รอแข่งขัน"}</p>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              </TabsContent>
-
-              {/* Finished Content */}
-              <TabsContent value="finished" className="mt-6">
-                <div className="grid gap-3">
-                  {finishedMatches.length > 0 ? (
-                    <>
-                      {[...finishedMatches]
-                        .reverse()
-                        .slice(0, showCount)
-                        .map((match: any) => (
-                          <MatchCard key={match.id} match={match} showDate={true} />
-                        ))}
-                      {finishedMatches.length > showCount && (
-                        <Button
-                          variant="outline"
-                          className="w-full"
-                          onClick={() => setShowCount((prev) => prev + 20)}
-                        >
-                          {"แสดงเพิ่มเติม"} ({finishedMatches.length - showCount} {"แมตช์"})
-                        </Button>
-                      )}
-                    </>
-                  ) : (
-                    <Card className="border-border/50">
-                      <CardContent className="text-center py-12">
-                        <CheckCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-                        <p className="text-muted-foreground">{"ยังไม่มีแมตช์ที่จบแล้ว"}</p>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-        )}
+                <Card className="rounded-[28px] border-white/10 bg-[#262626] text-white">
+                  <CardContent className="p-6">
+                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-lime-300/15 text-lime-300">
+                      <Trophy className="h-5 w-5" />
+                    </div>
+                    <h4 className="text-lg font-semibold">ต่อไปหน้าลึกได้ทันที</h4>
+                    <p className="mt-2 text-sm leading-7 text-white/60">ถ้าต้องการข้อมูลเชิงลึกเพิ่มเติม ค่อยกด `รายละเอียดแมตช์` ไปยังหน้ารายละเอียดของคู่ที่เลือก</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          )}
+        </section>
       </main>
 
       <Footer />

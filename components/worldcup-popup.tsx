@@ -6,21 +6,34 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { X, Trophy, Globe, Calendar, ArrowRight } from "lucide-react"
 
-export function WorldCupPopup() {
+type WorldCupPopupProps = {
+  storageKey?: string
+  delayMs?: number
+}
+
+export function WorldCupPopup({
+  storageKey = "footballai-worldcup-popup-home-seen",
+  delayMs = 1500,
+}: WorldCupPopupProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
+    if (typeof window === "undefined") return
+    if (window.sessionStorage.getItem(storageKey) === "true") return
+
     const timer = setTimeout(() => {
       setIsOpen(true)
+      window.sessionStorage.setItem(storageKey, "true")
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsVisible(true)
         })
       })
-    }, 1500)
+    }, delayMs)
+
     return () => clearTimeout(timer)
-  }, [])
+  }, [delayMs, storageKey])
 
   const handleClose = () => {
     setIsVisible(false)
@@ -33,7 +46,7 @@ export function WorldCupPopup() {
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className={`absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity duration-400 ${isVisible ? "opacity-100" : "opacity-0"}`}
+        className={`absolute inset-0 bg-background/80 backdrop-blur-sm transition-opacity duration-400 dark:bg-black/80 ${isVisible ? "opacity-100" : "opacity-0"}`}
         onClick={handleClose}
       />
 

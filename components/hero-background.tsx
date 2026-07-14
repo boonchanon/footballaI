@@ -88,7 +88,7 @@ export function HeroBackground() {
       
       {/* Animated scan line effect */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.03)_50%)] bg-[length:100%_4px] animate-scan-lines" />
+        <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(184,255,0,0.035)_50%)] dark:bg-[linear-gradient(transparent_50%,rgba(255,255,255,0.03)_50%)] bg-[length:100%_4px] animate-scan-lines" />
       </div>
 
       {/* Glowing accent based on current slide */}
@@ -173,7 +173,7 @@ export function HeroBackground() {
                 />
                 {index === currentIndex && (
                   <div 
-                    className="absolute inset-0 rounded-full bg-white/50 animate-progress-fill origin-left"
+                    className="absolute inset-0 rounded-full bg-primary/35 animate-progress-fill origin-left"
                     style={{ animationDuration: "5s" }}
                   />
                 )}

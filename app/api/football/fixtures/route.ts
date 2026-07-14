@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { footballService } from "../service"
+import { PREMIER_LEAGUE_DATA_SEASON } from "@/lib/season"
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -36,12 +37,15 @@ export async function GET(request: Request) {
       })),
       type,
       source: "internal-football-service",
+      season: PREMIER_LEAGUE_DATA_SEASON.labelLong,
       rounds: {
         available: availableRounds,
         total: 38,
         current: round ? Number.parseInt(round) : null,
       },
       totalMatches: data.length,
+      expectedMatches: 380,
+      isCompleteSeason: data.length >= 380,
     })
   } catch (error) {
     return NextResponse.json(
@@ -49,9 +53,12 @@ export async function GET(request: Request) {
         data: [],
         type,
         source: "error",
+        season: PREMIER_LEAGUE_DATA_SEASON.labelLong,
         error: error instanceof Error ? error.message : "Failed to fetch fixtures",
         rounds: { available: [], total: 38, current: null },
         totalMatches: 0,
+        expectedMatches: 380,
+        isCompleteSeason: false,
       },
       { status: 500 },
     )

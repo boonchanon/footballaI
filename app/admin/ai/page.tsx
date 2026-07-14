@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,9 +23,11 @@ import {
   RefreshCw,
   Save,
   Play,
+  Download,
   AlertCircle,
   CheckCircle2,
 } from "lucide-react"
+import { getAuthToken } from "@/lib/auth-client"
 
 const models = [
   { id: "gpt-4o", name: "GPT-4o", provider: "OpenAI", status: "active" },
@@ -39,12 +41,79 @@ export default function AIConfigPage() {
   const [maxTokens, setMaxTokens] = useState([2048])
   const [autoPredict, setAutoPredict] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [syncMode, setSyncMode] = useState<"fixtures" | "snapshot" | "all">("all")
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [syncMessage, setSyncMessage] = useState("")
+  const [syncStatus, setSyncStatus] = useState<any>(null)
 
   const handleSave = async () => {
     setIsSaving(true)
     await new Promise((r) => setTimeout(r, 1500))
     setIsSaving(false)
   }
+
+  const loadSyncStatus = async () => {
+    const token = getAuthToken()
+    if (!token) {
+      setSyncMessage("ยังไม่พบ token ของผู้ใช้แอดมิน")
+      return
+    }
+
+    const response = await fetch("/api/admin/sync/premier-league", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    const data = await response.json()
+    if (!response.ok) {
+      setSyncMessage(data?.error || "โหลดสถานะ sync ไม่สำเร็จ")
+      return
+    }
+
+    setSyncStatus(data)
+  }
+
+  const handleSync = async () => {
+    const token = getAuthToken()
+    if (!token) {
+      setSyncMessage("ยังไม่พบ token ของผู้ใช้แอดมิน")
+      return
+    }
+
+    setIsSyncing(true)
+    setSyncMessage("")
+
+    try {
+      const response = await fetch("/api/admin/sync/premier-league", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ mode: syncMode }),
+      })
+
+      const data = await response.json()
+      if (!response.ok) {
+        setSyncMessage(data?.error || "Sync ไม่สำเร็จ")
+        return
+      }
+
+      setSyncStatus(data.status || null)
+      setSyncMessage("ซิงค์ข้อมูลลง Atlas แล้ว")
+    } catch {
+      setSyncMessage("เชื่อมต่อ sync route ไม่สำเร็จ")
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
+  useEffect(() => {
+    loadSyncStatus().catch(() => {
+      setSyncMessage("โหลดสถานะ sync ไม่สำเร็จ")
+    })
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -64,6 +133,84 @@ export default function AIConfigPage() {
           Save Changes
         </Button>
       </div>
+
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Premier League Atlas Sync
+          </CardTitle>
+          <CardDescription>
+            แยก fixtures แบบคงที่กับ snapshot แบบ dynamic แล้วบันทึกลง MongoDB Atlas
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-[220px_1fr_auto_auto] md:items-end">
+            <div className="space-y-2">
+              <Label>Sync Mode</Label>
+              <Select value={syncMode} onValueChange={(value: "fixtures" | "snapshot" | "all") => setSyncMode(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Fixtures + Snapshot</SelectItem>
+                  <SelectItem value="fixtures">Fixtures Only</SelectItem>
+                  <SelectItem value="snapshot">Snapshot Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-background/70 p-3 text-sm text-muted-foreground">
+              `fixtures` จะดึงตารางแข่งจาก service ฟุตบอลของระบบมาเก็บใน Atlas
+              <br />
+              `snapshot` จะให้ Gemini/IntelSphere สรุปข้อมูลสด เช่น ตารางคะแนนและสถิติมาเก็บใน Atlas
+            </div>
+            <Button variant="outline" onClick={() => void loadSyncStatus()} disabled={isSyncing}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              โหลดสถานะ
+            </Button>
+            <Button onClick={handleSync} disabled={isSyncing}>
+              {isSyncing ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              ซิงค์ข้อมูล
+            </Button>
+          </div>
+
+          {syncMessage ? <div className="text-sm text-muted-foreground">{syncMessage}</div> : null}
+
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="rounded-xl border border-border/60 bg-background/70 p-4">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">Fixtures In Atlas</div>
+              <div className="mt-2 text-2xl font-semibold">{syncStatus?.fixtureCount ?? 0}</div>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-background/70 p-4">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">Snapshot Status</div>
+              <div className="mt-2 text-sm font-semibold">{syncStatus?.latestSnapshot?.status || "not synced"}</div>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-background/70 p-4">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">Search Verified</div>
+              <div className="mt-2 text-sm font-semibold">
+                {typeof syncStatus?.latestSnapshot?.searchVerified === "boolean"
+                  ? String(syncStatus.latestSnapshot.searchVerified)
+                  : "unknown"}
+              </div>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-background/70 p-4">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">Last Sync</div>
+              <div className="mt-2 text-sm font-semibold">
+                {syncStatus?.latestSnapshot?.syncedAt
+                  ? new Date(syncStatus.latestSnapshot.syncedAt).toLocaleString("th-TH")
+                  : "-"}
+              </div>
+            </div>
+          </div>
+
+          {syncStatus?.latestSnapshot?.summary ? (
+            <div className="rounded-xl border border-border/60 bg-background/70 p-4 text-sm text-muted-foreground">
+              <div className="mb-2 font-medium text-foreground">Latest Summary</div>
+              {syncStatus.latestSnapshot.summary}
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Model Selection */}

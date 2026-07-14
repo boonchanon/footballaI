@@ -16,6 +16,9 @@ export async function POST(request: NextRequest) {
     const name = String(body.name || "").trim()
     const email = String(body.email || "").trim().toLowerCase()
     const password = String(body.password || "")
+    const phone = String(body.phone || "")
+      .trim()
+      .replace(/[^\d+]/g, "")
     const avatar = typeof body.avatar === "string" ? body.avatar.trim() : ""
     const favoriteTeam = typeof body.favoriteTeam === "string" ? body.favoriteTeam.trim() : ""
     const bio = typeof body.bio === "string" ? body.bio.trim() : ""
@@ -32,10 +35,20 @@ export async function POST(request: NextRequest) {
     if (bio.length > 280) {
       return errorResponse("แนะนำตัวต้องไม่เกิน 280 ตัวอักษร", 422, [{ path: "bio" }])
     }
+    if (phone && !/^(\+?\d{9,15})$/.test(phone)) {
+      return errorResponse("กรุณากรอกเบอร์โทรให้ถูกต้อง", 422, [{ path: "phone" }])
+    }
 
     const existingUser = await User.findOne({ email })
     if (existingUser) {
       return errorResponse("อีเมลนี้ถูกใช้งานแล้ว", 409, [{ path: "email" }])
+    }
+
+    if (phone) {
+      const existingPhone = await User.findOne({ phone })
+      if (existingPhone) {
+        return errorResponse("เบอร์โทรนี้ถูกใช้งานแล้ว", 409, [{ path: "phone" }])
+      }
     }
 
     const existingName = await User.findOne({
@@ -49,6 +62,7 @@ export async function POST(request: NextRequest) {
       name,
       email,
       password,
+      ...(phone ? { phone } : {}),
       avatar,
       favoriteTeam,
       bio,
