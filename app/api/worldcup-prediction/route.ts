@@ -2,11 +2,11 @@ import { NextResponse } from "next/server"
 
 import { FOOTBALL_PREDICTION_API_BASE_URL, type PredictionRequest, parsePredictionResponse } from "@/lib/football-prediction"
 
-export const maxDuration = 30
+export const maxDuration = 60
 
 export async function GET() {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 5000)
+  const timeout = setTimeout(() => controller.abort(), 15000)
 
   try {
     const response = await fetch(`${FOOTBALL_PREDICTION_API_BASE_URL}/health`, {
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   }
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 10000)
+  const timeout = setTimeout(() => controller.abort(), 30000)
 
   try {
     console.log("[worldcup-prediction] request body", body)

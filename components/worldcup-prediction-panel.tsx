@@ -241,7 +241,7 @@ function getFriendlyErrorMessage(message: string) {
     const team = matched?.[1]?.trim() || "ทีมที่เลือก"
     return `ระบบยังไม่มีค่า Elo ของ ${team} จึงยังทำนายคู่นี้ไม่ได้`
   }
-  if (/timed out/i.test(message)) return "Prediction API ตอบกลับช้าเกินเวลา ลองใหม่อีกครั้ง"
+  if (/timed out/i.test(message)) return "Prediction API ตอบกลับช้าเกินเวลา อาจกำลังปลุกเซิร์ฟเวอร์อยู่ ลองใหม่อีกครั้ง"
   if (/unavailable|failed to fetch|network/i.test(message)) return "ยังเชื่อมต่อไปที่ Prediction API ไม่สำเร็จ"
   return message
 }
@@ -404,25 +404,21 @@ export function WorldcupPredictionPanel() {
     setDeepRoundError((current) => ({ ...current, [roundKey]: null }))
 
     try {
-      const health = await fetchJson<HealthResponse>("/worldcup-prediction")
-      if (health.ok === false) {
-        throw new Error(health.error || "Prediction service is not ready")
-      }
-
       const fixtures = fixturesByRound[roundKey]
       const roundName = roundKey === "quarterfinals" ? "QF" : "SF"
-      const responses = await Promise.all(
-        fixtures.map(async (fixture) => ({
-          fixture,
-          response: await callPredictMatch({
-            home_team: fixture.home_team,
-            away_team: fixture.away_team,
-            neutral: fixture.neutral,
-            tournament_weight: fixture.tournament_weight,
-            round_name: roundName,
-          }),
-        })),
-      )
+      const responses: DeepRoundPredictionItem[] = []
+
+      for (const fixture of fixtures) {
+        const response = await callPredictMatch({
+          home_team: fixture.home_team,
+          away_team: fixture.away_team,
+          neutral: fixture.neutral,
+          tournament_weight: fixture.tournament_weight,
+          round_name: roundName,
+        })
+
+        responses.push({ fixture, response })
+      }
 
       setDeepRoundPredictions((current) => ({ ...current, [roundKey]: responses }))
     } catch (requestError) {
