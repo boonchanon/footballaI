@@ -4,8 +4,8 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
-  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Oswald', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'LINE Seed Sans TH', 'Sarabun', 'Noto Sans Thai', 'Prompt', 'IBM Plex Sans Thai', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Kanit', 'LINE Seed Sans TH', 'Prompt', 'Noto Sans Thai', ui-sans-serif, system-ui, sans-serif;
   
   /* Default theme - Charcoal + Neon Lime */
   --color-background: #1a1a1a;

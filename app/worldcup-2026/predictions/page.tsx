@@ -20,20 +20,20 @@ export default function WorldCupPredictionsPage() {
           </Badge>
           <div className="max-w-3xl">
             <h1 className="text-4xl font-display leading-tight text-foreground md:text-6xl">
-              ทำนายผลบอลโลก 2026
+              ทำนายฟุตบอลโลก 2026
               <span className="block text-primary dark:text-amber-300">รองรับหลายรอบในหน้าเดียว</span>
             </h1>
             <p className="mt-5 text-base leading-8 text-muted-foreground md:text-lg">
-              ใช้โครงสร้าง prediction เดิมของโปรเจกต์ แต่เพิ่มการเลือกดูแยกตามรอบ 32 ทีม และรอบ 16 ทีม พร้อมปุ่มรอบลึกที่แสดงไว้ล่วงหน้า
+              ใช้ระบบทำนายชุดเดียวกัน แต่ขยายให้เลือกดูได้ครบตั้งแต่รอบ 32 ทีมไปจนถึงรอบชิงอันดับ 3 และรอบชิงชนะเลิศ
             </p>
             <div className="mt-6 flex flex-wrap gap-3 text-sm text-muted-foreground">
               <div className="rounded-full border border-border/70 bg-card/80 px-4 py-2 backdrop-blur-sm dark:border-white/10 dark:bg-white/5">
                 <Layers3 className="mr-2 inline h-4 w-4 text-primary dark:text-amber-300" />
-                Round of 32 + Round of 16
+                รอบ 32 ทีม + รอบ 16 ทีม
               </div>
               <div className="rounded-full border border-border/70 bg-card/80 px-4 py-2 backdrop-blur-sm dark:border-white/10 dark:bg-white/5">
                 <Sparkles className="mr-2 inline h-4 w-4 text-primary dark:text-sky-300" />
-                ปุ่มรอบ 8 / 4 / ชิง แสดงไว้แต่ยัง disabled
+                รอบ 8 ทีม / 4 ทีม / ชิงอันดับ 3 / นัดชิง
               </div>
             </div>
           </div>

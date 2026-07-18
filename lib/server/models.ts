@@ -274,6 +274,69 @@ const predictionSchema =
     { timestamps: true },
   )
 
+const paymentOrderStatusValues = ["pending", "reviewing", "paid", "expired", "cancelled"] as const
+
+const paymentOrderSchema =
+  models.PaymentOrder?.schema ||
+  new Schema(
+    {
+      user: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+      productCode: {
+        type: String,
+        enum: ["prediction_5_matches", "prediction_15_matches", "prediction_tournament"],
+        required: true,
+        index: true,
+      },
+      productName: { type: String, required: true, trim: true },
+      amount: { type: Number, required: true, min: 1 },
+      currency: { type: String, default: "THB" },
+      status: { type: String, enum: paymentOrderStatusValues, default: "pending", index: true },
+      paymentProvider: { type: String, default: "thunder" },
+      targetType: { type: String, enum: ["credits", "daypass"], required: true },
+      targetId: { type: String, default: "", index: true },
+      slipPayload: { type: String, default: "" },
+      slipImageUrl: { type: String, default: "" },
+      paidAt: { type: Date, default: null },
+      expiresAt: { type: Date, default: null, index: true },
+      verificationRef: { type: String, default: "" },
+      rawVerification: { type: Schema.Types.Mixed, default: null },
+    },
+    { timestamps: true },
+  )
+
+if (models.PaymentOrder) {
+  const statusPath = models.PaymentOrder.schema.path("status") as any
+  if (statusPath && Array.isArray(statusPath.enumValues) && !statusPath.enumValues.includes("reviewing")) {
+    statusPath.enumValues = [...paymentOrderStatusValues]
+    for (const validator of statusPath.validators ?? []) {
+      if (validator.type === "enum") {
+        validator.enumValues = [...paymentOrderStatusValues]
+      }
+    }
+  }
+}
+
+const paymentEntitlementSchema =
+  models.PaymentEntitlement?.schema ||
+  new Schema(
+    {
+      user: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+      order: { type: Schema.Types.ObjectId, ref: "PaymentOrder", required: true, index: true },
+      productCode: {
+        type: String,
+        enum: ["prediction_5_matches", "prediction_15_matches", "prediction_tournament"],
+        required: true,
+      },
+      targetType: { type: String, enum: ["credits", "daypass"], required: true },
+      targetId: { type: String, default: "", index: true },
+      amount: { type: Number, required: true, min: 1 },
+      active: { type: Boolean, default: true, index: true },
+      expiresAt: { type: Date, default: null, index: true },
+      metadata: { type: Schema.Types.Mixed, default: {} },
+    },
+    { timestamps: true },
+  )
+
 const premierLeagueFixtureSchema =
   models.PremierLeagueFixture?.schema ||
   new Schema(
@@ -354,6 +417,8 @@ export const Conversation = models.Conversation || model("Conversation", convers
 export const DirectMessage = models.DirectMessage || model("DirectMessage", directMessageSchema)
 export const CommunityStory = models.CommunityStory || model("CommunityStory", communityStorySchema)
 export const Prediction = models.Prediction || model("Prediction", predictionSchema)
+export const PaymentOrder = models.PaymentOrder || model("PaymentOrder", paymentOrderSchema)
+export const PaymentEntitlement = models.PaymentEntitlement || model("PaymentEntitlement", paymentEntitlementSchema)
 export const PremierLeagueFixture = models.PremierLeagueFixture || model("PremierLeagueFixture", premierLeagueFixtureSchema)
 export const PremierLeagueSnapshot =
   models.PremierLeagueSnapshot || model("PremierLeagueSnapshot", premierLeagueSnapshotSchema)
