@@ -3,7 +3,7 @@ import path from "path"
 
 function sanitizeFilename(filename: string) {
   const ext = path.extname(filename || "").toLowerCase()
-  const safeExt = [".jpg", ".jpeg", ".png", ".webp"].includes(ext) ? ext : ".jpg"
+  const safeExt = [".jpg", ".jpeg", ".png", ".webp", ".mp4", ".mov", ".webm", ".m4v"].includes(ext) ? ext : ".jpg"
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}${safeExt}`
 }
 

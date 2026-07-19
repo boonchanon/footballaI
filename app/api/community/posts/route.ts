@@ -3,6 +3,7 @@ import { NextRequest } from "next/server"
 import { getAuthUser, requireAuthUser } from "@/lib/server/auth"
 import { mapCommunityPost } from "@/lib/server/community"
 import { getLegacyLikeState } from "@/lib/server/community-admin"
+import { createCommunityNotification } from "@/lib/server/community-notifications"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, ok, parsePagination } from "@/lib/server/http"
 import { CommunityPost, PostLike } from "@/lib/server/models"
@@ -75,6 +76,31 @@ export async function POST(request: NextRequest) {
     const images = Array.isArray(body.images)
       ? body.images.filter((item: unknown) => typeof item === "string").map((item: string) => item.trim()).filter(Boolean).slice(0, 4)
       : []
+    const videos = Array.isArray(body.videos)
+      ? body.videos.filter((item: unknown) => typeof item === "string").map((item: string) => item.trim()).filter(Boolean).slice(0, 1)
+      : []
+    const visibility = body.visibility === "friends" ? "friends" : "public"
+    const poll =
+      body.poll && typeof body.poll === "object"
+        ? {
+            question: String(body.poll.question || "").trim(),
+            options: Array.isArray(body.poll.options)
+              ? body.poll.options
+                  .map((item: unknown, index: number) => ({
+                    id:
+                      item && typeof item === "object" && typeof (item as { id?: unknown }).id === "string"
+                        ? String((item as { id: string }).id).trim()
+                        : `option-${index + 1}`,
+                    text:
+                      item && typeof item === "object" && typeof (item as { text?: unknown }).text === "string"
+                        ? String((item as { text: string }).text).trim()
+                        : "",
+                  }))
+                  .filter((item: { text: string }) => item.text)
+                  .slice(0, 4)
+              : [],
+          }
+        : null
     const sharedItem =
       body.sharedItem && typeof body.sharedItem === "object"
         ? {
@@ -89,6 +115,22 @@ export async function POST(request: NextRequest) {
 
     if (title.length < 4 || title.length > 180 || content.length < 8 || content.length > 5000) {
       return errorResponse("Validation failed", 422)
+    }
+    if (videos.length > 1) {
+      return errorResponse("You can attach up to 1 video", 422)
+    }
+
+    const normalizedPoll =
+      poll?.question && poll.options.length >= 2
+        ? {
+            question: poll.question,
+            options: poll.options.map((option) => ({ ...option, votes: 0 })),
+            totalVotes: 0,
+          }
+        : null
+
+    if (poll && (poll.question || poll.options.length > 0) && !normalizedPoll) {
+      return errorResponse("Poll needs a question and at least 2 options", 422)
     }
 
     const normalizedSharedItem = sharedItem?.type && sharedItem?.title ? sharedItem : null
@@ -111,11 +153,23 @@ export async function POST(request: NextRequest) {
       content,
       category,
       images,
+      videos,
+      visibility,
+      poll: normalizedPoll || undefined,
       sharedItem: normalizedSharedItem || undefined,
     })
 
     if (normalizedSharedItem?.type === "post" && normalizedSharedItem.postId) {
       await CommunityPost.findByIdAndUpdate(normalizedSharedItem.postId, { $inc: { repostsCount: 1 } })
+      const originalPost = await CommunityPost.findById(normalizedSharedItem.postId).select("author")
+      if (originalPost?.author) {
+        await createCommunityNotification({
+          recipientId: originalPost.author.toString(),
+          actorId: user._id.toString(),
+          postId: normalizedSharedItem.postId,
+          type: "post_repost",
+        })
+      }
     }
 
     const populated = await CommunityPost.findById(post._id).populate("author", "name avatar favoriteTeam role")

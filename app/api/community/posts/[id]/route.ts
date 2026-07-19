@@ -5,7 +5,7 @@ import { mapCommunityPost } from "@/lib/server/community"
 import { getLegacyComments, getLegacyLikeState } from "@/lib/server/community-admin"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, getTimeAgoThai, ok } from "@/lib/server/http"
-import { Comment, CommunityPost, PostLike } from "@/lib/server/models"
+import { Comment, CommunityNotification, CommunityPost, PostLike } from "@/lib/server/models"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -90,6 +90,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       sharedPostId ? CommunityPost.findByIdAndUpdate(sharedPostId, { $inc: { repostsCount: -1 } }) : Promise.resolve(null),
       PostLike.deleteMany({ post: post._id }),
       Comment.deleteMany({ targetType: "post", targetId: post._id.toString() }),
+      CommunityNotification.deleteMany({ post: post._id }),
     ])
 
     if (sharedPostId) {

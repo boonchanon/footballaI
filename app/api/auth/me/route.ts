@@ -29,6 +29,19 @@ export async function PATCH(request: NextRequest) {
       user.name = name
     }
     if (typeof body.avatar !== "undefined") user.avatar = String(body.avatar || "").trim()
+    if (typeof body.coverImage !== "undefined") user.coverImage = String(body.coverImage || "").trim()
+    if (typeof body.coverPositionX !== "undefined") {
+      const value = Number(body.coverPositionX)
+      user.coverPositionX = Number.isFinite(value) ? Math.max(-40, Math.min(40, value)) : 0
+    }
+    if (typeof body.coverPositionY !== "undefined") {
+      const value = Number(body.coverPositionY)
+      user.coverPositionY = Number.isFinite(value) ? Math.max(-40, Math.min(40, value)) : 0
+    }
+    if (typeof body.coverScale !== "undefined") {
+      const value = Number(body.coverScale)
+      user.coverScale = Number.isFinite(value) ? Math.max(1, Math.min(1.8, value)) : 1
+    }
     if (typeof body.favoriteTeam !== "undefined") user.favoriteTeam = String(body.favoriteTeam || "").trim()
     if (typeof body.bio !== "undefined") {
       const bio = String(body.bio || "").trim()
