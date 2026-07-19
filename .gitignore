@@ -28,3 +28,5 @@ yarn-error.log*
 next-env.d.ts
 .vercel
 public/uploads/community/
+public/uploads/community/*
+!public/uploads/community/.gitkeep
