@@ -13,6 +13,10 @@ export type AuthUser = {
   email: string
   phone?: string
   avatar?: string
+  coverImage?: string
+  coverPositionX?: number
+  coverPositionY?: number
+  coverScale?: number
   favoriteTeam?: string
   bio?: string
   role?: string
@@ -115,6 +119,10 @@ export function sanitizeUser(user: AuthUser) {
     email: user.email,
     phone: user.phone || "",
     avatar: user.avatar || "",
+    coverImage: user.coverImage || "",
+    coverPositionX: typeof user.coverPositionX === "number" ? user.coverPositionX : 0,
+    coverPositionY: typeof user.coverPositionY === "number" ? user.coverPositionY : 0,
+    coverScale: typeof user.coverScale === "number" ? user.coverScale : 1,
     favoriteTeam: user.favoriteTeam || "",
     bio: user.bio || "",
     role: user.role || "user",

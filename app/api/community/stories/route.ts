@@ -6,6 +6,19 @@ import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, getTimeAgoThai, ok } from "@/lib/server/http"
 import { CommunityStory } from "@/lib/server/models"
 
+function getStoryStyle(input: any) {
+  const rawTheme = String(input?.theme || "")
+  const rawCaptionAlign = String(input?.captionAlign || "")
+  const rawCaptionSize = String(input?.captionSize || "")
+  const rawSticker = String(input?.sticker || "")
+
+  const theme = ["neon", "midnight", "sunset", "glass"].includes(rawTheme) ? rawTheme : "neon"
+  const captionAlign = ["top", "center", "bottom"].includes(rawCaptionAlign) ? rawCaptionAlign : "bottom"
+  const captionSize = ["sm", "md", "lg"].includes(rawCaptionSize) ? rawCaptionSize : "md"
+  const sticker = ["", "Matchday", "Breaking", "Hot Take", "Fan Cam"].includes(rawSticker) ? rawSticker : ""
+  return { theme, captionAlign, captionSize, sticker }
+}
+
 export async function GET(request: NextRequest) {
   try {
     await connectDatabase()
@@ -29,6 +42,7 @@ export async function GET(request: NextRequest) {
         id: toPlainId(story._id),
         image: story.image || "",
         caption: story.caption || "",
+        style: getStoryStyle(story.style),
         createdAt: story.createdAt,
         expiresAt: story.expiresAt,
         timeAgo: getTimeAgoThai(story.createdAt),
@@ -82,6 +96,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const image = String(body.image || "").trim()
     const caption = String(body.caption || "").trim()
+    const style = getStoryStyle(body.style)
 
     if (!image) return errorResponse("Story image is required", 422)
     if (caption.length > 180) return errorResponse("Story caption is too long", 422)
@@ -91,6 +106,7 @@ export async function POST(request: NextRequest) {
       author: user._id,
       image,
       caption,
+      style,
       expiresAt,
     })
 
@@ -102,6 +118,7 @@ export async function POST(request: NextRequest) {
           id: toPlainId(populated?._id),
           image: populated?.image || "",
           caption: populated?.caption || "",
+          style: getStoryStyle(populated?.style),
           createdAt: populated?.createdAt,
           expiresAt: populated?.expiresAt,
           timeAgo: getTimeAgoThai(populated?.createdAt),

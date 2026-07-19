@@ -10,6 +10,11 @@ const categoryLabels: Record<string, string> = {
   general: "ทั่วไป",
 }
 
+const visibilityLabels: Record<string, string> = {
+  public: "Public",
+  friends: "Friends",
+}
+
 function getCountValue(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) return value
   if (Array.isArray(value)) return value.length
@@ -60,6 +65,26 @@ export function mapAdminCommunityPost(post: any, viewer?: any) {
     views,
     reports,
     images: Array.isArray(post.images) ? post.images.filter((item: unknown) => typeof item === "string" && item.trim()) : [],
+    videos: Array.isArray(post.videos) ? post.videos.filter((item: unknown) => typeof item === "string" && item.trim()) : [],
+    visibility: typeof post.visibility === "string" ? post.visibility : "public",
+    visibilityLabel: visibilityLabels[post.visibility] || "Public",
+    poll:
+      post.poll && typeof post.poll === "object"
+        ? {
+            question: typeof post.poll.question === "string" ? post.poll.question : "",
+            totalVotes: typeof post.poll.totalVotes === "number" ? post.poll.totalVotes : 0,
+            options: Array.isArray(post.poll.options)
+              ? post.poll.options
+                  .filter((item: unknown) => item && typeof item === "object")
+                  .map((item: any) => ({
+                    id: typeof item.id === "string" ? item.id : "",
+                    text: typeof item.text === "string" ? item.text : "",
+                    votes: typeof item.votes === "number" ? item.votes : 0,
+                  }))
+                  .filter((item: { id: string; text: string }) => item.id && item.text)
+              : [],
+          }
+        : null,
     sharedItem:
       post.sharedItem && typeof post.sharedItem === "object"
         ? {

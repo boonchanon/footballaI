@@ -12,6 +12,10 @@ const userSchema =
       email: { type: String, required: true, unique: true, lowercase: true, trim: true },
       password: { type: String, required: true, minlength: 6 },
       avatar: { type: String, default: "" },
+      coverImage: { type: String, default: "" },
+      coverPositionX: { type: Number, default: 0 },
+      coverPositionY: { type: Number, default: 0 },
+      coverScale: { type: Number, default: 1 },
       phone: { type: String, unique: true, sparse: true, trim: true },
       favoriteTeam: { type: String, default: "" },
       role: { type: String, enum: ["user", "admin"], default: "user" },
@@ -41,6 +45,20 @@ if (!models.User) {
   userSchema.methods.comparePassword = function comparePassword(candidatePassword: string) {
     return bcrypt.compare(candidatePassword, this.password)
   }
+}
+
+if (models.User && !models.User.schema.path("coverImage")) {
+  models.User.schema.add({
+    coverImage: { type: String, default: "" },
+  })
+}
+
+if (models.User && !models.User.schema.path("coverPositionX")) {
+  models.User.schema.add({
+    coverPositionX: { type: Number, default: 0 },
+    coverPositionY: { type: Number, default: 0 },
+    coverScale: { type: Number, default: 1 },
+  })
 }
 
 const adminSchema =
@@ -117,6 +135,25 @@ const communityPostSchema =
       reportsCount: { type: Number, default: 0 },
       tags: { type: [String], default: [] },
       images: { type: [String], default: [] },
+      videos: { type: [String], default: [] },
+      visibility: { type: String, enum: ["public", "friends"], default: "public", index: true },
+      poll: {
+        question: { type: String, default: "", trim: true, maxlength: 180 },
+        options: {
+          type: [
+            new Schema(
+              {
+                id: { type: String, required: true, trim: true },
+                text: { type: String, required: true, trim: true, maxlength: 120 },
+                votes: { type: Number, default: 0 },
+              },
+              { _id: false },
+            ),
+          ],
+          default: [],
+        },
+        totalVotes: { type: Number, default: 0 },
+      },
       sharedItem: {
         type: {
           type: String,
@@ -244,12 +281,37 @@ const communityStorySchema =
       author: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
       image: { type: String, required: true, trim: true },
       caption: { type: String, default: "", trim: true, maxlength: 180 },
+      style: {
+        theme: { type: String, enum: ["neon", "midnight", "sunset", "glass"], default: "neon" },
+        captionAlign: { type: String, enum: ["top", "center", "bottom"], default: "bottom" },
+        captionSize: { type: String, enum: ["sm", "md", "lg"], default: "md" },
+        sticker: { type: String, enum: ["", "Matchday", "Breaking", "Hot Take", "Fan Cam"], default: "" },
+      },
       expiresAt: { type: Date, required: true, index: true },
       viewsCount: { type: Number, default: 0 },
       viewedBy: { type: [{ type: Schema.Types.ObjectId, ref: "User" }], default: [] },
     },
     { timestamps: true },
   )
+
+const communityNotificationSchema =
+  models.CommunityNotification?.schema ||
+  new Schema(
+    {
+      recipient: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+      actor: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+      type: { type: String, enum: ["post_like", "post_comment", "post_repost"], required: true, index: true },
+      post: { type: Schema.Types.ObjectId, ref: "CommunityPost", required: true, index: true },
+      comment: { type: Schema.Types.ObjectId, ref: "Comment", default: null },
+      readAt: { type: Date, default: null, index: true },
+    },
+    { timestamps: true },
+  )
+
+if (!models.CommunityNotification) {
+  communityNotificationSchema.index({ recipient: 1, createdAt: -1 })
+  communityNotificationSchema.index({ recipient: 1, readAt: 1 })
+}
 
 const predictionSchema =
   models.Prediction?.schema ||
@@ -416,6 +478,7 @@ export const Friendship = models.Friendship || model("Friendship", friendshipSch
 export const Conversation = models.Conversation || model("Conversation", conversationSchema)
 export const DirectMessage = models.DirectMessage || model("DirectMessage", directMessageSchema)
 export const CommunityStory = models.CommunityStory || model("CommunityStory", communityStorySchema)
+export const CommunityNotification = models.CommunityNotification || model("CommunityNotification", communityNotificationSchema)
 export const Prediction = models.Prediction || model("Prediction", predictionSchema)
 export const PaymentOrder = models.PaymentOrder || model("PaymentOrder", paymentOrderSchema)
 export const PaymentEntitlement = models.PaymentEntitlement || model("PaymentEntitlement", paymentEntitlementSchema)

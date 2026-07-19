@@ -24,10 +24,13 @@ export async function POST(request: NextRequest) {
     if (files.length === 0) return errorResponse("No files uploaded", 422)
     if (files.length > 4) return errorResponse("You can upload up to 4 files", 422)
 
-    const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"])
+    const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm", "video/quicktime", "video/x-m4v"])
     for (const file of files) {
       if (!allowedTypes.has(file.type)) return errorResponse("Unsupported file type", 422)
-      if (file.size > 5 * 1024 * 1024) return errorResponse("Each file must be 5MB or smaller", 422)
+      const maxFileSize = file.type.startsWith("video/") ? 30 * 1024 * 1024 : 5 * 1024 * 1024
+      if (file.size > maxFileSize) {
+        return errorResponse(file.type.startsWith("video/") ? "Each video must be 30MB or smaller" : "Each file must be 5MB or smaller", 422)
+      }
     }
 
     const urls = await Promise.all(files.map((file) => saveCommunityUpload(file)))

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 
 import { requireAuthUser } from "@/lib/server/auth"
+import { createCommunityNotification } from "@/lib/server/community-notifications"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, ok } from "@/lib/server/http"
 import { CommunityPost, PostLike } from "@/lib/server/models"
@@ -36,6 +37,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (Array.isArray(post.likedBy) && !likedBy.includes(userId)) {
         post.likedBy = [...likedBy, userId]
       }
+      await createCommunityNotification({
+        recipientId: post.author.toString(),
+        actorId: user._id.toString(),
+        postId: post._id.toString(),
+        type: "post_like",
+      })
       liked = true
     }
 

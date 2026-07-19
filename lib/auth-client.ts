@@ -3,6 +3,10 @@ export interface AuthUser {
   name: string
   email: string
   avatar?: string
+  coverImage?: string
+  coverPositionX?: number
+  coverPositionY?: number
+  coverScale?: number
   favoriteTeam?: string
   bio?: string
   role?: string
