@@ -294,6 +294,20 @@ const communityStorySchema =
     { timestamps: true },
   )
 
+const communityUploadAssetSchema =
+  models.CommunityUploadAsset?.schema ||
+  new Schema(
+    {
+      owner: { type: Schema.Types.ObjectId, ref: "User", default: null, index: true },
+      filename: { type: String, required: true, trim: true },
+      mimeType: { type: String, required: true, trim: true, index: true },
+      size: { type: Number, required: true, min: 1 },
+      kind: { type: String, enum: ["image", "video"], required: true, index: true },
+      data: { type: Buffer, required: true },
+    },
+    { timestamps: true },
+  )
+
 const communityNotificationSchema =
   models.CommunityNotification?.schema ||
   new Schema(
@@ -478,6 +492,7 @@ export const Friendship = models.Friendship || model("Friendship", friendshipSch
 export const Conversation = models.Conversation || model("Conversation", conversationSchema)
 export const DirectMessage = models.DirectMessage || model("DirectMessage", directMessageSchema)
 export const CommunityStory = models.CommunityStory || model("CommunityStory", communityStorySchema)
+export const CommunityUploadAsset = models.CommunityUploadAsset || model("CommunityUploadAsset", communityUploadAssetSchema)
 export const CommunityNotification = models.CommunityNotification || model("CommunityNotification", communityNotificationSchema)
 export const Prediction = models.Prediction || model("Prediction", predictionSchema)
 export const PaymentOrder = models.PaymentOrder || model("PaymentOrder", paymentOrderSchema)
