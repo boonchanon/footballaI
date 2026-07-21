@@ -10,6 +10,10 @@ export const runtime = "nodejs"
 
 const REQUIRE_RECIPIENT_VERIFICATION = process.env.THUNDER_REQUIRE_RECIPIENT_VERIFICATION?.trim() === "true"
 
+function isReusableOrderStatus(status: string) {
+  return status === "cancelled" || status === "expired"
+}
+
 function normalizeDigits(value: string) {
   return value.replace(/\D/g, "")
 }
@@ -208,14 +212,26 @@ export async function POST(request: NextRequest) {
     }
 
     const effectiveRef = verified.reference
-    const existingPaid = await PaymentOrder.findOne({
+    const existingReference = await PaymentOrder.findOne({
       _id: { $ne: order._id },
-      status: "paid",
       verificationRef: effectiveRef,
-    }).lean()
+    })
+      .select("_id status user productCode createdAt")
+      .lean()
 
-    if (existingPaid) {
-      return errorResponse("duplicate_slip", 409)
+    if (existingReference && !isReusableOrderStatus(String(existingReference.status || ""))) {
+      console.warn("[payments/verify-slip] duplicate reference blocked", {
+        orderId,
+        duplicateOrderId: existingReference._id?.toString?.() || String(existingReference._id || ""),
+        duplicateStatus: existingReference.status,
+        reference: effectiveRef,
+      })
+      return errorResponse("duplicate_slip", 409, {
+        code: "duplicate_slip",
+        reference: effectiveRef,
+        duplicateOrderId: existingReference._id?.toString?.() || String(existingReference._id || ""),
+        duplicateStatus: existingReference.status,
+      })
     }
 
     const now = new Date()
