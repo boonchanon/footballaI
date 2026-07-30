@@ -8,6 +8,12 @@ import { getThunderConfig, verifyThunderSlipImage } from "@/lib/server/thunder"
 
 export const runtime = "nodejs"
 
+const REQUIRE_RECIPIENT_VERIFICATION = process.env.THUNDER_REQUIRE_RECIPIENT_VERIFICATION?.trim() === "true"
+
+function isReusableOrderStatus(status: string) {
+  return status === "cancelled" || status === "expired"
+}
+
 function normalizeDigits(value: string) {
   return value.replace(/\D/g, "")
 }
@@ -21,7 +27,10 @@ function normalizePromptPayDigits(value: string) {
 }
 
 function normalizeName(value: string) {
-  return value.trim().toLowerCase().replace(/\s+/g, "")
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9ก-๙]/g, "")
 }
 
 function isSameRecipient(configured: string, received: string) {
@@ -29,6 +38,13 @@ function isSameRecipient(configured: string, received: string) {
   const right = normalizePromptPayDigits(received)
   if (!left || !right) return false
   return left === right || left.endsWith(right) || right.endsWith(left)
+}
+
+function isSameRecipientName(configured: string, received: string) {
+  const left = normalizeName(configured)
+  const right = normalizeName(received)
+  if (!left || !right) return false
+  return left === right || left.includes(right) || right.includes(left)
 }
 
 export async function POST(request: NextRequest) {
@@ -98,29 +114,61 @@ export async function POST(request: NextRequest) {
       return errorResponse("promptpay_not_configured", 500)
     }
 
-    if (!verified.recipientAccount) {
+    const hasRecipientAccount = Boolean(verified.recipientAccount)
+    const recipientAccountMatches = hasRecipientAccount && isSameRecipient(thunder.promptpayId, verified.recipientAccount)
+    const recipientNameMatches =
+      Boolean(thunder.accountName && verified.recipientName) &&
+      isSameRecipientName(thunder.accountName, verified.recipientName)
+
+    if (!hasRecipientAccount && !recipientNameMatches) {
       console.error("[payments/verify-slip] missing recipient account", {
         orderId,
+        expectedName: thunder.accountName,
+        receivedName: verified.recipientName,
         verified,
       })
-      return errorResponse("unable_to_verify_recipient", 422, {
-        code: "unable_to_verify_recipient",
-        thunder: verified.raw,
+
+      if (REQUIRE_RECIPIENT_VERIFICATION) {
+        return errorResponse("unable_to_verify_recipient", 422, {
+          code: "unable_to_verify_recipient",
+          expectedName: thunder.accountName,
+          receivedName: verified.recipientName,
+          thunder: verified.raw,
+        })
+      }
+
+      console.warn("[payments/verify-slip] recipient verification skipped because Thunder did not return recipient info", {
+        orderId,
+        reference: verified.reference,
+        amount: verified.amount,
       })
     }
 
-    if (!isSameRecipient(thunder.promptpayId, verified.recipientAccount)) {
+    if (hasRecipientAccount && !recipientAccountMatches && !recipientNameMatches) {
       console.error("[payments/verify-slip] recipient mismatch", {
         orderId,
         expectedRecipient: thunder.promptpayId,
         receivedRecipient: verified.recipientAccount,
+        expectedName: thunder.accountName,
+        receivedName: verified.recipientName,
         raw: verified.raw,
       })
-      return errorResponse("recipient_mismatch", 422, {
-        code: "recipient_mismatch",
-        expectedRecipient: thunder.promptpayId,
-        receivedRecipient: verified.recipientAccount,
-        thunder: verified.raw,
+
+      if (REQUIRE_RECIPIENT_VERIFICATION) {
+        return errorResponse("recipient_mismatch", 422, {
+          code: "recipient_mismatch",
+          expectedRecipient: thunder.promptpayId,
+          receivedRecipient: verified.recipientAccount,
+          expectedName: thunder.accountName,
+          receivedName: verified.recipientName,
+          thunder: verified.raw,
+        })
+      }
+
+      console.warn("[payments/verify-slip] recipient mismatch skipped because strict recipient verification is disabled", {
+        orderId,
+        reference: verified.reference,
+        amount: verified.amount,
       })
     }
 
@@ -164,14 +212,26 @@ export async function POST(request: NextRequest) {
     }
 
     const effectiveRef = verified.reference
-    const existingPaid = await PaymentOrder.findOne({
+    const existingReference = await PaymentOrder.findOne({
       _id: { $ne: order._id },
-      status: "paid",
       verificationRef: effectiveRef,
-    }).lean()
+    })
+      .select("_id status user productCode createdAt")
+      .lean()
 
-    if (existingPaid) {
-      return errorResponse("duplicate_slip", 409)
+    if (existingReference && !isReusableOrderStatus(String(existingReference.status || ""))) {
+      console.warn("[payments/verify-slip] duplicate reference blocked", {
+        orderId,
+        duplicateOrderId: existingReference._id?.toString?.() || String(existingReference._id || ""),
+        duplicateStatus: existingReference.status,
+        reference: effectiveRef,
+      })
+      return errorResponse("duplicate_slip", 409, {
+        code: "duplicate_slip",
+        reference: effectiveRef,
+        duplicateOrderId: existingReference._id?.toString?.() || String(existingReference._id || ""),
+        duplicateStatus: existingReference.status,
+      })
     }
 
     const now = new Date()

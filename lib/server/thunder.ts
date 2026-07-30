@@ -61,6 +61,45 @@ function pickDateString(...values: unknown[]) {
   return ""
 }
 
+function collectDeepValues(input: unknown, matcher: (key: string, value: unknown) => boolean, results: unknown[] = []) {
+  if (!input || typeof input !== "object") return results
+
+  if (Array.isArray(input)) {
+    for (const item of input) collectDeepValues(item, matcher, results)
+    return results
+  }
+
+  for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+    if (matcher(key, value)) {
+      results.push(value)
+    }
+
+    if (value && typeof value === "object") {
+      collectDeepValues(value, matcher, results)
+    }
+  }
+
+  return results
+}
+
+function pickDeepString(input: unknown, keys: string[]) {
+  const normalized = new Set(keys.map((item) => item.toLowerCase()))
+  return pickString(
+    ...collectDeepValues(input, (key, value) => {
+      return normalized.has(key.toLowerCase()) && typeof value === "string"
+    }),
+  )
+}
+
+function pickDeepNumber(input: unknown, keys: string[]) {
+  const normalized = new Set(keys.map((item) => item.toLowerCase()))
+  return pickNumber(
+    ...collectDeepValues(input, (key, value) => {
+      return normalized.has(key.toLowerCase()) && (typeof value === "number" || typeof value === "string")
+    }),
+  )
+}
+
 function normalizeThunderError(message: string) {
   if (!message) return "thunder_verify_failed"
   if (/No number after minus sign in JSON/i.test(message)) return "invalid_payload"
@@ -121,6 +160,7 @@ function extractThunderResult(response: Response, raw: Record<string, any> | nul
     nested?.matchedAmount,
     rawSlipAmount?.amount,
     record?.transAmount,
+    pickDeepNumber(record, ["amount", "transAmount", "receiveAmount", "matchedAmount", "amountInSlip"]),
   )
 
   const reference = pickString(
@@ -136,6 +176,7 @@ function extractThunderResult(response: Response, raw: Record<string, any> | nul
     rawSlip?.ref,
     rawSlip?.transRef,
     rawSlip?.transactionId,
+    pickDeepString(record, ["reference", "ref", "transRef", "transactionId", "transactionNo", "slipNo"]),
   )
 
   const recipientAccount = pickString(
@@ -150,6 +191,18 @@ function extractThunderResult(response: Response, raw: Record<string, any> | nul
     nested?.toAccount,
     record?.receiverAccount,
     record?.recipientAccount,
+    pickDeepString(record, [
+      "account",
+      "accountNo",
+      "accountNumber",
+      "promptpay",
+      "proxyId",
+      "phoneNumber",
+      "receiverAccount",
+      "recipientAccount",
+      "toAccount",
+      "destinationAccount",
+    ]),
   )
 
   const recipientName = pickString(
@@ -160,6 +213,16 @@ function extractThunderResult(response: Response, raw: Record<string, any> | nul
     nested?.recipientName,
     record?.receiverName,
     record?.recipientName,
+    pickDeepString(record, [
+      "name",
+      "accountName",
+      "displayName",
+      "receiverName",
+      "recipientName",
+      "fullName",
+      "thaiName",
+      "merchantName",
+    ]),
   )
 
   const transferredAt = pickDateString(
@@ -175,6 +238,7 @@ function extractThunderResult(response: Response, raw: Record<string, any> | nul
     record?.transactionDate,
     record?.paidAt,
     record?.timestamp,
+    pickDeepString(record, ["transDate", "transactionDate", "paidAt", "timestamp", "transferAt", "dateTime"]),
   )
 
   const statusText = pickString(
