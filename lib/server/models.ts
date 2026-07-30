@@ -1036,7 +1036,6 @@ export const Friendship = models.Friendship || model("Friendship", friendshipSch
 export const Conversation = models.Conversation || model("Conversation", conversationSchema)
 export const DirectMessage = models.DirectMessage || model("DirectMessage", directMessageSchema)
 export const CommunityStory = models.CommunityStory || model("CommunityStory", communityStorySchema)
-export const CommunityUploadAsset = models.CommunityUploadAsset || model("CommunityUploadAsset", communityUploadAssetSchema)
 export const CommunityNotification = models.CommunityNotification || model("CommunityNotification", communityNotificationSchema)
 export const CommunityFanEvent = models.CommunityFanEvent || model("CommunityFanEvent", communityFanEventSchema)
 export const CommunityMedia = models.CommunityMedia || model("CommunityMedia", communityMediaSchema)
