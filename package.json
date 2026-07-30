@@ -6,8 +6,19 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "eslint .",
+    "moderation:audit": "node scripts/audit-community-moderation.js",
+    "moderation:audit-media": "node scripts/audit-community-media.js",
+    "moderation:check-provider": "node scripts/moderation-check-provider.js",
+    "moderation:cleanup-media": "node scripts/cleanup-community-pending-media.js",
+    "moderation:repair": "node scripts/audit-community-moderation.js --apply",
+    "moderation:test-image": "node scripts/moderation-test-image.js",
+    "moderation:test-retry": "node scripts/moderation-test-retry.js",
     "start": "next start",
-    "seed:admins": "node scripts/seed-admins.js"
+    "seed:admins": "node scripts/seed-admins.js",
+    "test:moderation": "node scripts/run-moderation-tests.js",
+    "test:match-room": "node scripts/run-match-room-tests.js",
+    "test:polls": "node scripts/run-poll-tests.js",
+    "test:threads": "node scripts/run-thread-tests.js"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "latest",
@@ -64,6 +75,7 @@
     "next": "16.0.10",
     "next-themes": "^0.4.6",
     "nodemailer": "^8.0.2",
+    "openai": "^6.48.0",
     "react": "19.2.0",
     "react-day-picker": "9.8.0",
     "react-dom": "19.2.0",

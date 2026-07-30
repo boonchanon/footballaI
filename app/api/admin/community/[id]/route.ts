@@ -20,6 +20,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const nextStatus = body.status.trim()
       if (!["published", "flagged", "hidden"].includes(nextStatus)) return errorResponse("Validation failed", 422)
       post.status = nextStatus
+      post.moderation = {
+        ...(post.moderation?.toObject?.() || post.moderation || {}),
+        status: nextStatus === "published" ? "approved" : nextStatus === "hidden" ? "pending_review" : post.moderation?.status || "approved",
+        provider: "manual",
+        reviewedAt: new Date(),
+      }
     }
 
     await post.save()

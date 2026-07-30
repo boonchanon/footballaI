@@ -5,7 +5,7 @@ import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, ok } from "@/lib/server/http"
 import { CommunityPost, CommunityReport } from "@/lib/server/models"
 
-const reasons = new Set(["spam", "abuse", "hate", "off-topic", "other"])
+const reasons = new Set(["spam", "abuse", "hate", "off-topic", "harassment", "inappropriate", "misinformation", "gambling", "other"])
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -25,9 +25,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (post.author.toString() === user._id.toString()) {
       return errorResponse("You cannot report your own post", 400)
     }
+    const existing = await CommunityReport.findOne({ targetType: "post", targetId: post._id.toString(), reporter: user._id }).select("_id")
+    if (existing) return errorResponse("You already reported this content", 409)
 
     const item = await CommunityReport.create({
       post: post._id,
+      targetType: "post",
+      targetId: post._id.toString(),
       reporter: user._id,
       reason,
       description,
@@ -40,7 +44,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await post.save()
 
     return ok({ item }, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === 11000) return errorResponse("You already reported this content", 409)
     const message = error instanceof Error ? error.message : "Failed to report post"
     return errorResponse(message, message === "Authentication required" ? 401 : 500)
   }

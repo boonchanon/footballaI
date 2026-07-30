@@ -10,6 +10,10 @@ const reasonLabels: Record<string, string> = {
   abuse: "คุกคาม",
   hate: "เกลียดชัง",
   "off-topic": "ไม่เกี่ยวกับหัวข้อ",
+  harassment: "คุกคาม",
+  inappropriate: "ไม่เหมาะสม",
+  misinformation: "ข้อมูลผิด/ชวนเข้าใจผิด",
+  gambling: "พนัน",
   other: "อื่น ๆ",
 }
 
@@ -34,6 +38,11 @@ export async function GET(request: NextRequest) {
           path: "post",
           select: "title author status",
           populate: { path: "author", select: "name avatar" },
+        })
+        .populate({
+          path: "comment",
+          select: "content user targetId parentComment isDeleted isHidden",
+          populate: { path: "user", select: "name avatar" },
         }),
       CommunityReport.countDocuments(filter),
       Promise.all([
@@ -58,12 +67,15 @@ export async function GET(request: NextRequest) {
           name: report.reporter?.name || "ผู้ใช้งาน",
           avatar: report.reporter?.avatar || "",
         },
+        targetType: report.targetType || "post",
+        targetId: report.targetId || report.post?._id?.toString?.() || report.comment?._id?.toString?.() || "",
+        targetPreview: report.comment?.content || report.post?.title || "เนื้อหาถูกลบแล้ว",
         author: {
-          name: report.post?.author?.name || "ผู้ใช้งาน",
-          avatar: report.post?.author?.avatar || "",
+          name: report.post?.author?.name || report.comment?.user?.name || "ผู้ใช้งาน",
+          avatar: report.post?.author?.avatar || report.comment?.user?.avatar || "",
         },
         post: {
-          id: report.post?._id?.toString?.() || "",
+          id: report.post?._id?.toString?.() || report.comment?.targetId || "",
           title: report.post?.title || "โพสต์ถูกลบแล้ว",
           status: report.post?.status || "hidden",
         },

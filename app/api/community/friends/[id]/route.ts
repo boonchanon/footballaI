@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 
 import { requireAuthUser } from "@/lib/server/auth"
+import { buildPublicModeratedContentFilter } from "@/lib/server/community"
 import { mapAdminCommunityPost } from "@/lib/server/community-admin"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, ok } from "@/lib/server/http"
@@ -21,7 +22,10 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
           { requester: id, recipient: viewer._id, status: "pending" },
         ],
       }),
-      CommunityPost.find({ author: id, status: "published" }).populate("author", "name avatar favoriteTeam role").sort({ createdAt: -1 }).limit(8),
+      CommunityPost.find({ author: id, ...buildPublicModeratedContentFilter() })
+        .populate("author", "name avatar favoriteTeam role")
+        .sort({ createdAt: -1 })
+        .limit(8),
     ])
 
     if (!targetUser) return errorResponse("User not found", 404)
