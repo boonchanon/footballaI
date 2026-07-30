@@ -75,15 +75,7 @@ export async function POST(request: NextRequest) {
     if (files.length === 0) return errorResponse("ยังไม่ได้เลือกไฟล์", 422)
     if (files.length > 4) return errorResponse("อัปโหลดได้สูงสุด 4 ไฟล์ต่อครั้ง", 422)
 
-    const allowedTypes = new Set([
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "video/mp4",
-      "video/webm",
-      "video/quicktime",
-      "video/x-m4v",
-    ])
+
 
     logUploadDebug("request", {
       requestId: uploadRequestId,
