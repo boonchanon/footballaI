@@ -3,6 +3,7 @@ import { NextRequest } from "next/server"
 
 import { type AdminRole, isAdminRole } from "@/lib/admin-access"
 
+import { mapFanProfile } from "./community-fan-profile"
 import { connectDatabase } from "./db"
 import { Admin, User } from "./models"
 
@@ -14,10 +15,20 @@ export type AuthUser = {
   phone?: string
   avatar?: string
   coverImage?: string
+  pendingAvatarMediaId?: { toString(): string } | string | null
+  pendingCoverMediaId?: { toString(): string } | string | null
   coverPositionX?: number
   coverPositionY?: number
   coverScale?: number
   favoriteTeam?: string
+  favoriteTeamIds?: string[]
+  favoritePlayerIds?: string[]
+  preferredContentTypes?: string[]
+  notificationPreferences?: Record<string, unknown>
+  followedMatchRooms?: Array<{ matchId: string; followedAt?: Date | string; lastVisitedAt?: Date | string | null; lastSeenActivityAt?: Date | string | null }>
+  recentMatchRooms?: Array<{ matchId: string; lastVisitedAt?: Date | string | null }>
+  communityStats?: Record<string, unknown>
+  fanBadges?: string[]
   bio?: string
   role?: string
   createdAt?: Date | string
@@ -120,10 +131,19 @@ export function sanitizeUser(user: AuthUser) {
     phone: user.phone || "",
     avatar: user.avatar || "",
     coverImage: user.coverImage || "",
+    pendingAvatarMediaId: user.pendingAvatarMediaId?.toString?.() || user.pendingAvatarMediaId || null,
+    pendingCoverMediaId: user.pendingCoverMediaId?.toString?.() || user.pendingCoverMediaId || null,
     coverPositionX: typeof user.coverPositionX === "number" ? user.coverPositionX : 0,
     coverPositionY: typeof user.coverPositionY === "number" ? user.coverPositionY : 0,
     coverScale: typeof user.coverScale === "number" ? user.coverScale : 1,
     favoriteTeam: user.favoriteTeam || "",
+    favoriteTeamIds: Array.isArray(user.favoriteTeamIds) ? user.favoriteTeamIds : [],
+    favoritePlayerIds: Array.isArray(user.favoritePlayerIds) ? user.favoritePlayerIds : [],
+    preferredContentTypes: Array.isArray(user.preferredContentTypes) ? user.preferredContentTypes : [],
+    notificationPreferences: user.notificationPreferences && typeof user.notificationPreferences === "object" ? user.notificationPreferences : {},
+    followedMatchRooms: Array.isArray(user.followedMatchRooms) ? user.followedMatchRooms : [],
+    recentMatchRooms: Array.isArray(user.recentMatchRooms) ? user.recentMatchRooms : [],
+    fanProfile: mapFanProfile(user),
     bio: user.bio || "",
     role: user.role || "user",
     createdAt: user.createdAt,

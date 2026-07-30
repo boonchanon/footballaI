@@ -8,6 +8,18 @@ export interface AuthUser {
   coverPositionY?: number
   coverScale?: number
   favoriteTeam?: string
+  favoriteTeamIds?: string[]
+  favoritePlayerIds?: string[]
+  preferredContentTypes?: string[]
+  fanProfile?: {
+    stats: {
+      postsCount: number
+      matchRoomPostsCount: number
+      pollVotesCount: number
+      lastMatchRoomAt?: string | null
+    }
+    badges: Array<{ id: string; label: string; description: string } | undefined>
+  }
   bio?: string
   role?: string
   createdAt?: string

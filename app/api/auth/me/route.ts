@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 
 import { requireAuthUser, sanitizeUser } from "@/lib/server/auth"
+import { validateCommunityPreferences } from "@/lib/server/community-preferences"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, ok } from "@/lib/server/http"
 import { deleteUserAccount } from "@/lib/server/user-account"
@@ -30,6 +31,8 @@ export async function PATCH(request: NextRequest) {
     }
     if (typeof body.avatar !== "undefined") user.avatar = String(body.avatar || "").trim()
     if (typeof body.coverImage !== "undefined") user.coverImage = String(body.coverImage || "").trim()
+    if (typeof body.pendingAvatarMediaId !== "undefined") user.pendingAvatarMediaId = body.pendingAvatarMediaId || null
+    if (typeof body.pendingCoverMediaId !== "undefined") user.pendingCoverMediaId = body.pendingCoverMediaId || null
     if (typeof body.coverPositionX !== "undefined") {
       const value = Number(body.coverPositionX)
       user.coverPositionX = Number.isFinite(value) ? Math.max(-40, Math.min(40, value)) : 0
@@ -43,6 +46,26 @@ export async function PATCH(request: NextRequest) {
       user.coverScale = Number.isFinite(value) ? Math.max(1, Math.min(1.8, value)) : 1
     }
     if (typeof body.favoriteTeam !== "undefined") user.favoriteTeam = String(body.favoriteTeam || "").trim()
+    if (
+      typeof body.favoriteTeamIds !== "undefined" ||
+      typeof body.favoritePlayerIds !== "undefined" ||
+      typeof body.preferredContentTypes !== "undefined"
+    ) {
+      const validated = await validateCommunityPreferences({
+        favoriteTeamIds: typeof body.favoriteTeamIds !== "undefined" ? body.favoriteTeamIds : user.favoriteTeamIds || [],
+        favoritePlayerIds: typeof body.favoritePlayerIds !== "undefined" ? body.favoritePlayerIds : user.favoritePlayerIds || [],
+        preferredContentTypes: typeof body.preferredContentTypes !== "undefined" ? body.preferredContentTypes : user.preferredContentTypes || [],
+      })
+      user.favoriteTeamIds = validated.favoriteTeamIds
+      user.favoritePlayerIds = validated.favoritePlayerIds
+      user.preferredContentTypes = validated.preferredContentTypes
+    }
+    if (typeof body.notificationPreferences !== "undefined") {
+      user.notificationPreferences =
+        body.notificationPreferences && typeof body.notificationPreferences === "object" && !Array.isArray(body.notificationPreferences)
+          ? body.notificationPreferences
+          : {}
+    }
     if (typeof body.bio !== "undefined") {
       const bio = String(body.bio || "").trim()
       if (bio.length > 280) {
@@ -55,7 +78,7 @@ export async function PATCH(request: NextRequest) {
     return ok({ user: sanitizeUser(user) })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Profile update failed"
-    return errorResponse(message, message === "Authentication required" ? 401 : 500)
+    return errorResponse(message, message === "Authentication required" ? 401 : message.includes("Invalid favorite") ? 422 : 500)
   }
 }
 

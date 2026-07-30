@@ -115,6 +115,7 @@ const sidebarLinks: SidebarLink[] = [
     section: "community",
     subLinks: [
       { title: "โพสต์ทั้งหมด", href: "/admin/community" },
+      { title: "Moderation Queue", href: "/admin/community/moderation" },
       { title: "รายงาน", href: "/admin/community/reports" },
       { title: "คำต้องห้าม", href: "/admin/community/banned-words" },
       { title: "ตั้งค่า", href: "/admin/community/settings" },

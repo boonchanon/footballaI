@@ -330,9 +330,16 @@ export function ProfilePage() {
   }, [displayCoverImage])
 
   const favoriteTeams = useMemo(
-    () => (favoritesData?.items || []).filter((item) => item.itemType === "team").map((item) => item.title).slice(0, 5),
+    () => ((favoritesData?.items || []) as any[]).filter((item) => item.itemType === "team").map((item) => item.title).slice(0, 5),
     [favoritesData?.items],
   )
+  const favoritePlayers = useMemo(
+    () => ((favoritesData?.items || []) as any[]).filter((item) => item.itemType === "player").map((item) => item.title).slice(0, 5),
+    [favoritesData?.items],
+  )
+  const fanProfile = currentUser?.fanProfile
+  const fanStats = fanProfile?.stats || { postsCount: 0, matchRoomPostsCount: 0, pollVotesCount: 0 }
+  const fanBadges = (fanProfile?.badges || []).filter(Boolean) as Array<{ id: string; label: string; description: string }>
   const ownPosts = useMemo(
     () => (postsData?.items || []).filter((item) => item.sharedItem?.type !== "post"),
     [postsData?.items],
@@ -489,6 +496,7 @@ export function ProfilePage() {
       setUploadingCover(true)
       const formData = new FormData()
       formData.append("files", coverDraftFile)
+      formData.append("purpose", "cover")
       const response = await fetch("/api/community/upload", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -498,7 +506,24 @@ export function ProfilePage() {
       if (!response.ok) throw new Error(result?.error || "Upload failed")
 
       const coverImage = result?.urls?.[0] || ""
-      if (!coverImage) throw new Error("Upload failed")
+      if (!coverImage) {
+        const pendingImage = [...(Array.isArray(result?.items) ? result.items : []), ...(Array.isArray(result?.pendingItems) ? result.pendingItems : [])].find(
+          (item: any) => item?.mediaType === "image" && item?.status === "pending_review",
+        )
+        if (pendingImage) {
+          await updateProfileFields({ pendingCoverMediaId: pendingImage.id })
+          setCoverEditorOpen(false)
+          setCoverDraftFile(null)
+          if (coverDraftUrl && coverDraftUrl.startsWith("blob:")) URL.revokeObjectURL(coverDraftUrl)
+          setCoverDraftUrl("")
+          toast({
+            title: "อัปโหลดภาพพื้นหลังแล้ว",
+            description: "รูปกำลังรอการตรวจสอบก่อนจึงจะใช้เป็นภาพพื้นหลังได้",
+          })
+          return
+        }
+        throw new Error("Upload failed")
+      }
 
       setCoverImagePreview(coverImage)
       const updatedUser = await updateProfileFields({
@@ -588,6 +613,7 @@ export function ProfilePage() {
       setUploadingAvatar(true)
       const formData = new FormData()
       formData.append("files", avatarDraftFile)
+      formData.append("purpose", "profile")
       const response = await fetch("/api/community/upload", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -597,7 +623,24 @@ export function ProfilePage() {
       if (!response.ok) throw new Error(result?.error || "Upload failed")
 
       const avatar = result?.urls?.[0] || ""
-      if (!avatar) throw new Error("Upload failed")
+      if (!avatar) {
+        const pendingImage = [...(Array.isArray(result?.items) ? result.items : []), ...(Array.isArray(result?.pendingItems) ? result.pendingItems : [])].find(
+          (item: any) => item?.mediaType === "image" && item?.status === "pending_review",
+        )
+        if (pendingImage) {
+          await updateProfileFields({ pendingAvatarMediaId: pendingImage.id })
+          setAvatarDraftFile(null)
+          if (avatarDraftUrl && avatarDraftUrl.startsWith("blob:")) URL.revokeObjectURL(avatarDraftUrl)
+          setAvatarDraftUrl("")
+          setAvatarViewerOpen(false)
+          toast({
+            title: "อัปโหลดรูปโปรไฟล์แล้ว",
+            description: "รูปกำลังรอการตรวจสอบก่อนจึงจะใช้เป็นรูปโปรไฟล์ได้",
+          })
+          return
+        }
+        throw new Error("Upload failed")
+      }
 
       const updatedUser = await updateProfileFields({ avatar })
       const persistedAvatar = updatedUser?.avatar || avatar
@@ -1486,6 +1529,57 @@ export function ProfilePage() {
               </main>
 
               <aside className="space-y-6">
+                <Card className={panelClass}>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Trophy className="h-5 w-5 text-primary" />
+                      Fan Profile
+                    </CardTitle>
+                    <CardDescription>ข้อมูลสาธารณะในคอมมูนิตี้</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="rounded-2xl bg-background/50 p-3 text-center">
+                        <p className="text-xl font-display text-primary">{fanStats.postsCount}</p>
+                        <p className="text-[11px] text-muted-foreground">Posts</p>
+                      </div>
+                      <div className="rounded-2xl bg-background/50 p-3 text-center">
+                        <p className="text-xl font-display text-primary">{fanStats.matchRoomPostsCount}</p>
+                        <p className="text-[11px] text-muted-foreground">Rooms</p>
+                      </div>
+                      <div className="rounded-2xl bg-background/50 p-3 text-center">
+                        <p className="text-xl font-display text-primary">{fanStats.pollVotesCount}</p>
+                        <p className="text-[11px] text-muted-foreground">Polls</p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="mb-2 text-xs text-muted-foreground">Badge</p>
+                      <div className="flex flex-wrap gap-2">
+                        {fanBadges.length ? (
+                          fanBadges.map((badge) => (
+                            <Badge key={badge.id} className="rounded-full bg-primary/15 px-3 py-1 text-primary hover:bg-primary/15" title={badge.description}>
+                              {badge.label}
+                            </Badge>
+                          ))
+                        ) : (
+                          <p className="text-sm text-muted-foreground">ยังไม่มี badge</p>
+                        )}
+                      </div>
+                    </div>
+                    <Separator />
+                    <div className="space-y-3">
+                      <div>
+                        <p className="mb-2 text-xs text-muted-foreground">ทีมโปรด</p>
+                        <p className="text-sm font-medium">{favoriteTeams[0] || currentUser.favoriteTeam || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="mb-2 text-xs text-muted-foreground">นักเตะโปรด</p>
+                        <p className="text-sm font-medium">{favoritePlayers.length ? favoritePlayers.join(", ") : "-"}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 <Card className={panelClass}>
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-lg">

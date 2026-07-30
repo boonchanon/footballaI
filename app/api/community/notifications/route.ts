@@ -19,6 +19,8 @@ export async function GET(request: NextRequest) {
         .populate("actor", "name avatar")
         .populate("post", "title")
         .populate("comment", "content")
+        .populate("story", "caption")
+        .populate("media", "mediaType originalName status")
         .sort({ createdAt: -1 })
         .limit(8),
     ])
@@ -38,7 +40,7 @@ export async function GET(request: NextRequest) {
       isRead: Boolean(item.readAt),
       timeAgo: getTimeAgoThai(item.createdAt),
       createdAt: item.createdAt,
-      text: getCommunityNotificationText(item.type),
+      text: item.message || getCommunityNotificationText(item.type),
       actor: {
         id: item.actor?._id?.toString?.() || "",
         name: item.actor?.name || "ผู้ใช้งาน",
@@ -49,9 +51,23 @@ export async function GET(request: NextRequest) {
         title: item.post?.title || "โพสต์ของคุณ",
       },
       commentPreview:
-        item.type === "post_comment" && item.comment && typeof item.comment.content === "string"
+        ["post_comment", "thread_reply"].includes(item.type) && item.comment && typeof item.comment.content === "string"
           ? item.comment.content.slice(0, 80)
           : "",
+      story: item.story
+        ? {
+            id: item.story?._id?.toString?.() || "",
+            caption: item.story?.caption || "",
+          }
+        : null,
+      media: item.media
+        ? {
+            id: item.media?._id?.toString?.() || "",
+            mediaType: item.media?.mediaType || "",
+            originalName: item.media?.originalName || "",
+            status: item.media?.status || "",
+          }
+        : null,
     }))
 
     return ok({

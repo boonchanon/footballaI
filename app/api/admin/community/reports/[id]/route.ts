@@ -3,7 +3,7 @@ import { NextRequest } from "next/server"
 import { requireAdminRoles } from "@/lib/server/auth"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, ok } from "@/lib/server/http-utils"
-import { CommunityPost, CommunityReport } from "@/lib/server/models"
+import { Comment, CommunityPost, CommunityReport } from "@/lib/server/models"
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -39,6 +39,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         }
 
         await post.save()
+      }
+    }
+
+    if (report.comment && status === "resolved") {
+      const comment = await Comment.findById(report.comment)
+      if (comment && postAction === "hide") {
+        comment.isHidden = true
+        comment.hiddenAt = new Date()
+        await comment.save()
       }
     }
 

@@ -55,7 +55,14 @@ function getProviderConfig(provider: SupportedProvider) {
 }
 
 export function getAppBaseUrl(origin?: string) {
-  return (process.env.NEXT_PUBLIC_APP_URL || origin || "http://localhost:3000").replace(/\/$/, "")
+  const requestOrigin = origin?.replace(/\/$/, "")
+  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "")
+
+  if (requestOrigin && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(requestOrigin)) {
+    return requestOrigin
+  }
+
+  return configuredUrl || requestOrigin || "http://localhost:3000"
 }
 
 export function createOauthState(provider: SupportedProvider) {

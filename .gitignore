@@ -30,3 +30,6 @@ next-env.d.ts
 public/uploads/community/
 public/uploads/community/*
 !public/uploads/community/.gitkeep
+
+# local community moderation/upload storage
+storage/
