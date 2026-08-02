@@ -9,6 +9,15 @@ const communityMediaStatusEnum = ["processing", "approved", "pending_review", "r
 const communityMatchSummaryStatusEnum = ["not_generated", "generating", "generated", "template", "failed", "stale"] as const
 const communityMatchSummaryModeEnum = ["ai", "template"] as const
 const communityMatchSummaryProviderStatusEnum = ["ready", "degraded", "unavailable", "template"] as const
+const matchRoomTypeEnum = ["main", "tactics", "preview", "post_match"] as const
+const communityPostContentTypeEnum = [
+  "community_post",
+  "room_message",
+  "thread_root",
+  "match_poll",
+  "official_match_update",
+  "match_summary_preview",
+] as const
 const matchRoomNotificationTypeEnum = [
   "match_starting",
   "match_live",
@@ -16,6 +25,17 @@ const matchRoomNotificationTypeEnum = [
   "official_poll_opened",
   "match_summary_ready",
 ] as const
+
+function extendStringEnumPath(path: any, values: readonly string[]) {
+  if (!path) return
+  const nextValues = Array.from(new Set([...(path.enumValues || []), ...values]))
+  path.enumValues = nextValues
+  for (const validator of path.validators ?? []) {
+    if (validator.type === "enum") {
+      validator.enumValues = nextValues
+    }
+  }
+}
 
 const moderationSchema = new Schema(
   {
@@ -293,6 +313,13 @@ const communityPostSchema =
       teamIds: { type: [String], default: [], index: true },
       playerIds: { type: [String], default: [], index: true },
       matchId: { type: String, default: "", trim: true, index: true },
+      roomType: { type: String, enum: matchRoomTypeEnum, default: "", index: true },
+      contentType: { type: String, enum: communityPostContentTypeEnum, default: "community_post", index: true },
+      isRoomMessage: { type: Boolean, default: false, index: true },
+      archivedAt: { type: Date, default: null, index: true },
+      roomClosedAt: { type: Date, default: null },
+      roomExpiresAt: { type: Date, default: null, index: true },
+      replyToPost: { type: Schema.Types.ObjectId, ref: "CommunityPost", default: null, index: true },
       matchContext: {
         homeTeam: { type: String, default: "", trim: true },
         awayTeam: { type: String, default: "", trim: true },
@@ -373,7 +400,7 @@ const communityReportSchema =
     {
       post: { type: Schema.Types.ObjectId, ref: "CommunityPost", default: null, index: true },
       comment: { type: Schema.Types.ObjectId, ref: "Comment", default: null, index: true },
-      targetType: { type: String, enum: ["post", "comment", "reply"], default: "post", index: true },
+      targetType: { type: String, enum: ["post", "comment", "reply", "room_message", "thread_root", "match_poll"], default: "post", index: true },
       targetId: { type: String, default: "", trim: true, index: true },
       reporter: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
       reason: {
@@ -429,6 +456,18 @@ if (models.CommunityPost && !models.CommunityPost.schema.path("matchId")) {
   })
 }
 
+if (models.CommunityPost && !models.CommunityPost.schema.path("roomType")) {
+  models.CommunityPost.schema.add({
+    roomType: { type: String, enum: matchRoomTypeEnum, default: "", index: true },
+    contentType: { type: String, enum: communityPostContentTypeEnum, default: "community_post", index: true },
+    isRoomMessage: { type: Boolean, default: false, index: true },
+    archivedAt: { type: Date, default: null, index: true },
+    roomClosedAt: { type: Date, default: null },
+    roomExpiresAt: { type: Date, default: null, index: true },
+    replyToPost: { type: Schema.Types.ObjectId, ref: "CommunityPost", default: null, index: true },
+  })
+}
+
 if (models.CommunityPost && !models.CommunityPost.schema.path("isThreadRoot")) {
   models.CommunityPost.schema.add({
     isThreadRoot: { type: Boolean, default: false, index: true },
@@ -470,15 +509,16 @@ if (models.CommunityReport && !models.CommunityReport.schema.path("targetType"))
   })
 }
 
+if (models.CommunityReport?.schema.path("targetType")) {
+  extendStringEnumPath(models.CommunityReport.schema.path("targetType"), ["room_message", "thread_root", "match_poll"])
+}
+
 if (models.CommunityReport?.schema.path("post")) {
   models.CommunityReport.schema.path("post").options.required = false
 }
 
 if (models.CommunityReport?.schema.path("reason")) {
-  const reasonPath = models.CommunityReport.schema.path("reason") as any
-  reasonPath.enumValues = Array.from(
-    new Set([...(reasonPath.enumValues || []), "harassment", "inappropriate", "misinformation", "gambling"]),
-  )
+  extendStringEnumPath(models.CommunityReport.schema.path("reason"), ["harassment", "inappropriate", "misinformation", "gambling"])
 }
 
 const postLikeSchema =
@@ -594,7 +634,7 @@ const moderationLogSchema =
   new Schema(
     {
       user: { type: Schema.Types.ObjectId, ref: "User", default: null, index: true },
-      contentType: { type: String, enum: ["post", "comment", "story", "image", "video"], required: true, index: true },
+      contentType: { type: String, enum: ["post", "comment", "story", "image", "video", "room_message", "thread_root", "match_poll"], required: true, index: true },
       contentId: { type: String, default: "", index: true },
       status: { type: String, enum: moderationStatusEnum, required: true, index: true },
       action: { type: String, required: true, trim: true, maxlength: 60 },
@@ -610,6 +650,10 @@ const moderationLogSchema =
 if (!models.ModerationLog) {
   moderationLogSchema.index({ contentType: 1, contentId: 1, createdAt: -1 })
   moderationLogSchema.index({ user: 1, createdAt: -1 })
+}
+
+if (models.ModerationLog?.schema.path("contentType")) {
+  extendStringEnumPath(models.ModerationLog.schema.path("contentType"), ["room_message", "thread_root", "match_poll"])
 }
 
 if (models.Comment && !models.Comment.schema.path("moderation")) {
@@ -756,10 +800,7 @@ if (!models.CommunityFanEvent) {
 }
 
 if (models.CommunityFanEvent?.schema.path("eventType")) {
-  const fanEventTypePath = models.CommunityFanEvent.schema.path("eventType") as any
-  fanEventTypePath.enumValues = Array.from(
-    new Set([...(fanEventTypePath.enumValues || []), "thread_comment_created", "thread_reply_created"]),
-  )
+  extendStringEnumPath(models.CommunityFanEvent.schema.path("eventType"), ["thread_comment_created", "thread_reply_created"])
 }
 
 const communityMediaSchema =
@@ -1022,6 +1063,12 @@ if (!models.CommunityMatchSummary) {
 if (!models.CommunityMatchSummaryHistory) {
   communityMatchSummaryHistorySchema.index({ matchId: 1, createdAt: -1 })
   communityMatchSummaryHistorySchema.index({ matchId: 1, newSummaryVersion: -1 })
+}
+
+if (!models.CommunityPost) {
+  communityPostSchema.index({ matchId: 1, roomType: 1, contentType: 1, status: 1, createdAt: -1 })
+  communityPostSchema.index({ isRoomMessage: 1, archivedAt: 1, latestActivityAt: -1 })
+  communityPostSchema.index({ replyToPost: 1, createdAt: 1 })
 }
 
 export const User = models.User || model("User", userSchema)

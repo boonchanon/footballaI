@@ -2,7 +2,7 @@ import { NextRequest } from "next/server"
 import type { SortOrder } from "mongoose"
 
 import { getAuthUser, requireAuthUser } from "@/lib/server/auth"
-import { buildViewerVisibleModeratedContentFilter, mapCommunityPostWithMedia } from "@/lib/server/community"
+import { buildCommunityFeedIsolationFilter, buildViewerVisibleModeratedContentFilter, mapCommunityPostWithMedia } from "@/lib/server/community"
 import { getLegacyLikeState } from "@/lib/server/community-admin"
 import {
   assertCommunityPostingAllowed,
@@ -164,6 +164,7 @@ export async function GET(request: NextRequest) {
     const q = searchParams.get("q")
     const feed = String(searchParams.get("feed") || "latest")
     const feedMode = ["for-you", "latest", "favorites", "trending"].includes(feed) ? feed : "latest"
+    Object.assign(filter, buildCommunityFeedIsolationFilter())
 
     if (category && category !== "all") filter.category = category
     if (status && status !== "all") filter.status = status
@@ -214,9 +215,9 @@ export async function GET(request: NextRequest) {
         .limit(candidateLimit),
       CommunityPost.countDocuments(filter),
       Promise.all([
-        CommunityPost.countDocuments({ status: "published" }),
-        CommunityPost.countDocuments({ status: "flagged" }),
-        CommunityPost.countDocuments({ status: "hidden" }),
+        CommunityPost.countDocuments({ status: "published", ...buildCommunityFeedIsolationFilter() }),
+        CommunityPost.countDocuments({ status: "flagged", ...buildCommunityFeedIsolationFilter() }),
+        CommunityPost.countDocuments({ status: "hidden", ...buildCommunityFeedIsolationFilter() }),
       ]),
     ])
     const rankedPosts = shouldRankInMemory
@@ -425,6 +426,8 @@ export async function POST(request: NextRequest) {
       teamIds,
       playerIds,
       matchId,
+      contentType: normalizedPoll && matchId ? "match_poll" : "community_post",
+      isRoomMessage: false,
       matchContext: matchContext || undefined,
       images,
       videos,

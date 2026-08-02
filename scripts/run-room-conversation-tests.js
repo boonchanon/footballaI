@@ -5,7 +5,7 @@ const path = require("node:path")
 const { spawnSync } = require("node:child_process")
 
 const root = process.cwd()
-const outDir = path.join(root, ".tmp-match-room-tests")
+const outDir = path.join(root, ".tmp-room-conversation-tests")
 
 rmSync(outDir, { recursive: true, force: true })
 mkdirSync(outDir, { recursive: true })
@@ -31,36 +31,30 @@ writeFileSync(
       },
       files: [
         "app/api/football/service.ts",
-        "lib/server/community-match-room.ts",
-        "lib/match-hub-ui.ts",
+        "lib/match-main-room-ui.ts",
         "lib/match-preview-lounges.ts",
-        "lib/match-timeline-ui.ts",
-        "tests/match-room.test.ts",
-      ].map((file) =>
-        path.join(root, file),
-      ),
+        "lib/server/community-match-room.ts",
+        "lib/server/community-room-conversation.ts",
+        "tests/room-conversation.test.ts",
+      ].map((file) => path.join(root, file)),
     },
     null,
     2,
   ),
 )
 
-const compile = spawnSync(
-  tscBin,
-  ["--project", tsconfigPath],
-  {
-    cwd: root,
-    stdio: "inherit",
-    env: process.env,
-  },
-)
+const compile = spawnSync(tscBin, ["--project", tsconfigPath], {
+  cwd: root,
+  stdio: "inherit",
+  env: process.env,
+})
 
 if (compile.status !== 0) {
   rmSync(outDir, { recursive: true, force: true })
   process.exit(compile.status || 1)
 }
 
-const run = spawnSync("node", ["--test", path.join(outDir, "tests", "match-room.test.js")], {
+const run = spawnSync("node", ["--test", path.join(outDir, "tests", "room-conversation.test.js")], {
   cwd: root,
   stdio: "inherit",
   env: process.env,

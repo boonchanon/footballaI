@@ -8,7 +8,7 @@ import { Comment, CommunityMedia, CommunityPost, CommunityStory, ModerationLog }
 type QueueItem = {
   id: string
   sourceId: string
-  contentType: "post" | "comment" | "story" | "image" | "video"
+  contentType: "post" | "comment" | "story" | "image" | "video" | "room_message" | "thread_root" | "match_poll"
   status: "approved" | "pending_review" | "rejected" | "processing" | "failed"
   publishStatus?: string
   reasons: string[]
@@ -73,10 +73,19 @@ export async function GET(request: NextRequest) {
           ],
         }
       : {}
-    const postQuery = q ? { $and: [postModerationFilter, searchFilter] } : postModerationFilter
+    const postTypeFilter =
+      contentType === "room_message" || contentType === "thread_root" || contentType === "match_poll"
+        ? { contentType }
+        : contentType === "post"
+          ? { $or: [{ contentType: { $exists: false } }, { contentType: "community_post" }] }
+          : {}
+    const postQuery =
+      q || Object.keys(postTypeFilter).length
+        ? { $and: [postModerationFilter, ...(Object.keys(postTypeFilter).length ? [postTypeFilter] : []), ...(q ? [searchFilter] : [])] }
+        : postModerationFilter
 
     const [posts, comments, stories, mediaItems] = await Promise.all([
-      contentType === "all" || contentType === "post"
+      contentType === "all" || contentType === "post" || contentType === "room_message" || contentType === "thread_root" || contentType === "match_poll"
         ? CommunityPost.find(postQuery)
             .populate("author", "name avatar")
             .sort({ createdAt: -1 })
@@ -125,7 +134,10 @@ export async function GET(request: NextRequest) {
         return buildItem({
           id: `post_${post._id.toString()}`,
           sourceId: post._id.toString(),
-          contentType: "post",
+          contentType:
+            post.contentType === "room_message" || post.contentType === "thread_root" || post.contentType === "match_poll"
+              ? post.contentType
+              : "post",
           status: revision ? "pending_review" : post.moderation?.status || "approved",
           publishStatus: post.status || "published",
           reasons,

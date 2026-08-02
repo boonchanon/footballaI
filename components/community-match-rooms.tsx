@@ -3,7 +3,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useState, type ChangeEvent } from "react"
+import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent, type RefObject } from "react"
 import useSWR from "swr"
 import {
   Bell,
@@ -12,6 +12,9 @@ import {
   Copy,
   Edit3,
   Flag,
+  Hash,
+  ImageIcon,
+  Info,
   Loader2,
   MessageCircle,
   MoreHorizontal,
@@ -19,23 +22,61 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Send,
   Share2,
   ShieldCheck,
   Sparkles,
   Trash2,
   Trophy,
   Users,
+  X,
 } from "lucide-react"
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { fetchJson } from "@/lib/api-client"
+import { getAuthToken } from "@/lib/auth-client"
+import { MAIN_ROOM_COPY, getMainRoomDateDividerLabel, getRoomMessageBubbleLayout, getSystemMessageLayout, mergeMainRoomMessages, shouldGroupMainRoomMessage, shouldShowMainRoomDateDivider } from "@/lib/match-main-room-ui"
+import {
+  MATCH_HUB_EMPTY_STATES,
+  getFavoriteTeamRecommendedRoom,
+  getMatchHubDisplayState,
+  getMatchHubRoomBadge,
+  getMatchHubScoreLabel,
+  getMatchHubStatusLabel,
+  normalizeMatchHubRoomQuery,
+  type MatchHubConversationRoomId,
+} from "@/lib/match-hub-ui"
+import {
+  MATCH_TIMELINE_COPY,
+  getMatchTimelinePhase,
+  getTimelineActivityLabels,
+  getTimelineHighlightRooms,
+  getTimelineNavigationPriority,
+  getTimelineRecommendedRoom,
+  normalizeTimelineMatchEvents,
+  type MatchTimelinePhase,
+  type MatchTimelineRoomId,
+  type TimelineMatchEvent,
+} from "@/lib/match-timeline-ui"
+import {
+  getFavoriteTeamPreviewLounge,
+  getFavoriteTeamReactionLounge,
+  getTeamPreviewLounges,
+  getTeamReactionLounges,
+  type TeamPreviewLounge,
+  type TeamPreviewLoungeSide,
+  type TeamReactionLounge,
+  type TeamReactionLoungeSide,
+} from "@/lib/match-preview-lounges"
 import { COMMUNITY_THREAD_CATEGORY_LABELS } from "@/lib/server/community-threads"
 import { cn } from "@/lib/utils"
 
@@ -52,6 +93,7 @@ export type CommunityMatchRoomFixture = {
   dateThai: string
   venue: string
   isFinished: boolean
+  events?: TimelineMatchEvent[]
 }
 
 export type CommunityMatchRoomPost = {
@@ -78,6 +120,7 @@ export type CommunityMatchRoomPost = {
 export type CommunityMatchRoomResponse = {
   fixtures: CommunityMatchRoomFixture[]
   fixture: CommunityMatchRoomFixture | null
+  channels?: MatchRoomChannel[]
   roomStats?: Record<
     string,
     {
@@ -86,13 +129,25 @@ export type CommunityMatchRoomResponse = {
       followers?: number
       latestActivityAt?: string | null
       latestPollAt?: string | null
+      newRoomMessageCount?: number
+      latestRoomActivityAt?: string | null
+      latestRoomType?: string
       summaryStatus?: string
       summaryVersion?: string
       isFollowing?: boolean
       isRecent?: boolean
       isFavoriteTeam?: boolean
+      favoriteTeamName?: string
+      previewLounges?: {
+        home?: { messages?: number; latestActivityAt?: string | null }
+        away?: { messages?: number; latestActivityAt?: string | null }
+      }
+      postMatchLounges?: {
+        home?: { messages?: number; messageCount?: number; latestActivityAt?: string | null; status?: string; recommended?: boolean; archived?: boolean }
+        away?: { messages?: number; messageCount?: number; latestActivityAt?: string | null; status?: string; recommended?: boolean; archived?: boolean }
+      }
       lastVisitedAt?: string | null
-      activity?: { hasNewActivity?: boolean; hasNewPoll?: boolean; hasSummaryReady?: boolean; statusChanged?: boolean }
+      activity?: { hasNewActivity?: boolean; hasNewPoll?: boolean; hasSummaryReady?: boolean; statusChanged?: boolean; temporaryRoom?: string }
     }
   >
   matchRoomState?: { isFollowing: boolean; followedMatchIds: string[]; recentMatchIds: string[] }
@@ -100,6 +155,18 @@ export type CommunityMatchRoomResponse = {
     source: string
     status?: string
     text: string
+    overallSummary?: {
+      headline: string
+      shortSummary: string
+      matchStory: string
+      keyMoments: string[]
+      turningPoint: string
+      statisticsHighlights: string[]
+      topPlayers: string[]
+      tacticalSummary: string
+      limitations: string[]
+      disclaimer: string
+    }
     headline?: string
     shortSummary?: string
     matchStory?: string
@@ -117,6 +184,8 @@ export type CommunityMatchRoomResponse = {
     summaryVersion?: string
     model?: string
     isStale?: boolean
+    homeTeamSummary?: MatchRoomTeamSummary
+    awayTeamSummary?: MatchRoomTeamSummary
     fanReaction?: MatchRoomFanReaction
   }
   fanReaction?: MatchRoomFanReaction
@@ -126,6 +195,51 @@ export type CommunityMatchRoomResponse = {
   posts: CommunityMatchRoomPost[]
   threads?: CommunityMatchRoomPost[]
 }
+
+type MatchRoomType = "main" | "tactics" | "preview" | "post_match"
+type ConversationRoomId = MatchHubConversationRoomId
+
+type MatchRoomChannel = {
+  roomType: MatchRoomType
+  state: "unavailable" | "upcoming" | "open" | "closing" | "closed" | "archived"
+  opensAt?: string | null
+  closesAt?: string | null
+  archiveAt?: string | null
+  expiresAt?: string | null
+  remainingSeconds?: number | null
+  canRead: boolean
+  canPost: boolean
+  isTemporary: boolean
+  isArchived: boolean
+}
+
+type MatchRoomMessage = {
+  id: string
+  matchId: string
+  roomType: MatchRoomType
+  previewTeam?: TeamPreviewLoungeSide | ""
+  reactionTeam?: TeamReactionLoungeSide | ""
+  content: string
+  replyToId?: string
+  moderationStatus?: string
+  status?: string
+  createdAt?: string
+  timeAgo?: string
+  images?: string[]
+  videos?: string[]
+  isEdited?: boolean
+  isOwner?: boolean
+  canModerate?: boolean
+  author?: { id?: string; name?: string; avatar?: string; role?: string }
+}
+
+type MatchRoomMessagesResponse = {
+  items: MatchRoomMessage[]
+  room: MatchRoomChannel
+  pagination: { page: number; limit: number; total: number; totalPages: number }
+}
+
+type MatchRoomStats = NonNullable<CommunityMatchRoomResponse["roomStats"]>[string]
 
 type MatchRoomSummaryHistoryResponse = {
   current: {
@@ -167,6 +281,19 @@ type MatchRoomFanReaction = {
   mentionedPlayers: Array<{ label: string; count: number }>
   overallReaction: "พอใจ" | "กลาง ๆ" | "ไม่พอใจ" | null
   limitation: string
+}
+
+type MatchRoomTeamSummary = {
+  teamName: string
+  side: "home" | "away"
+  headline: string
+  shortSummary: string
+  keyPositive: string
+  keyProblem: string
+  turningPoint: string
+  notablePlayers: string[]
+  tacticalNote: string
+  limitations: string[]
 }
 
 export type CommunityMatchRoomThreadResponse = {
@@ -234,6 +361,154 @@ const roomTabs = [
 
 type RoomTab = (typeof roomTabs)[number]["id"]
 
+const conversationRooms: Array<{ id: MatchRoomType; query: string; label: string; description: string; group: "rooms" | "temporary" }> = [
+  { id: "main", query: "main", label: "Main Room", description: "General match community discussion", group: "rooms" },
+  { id: "tactics", query: "tactics", label: "Tactical Room", description: "Shape, pressing, substitutions and analysis", group: "rooms" },
+  { id: "preview", query: "preview", label: "Preview", description: "Team supporter lounges before kickoff", group: "temporary" },
+  { id: "post_match", query: "post-match", label: "Reaction Room", description: "Post-match reactions after full-time", group: "temporary" },
+]
+
+function normalizeRoomQuery(value: string | null): ConversationRoomId {
+  return normalizeMatchHubRoomQuery(value).roomId
+}
+
+function roomToQuery(value: ConversationRoomId) {
+  if (value === "preview_home") return "preview-home"
+  if (value === "preview_away") return "preview-away"
+  if (value === "post_match_home") return "post-match-home"
+  if (value === "post_match_away") return "post-match-away"
+  return value === "post_match" ? "post-match" : value
+}
+
+function conversationRoomToRoomType(value: ConversationRoomId): MatchRoomType {
+  if (value === "preview_home" || value === "preview_away") return "preview"
+  if (value === "post_match_home" || value === "post_match_away") return "post_match"
+  return value
+}
+
+function getPreviewSideFromConversationRoom(value: ConversationRoomId): TeamPreviewLoungeSide | null {
+  if (value === "preview_home") return "home"
+  if (value === "preview_away") return "away"
+  return null
+}
+
+function getReactionSideFromConversationRoom(value: ConversationRoomId): TeamReactionLoungeSide | null {
+  if (value === "post_match_home") return "home"
+  if (value === "post_match_away") return "away"
+  return null
+}
+
+function getRoomLabel(roomType: ConversationRoomId, fixture?: CommunityMatchRoomFixture | null) {
+  if (fixture && (roomType === "preview_home" || roomType === "preview_away")) {
+    const side = getPreviewSideFromConversationRoom(roomType)
+    return getTeamPreviewLounges(fixture).find((lounge) => lounge.side === side)?.label || "Fans Preview"
+  }
+  if (fixture && (roomType === "post_match_home" || roomType === "post_match_away")) {
+    const side = getReactionSideFromConversationRoom(roomType)
+    return getTeamReactionLounges(fixture).find((lounge) => lounge.side === side)?.label || "Team Reactions"
+  }
+  return conversationRooms.find((room) => room.id === roomType)?.label || "ห้องหลัก"
+}
+
+function getTemporaryRoomDisplayName(roomType: MatchRoomType) {
+  if (roomType === "preview") return "ห้องพรีวิวก่อนแข่ง"
+  if (roomType === "post_match") return "ห้องคุยหลังเกม"
+  return getRoomLabel(roomType)
+}
+
+function getRoomStateLabel(state?: MatchRoomChannel["state"]) {
+  if (state === "upcoming") return "ยังไม่เปิด"
+  if (state === "open") return "เปิดอยู่"
+  if (state === "closing") return "ใกล้ปิด"
+  if (state === "closed") return "ปิดรับข้อความ"
+  if (state === "archived") return "เก็บถาวร"
+  return "ไม่พร้อมใช้งาน"
+}
+
+function getHubMatchStatusLabel(fixture: CommunityMatchRoomFixture) {
+  return getMatchHubStatusLabel({ status: fixture.status, isFinished: fixture.isFinished })
+}
+
+function getRoomHubBadge(channel?: MatchRoomChannel) {
+  return getMatchHubRoomBadge(channel)
+}
+
+function getRoomAvailabilityText(channel?: MatchRoomChannel) {
+  if (!channel) return "Opening soon"
+  if (channel.state === "upcoming" && channel.remainingSeconds !== null && typeof channel.remainingSeconds === "number") {
+    return `Opening in ${formatDuration(channel.remainingSeconds * 1000)}`
+  }
+  if (channel.state === "unavailable" && channel.opensAt) {
+    const target = parseRoomTime(channel.opensAt)
+    if (target) return `Opening in ${formatDuration(target - Date.now())}`
+  }
+  return getRoomStateLabel(channel.state)
+}
+
+function getRecommendedRoom(fixture: CommunityMatchRoomFixture, stats?: MatchRoomStats, channels: MatchRoomChannel[] = []) {
+  const preview = channels.find((channel) => channel.roomType === "preview")
+  const postMatch = channels.find((channel) => channel.roomType === "post_match")
+  const timelinePhase = getMatchTimelinePhase(fixture)
+  const timelineRoom = getTimelineRecommendedRoom(timelinePhase)
+  const favoritePreviewLounge = getFavoriteTeamPreviewLounge({
+    favoriteTeamName: stats?.favoriteTeamName,
+    isFavoriteTeam: stats?.isFavoriteTeam,
+    homeTeam: fixture.homeTeam,
+    awayTeam: fixture.awayTeam,
+  })
+  const favoriteReactionLounge = getFavoriteTeamReactionLounge({
+    favoriteTeamName: stats?.favoriteTeamName,
+    isFavoriteTeam: stats?.isFavoriteTeam,
+    homeTeam: fixture.homeTeam,
+    awayTeam: fixture.awayTeam,
+  })
+  const favoriteRoom = getFavoriteTeamRecommendedRoom({
+    isFavoriteTeam: stats?.isFavoriteTeam,
+    isFinished: fixture.isFinished,
+    previewCanRead: preview?.canRead,
+    previewState: preview?.state,
+    postMatchCanRead: postMatch?.canRead,
+  })
+  const recommendedRoom = timelineRoom === "preview" || timelineRoom === "post_match" ? timelineRoom : favoriteRoom || timelineRoom
+  if (!recommendedRoom) return null
+  if (recommendedRoom === "post_match" && favoriteReactionLounge) {
+    return {
+      roomType: favoriteReactionLounge.id,
+      title: `Recommended Room: ${favoriteReactionLounge.label}`,
+    }
+  }
+  if (recommendedRoom === "preview" && favoritePreviewLounge) {
+    return {
+      roomType: favoritePreviewLounge.id,
+      title: `Recommended Room: ${favoritePreviewLounge.label} Preview`,
+    }
+  }
+  return {
+    roomType: recommendedRoom,
+    title:
+      timelinePhase === "live"
+        ? "Recommended Room: Main Room"
+        : timelinePhase === "full_time"
+          ? "Recommended Room: Reactions"
+          : "Recommended Room: Fans Preview",
+  }
+}
+
+function getTimelineRoomLabel(phase: MatchTimelinePhase) {
+  if (phase === "live") return MATCH_TIMELINE_COPY.live
+  if (phase === "full_time") return MATCH_TIMELINE_COPY.fullTime
+  return MATCH_TIMELINE_COPY.preMatch
+}
+
+function getInitials(name?: string) {
+  return (name || "U").trim().slice(0, 2).toUpperCase()
+}
+
+function authUploadHeaders() {
+  const token = getAuthToken()
+  return token ? { Authorization: `Bearer ${token}` } : undefined
+}
+
 function matchRoomFetcher<T>(path: string) {
   return fetchJson<T>(path, { cache: "no-store" })
 }
@@ -243,23 +518,107 @@ function getMatchTitle(fixture: CommunityMatchRoomFixture) {
 }
 
 function getScoreLabel(fixture: CommunityMatchRoomFixture) {
-  if (fixture.homeScore !== null && fixture.awayScore !== null) return `${fixture.homeScore} - ${fixture.awayScore}`
-  return "VS"
+  return getMatchHubScoreLabel({
+    status: fixture.status,
+    isFinished: fixture.isFinished,
+    homeScore: fixture.homeScore,
+    awayScore: fixture.awayScore,
+  })
+}
+
+function parseRoomTime(value?: string | null) {
+  const time = value ? new Date(value).getTime() : Number.NaN
+  return Number.isFinite(time) ? time : null
+}
+
+function getRoomTargetTime(room: MatchRoomChannel) {
+  if (room.state === "upcoming") return parseRoomTime(room.opensAt)
+  if (room.state === "open" || room.state === "closing") return parseRoomTime(room.closesAt)
+  return null
+}
+
+function formatDuration(ms: number) {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000))
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  if (hours > 0) return `${hours} ชม. ${minutes} นาที`
+  if (minutes > 0) return `${minutes} นาที ${seconds.toString().padStart(2, "0")} วิ`
+  return `${seconds} วิ`
+}
+
+function getKickoffCountdownLabel(fixture: CommunityMatchRoomFixture) {
+  const kickoff = parseRoomTime(fixture.kickoff)
+  if (!kickoff) return ""
+  const remaining = kickoff - Date.now()
+  if (remaining <= 0) return ""
+  return `Kickoff in ${formatDuration(remaining)}`
+}
+
+function getTemporaryRoomNotice(room: MatchRoomChannel, nowMs: number) {
+  if (!room.isTemporary) return null
+  const target = getRoomTargetTime(room)
+  const remainingMs = target ? Math.max(0, target - nowMs) : null
+  const remainingLabel = remainingMs === null ? "" : formatDuration(remainingMs)
+  const urgent = remainingMs !== null && remainingMs <= 60_000
+  const warning = remainingMs !== null && remainingMs <= 10 * 60_000
+
+  if (room.state === "upcoming") {
+    return {
+      tone: "muted" as const,
+      title: room.roomType === "preview" ? "เปิดก่อนแข่ง 60 นาที" : "ยังไม่เปิดห้องหลังเกม",
+      detail: room.roomType === "preview" && remainingLabel ? `จะเปิดใน ${remainingLabel}` : "ห้องหลังเกมเปิดเมื่อสถานะเป็นจบการแข่งขัน",
+    }
+  }
+
+  if (room.state === "open" || room.state === "closing") {
+    const title =
+      room.roomType === "preview"
+        ? "ปิดเมื่อการแข่งขันเริ่ม"
+        : remainingLabel
+          ? `เหลือเวลา ${remainingLabel}`
+          : "ห้องหลังเกมเปิดอยู่"
+    return {
+      tone: urgent ? ("danger" as const) : warning ? ("warning" as const) : ("active" as const),
+      title,
+      detail: urgent ? "เหลือไม่ถึง 1 นาที ระบบจะรีเฟรชสถานะจาก server เมื่อหมดเวลา" : warning ? "เหลือไม่ถึง 10 นาที ก่อนปิดห้องนี้" : getTemporaryRoomDisplayName(room.roomType),
+    }
+  }
+
+  if (room.state === "archived") {
+    return {
+      tone: "muted" as const,
+      title: room.roomType === "post_match" ? "ห้องหลังเกมปิดแล้ว" : "ห้องพรีวิวปิดแล้ว",
+      detail:
+        room.roomType === "post_match"
+          ? "คุณสามารถพูดคุยต่อในห้องหลักหรือห้องแท็กติก"
+          : "การแข่งขันเริ่มแล้ว ไปคุยต่อในห้องหลักได้เลย",
+    }
+  }
+
+  return null
+}
+
+function getNavigableRooms(channels: MatchRoomChannel[]) {
+  const available = new Set(channels.map((channel) => channel.roomType))
+  return conversationRooms.filter((room) => room.group === "rooms" || available.has(room.id))
 }
 
 function getStatusLabel(status: string, isFinished?: boolean) {
-  if (isFinished || ["FT", "AET", "PEN", "finished", "Finished", "Match Finished"].includes(status)) return "จบการแข่งขัน"
-  if (["1H", "2H", "ET", "BT", "P", "SUSP", "INT", "live", "Live", "In Progress"].includes(status)) return "ถ่ายทอดสด"
-  if (status === "HT") return "พักครึ่ง"
-  if (["PST", "postponed", "Postponed"].includes(status)) return "เลื่อนการแข่งขัน"
-  if (["CANC", "cancelled", "Cancelled"].includes(status)) return "ยกเลิก"
+  const state = getMatchHubDisplayState({ status, isFinished })
+  if (state === "finished") return "จบการแข่งขัน"
+  if (state === "live") return status === "HT" ? "พักครึ่ง" : "ถ่ายทอดสด"
+  if (state === "postponed") return "เลื่อนการแข่งขัน"
+  if (state === "cancelled") return "ยกเลิก"
+  if (state === "closed") return "ปิดการแข่งขัน"
   return "กำลังจะเริ่ม"
 }
 
 function getStatusTone(status: string, isFinished?: boolean) {
-  if (isFinished || ["FT", "AET", "PEN", "finished", "Finished", "Match Finished"].includes(status)) return "border-white/10 bg-white/8 text-muted-foreground"
-  if (["1H", "2H", "HT", "ET", "BT", "P", "SUSP", "INT", "live", "Live", "In Progress"].includes(status)) return "border-primary/40 bg-primary/15 text-primary"
-  if (["PST", "CANC", "ABD", "AWD", "WO", "postponed", "Postponed", "cancelled", "Cancelled"].includes(status)) return "border-amber-400/30 bg-amber-400/10 text-amber-200"
+  const state = getMatchHubDisplayState({ status, isFinished })
+  if (state === "finished") return "border-white/10 bg-white/8 text-muted-foreground"
+  if (state === "live") return "border-primary/40 bg-primary/15 text-primary"
+  if (state === "postponed" || state === "cancelled" || state === "closed") return "border-amber-400/30 bg-amber-400/10 text-amber-200"
   return "border-sky-300/20 bg-sky-300/10 text-sky-100"
 }
 
@@ -269,6 +628,11 @@ function getSummaryStatusLabel(summary?: CommunityMatchRoomResponse["summary"]) 
   if (summary.source === "ai" && summary.status === "generated") return "Generated"
   if (summary.status === "failed") return "Template fallback"
   return summary.source === "template" ? "Template" : "Fallback"
+}
+
+function selectReactionTeamSummary(summary: CommunityMatchRoomResponse["summary"] | undefined, side: TeamReactionLoungeSide | null) {
+  if (!summary || !side) return null
+  return side === "home" ? summary.homeTeamSummary || null : summary.awayTeamSummary || null
 }
 
 function getSummaryHistoryActionLabel(action: string) {
@@ -809,23 +1173,40 @@ export function MatchRoomsDirectory() {
 function MatchHero({
   fixture,
   stats,
+  channels = [],
+  summary,
   onToggleFollow,
   followingBusy,
 }: {
   fixture: CommunityMatchRoomFixture
-  stats?: { discussions: number; polls: number; followers?: number; isFollowing?: boolean }
+  stats?: MatchRoomStats
+  channels?: MatchRoomChannel[]
+  summary?: CommunityMatchRoomResponse["summary"]
   onToggleFollow?: (fixture: CommunityMatchRoomFixture, nextFollow: boolean) => void
   followingBusy?: boolean
 }) {
+  const recommendation = getRecommendedRoom(fixture, stats, channels)
+  const timelinePhase = getMatchTimelinePhase(fixture)
+  const timelineLabel = getTimelineRoomLabel(timelinePhase)
+  const kickoffCountdown = timelinePhase === "pre_match" ? getKickoffCountdownLabel(fixture) : ""
+  const messageCount = stats?.newRoomMessageCount || stats?.discussions || 0
+  const threadCount = stats?.discussions || 0
+  const latestActivity = stats?.latestRoomActivityAt || stats?.latestActivityAt
   return (
-    <section className="overflow-hidden rounded-[32px] border border-primary/25 bg-[radial-gradient(circle_at_top_left,rgba(184,255,0,0.18),transparent_32%),linear-gradient(135deg,rgba(24,28,21,0.98),rgba(8,9,10,0.98))] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.3)] sm:p-7">
+    <section className="overflow-hidden rounded-[32px] border border-primary/25 bg-[radial-gradient(circle_at_top_left,rgba(184,255,0,0.16),transparent_34%),linear-gradient(135deg,rgba(18,22,17,0.98),rgba(7,8,9,0.98))] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.3)] sm:p-7" aria-label="FootballAI Match Hub header">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
           <Badge variant="outline" className={cn("rounded-full px-3 py-1", getStatusTone(fixture.status, fixture.isFinished))}>
-            {getStatusLabel(fixture.status, fixture.isFinished)}
+            {getHubMatchStatusLabel(fixture)}
           </Badge>
-          <h1 className="text-3xl font-black tracking-tight text-foreground sm:text-5xl">{getMatchTitle(fixture)}</h1>
-          <p className="text-sm text-muted-foreground">{formatKickoff(fixture)}{fixture.venue ? ` • ${fixture.venue}` : ""}</p>
+          <h1 className="text-3xl font-black tracking-tight text-foreground sm:text-5xl">FootballAI Match Hub</h1>
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+            Welcome to FootballAI Match Hub. This is the community space for this match: rooms, polls, threads, reactions and AI match context in one place.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Badge variant="outline" className="rounded-full border-primary/25 bg-primary/10 px-3 py-1 text-primary">{timelineLabel}</Badge>
+            {kickoffCountdown ? <Badge className="rounded-full bg-primary px-3 py-1 text-primary-foreground">{kickoffCountdown}</Badge> : null}
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           {onToggleFollow ? (
@@ -848,6 +1229,26 @@ function MatchHero({
         </div>
       </div>
 
+      {recommendation ? (
+        <button
+          type="button"
+          onClick={() => {
+            const params = new URLSearchParams(window.location.search)
+            params.set("tab", "discussion")
+            params.set("room", roomToQuery(recommendation.roomType))
+            window.location.assign(`${window.location.pathname}?${params.toString()}`)
+          }}
+          className="mt-5 flex w-full flex-wrap items-center justify-between gap-3 rounded-[24px] border border-primary/25 bg-primary/10 p-4 text-left transition hover:border-primary/50 hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 motion-reduce:transition-none"
+          aria-label="Open recommended room"
+        >
+          <span>
+            <span className="block text-sm font-semibold text-primary">Your favorite team is playing.</span>
+            <span className="mt-1 block text-sm text-muted-foreground">{recommendation.title}. You can still choose Main Room, Tactical Room or any other room.</span>
+          </span>
+          <ChevronRight className="h-5 w-5 text-primary" />
+        </button>
+      ) : null}
+
       <div className="mt-7 grid items-center gap-4 rounded-[28px] border border-white/10 bg-black/25 p-4 sm:grid-cols-[1fr_auto_1fr]">
         <div className="flex items-center gap-4">
           <TeamLogo src={fixture.homeLogo} name={fixture.homeTeam} size="lg" />
@@ -865,19 +1266,42 @@ function MatchHero({
       <div className="mt-5 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-white/10 bg-background/35 p-3">
           <CalendarClock className="mb-2 h-4 w-4 text-primary" />
-          ลีก/รายการยังไม่มีข้อมูล
+          <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">Kickoff</span>
+          <span className="mt-1 block font-semibold text-foreground">{formatKickoff(fixture)}</span>
         </div>
         <div className="rounded-2xl border border-white/10 bg-background/35 p-3">
           <MessageCircle className="mb-2 h-4 w-4 text-primary" />
-          {stats?.discussions || 0} โพสต์ในห้องนี้
+          <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">Messages</span>
+          <span className="mt-1 block font-semibold text-foreground">{messageCount}</span>
         </div>
         <div className="rounded-2xl border border-white/10 bg-background/35 p-3">
           <Users className="mb-2 h-4 w-4 text-primary" />
-          {stats?.polls || 0} Poll ที่ผูกกับแมตช์
+          <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">Followers</span>
+          <span className="mt-1 block font-semibold text-foreground">{stats?.followers || 0}</span>
         </div>
         <div className="rounded-2xl border border-white/10 bg-background/35 p-3">
-          <Bell className="mb-2 h-4 w-4 text-primary" />
-          {stats?.followers || 0} ผู้ติดตามห้องนี้
+          <Trophy className="mb-2 h-4 w-4 text-primary" />
+          <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">Polls / Summary</span>
+          <span className="mt-1 block font-semibold text-foreground">{stats?.polls || 0} polls · {getSummaryStatusLabel(summary)}</span>
+        </div>
+      </div>
+
+      <div className="mt-3 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-2xl border border-white/10 bg-background/25 p-3">
+          <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">League</span>
+          <span className="mt-1 block font-semibold text-foreground">พรีเมียร์ลีก</span>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-background/25 p-3">
+          <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">Threads</span>
+          <span className="mt-1 block font-semibold text-foreground">{threadCount}</span>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-background/25 p-3">
+          <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">Venue</span>
+          <span className="mt-1 block truncate font-semibold text-foreground">{fixture.venue || "-"}</span>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-background/25 p-3">
+          <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">Latest Activity</span>
+          <span className="mt-1 block font-semibold text-foreground">{latestActivity ? new Date(latestActivity).toLocaleString("th-TH") : "-"}</span>
         </div>
       </div>
     </section>
@@ -888,7 +1312,8 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const activeTab = (searchParams.get("tab") || "overview") as RoomTab
+  const activeView = searchParams.get("view")
+  const activeTab = (searchParams.get("tab") || (activeView === "polls" || activeView === "summary" ? activeView : activeView === "info" ? "discussion" : "overview")) as RoomTab
   const safeTab = roomTabs.some((tab) => tab.id === activeTab) ? activeTab : "overview"
   const [threadSort, setThreadSort] = useState("latest")
   const [threadCategory, setThreadCategory] = useState("all")
@@ -913,6 +1338,23 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
   const [summaryHistory, setSummaryHistory] = useState<MatchRoomSummaryHistoryResponse | null>(null)
   const [summaryHistoryError, setSummaryHistoryError] = useState("")
   const [followingBusyId, setFollowingBusyId] = useState<string | null>(null)
+  const [messages, setMessages] = useState<MatchRoomMessage[]>([])
+  const [messagesPage, setMessagesPage] = useState(1)
+  const [messagesTotalPages, setMessagesTotalPages] = useState(1)
+  const [messagesError, setMessagesError] = useState("")
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const [messageDraft, setMessageDraft] = useState("")
+  const [replyTarget, setReplyTarget] = useState<MatchRoomMessage | null>(null)
+  const [editingMessage, setEditingMessage] = useState<MatchRoomMessage | null>(null)
+  const [editMessageDraft, setEditMessageDraft] = useState("")
+  const [sendingMessage, setSendingMessage] = useState(false)
+  const [uploadingMessageImage, setUploadingMessageImage] = useState(false)
+  const [messageImage, setMessageImage] = useState<{ id: string; url?: string | null; ownerPreviewUrl?: string | null; status: string } | null>(null)
+  const [newMessageCount, setNewMessageCount] = useState(0)
+  const [highlightedMessageId, setHighlightedMessageId] = useState("")
+  const [showDraftMoveDialog, setShowDraftMoveDialog] = useState(false)
+  const messageListRef = useRef<HTMLDivElement | null>(null)
+  const messageEndRef = useRef<HTMLDivElement | null>(null)
   const { data, error, isLoading, mutate } = useSWR<CommunityMatchRoomResponse>(`/community/match-room?matchId=${encodeURIComponent(matchId)}`, matchRoomFetcher, { revalidateOnFocus: true })
   const threadQuery = `/community/match-room/threads?matchId=${encodeURIComponent(matchId)}&sort=${encodeURIComponent(threadSort)}${threadCategory !== "all" ? `&category=${encodeURIComponent(threadCategory)}` : ""}${officialOnly ? "&official=1" : ""}`
   const { data: threadData, error: threadError, isLoading: threadLoading, mutate: mutateThreads } = useSWR<CommunityMatchRoomThreadResponse>(
@@ -924,11 +1366,123 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
   const posts = data?.posts || []
   const polls = posts.filter((post) => post.poll?.question)
   const threads = threadData?.items || data?.threads || []
+  const roomQueryState = normalizeMatchHubRoomQuery(searchParams.get("room"))
+  const activeConversationRoom = roomQueryState.roomId
+  const activeRoomType = conversationRoomToRoomType(activeConversationRoom)
+  const activePreviewSide = getPreviewSideFromConversationRoom(activeConversationRoom)
+  const activeReactionSide = getReactionSideFromConversationRoom(activeConversationRoom)
+  const activeChannel = data?.channels?.find((channel) => channel.roomType === activeRoomType)
+  const messageQuery = fixture && safeTab === "discussion" && activeChannel?.canRead
+    ? `/community/match-room/messages?matchId=${encodeURIComponent(fixture.id)}&roomType=${encodeURIComponent(activeRoomType)}${activePreviewSide ? `&previewTeam=${encodeURIComponent(activePreviewSide)}` : ""}${activeReactionSide ? `&reactionTeam=${encodeURIComponent(activeReactionSide)}` : ""}&page=1&limit=25`
+    : null
+  const { data: messageData, error: messageFetchError, isLoading: messagesLoading, mutate: mutateMessages } = useSWR<MatchRoomMessagesResponse>(
+    messageQuery,
+    matchRoomFetcher,
+    {
+      refreshInterval: safeTab === "discussion" ? 20000 : 0,
+      refreshWhenHidden: false,
+      revalidateOnFocus: true,
+    },
+  )
+
+  useEffect(() => {
+    setMessages([])
+    setMessagesPage(1)
+    setMessagesTotalPages(1)
+    setNewMessageCount(0)
+    setReplyTarget(null)
+    setEditingMessage(null)
+    setMessagesError("")
+    setHighlightedMessageId("")
+  }, [matchId, activeConversationRoom])
+
+  useEffect(() => {
+    if (!messageData) return
+    setMessages((current) => {
+      const incoming = messageData.items || []
+      const currentIds = new Set(current.map((item) => item.id))
+      const unseen = incoming.filter((item) => !currentIds.has(item.id))
+      if (current.length && unseen.length && !isNearMessageBottom()) {
+        setNewMessageCount((count) => count + unseen.length)
+        return mergeMainRoomMessages(current, incoming)
+      }
+      window.requestAnimationFrame(() => scrollMessagesToBottom())
+      setNewMessageCount(0)
+      return mergeMainRoomMessages(current, incoming)
+    })
+    setMessagesPage(1)
+    setMessagesTotalPages(messageData.pagination.totalPages || 1)
+    setMessagesError("")
+  }, [messageData])
+
+  useEffect(() => {
+    if (messageFetchError) setMessagesError("โหลดข้อความไม่สำเร็จ กรุณาลองใหม่")
+  }, [messageFetchError])
+
+  useEffect(() => {
+    if (safeTab !== "discussion" || !activeChannel?.isTemporary) return
+    if (activeChannel.state !== "open" && activeChannel.state !== "closing") return
+    const target = getRoomTargetTime(activeChannel)
+    if (!target) return
+    const timeout = window.setTimeout(() => {
+      void Promise.all([mutate(), mutateMessages()])
+    }, Math.max(1000, target - Date.now() + 500))
+    return () => window.clearTimeout(timeout)
+  }, [safeTab, activeChannel?.roomType, activeChannel?.state, activeChannel?.closesAt, activeChannel?.opensAt, mutate, mutateMessages])
 
   function changeTab(value: string) {
     const params = new URLSearchParams(searchParams.toString())
     params.set("tab", value)
     router.push(`${pathname}?${params.toString()}`, { scroll: false })
+  }
+
+  function changeConversationRoom(roomType: ConversationRoomId) {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("tab", "discussion")
+    params.set("room", roomToQuery(roomType))
+    router.push(`${pathname}?${params.toString()}`, { scroll: false })
+  }
+
+  function openConversationView(view: "polls" | "summary" | "info") {
+    if (view === "info") return
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("tab", view)
+    params.set("view", view)
+    router.push(`${pathname}?${params.toString()}`, { scroll: false })
+  }
+
+  function isNearMessageBottom() {
+    const element = messageListRef.current
+    if (!element) return true
+    return element.scrollHeight - element.scrollTop - element.clientHeight < 120
+  }
+
+  function scrollMessagesToBottom() {
+    messageEndRef.current?.scrollIntoView({ block: "end" })
+  }
+
+  async function loadOlderMessages() {
+    if (!fixture || loadingOlder || messagesPage >= messagesTotalPages) return
+    const nextPage = messagesPage + 1
+    setLoadingOlder(true)
+    setMessagesError("")
+    const list = messageListRef.current
+    const previousHeight = list?.scrollHeight || 0
+    try {
+      const payload = await fetchJson<MatchRoomMessagesResponse>(
+        `/community/match-room/messages?matchId=${encodeURIComponent(fixture.id)}&roomType=${encodeURIComponent(activeRoomType)}${activePreviewSide ? `&previewTeam=${encodeURIComponent(activePreviewSide)}` : ""}${activeReactionSide ? `&reactionTeam=${encodeURIComponent(activeReactionSide)}` : ""}&page=${nextPage}&limit=25`,
+      )
+      setMessages((current) => mergeMainRoomMessages(payload.items || [], current))
+      setMessagesPage(nextPage)
+      setMessagesTotalPages(payload.pagination.totalPages || messagesTotalPages)
+      window.requestAnimationFrame(() => {
+        if (list) list.scrollTop = list.scrollHeight - previousHeight
+      })
+    } catch (loadError) {
+      setMessagesError(loadError instanceof Error ? loadError.message : "โหลดข้อความเก่าไม่สำเร็จ")
+    } finally {
+      setLoadingOlder(false)
+    }
   }
 
   async function handleThreadImageSelected(event: ChangeEvent<HTMLInputElement>) {
@@ -940,7 +1494,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
       const formData = new FormData()
       formData.append("purpose", "upload")
       formData.append("files", file)
-      const response = await fetch("/api/community/upload", { method: "POST", body: formData })
+      const response = await fetch("/api/community/upload", { method: "POST", headers: authUploadHeaders(), body: formData })
       const payload = await response.json().catch(() => null)
       if (!response.ok) throw new Error(payload?.error || "อัปโหลดรูปไม่สำเร็จ")
       const media = payload?.media || payload?.items?.[0] || payload?.pendingItems?.[0]
@@ -957,6 +1511,193 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
       setUploadingThreadImage(false)
       event.target.value = ""
     }
+  }
+
+  async function handleMessageImageSelected(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setMessagesError("")
+    setUploadingMessageImage(true)
+    try {
+      const formData = new FormData()
+      formData.append("purpose", "upload")
+      formData.append("files", file)
+      const response = await fetch("/api/community/upload", { method: "POST", headers: authUploadHeaders(), body: formData })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(payload?.error || "อัปโหลดรูปไม่สำเร็จ")
+      const media = payload?.media || payload?.items?.[0] || payload?.pendingItems?.[0]
+      if (!media?.id) throw new Error("ไม่พบไฟล์ที่อัปโหลด")
+      setMessageImage({
+        id: String(media.id),
+        url: typeof media.url === "string" ? media.url : null,
+        ownerPreviewUrl: typeof media.ownerPreviewUrl === "string" ? media.ownerPreviewUrl : null,
+        status: String(media.status || "approved"),
+      })
+    } catch (uploadError) {
+      setMessagesError(uploadError instanceof Error ? uploadError.message : "อัปโหลดรูปไม่สำเร็จ")
+    } finally {
+      setUploadingMessageImage(false)
+      event.target.value = ""
+    }
+  }
+
+  async function sendRoomMessage() {
+    if (!fixture || sendingMessage || !messageDraft.trim()) return
+    const draft = messageDraft.trim()
+    const image = messageImage
+    const reply = replyTarget
+    const optimisticId = `optimistic-${Date.now()}`
+    setSendingMessage(true)
+    setMessagesError("")
+    setMessageDraft("")
+    setMessageImage(null)
+    setReplyTarget(null)
+    setMessages((current) => [
+      ...current,
+      {
+        id: optimisticId,
+        matchId: fixture.id,
+        roomType: activeRoomType,
+        previewTeam: activePreviewSide || "",
+        reactionTeam: activeReactionSide || "",
+        content: draft,
+        replyToId: reply?.id,
+        moderationStatus: "approved",
+        status: "published",
+        createdAt: new Date().toISOString(),
+        timeAgo: "เมื่อสักครู่",
+        images: image?.url || image?.ownerPreviewUrl ? [image.url || image.ownerPreviewUrl || ""] : [],
+        isOwner: true,
+        author: { name: "คุณ" },
+      },
+    ])
+    window.requestAnimationFrame(() => scrollMessagesToBottom())
+    try {
+      const response = await fetchJson<{ item: MatchRoomMessage; moderationStatus: string }>("/community/match-room/messages", {
+        method: "POST",
+        body: JSON.stringify({
+          matchId: fixture.id,
+          roomType: activeRoomType,
+          previewTeam: activePreviewSide || "",
+          reactionTeam: activeReactionSide || "",
+          content: draft,
+          replyToId: reply?.id || "",
+          imageMediaIds: image ? [image.id] : [],
+        }),
+      })
+      setMessages((current) => mergeMainRoomMessages(current.filter((item) => item.id !== optimisticId), [response.item]))
+      await Promise.all([mutateMessages(), mutate()])
+      window.requestAnimationFrame(() => scrollMessagesToBottom())
+    } catch (sendError) {
+      setMessages((current) => current.filter((item) => item.id !== optimisticId))
+      setMessageDraft(draft)
+      setMessageImage(image)
+      setReplyTarget(reply)
+      const errorCode = typeof sendError === "object" && sendError && "code" in sendError ? String((sendError as any).code || "") : ""
+      if (errorCode === "ROOM_CLOSED") {
+        setShowDraftMoveDialog(true)
+        await Promise.all([mutate(), mutateMessages()])
+      }
+      setMessagesError(sendError instanceof Error ? sendError.message : "ส่งข้อความไม่สำเร็จ")
+    } finally {
+      setSendingMessage(false)
+    }
+  }
+
+  async function saveMessageEdit() {
+    if (!fixture || !editingMessage || !editMessageDraft.trim()) return
+    setSendingMessage(true)
+    setMessagesError("")
+    try {
+      await fetchJson(`/community/match-room/messages/${editingMessage.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          matchId: fixture.id,
+          roomType: activeRoomType,
+          previewTeam: activePreviewSide || "",
+          reactionTeam: activeReactionSide || "",
+          content: editMessageDraft,
+        }),
+      })
+      setMessages((current) => current.map((item) => item.id === editingMessage.id ? { ...item, content: editMessageDraft.trim(), isEdited: true } : item))
+      setEditingMessage(null)
+      setEditMessageDraft("")
+      await mutateMessages()
+    } catch (editError) {
+      const errorCode = typeof editError === "object" && editError && "code" in editError ? String((editError as any).code || "") : ""
+      if (errorCode === "ROOM_CLOSED") {
+        setShowDraftMoveDialog(true)
+        setMessageDraft(editMessageDraft.trim())
+        setEditingMessage(null)
+        setEditMessageDraft("")
+        await Promise.all([mutate(), mutateMessages()])
+      }
+      setMessagesError(editError instanceof Error ? editError.message : "แก้ไขข้อความไม่สำเร็จ")
+    } finally {
+      setSendingMessage(false)
+    }
+  }
+
+  async function deleteRoomMessage(message: MatchRoomMessage) {
+    if (!fixture) return
+    if (!window.confirm("ลบข้อความนี้ใช่ไหม?")) return
+    setMessagesError("")
+    try {
+      await fetchJson(`/community/match-room/messages/${message.id}?matchId=${encodeURIComponent(fixture.id)}&roomType=${encodeURIComponent(activeRoomType)}${activePreviewSide ? `&previewTeam=${encodeURIComponent(activePreviewSide)}` : ""}${activeReactionSide ? `&reactionTeam=${encodeURIComponent(activeReactionSide)}` : ""}`, {
+        method: "DELETE",
+      })
+      setMessages((current) => current.filter((item) => item.id !== message.id))
+      await mutateMessages()
+    } catch (deleteError) {
+      setMessagesError(deleteError instanceof Error ? deleteError.message : "ลบข้อความไม่สำเร็จ")
+    }
+  }
+
+  async function reportRoomMessage(message: MatchRoomMessage) {
+    if (!fixture) return
+    const reason = window.prompt("เหตุผลที่รายงาน: spam, harassment, inappropriate, misinformation, gambling, other", "other")
+    if (!reason) return
+    setMessagesError("")
+    try {
+      await fetchJson(`/community/match-room/messages/${message.id}/report`, {
+        method: "POST",
+        body: JSON.stringify({ matchId: fixture.id, reason }),
+      })
+    } catch (reportError) {
+      setMessagesError(reportError instanceof Error ? reportError.message : "รายงานข้อความไม่สำเร็จ")
+    }
+  }
+
+  function copyRoomMessageLink(message: MatchRoomMessage) {
+    const url = `${window.location.origin}${pathname}?tab=discussion&room=${roomToQuery(activeConversationRoom)}#message-${message.id}`
+    void navigator.clipboard?.writeText(url)
+  }
+
+  function jumpToRoomMessage(messageId: string) {
+    const target = document.getElementById(`message-${messageId}`)
+    if (!target) return
+    target.scrollIntoView({ block: "center", behavior: "smooth" })
+    setHighlightedMessageId(messageId)
+    window.setTimeout(() => {
+      setHighlightedMessageId((current) => (current === messageId ? "" : current))
+    }, 1600)
+  }
+
+  function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== "Enter" || event.shiftKey) return
+    event.preventDefault()
+    void sendRoomMessage()
+  }
+
+  function moveDraftToMainRoom() {
+    setShowDraftMoveDialog(false)
+    setReplyTarget(null)
+    changeConversationRoom("main")
+  }
+
+  function copyDraftToClipboard() {
+    void navigator.clipboard?.writeText(messageDraft)
+    setShowDraftMoveDialog(false)
   }
 
   async function handleCreateThread() {
@@ -1193,7 +1934,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
 
         {fixture ? (
           <>
-            <MatchHero fixture={fixture} stats={data?.roomStats?.[fixture.id]} onToggleFollow={handleToggleFollow} followingBusy={followingBusyId === fixture.id} />
+            <MatchHero fixture={fixture} stats={data?.roomStats?.[fixture.id]} channels={data?.channels || []} summary={data?.summary} onToggleFollow={handleToggleFollow} followingBusy={followingBusyId === fixture.id} />
 
             <Tabs value={safeTab} onValueChange={changeTab} className="space-y-4">
               <div className="overflow-x-auto pb-1">
@@ -1219,8 +1960,8 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                           <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/10 text-primary">{getSummaryStatusLabel(data?.summary)}</Badge>
                           {data?.summary?.isStale ? <Badge variant="outline" className="rounded-full border-amber-400/30 text-amber-200">ข้อมูลมีการอัปเดต</Badge> : null}
                         </div>
-                        <h3 className="text-2xl font-semibold">{data?.summary?.headline || "ยังไม่มีสรุปเกม"}</h3>
-                        <p className="leading-7 text-muted-foreground">{data?.summary?.shortSummary || data?.summary?.text || "สรุปเกมจะพร้อมเมื่อมีข้อมูลการแข่งขันเพียงพอ"}</p>
+                        <h3 className="text-2xl font-semibold">{data?.summary?.headline || MATCH_HUB_EMPTY_STATES.summary}</h3>
+                        <p className="leading-7 text-muted-foreground">{data?.summary?.shortSummary || data?.summary?.text || "The hub will show the fact-only AI summary when match data is ready."}</p>
                         <Button type="button" variant="outline" onClick={() => changeTab("summary")} className="rounded-full border-white/10">ดูสรุปเต็ม</Button>
                       </CardContent>
                     </Card>
@@ -1266,7 +2007,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                     <Card className="rounded-[28px] border-white/10 bg-card/85">
                       <CardContent className="p-5">
                         <h2 className="text-lg font-bold">Poll preview</h2>
-                        {polls[0]?.poll ? <p className="mt-3 text-sm text-muted-foreground">{polls[0].poll.question}</p> : <p className="mt-3 text-sm text-muted-foreground">ยังไม่มี Poll สำหรับเกมนี้</p>}
+                        {polls[0]?.poll ? <p className="mt-3 text-sm text-muted-foreground">{polls[0].poll.question}</p> : <p className="mt-3 text-sm text-muted-foreground">{MATCH_HUB_EMPTY_STATES.polls}</p>}
                         <Button type="button" variant="outline" onClick={() => changeTab("polls")} className="mt-4 rounded-full border-white/10">ดู Poll</Button>
                       </CardContent>
                     </Card>
@@ -1275,25 +2016,61 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
               </TabsContent>
 
               <TabsContent value="discussion">
-                <Card className="rounded-[28px] border-white/10 bg-card/85">
-                  <CardContent className="space-y-4 p-5">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <h2 className="text-xl font-bold">ห้องคุย</h2>
-                      <Button asChild className="rounded-full">
-                        <Link href={`/community?matchId=${encodeURIComponent(fixture.id)}&compose=1`}>
-                          <MessageCircle className="mr-2 h-4 w-4" />
-                          ร่วมพูดคุย
-                        </Link>
-                      </Button>
-                    </div>
-                    {posts.length ? posts.map((post) => (
-                      <Link key={post.id} href={`/community/${post.id}`} className="block rounded-2xl border border-white/10 bg-background/45 p-4 transition hover:border-primary/40">
-                        <p className="font-semibold">{post.title}</p>
-                        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{post.excerpt}</p>
-                      </Link>
-                    )) : <p className="text-sm text-muted-foreground">ยังไม่มีใครเริ่มพูดคุยเกี่ยวกับเกมนี้</p>}
-                  </CardContent>
-                </Card>
+                <MatchRoomConversation
+                  fixture={fixture}
+                  data={data}
+                  activeRoomId={activeConversationRoom}
+                  activeChannel={messageData?.room || activeChannel}
+                  legacyRoomNotice={roomQueryState.notice}
+                  messages={messages}
+                  messagesLoading={messagesLoading}
+                  messagesError={messagesError}
+                  messagesPage={messagesPage}
+                  messagesTotalPages={messagesTotalPages}
+                  loadingOlder={loadingOlder}
+                  newMessageCount={newMessageCount}
+                  messageDraft={messageDraft}
+                  replyTarget={replyTarget}
+                  editingMessage={editingMessage}
+                  editMessageDraft={editMessageDraft}
+                  sendingMessage={sendingMessage}
+                  uploadingMessageImage={uploadingMessageImage}
+                  messageImage={messageImage}
+                  messageListRef={messageListRef}
+                  messageEndRef={messageEndRef}
+                  polls={polls}
+                  threads={threads}
+                  onChangeRoom={changeConversationRoom}
+                  onOpenView={openConversationView}
+                  onRetry={() => void Promise.all([mutate(), mutateMessages()])}
+                  onLoadOlder={() => void loadOlderMessages()}
+                  onJumpToLatest={() => {
+                    setNewMessageCount(0)
+                    scrollMessagesToBottom()
+                  }}
+                  onDraftChange={setMessageDraft}
+                  onDraftKeyDown={handleComposerKeyDown}
+                  onImageSelected={handleMessageImageSelected}
+                  onClearImage={() => setMessageImage(null)}
+                  onSend={() => void sendRoomMessage()}
+                  onReply={setReplyTarget}
+                  onCancelReply={() => setReplyTarget(null)}
+                  onEdit={(message) => {
+                    setEditingMessage(message)
+                    setEditMessageDraft(message.content || "")
+                  }}
+                  onEditDraftChange={setEditMessageDraft}
+                  onSaveEdit={() => void saveMessageEdit()}
+                  onCancelEdit={() => {
+                    setEditingMessage(null)
+                    setEditMessageDraft("")
+                  }}
+                  onDelete={(message) => void deleteRoomMessage(message)}
+                  onReport={(message) => void reportRoomMessage(message)}
+                  onCopy={copyRoomMessageLink}
+                  highlightedMessageId={highlightedMessageId}
+                  onJumpToMessage={jumpToRoomMessage}
+                />
               </TabsContent>
 
               <TabsContent value="threads">
@@ -1415,7 +2192,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                         <p className="font-semibold">{post.poll?.question}</p>
                         <p className="mt-1 text-sm text-muted-foreground">{post.poll?.totalVotes || 0} votes • จากโพสต์ {post.title}</p>
                       </Link>
-                    )) : <p className="text-sm text-muted-foreground">ยังไม่มี Poll สำหรับเกมนี้</p>}
+                    )) : <p className="text-sm text-muted-foreground">{MATCH_HUB_EMPTY_STATES.polls}</p>}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -1433,7 +2210,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                           </div>
                           <h2 className="mt-3 text-3xl font-bold text-foreground">สรุปเกมโดย AI</h2>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            {data?.summary?.generatedAt ? `Generated: ${new Date(data.summary.generatedAt).toLocaleString("th-TH")}` : "ยังไม่มี generation จาก AI"}
+                            {data?.summary?.generatedAt ? `Generated: ${new Date(data.summary.generatedAt).toLocaleString("th-TH")}` : MATCH_HUB_EMPTY_STATES.summary}
                           </p>
                         </div>
                         {data?.summaryPermissions?.canRegenerate ? (
@@ -1477,8 +2254,8 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
 
                       <div className="rounded-[24px] border border-primary/20 bg-primary/10 p-5">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Headline</p>
-                        <h3 className="mt-2 text-2xl font-semibold text-foreground">{data?.summary?.headline || "ยังไม่มีสรุปเกม"}</h3>
-                        <p className="mt-3 leading-7 text-muted-foreground">{data?.summary?.shortSummary || data?.summary?.text || "ระบบจะแสดง fact-only summary เมื่อมีข้อมูลยืนยันจาก server"}</p>
+                        <h3 className="mt-2 text-2xl font-semibold text-foreground">{data?.summary?.headline || MATCH_HUB_EMPTY_STATES.summary}</h3>
+                        <p className="mt-3 leading-7 text-muted-foreground">{data?.summary?.shortSummary || data?.summary?.text || "The hub will show a fact-only summary when verified server match data is ready."}</p>
                       </div>
 
                       {data?.summary?.matchStory ? (
@@ -1606,6 +2383,28 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
               </DialogContent>
             </Dialog>
 
+            <Dialog open={showDraftMoveDialog} onOpenChange={setShowDraftMoveDialog}>
+              <DialogContent className="max-w-md rounded-[28px] border-border/60 bg-[#101214] text-foreground">
+                <DialogHeader>
+                  <DialogTitle>ห้องนี้ปิดแล้ว</DialogTitle>
+                  <DialogDescription>
+                    ระบบเก็บข้อความที่คุณพิมพ์ไว้ชั่วคราว ต้องการย้ายข้อความไปเขียนต่อในห้องหลักหรือไม่
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="flex-col gap-2 sm:flex-row">
+                  <Button type="button" onClick={moveDraftToMainRoom} className="rounded-full">
+                    ย้ายไปห้องหลัก
+                  </Button>
+                  <Button type="button" variant="outline" onClick={copyDraftToClipboard} className="rounded-full border-white/10">
+                    คัดลอกข้อความ
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => setShowDraftMoveDialog(false)} className="rounded-full">
+                    ยกเลิก
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
             <Dialog open={showCreateThread} onOpenChange={setShowCreateThread}>
               <DialogContent className="max-h-[88vh] max-w-2xl overflow-hidden rounded-[28px] border-border/60 bg-[#101214] p-0 text-foreground">
                 <DialogHeader className="border-b border-border/60 px-6 py-5">
@@ -1693,6 +2492,1109 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
           </>
         ) : null}
       </main>
+    </div>
+  )
+}
+
+function ReactionTeamSummaryCard({
+  summary,
+  teamSummary,
+  lounge,
+  onOpenSummary,
+}: {
+  summary?: CommunityMatchRoomResponse["summary"]
+  teamSummary: MatchRoomTeamSummary | null
+  lounge: TeamReactionLounge
+  onOpenSummary: () => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const badge = getSummaryStatusLabel(summary)
+  const isLong = Boolean(teamSummary && (teamSummary.limitations?.length || teamSummary.notablePlayers?.length || teamSummary.tacticalNote || teamSummary.turningPoint))
+
+  return (
+    <section className="mb-4 rounded-[24px] border border-primary/20 bg-primary/8 p-4 shadow-lg shadow-primary/5" aria-label={`${lounge.teamName} AI team summary`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
+            <Sparkles className="h-3.5 w-3.5" />
+            Team Summary
+          </p>
+          <h3 className="mt-2 text-lg font-bold text-foreground">{teamSummary?.headline || `${lounge.teamName} summary is loading`}</h3>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            {teamSummary?.shortSummary || "AI team summary is being prepared from verified match facts."}
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Badge variant="outline" className={cn("rounded-full border-white/10 text-[10px]", badge === "Stale" ? "border-amber-400/30 text-amber-200" : "text-primary")}>
+            {badge}
+          </Badge>
+          <Button type="button" variant="ghost" onClick={onOpenSummary} className="h-8 rounded-full px-3 text-xs">
+            Overall
+          </Button>
+        </div>
+      </div>
+
+      {teamSummary ? (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-background/45 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">Positive</p>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">{teamSummary.keyPositive}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-background/45 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">Problem</p>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">{teamSummary.keyProblem}</p>
+          </div>
+        </div>
+      ) : null}
+
+      {teamSummary && expanded ? (
+        <div className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">
+          {teamSummary.turningPoint ? <p><span className="font-semibold text-foreground">Turning point:</span> {teamSummary.turningPoint}</p> : null}
+          {teamSummary.tacticalNote ? <p><span className="font-semibold text-foreground">Tactical note:</span> {teamSummary.tacticalNote}</p> : null}
+          {teamSummary.notablePlayers?.length ? <p><span className="font-semibold text-foreground">Notable players:</span> {teamSummary.notablePlayers.join(", ")}</p> : null}
+          {teamSummary.limitations?.length ? <p><span className="font-semibold text-foreground">Limitations:</span> {teamSummary.limitations.join(" · ")}</p> : null}
+        </div>
+      ) : null}
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span>{summary?.generatedAt ? `Updated ${new Date(summary.generatedAt).toLocaleString("th-TH")}` : "Waiting for verified match facts"}</span>
+        {isLong ? (
+          <Button type="button" variant="ghost" onClick={() => setExpanded((value) => !value)} className="h-8 rounded-full px-3 text-xs" aria-expanded={expanded}>
+            {expanded ? "ย่อ" : "รายละเอียด"}
+          </Button>
+        ) : null}
+      </div>
+    </section>
+  )
+}
+
+function MatchRoomConversation({
+  fixture,
+  data,
+  activeRoomId,
+  activeChannel,
+  legacyRoomNotice,
+  messages,
+  messagesLoading,
+  messagesError,
+  messagesPage,
+  messagesTotalPages,
+  loadingOlder,
+  newMessageCount,
+  messageDraft,
+  replyTarget,
+  editingMessage,
+  editMessageDraft,
+  sendingMessage,
+  uploadingMessageImage,
+  messageImage,
+  messageListRef,
+  messageEndRef,
+  polls,
+  threads,
+  onChangeRoom,
+  onOpenView,
+  onRetry,
+  onLoadOlder,
+  onJumpToLatest,
+  onDraftChange,
+  onDraftKeyDown,
+  onImageSelected,
+  onClearImage,
+  onSend,
+  onReply,
+  onCancelReply,
+  onEdit,
+  onEditDraftChange,
+  onSaveEdit,
+  onCancelEdit,
+  onDelete,
+  onReport,
+  onCopy,
+  highlightedMessageId,
+  onJumpToMessage,
+}: {
+  fixture: CommunityMatchRoomFixture
+  data?: CommunityMatchRoomResponse
+  activeRoomId: ConversationRoomId
+  activeChannel?: MatchRoomChannel
+  legacyRoomNotice?: string
+  messages: MatchRoomMessage[]
+  messagesLoading: boolean
+  messagesError: string
+  messagesPage: number
+  messagesTotalPages: number
+  loadingOlder: boolean
+  newMessageCount: number
+  messageDraft: string
+  replyTarget: MatchRoomMessage | null
+  editingMessage: MatchRoomMessage | null
+  editMessageDraft: string
+  sendingMessage: boolean
+  uploadingMessageImage: boolean
+  messageImage: { id: string; url?: string | null; ownerPreviewUrl?: string | null; status: string } | null
+  messageListRef: RefObject<HTMLDivElement | null>
+  messageEndRef: RefObject<HTMLDivElement | null>
+  polls: CommunityMatchRoomPost[]
+  threads: CommunityMatchRoomPost[]
+  onChangeRoom: (roomType: ConversationRoomId) => void
+  onOpenView: (view: "polls" | "summary" | "info") => void
+  onRetry: () => void
+  onLoadOlder: () => void
+  onJumpToLatest: () => void
+  onDraftChange: (value: string) => void
+  onDraftKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void
+  onImageSelected: (event: ChangeEvent<HTMLInputElement>) => void
+  onClearImage: () => void
+  onSend: () => void
+  onReply: (message: MatchRoomMessage) => void
+  onCancelReply: () => void
+  onEdit: (message: MatchRoomMessage) => void
+  onEditDraftChange: (value: string) => void
+  onSaveEdit: () => void
+  onCancelEdit: () => void
+  onDelete: (message: MatchRoomMessage) => void
+  onReport: (message: MatchRoomMessage) => void
+  onCopy: (message: MatchRoomMessage) => void
+  highlightedMessageId: string
+  onJumpToMessage: (messageId: string) => void
+}) {
+  const activeRoomType = conversationRoomToRoomType(activeRoomId)
+  const activePreviewSide = getPreviewSideFromConversationRoom(activeRoomId)
+  const activeReactionSide = getReactionSideFromConversationRoom(activeRoomId)
+  const activePreviewLounge = activePreviewSide ? getTeamPreviewLounges(fixture).find((lounge) => lounge.side === activePreviewSide) || null : null
+  const activeReactionLounge = activeReactionSide ? getTeamReactionLounges(fixture).find((lounge) => lounge.side === activeReactionSide) || null : null
+  const isMainRoom = activeRoomId === "main"
+  const room = activeChannel || {
+    roomType: activeRoomType,
+    state: "unavailable" as const,
+    canRead: false,
+    canPost: false,
+    isTemporary: activeRoomType === "preview" || activeRoomType === "post_match",
+    isArchived: false,
+  }
+  const roomTitle = getRoomLabel(activeRoomId, fixture)
+  const supporterComposerText = isMainRoom
+    ? `${MAIN_ROOM_COPY.intro} ${MAIN_ROOM_COPY.description}`
+    : activePreviewLounge
+    ? `You're talking with ${activePreviewLounge.teamName} supporters before kickoff.`
+    : activeReactionLounge
+      ? `Share your reaction with fellow ${activeReactionLounge.teamName} supporters after full time.`
+    : ""
+  const emptyStateText = isMainRoom
+    ? MAIN_ROOM_COPY.emptyTitle
+    : activePreviewLounge
+    ? `Start the conversation with fellow ${activePreviewLounge.teamName} supporters.`
+    : activeReactionLounge
+      ? `Be the first ${activeReactionLounge.teamName} supporter to share a reaction.`
+    : MATCH_HUB_EMPTY_STATES.room
+  const [clockNow, setClockNow] = useState(Date.now())
+  const refreshRef = useRef<string>("")
+  const messagesById = new Map(messages.map((message) => [message.id, message]))
+  const stats = data?.roomStats?.[fixture.id]
+  const roomNotice = getTemporaryRoomNotice(room, clockNow)
+  const matchEvents = isMainRoom ? normalizeTimelineMatchEvents(fixture.events) : []
+  const reactionTeamSummary = selectReactionTeamSummary(data?.summary, activeReactionSide)
+
+  useEffect(() => {
+    if (!room.isTemporary) return
+    const interval = window.setInterval(() => setClockNow(Date.now()), 1000)
+    return () => window.clearInterval(interval)
+  }, [room.isTemporary, room.roomType])
+
+  useEffect(() => {
+    if (!room.isTemporary || (room.state !== "open" && room.state !== "closing" && room.state !== "upcoming")) return
+    const target = getRoomTargetTime(room)
+    if (!target || target > clockNow) return
+    const syncKey = `${room.roomType}:${room.state}:${target}`
+    if (refreshRef.current === syncKey) return
+    refreshRef.current = syncKey
+    onRetry()
+  }, [clockNow, room.isTemporary, room.roomType, room.state, room.opensAt, room.closesAt, onRetry])
+
+  return (
+    <section className="overflow-hidden rounded-[32px] border border-white/10 bg-card/85 shadow-2xl shadow-primary/5" aria-label={`ห้องพูดคุย ${roomTitle}`}>
+      <div className="border-b border-white/10 bg-background/50 px-4 py-3 lg:hidden">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">Match Hub</p>
+            <h2 className="text-lg font-bold">#{roomTitle}</h2>
+          </div>
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button type="button" variant="outline" className="rounded-full border-white/10" aria-label="เปิดข้อมูลห้อง">
+                <Info className="mr-2 h-4 w-4" />
+                ข้อมูลห้อง
+              </Button>
+            </SheetTrigger>
+            <SheetContent className="border-white/10 bg-card">
+              <SheetHeader>
+                <SheetTitle>ข้อมูลห้อง</SheetTitle>
+                <SheetDescription>{getMatchTitle(fixture)}</SheetDescription>
+              </SheetHeader>
+              <div className="px-4 pb-4">
+                <MatchRoomInfoPanel fixture={fixture} data={data} polls={polls} threads={threads} onOpenView={onOpenView} />
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+        <RoomMobileTabs fixture={fixture} activeRoomId={activeRoomId} channels={data?.channels || []} onChangeRoom={onChangeRoom} />
+      </div>
+
+      <div className="grid min-h-[680px] lg:grid-cols-[300px_minmax(0,1fr)_320px]">
+        <aside className="hidden border-r border-white/10 bg-background/35 p-4 lg:block">
+          <RoomSidebar fixture={fixture} activeRoomId={activeRoomId} channels={data?.channels || []} stats={stats} onChangeRoom={onChangeRoom} onOpenView={onOpenView} />
+        </aside>
+
+          <div className="flex min-h-[680px] flex-col bg-[radial-gradient(circle_at_top_left,rgba(163,255,30,0.08),transparent_38%),linear-gradient(180deg,rgba(255,255,255,0.035),transparent)]">
+          <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-white/10 bg-card/95 px-4 py-3 backdrop-blur">
+            <div className="min-w-0">
+              {isMainRoom ? <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">{MAIN_ROOM_COPY.eyebrow}</p> : null}
+              <div className="flex items-center gap-2">
+                <Hash className="h-4 w-4 text-primary" />
+                <h2 className="truncate text-lg font-bold">{roomTitle}</h2>
+                <Badge variant="outline" className={cn("rounded-full border-white/10 text-[11px]", room.canPost ? "bg-primary/10 text-primary" : "text-muted-foreground")}>
+                  {getRoomStateLabel(room.state)}
+                </Badge>
+              </div>
+              <p className="mt-1 truncate text-xs text-muted-foreground">
+                {supporterComposerText || `${getMatchTitle(fixture)} · FootballAI Match Hub · asynchronous updates`}
+              </p>
+              {roomNotice ? <p className="mt-1 truncate text-xs text-primary">{roomNotice.title}</p> : null}
+            </div>
+            <Button type="button" variant="ghost" onClick={onRetry} className="rounded-full text-muted-foreground" aria-label="รีเฟรชข้อความ">
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </header>
+
+          <div ref={messageListRef} className="relative flex-1 overflow-y-auto px-3 py-4 sm:px-5" aria-live="polite" aria-busy={messagesLoading}>
+            {messagesPage < messagesTotalPages ? (
+              <div className="mb-4 text-center">
+                <Button type="button" variant="outline" onClick={onLoadOlder} disabled={loadingOlder} className="rounded-full border-white/10 bg-background/70">
+                  {loadingOlder ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  โหลดข้อความเก่า
+                </Button>
+              </div>
+            ) : null}
+
+            {messagesLoading && !messages.length ? <MessageSkeletonList /> : null}
+
+            {legacyRoomNotice ? (
+              <div role="status" className="mb-4 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100">
+                {legacyRoomNotice}
+              </div>
+            ) : null}
+            {roomNotice ? <TemporaryRoomNotice notice={roomNotice} onGoMain={() => onChangeRoom("main")} /> : null}
+            {activeReactionLounge ? <ReactionTeamSummaryCard summary={data?.summary} teamSummary={reactionTeamSummary} lounge={activeReactionLounge} onOpenSummary={() => onOpenView("summary")} /> : null}
+            {matchEvents.length ? <SystemMatchEvents events={matchEvents} /> : null}
+
+            {messagesError ? (
+              <div role="alert" className="mb-4 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+                {messagesError}
+                <Button type="button" variant="outline" onClick={onRetry} className="ml-3 rounded-full border-white/10">
+                  Retry
+                </Button>
+              </div>
+            ) : null}
+
+            {!messagesLoading && !messagesError && !messages.length ? (
+              <div className="mx-auto mt-16 max-w-md rounded-[28px] border border-dashed border-white/10 bg-background/45 p-8 text-center">
+                <MessageCircle className="mx-auto h-10 w-10 text-primary" />
+                <h3 className="mt-4 text-xl font-bold">{emptyStateText}</h3>
+                <p className="mt-2 text-sm text-muted-foreground">{isMainRoom ? MAIN_ROOM_COPY.emptyDescription : "This room is waiting for the first match take from the community."}</p>
+              </div>
+            ) : null}
+
+            <div className="space-y-1">
+              {messages.map((message, index) => {
+                const previous = messages[index - 1]
+                const grouped = shouldGroupMainRoomMessage(message, previous)
+                const showDateDivider = isMainRoom && shouldShowMainRoomDateDivider(message, previous)
+                return (
+                  <div key={message.id}>
+                    {showDateDivider ? <DateDivider label={getMainRoomDateDividerLabel(message.createdAt)} /> : null}
+                    <RoomMessageRow
+                      message={message}
+                      grouped={grouped}
+                      parent={message.replyToId ? messagesById.get(message.replyToId) : null}
+                      highlighted={highlightedMessageId === message.id}
+                      onReply={onReply}
+                      onEdit={onEdit}
+                      onDelete={onDelete}
+                      onReport={onReport}
+                      onCopy={onCopy}
+                      onJumpToMessage={onJumpToMessage}
+                    />
+                  </div>
+                )
+              })}
+            </div>
+            <div ref={messageEndRef} />
+
+            {newMessageCount > 0 ? (
+              <div className="sticky bottom-3 z-20 text-center">
+                <Button type="button" onClick={onJumpToLatest} className="rounded-full shadow-lg shadow-primary/20">
+                  {MAIN_ROOM_COPY.newMessages} · {newMessageCount}
+                </Button>
+              </div>
+            ) : null}
+          </div>
+
+          <RoomComposer
+            room={room}
+            roomTitle={roomTitle}
+            helperText={supporterComposerText}
+            placeholder={isMainRoom ? MAIN_ROOM_COPY.placeholder : activeReactionLounge ? "Share your post-match reaction..." : undefined}
+            draft={messageDraft}
+            replyTarget={replyTarget}
+            editingMessage={editingMessage}
+            editDraft={editMessageDraft}
+            sending={sendingMessage}
+            uploadingImage={uploadingMessageImage}
+            image={messageImage}
+            onDraftChange={onDraftChange}
+            onDraftKeyDown={onDraftKeyDown}
+            onImageSelected={onImageSelected}
+            onClearImage={onClearImage}
+            onSend={onSend}
+            onCancelReply={onCancelReply}
+            onEditDraftChange={onEditDraftChange}
+            onSaveEdit={onSaveEdit}
+            onCancelEdit={onCancelEdit}
+            onGoMain={() => onChangeRoom("main")}
+          />
+        </div>
+
+        <aside className="hidden border-l border-white/10 bg-background/35 p-4 lg:block">
+          <MatchRoomInfoPanel fixture={fixture} data={data} polls={polls} threads={threads} onOpenView={onOpenView} />
+        </aside>
+      </div>
+    </section>
+  )
+}
+
+function RoomSidebar({
+  fixture,
+  activeRoomId,
+  channels,
+  stats,
+  onChangeRoom,
+  onOpenView,
+}: {
+  fixture: CommunityMatchRoomFixture
+  activeRoomId: ConversationRoomId
+  channels: MatchRoomChannel[]
+  stats?: MatchRoomStats
+  onChangeRoom: (roomType: ConversationRoomId) => void
+  onOpenView: (view: "polls" | "summary" | "info") => void
+}) {
+  const navigableRooms = getNavigableRooms(channels)
+  const timelinePhase = getMatchTimelinePhase(fixture)
+  const priority = getTimelineNavigationPriority(timelinePhase)
+  const highlightedRooms = getTimelineHighlightRooms(timelinePhase)
+  const previewChannel = channels.find((item) => item.roomType === "preview")
+  const postMatchChannel = channels.find((item) => item.roomType === "post_match")
+  const previewLounges = getTeamPreviewLounges(fixture)
+  const reactionLounges = getTeamReactionLounges(fixture)
+  const recommendedPreview = getFavoriteTeamPreviewLounge({
+    favoriteTeamName: stats?.favoriteTeamName,
+    isFavoriteTeam: stats?.isFavoriteTeam,
+    homeTeam: fixture.homeTeam,
+    awayTeam: fixture.awayTeam,
+  })
+  const recommendedReaction = getFavoriteTeamReactionLounge({
+    favoriteTeamName: stats?.favoriteTeamName,
+    isFavoriteTeam: stats?.isFavoriteTeam,
+    homeTeam: fixture.homeTeam,
+    awayTeam: fixture.awayTeam,
+  })
+  const roomSections = [
+    {
+      title: "Main Rooms",
+      eyebrow: "🏟 Main Room",
+      rooms: navigableRooms.filter((room) => room.id === "main" || room.id === "tactics"),
+    },
+    {
+      title: "Pre Match",
+      eyebrow: "⏰ Pre Match",
+      rooms: previewChannel ? previewLounges : [],
+    },
+    {
+      title: "Post Match",
+      eyebrow: "⏰ Post Match",
+      rooms: postMatchChannel ? reactionLounges : [],
+    },
+  ]
+  const priorityIndex = (roomType: MatchTimelineRoomId) => {
+    const index = priority.indexOf(roomType)
+    return index === -1 ? 99 : index
+  }
+  return (
+    <nav aria-label="FootballAI Match Hub navigation" className="sticky top-20 space-y-5">
+      <div>
+        <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Match Hub Rooms</p>
+        <p className="mt-1 px-2 text-xs leading-5 text-muted-foreground">Choose how you want to join this match community.</p>
+      </div>
+      {roomSections.map((section) =>
+        section.rooms.length ? (
+          <div key={section.title}>
+            <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{section.eyebrow}</p>
+            <div className="mt-2 space-y-2">
+              {[...section.rooms].sort((a, b) => {
+                const aRoomType = a.id === "preview_home" || a.id === "preview_away" ? "preview" : a.id === "post_match_home" || a.id === "post_match_away" ? "post_match" : a.id
+                const bRoomType = b.id === "preview_home" || b.id === "preview_away" ? "preview" : b.id === "post_match_home" || b.id === "post_match_away" ? "post_match" : b.id
+                return priorityIndex(aRoomType as MatchTimelineRoomId) - priorityIndex(bRoomType as MatchTimelineRoomId)
+              }).map((room) => {
+                const isReactionLounge = room.id === "post_match_home" || room.id === "post_match_away"
+                const isPreviewLounge = room.id === "preview_home" || room.id === "preview_away"
+                const baseRoomType = isPreviewLounge ? "preview" : isReactionLounge ? "post_match" : room.id
+                const channel = isPreviewLounge ? previewChannel : isReactionLounge ? postMatchChannel : channels.find((item) => item.roomType === room.id)
+                const roomId = room.id as ConversationRoomId
+                const loungeStats = isPreviewLounge ? stats?.previewLounges?.[room.side] : isReactionLounge ? stats?.postMatchLounges?.[room.side] : null
+                const temporaryActivity = stats?.activity?.temporaryRoom || ""
+                const hasRoomActivity = temporaryActivity.startsWith(baseRoomType === "preview" ? "preview" : "post_match")
+                return (
+                  <RoomNavButton
+                    key={room.id}
+                    room={room}
+                    channel={channel}
+                    active={activeRoomId === roomId}
+                    activityCount={isPreviewLounge ? loungeStats?.messages || 0 : isReactionLounge ? loungeStats?.messageCount || loungeStats?.messages || 0 : baseRoomType === stats?.latestRoomType ? stats?.newRoomMessageCount || 0 : 0}
+                    hasActivity={isPreviewLounge ? Boolean(loungeStats?.latestActivityAt) : hasRoomActivity}
+                    latestActivityAt={isPreviewLounge ? loungeStats?.latestActivityAt : baseRoomType === stats?.latestRoomType ? stats?.latestRoomActivityAt : undefined}
+                    recommended={recommendedPreview?.id === roomId || recommendedReaction?.id === roomId}
+                    emphasized={highlightedRooms.includes(baseRoomType as MatchTimelineRoomId)}
+                    onClick={() => onChangeRoom(roomId)}
+                  />
+                )
+              })}
+            </div>
+          </div>
+        ) : null,
+      )}
+      {!navigableRooms.some((room) => room.group === "temporary") ? <p className="rounded-2xl border border-dashed border-white/10 p-3 text-xs text-muted-foreground">ยังไม่มีห้องชั่วคราวที่เปิดอยู่</p> : null}
+      <div>
+        <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">📊 Polls & 🤖 AI Summary</p>
+        <div className="mt-2 space-y-2">
+          <HubUtilityButton label="Polls" description="Community votes for this match" badge={stats?.activity?.hasNewPoll ? "NEW" : `${stats?.polls || 0}`} onClick={() => onOpenView("polls")} />
+          <HubUtilityButton label="AI Summary" description="Fact-only match summary" badge={stats?.activity?.hasSummaryReady ? "READY" : "SUMMARY"} onClick={() => onOpenView("summary")} />
+        </div>
+      </div>
+    </nav>
+  )
+}
+
+function RoomMobileTabs({
+  fixture,
+  activeRoomId,
+  channels,
+  onChangeRoom,
+}: {
+  fixture: CommunityMatchRoomFixture
+  activeRoomId: ConversationRoomId
+  channels: MatchRoomChannel[]
+  onChangeRoom: (roomType: ConversationRoomId) => void
+}) {
+  const rooms = getNavigableRooms(channels)
+  const previewChannel = channels.find((item) => item.roomType === "preview")
+  const postMatchChannel = channels.find((item) => item.roomType === "post_match")
+  const previewLounges = previewChannel ? getTeamPreviewLounges(fixture) : []
+  const reactionLounges = postMatchChannel ? getTeamReactionLounges(fixture) : []
+  const mobileRooms: Array<((typeof conversationRooms)[number] | TeamPreviewLounge | TeamReactionLounge)> = rooms.flatMap((room) => {
+    if (room.id === "preview") return previewLounges
+    if (room.id === "post_match") return reactionLounges
+    return [room]
+  })
+  return (
+    <div className="mt-3 flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="เลือกห้องสนทนา">
+      {mobileRooms.map((room) => {
+        const isPreviewLounge = room.id === "preview_home" || room.id === "preview_away"
+        const isReactionLounge = room.id === "post_match_home" || room.id === "post_match_away"
+        const roomId = room.id as ConversationRoomId
+        const channel = isPreviewLounge ? previewChannel : isReactionLounge ? postMatchChannel : channels.find((item) => item.roomType === room.id)
+        const disabled = Boolean(channel && !channel.canRead && !channel.canPost)
+        return (
+          <button
+            key={room.id}
+            type="button"
+            role="tab"
+            aria-selected={activeRoomId === roomId}
+            onClick={() => {
+              if (!disabled) onChangeRoom(roomId)
+            }}
+            disabled={disabled}
+            className={cn(
+              "shrink-0 rounded-full border px-4 py-2 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+              activeRoomId === roomId ? "border-primary bg-primary text-primary-foreground" : "border-white/10 bg-background/60 text-muted-foreground",
+              disabled && "cursor-not-allowed opacity-55",
+            )}
+          >
+            #{isPreviewLounge || isReactionLounge ? room.teamName : room.label}
+            {channel && !channel.canPost ? <span className="ml-2 text-[11px] opacity-70">{getRoomAvailabilityText(channel)}</span> : null}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function RoomNavButton({
+  room,
+  channel,
+  active,
+  activityCount,
+  hasActivity,
+  latestActivityAt,
+  recommended,
+  emphasized,
+  onClick,
+}: {
+  room: (typeof conversationRooms)[number] | TeamPreviewLounge | TeamReactionLounge
+  channel?: MatchRoomChannel
+  active: boolean
+  activityCount: number
+  hasActivity?: boolean
+  latestActivityAt?: string | null
+  recommended?: boolean
+  emphasized?: boolean
+  onClick: () => void
+}) {
+  const disabled = Boolean(channel && !channel.canRead && !channel.canPost)
+  const isTeamPreview = room.id === "preview_home" || room.id === "preview_away"
+  const isTeamReaction = room.id === "post_match_home" || room.id === "post_match_away"
+  const badge = (isTeamPreview && channel?.state === "upcoming") || (isTeamReaction && channel?.state === "unavailable") ? "OPENING SOON" : getRoomHubBadge(channel)
+  const badgeClass =
+    badge === "OPEN" || badge === "LIVE"
+      ? active
+        ? "bg-black/20 text-primary-foreground"
+        : "bg-primary/15 text-primary"
+      : badge === "ARCHIVED"
+        ? "bg-zinc-500/10 text-zinc-300"
+        : "bg-amber-500/10 text-amber-200"
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (!disabled) onClick()
+      }}
+      disabled={disabled}
+      className={cn(
+        "group w-full rounded-2xl border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 motion-reduce:transition-none",
+        active
+          ? "border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/15"
+          : emphasized
+            ? "border-primary/45 bg-primary/10 text-foreground shadow-md shadow-primary/10 hover:border-primary/60 hover:bg-primary/14"
+            : "border-white/10 bg-background/45 text-muted-foreground hover:border-primary/35 hover:bg-white/5 hover:text-foreground",
+        disabled && "cursor-not-allowed opacity-55 hover:bg-transparent hover:text-muted-foreground",
+      )}
+    >
+      <span className="flex items-start justify-between gap-3">
+        <span className="min-w-0">
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-sm font-semibold">{isTeamPreview || isTeamReaction ? `🔴 ${room.label}` : room.label}</span>
+            {recommended ? <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold", active ? "bg-black/20 text-primary-foreground" : "bg-primary/15 text-primary")}>⭐ Recommended</span> : null}
+            {emphasized && !recommended ? <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold", active ? "bg-black/20 text-primary-foreground" : "bg-primary/15 text-primary")}>Priority</span> : null}
+          </span>
+          <span className={cn("mt-1 block text-xs leading-5", active ? "text-primary-foreground/75" : "text-muted-foreground")}>{room.description}</span>
+        </span>
+        <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold", badgeClass)}>{badge}</span>
+      </span>
+      <span className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+        <span className={cn("rounded-full px-2 py-0.5", active ? "bg-black/15 text-primary-foreground/80" : "bg-muted text-muted-foreground")}>
+          {isTeamReaction && channel?.state === "unavailable" ? "Available after full time" : getRoomAvailabilityText(channel)}
+        </span>
+        <span className={cn("rounded-full px-2 py-0.5", active ? "bg-black/15 text-primary-foreground/80" : "bg-muted text-muted-foreground")}>
+          {activityCount} messages
+        </span>
+        {hasActivity ? <span className={cn("h-2.5 w-2.5 rounded-full", active ? "bg-primary-foreground" : "bg-primary")} aria-label="new room activity" /> : null}
+      </span>
+      <span className={cn("mt-2 block truncate text-[11px]", active ? "text-primary-foreground/70" : "text-muted-foreground")}>
+        Latest activity: {latestActivityAt ? new Date(latestActivityAt).toLocaleString("th-TH") : "-"}
+      </span>
+    </button>
+  )
+}
+
+function HubUtilityButton({ label, description, badge, onClick }: { label: string; description: string; badge: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group w-full rounded-2xl border border-white/10 bg-background/45 px-3 py-3 text-left text-muted-foreground transition hover:border-primary/35 hover:bg-white/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 motion-reduce:transition-none"
+    >
+      <span className="flex items-start justify-between gap-3">
+        <span>
+          <span className="block text-sm font-semibold">{label}</span>
+          <span className="mt-1 block text-xs leading-5 text-muted-foreground">{description}</span>
+        </span>
+        <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">{badge}</span>
+      </span>
+    </button>
+  )
+}
+
+function TemporaryRoomNotice({ notice, onGoMain }: { notice: NonNullable<ReturnType<typeof getTemporaryRoomNotice>>; onGoMain: () => void }) {
+  return (
+    <div
+      className={cn(
+        "mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-4 text-sm",
+        notice.tone === "danger"
+          ? "border-destructive/30 bg-destructive/10 text-destructive"
+          : notice.tone === "warning"
+            ? "border-amber-400/30 bg-amber-400/10 text-amber-100"
+            : notice.tone === "active"
+              ? "border-primary/25 bg-primary/10 text-primary"
+              : "border-white/10 bg-background/55 text-muted-foreground",
+      )}
+    >
+      <div className="min-w-0">
+        <p className="font-semibold text-foreground">{notice.title}</p>
+        <p className="mt-1">{notice.detail}</p>
+      </div>
+      {notice.tone === "muted" ? (
+        <Button type="button" variant="outline" onClick={onGoMain} className="rounded-full border-white/10 bg-background/60">
+          ไปห้องหลัก
+        </Button>
+      ) : null}
+    </div>
+  )
+}
+
+function DateDivider({ label }: { label: string }) {
+  if (!label) return null
+  const layout = getSystemMessageLayout("date_divider")
+  return (
+    <div className={cn("my-5 flex items-center gap-3", layout.className)} role="separator" aria-label={label}>
+      <span className="h-px flex-1 bg-white/10" />
+      <span className="rounded-full border border-white/10 bg-background/70 px-3 py-1 text-[11px] font-semibold text-muted-foreground">{label}</span>
+      <span className="h-px flex-1 bg-white/10" />
+    </div>
+  )
+}
+
+function getMatchEventLabel(event: TimelineMatchEvent) {
+  if (event.type === "goal") return "Goal"
+  if (event.type === "yellow_card") return "Yellow Card"
+  if (event.type === "red_card") return "Red Card"
+  return "Substitution"
+}
+
+function SystemMatchEvents({ events }: { events: TimelineMatchEvent[] }) {
+  if (!events.length) return null
+  const layout = getSystemMessageLayout("match_event")
+  return (
+    <div className={cn("mb-4 rounded-2xl border border-white/10 bg-background/45 p-4", layout.className)} aria-label={MATCH_TIMELINE_COPY.eventsTitle}>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-foreground">{MATCH_TIMELINE_COPY.eventsTitle}</p>
+        <Badge variant="outline" className="rounded-full border-white/10 text-[10px] text-muted-foreground">Verified fixture data</Badge>
+      </div>
+      <div className="space-y-2">
+        {events.map((event) => (
+          <div key={event.id} className="flex gap-3 rounded-xl border border-white/10 bg-card/55 px-3 py-2 text-sm">
+            <span className="w-12 shrink-0 font-semibold text-primary">{event.minute ? `${event.minute}'` : "-"}</span>
+            <span className="min-w-0">
+              <span className="font-semibold text-foreground">{getMatchEventLabel(event)}</span>
+              <span className="text-muted-foreground">
+                {event.player ? ` · ${event.player}` : ""}
+                {event.team ? ` · ${event.team}` : ""}
+                {event.assist ? ` · Assist: ${event.assist}` : ""}
+              </span>
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function RoomMessageRow({
+  message,
+  grouped,
+  parent,
+  highlighted,
+  onReply,
+  onEdit,
+  onDelete,
+  onReport,
+  onCopy,
+  onJumpToMessage,
+}: {
+  message: MatchRoomMessage
+  grouped: boolean
+  parent?: MatchRoomMessage | null
+  highlighted?: boolean
+  onReply: (message: MatchRoomMessage) => void
+  onEdit: (message: MatchRoomMessage) => void
+  onDelete: (message: MatchRoomMessage) => void
+  onReport: (message: MatchRoomMessage) => void
+  onCopy: (message: MatchRoomMessage) => void
+  onJumpToMessage: (messageId: string) => void
+}) {
+  const authorName = message.author?.name || "ผู้ใช้งาน"
+  const canManage = Boolean(message.canModerate)
+  const layout = getRoomMessageBubbleLayout({ isOwner: message.isOwner, grouped, hasReply: Boolean(message.replyToId) })
+  const timestamp = message.timeAgo || (message.createdAt ? new Date(message.createdAt).toLocaleString("th-TH") : "")
+
+  return (
+    <article
+      id={`message-${message.id}`}
+      className={cn(
+        "group flex gap-3 rounded-2xl px-2 py-2 transition hover:bg-white/[0.035]",
+        layout.rowClass,
+        grouped ? "pt-1" : "mt-1",
+        highlighted && "bg-primary/12 ring-2 ring-primary/45",
+      )}
+      aria-label={`${authorName}: ${message.content}`}
+    >
+      {!message.isOwner ? (
+        <div className="w-10 shrink-0">
+          {layout.showAvatar ? (
+          <Avatar className="h-10 w-10 border border-white/10">
+            <AvatarImage src={message.author?.avatar || ""} alt={authorName} />
+            <AvatarFallback>{getInitials(authorName)}</AvatarFallback>
+          </Avatar>
+          ) : null}
+        </div>
+      ) : null}
+      <div className={cn("flex min-w-0 max-w-[min(82%,42rem)] flex-col", layout.contentClass)}>
+        {layout.showDisplayName ? (
+          <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-semibold text-foreground">{authorName}</span>
+            {message.author?.role === "admin" ? <Badge className="rounded-full bg-primary/15 text-[10px] text-primary hover:bg-primary/15">Admin</Badge> : null}
+          </div>
+        ) : null}
+
+        <div className={cn("min-w-0 rounded-2xl border px-4 py-3 shadow-sm", layout.bubbleClass)}>
+          {message.replyToId ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (parent) onJumpToMessage(parent.id)
+              }}
+              disabled={!parent}
+              className={cn(
+                "mb-2 block w-full rounded-xl border-l-2 px-3 py-2 text-left text-xs transition hover:bg-background/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+                layout.replyClass,
+                !parent && "cursor-default border-white/10 opacity-75 hover:bg-background/55",
+              )}
+              aria-label="ข้อความที่ตอบกลับ"
+            >
+              {parent ? (
+                <>
+                  <span className={cn("block font-semibold", message.isOwner ? "text-primary-foreground" : "text-primary")}>Replying to {parent.author?.name || "ผู้ใช้งาน"}</span>
+                  <span className="mt-1 line-clamp-1">{parent.content}</span>
+                </>
+              ) : (
+                MAIN_ROOM_COPY.deletedParent
+              )}
+            </button>
+          ) : null}
+
+          <p className="whitespace-pre-wrap break-words text-sm leading-6">{message.content || "ข้อความนี้ถูกลบแล้ว"}</p>
+          {message.images?.length ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {message.images.slice(0, 1).map((url) => (
+                <a key={url} href={url} target="_blank" rel="noreferrer" className="relative block h-36 w-56 overflow-hidden rounded-2xl border border-white/10 bg-background/60">
+                  <Image src={url} alt="รูปภาพในข้อความ" fill className="object-cover" unoptimized />
+                </a>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <div className={cn("mt-1 flex w-full flex-wrap items-center gap-2 text-xs text-muted-foreground", layout.metaClass)}>
+          <time>{timestamp}</time>
+          {message.moderationStatus === "pending_review" && message.isOwner ? <Badge variant="outline" className="rounded-full border-amber-400/30 text-[10px] text-amber-200">รอตรวจ</Badge> : null}
+          {message.isEdited ? <span className="text-[11px]">แก้ไขแล้ว</span> : null}
+        </div>
+      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100" aria-label="เปิดเมนูข้อความ">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="rounded-2xl border-white/10 bg-card">
+          <DropdownMenuItem onClick={() => onReply(message)}>Reply</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onCopy(message)}>Copy link</DropdownMenuItem>
+          {message.isOwner ? <DropdownMenuItem onClick={() => onEdit(message)}>Edit</DropdownMenuItem> : null}
+          {message.isOwner || canManage ? <DropdownMenuItem onClick={() => onDelete(message)} className="text-destructive">Delete</DropdownMenuItem> : null}
+          {!message.isOwner ? <DropdownMenuItem onClick={() => onReport(message)}>Report</DropdownMenuItem> : null}
+          {canManage ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href={`/admin/community/moderation?q=${encodeURIComponent(message.id)}`}>Open in Moderation</Link>
+              </DropdownMenuItem>
+            </>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </article>
+  )
+}
+
+function RoomComposer({
+  room,
+  roomTitle,
+  helperText,
+  placeholder,
+  draft,
+  replyTarget,
+  editingMessage,
+  editDraft,
+  sending,
+  uploadingImage,
+  image,
+  onDraftChange,
+  onDraftKeyDown,
+  onImageSelected,
+  onClearImage,
+  onSend,
+  onCancelReply,
+  onEditDraftChange,
+  onSaveEdit,
+  onCancelEdit,
+  onGoMain,
+}: {
+  room: MatchRoomChannel
+  roomTitle: string
+  helperText?: string
+  placeholder?: string
+  draft: string
+  replyTarget: MatchRoomMessage | null
+  editingMessage: MatchRoomMessage | null
+  editDraft: string
+  sending: boolean
+  uploadingImage: boolean
+  image: { id: string; url?: string | null; ownerPreviewUrl?: string | null; status: string } | null
+  onDraftChange: (value: string) => void
+  onDraftKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void
+  onImageSelected: (event: ChangeEvent<HTMLInputElement>) => void
+  onClearImage: () => void
+  onSend: () => void
+  onCancelReply: () => void
+  onEditDraftChange: (value: string) => void
+  onSaveEdit: () => void
+  onCancelEdit: () => void
+  onGoMain: () => void
+}) {
+  if (!room.canPost && !editingMessage) {
+    const closedDescription =
+      room.roomType === "post_match" && room.state === "archived"
+        ? "ห้องหลังเกมปิดแล้ว คุณสามารถพูดคุยต่อในห้องหลักหรือห้องแท็กติก"
+        : room.roomType === "preview" && room.state === "archived"
+          ? "การแข่งขันเริ่มแล้ว คุยต่อในห้องหลักได้เลย"
+          : room.state === "upcoming"
+            ? "ห้องนี้ยังไม่เปิดให้ส่งข้อความ"
+            : "ยังอ่านย้อนหลังได้ แต่ส่งข้อความใหม่ไม่ได้ในสถานะนี้"
+    return (
+      <div className="sticky bottom-0 border-t border-white/10 bg-card/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-background/55 p-4">
+          <div>
+            <p className="font-semibold">ห้องนี้ปิดรับข้อความแล้ว</p>
+            <p className="text-sm text-muted-foreground">{closedDescription}</p>
+          </div>
+          <Button type="button" onClick={onGoMain} className="rounded-full">ไปห้องหลัก</Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="sticky bottom-0 border-t border-white/10 bg-card/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
+      {editingMessage ? (
+        <div className="rounded-[24px] border border-primary/25 bg-primary/8 p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-primary">แก้ไขข้อความ</p>
+            <Button type="button" variant="ghost" size="icon" onClick={onCancelEdit} className="h-8 w-8 rounded-full" aria-label="ยกเลิกแก้ไข">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <Textarea value={editDraft} onChange={(event) => onEditDraftChange(event.target.value)} className="min-h-20 rounded-2xl border-white/10 bg-background/70" />
+          <div className="mt-2 flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onCancelEdit} className="rounded-full border-white/10">ยกเลิก</Button>
+            <Button type="button" onClick={onSaveEdit} disabled={sending || !editDraft.trim()} className="rounded-full">
+              {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              บันทึก
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-[24px] border border-white/10 bg-background/65 p-3">
+          {replyTarget ? (
+            <div className="mb-2 flex items-start justify-between gap-3 rounded-2xl border-l-2 border-primary bg-primary/8 px-3 py-2">
+              <div className="min-w-0 text-sm">
+                <p className="font-semibold text-primary">ตอบกลับ {replyTarget.author?.name || "ผู้ใช้งาน"}</p>
+                <p className="line-clamp-1 text-muted-foreground">{replyTarget.content || "ข้อความต้นทางไม่พร้อมใช้งาน"}</p>
+              </div>
+              <Button type="button" variant="ghost" size="icon" onClick={onCancelReply} className="h-8 w-8 rounded-full" aria-label="ยกเลิก reply">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : null}
+          {image ? (
+            <div className="mb-2 flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 p-2">
+              <div className="relative h-14 w-14 overflow-hidden rounded-xl border border-white/10">
+                <Image src={image.url || image.ownerPreviewUrl || ""} alt="แนบรูปข้อความ" fill className="object-cover" unoptimized />
+              </div>
+              <div className="min-w-0 flex-1 text-xs text-muted-foreground">
+                <p className="font-semibold text-foreground">แนบรูป 1 รูป</p>
+                <p>{image.status === "pending_review" ? "รูปนี้รอตรวจ เจ้าของจะเห็นสถานะก่อน" : "พร้อมส่งพร้อมข้อความ"}</p>
+              </div>
+              <Button type="button" variant="ghost" size="icon" onClick={onClearImage} className="h-8 w-8 rounded-full" aria-label="ลบรูปแนบ">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : null}
+          <div className="flex items-end gap-2">
+            <label className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-white/10 bg-background/70 text-muted-foreground transition hover:text-primary">
+              <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={onImageSelected} disabled={uploadingImage || Boolean(image)} />
+              {uploadingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-5 w-5" />}
+              <span className="sr-only">แนบรูป</span>
+            </label>
+            <Textarea
+              value={draft}
+              onChange={(event) => onDraftChange(event.target.value)}
+              onKeyDown={onDraftKeyDown}
+              placeholder={placeholder || `พิมพ์ข้อความใน #${roomTitle}...`}
+              className="max-h-36 min-h-11 resize-none rounded-2xl border-white/10 bg-background/70 px-4 py-3"
+              aria-label={`พิมพ์ข้อความใน ${roomTitle}`}
+            />
+            <Button type="button" onClick={onSend} disabled={sending || !draft.trim()} className="h-11 shrink-0 rounded-2xl px-4">
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              <span className="sr-only">ส่งข้อความ</span>
+            </Button>
+          </div>
+          <p className="mt-2 px-1 text-[11px] text-muted-foreground">{helperText || MAIN_ROOM_COPY.enterHint}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MatchRoomInfoPanel({
+  fixture,
+  data,
+  polls,
+  threads,
+  onOpenView,
+}: {
+  fixture: CommunityMatchRoomFixture
+  data?: CommunityMatchRoomResponse
+  polls: CommunityMatchRoomPost[]
+  threads: CommunityMatchRoomPost[]
+  onOpenView: (view: "polls" | "summary" | "info") => void
+}) {
+  const stats = data?.roomStats?.[fixture.id]
+  const pinnedThread = threads.find((thread) => thread.isPinned) || threads[0]
+  const timelinePhase = getMatchTimelinePhase(fixture)
+  const timelineSignals = getTimelineActivityLabels({
+    phase: timelinePhase,
+    previewActive: stats?.activity?.temporaryRoom === "preview_open" || stats?.activity?.temporaryRoom === "preview_closing",
+    reactionOpen: stats?.activity?.temporaryRoom === "post_match_open" || stats?.activity?.temporaryRoom === "post_match_closing",
+    summaryReady: stats?.activity?.hasSummaryReady,
+    hasLiveStatus: timelinePhase === "live",
+  })
+  return (
+    <div className="space-y-4">
+      <div className="rounded-[24px] border border-white/10 bg-background/45 p-4">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">Match</p>
+        <h3 className="mt-2 text-lg font-bold">{getMatchTitle(fixture)}</h3>
+        <div className="mt-4 flex items-center justify-between rounded-2xl bg-black/20 p-3">
+          <span className="text-sm text-muted-foreground">{getStatusLabel(fixture.status, fixture.isFinished)}</span>
+          <span className="rounded-xl bg-primary px-3 py-1 text-lg font-black text-primary-foreground">{getScoreLabel(fixture)}</span>
+        </div>
+        <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+          <p>เวลา: {fixture.dateThai || "-"}</p>
+          <p>สนาม: {fixture.venue || "-"}</p>
+          <p>{stats?.followers || 0} ผู้ติดตาม · {stats?.discussions || 0} โพสต์เดิม</p>
+        </div>
+      </div>
+
+      <div className="rounded-[24px] border border-primary/20 bg-primary/8 p-4">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-bold">Match Activity</h3>
+          <Badge variant="outline" className="rounded-full border-primary/25 text-primary">{timelinePhase === "live" ? "LIVE HUB" : timelinePhase === "full_time" ? "FULL TIME" : "PRE MATCH"}</Badge>
+        </div>
+        {timelineSignals.length ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {timelineSignals.map((label) => (
+              <Badge key={label} variant="outline" className="rounded-full border-white/10 bg-background/45 text-[10px] text-muted-foreground">{label}</Badge>
+            ))}
+          </div>
+        ) : null}
+        <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+          <div className="rounded-2xl border border-white/10 bg-background/45 p-3">
+            <p className="text-xs text-muted-foreground">Messages</p>
+            <p className="mt-1 text-lg font-bold">{stats?.newRoomMessageCount || stats?.discussions || 0}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-background/45 p-3">
+            <p className="text-xs text-muted-foreground">Threads</p>
+            <p className="mt-1 text-lg font-bold">{stats?.discussions || 0}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-background/45 p-3">
+            <p className="text-xs text-muted-foreground">Polls</p>
+            <p className="mt-1 text-lg font-bold">{stats?.polls || 0}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-background/45 p-3">
+            <p className="text-xs text-muted-foreground">Active Fans</p>
+            <p className="mt-1 text-lg font-bold">{stats?.followers || 0}</p>
+          </div>
+        </div>
+        <p className="mt-3 text-xs leading-5 text-muted-foreground">
+          Latest Activity: {stats?.latestRoomActivityAt || stats?.latestActivityAt ? new Date(stats.latestRoomActivityAt || stats.latestActivityAt || "").toLocaleString("th-TH") : "-"}
+        </p>
+      </div>
+
+      <div className="rounded-[24px] border border-white/10 bg-background/45 p-4">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-bold">Poll</h3>
+          {timelinePhase === "pre_match" || timelinePhase === "full_time" ? <Badge variant="outline" className="rounded-full border-primary/25 text-primary">{timelinePhase === "full_time" ? "Results" : "Pre-match"}</Badge> : null}
+          <Button type="button" variant="ghost" onClick={() => onOpenView("polls")} className="h-8 rounded-full px-3 text-xs">เปิด</Button>
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">{polls[0]?.poll?.question || MATCH_HUB_EMPTY_STATES.polls}</p>
+      </div>
+
+      <div className="rounded-[24px] border border-white/10 bg-background/45 p-4">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-bold">AI Summary</h3>
+          {timelinePhase === "full_time" ? <Badge variant="outline" className="rounded-full border-primary/25 text-primary">Priority</Badge> : null}
+          <Button type="button" variant="ghost" onClick={() => onOpenView("summary")} className="h-8 rounded-full px-3 text-xs">อ่าน</Button>
+        </div>
+        <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">{data?.summary?.headline || data?.summary?.shortSummary || MATCH_HUB_EMPTY_STATES.summary}</p>
+      </div>
+
+      <div className="rounded-[24px] border border-white/10 bg-background/45 p-4">
+        <h3 className="font-bold">Pinned tactical thread</h3>
+        {pinnedThread ? (
+          <Link href={`/community/matches/${fixture.id}/threads/${pinnedThread.id}`} className="mt-2 block text-sm text-muted-foreground transition hover:text-primary">
+            {pinnedThread.title}
+          </Link>
+        ) : (
+          <p className="mt-2 text-sm text-muted-foreground">ยังไม่มีหัวข้อที่ปักหมุด</p>
+        )}
+      </div>
+
+      <div className="rounded-[24px] border border-primary/20 bg-primary/8 p-4">
+        <h3 className="font-bold">กติกาห้อง</h3>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">คุยเรื่องเกมนี้ได้เต็มที่ เคารพกัน ไม่สแปม ไม่โปรโมตพนัน และข้อความยังผ่าน moderation เดิมของ Community</p>
+      </div>
+    </div>
+  )
+}
+
+function MessageSkeletonList() {
+  return (
+    <div className="space-y-4">
+      {[0, 1, 2, 3].map((item) => (
+        <div key={item} className="flex gap-3 rounded-2xl px-2 py-2">
+          <div className="h-10 w-10 rounded-full bg-white/10" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-40 rounded-full bg-white/10" />
+            <div className="h-4 w-3/4 rounded-full bg-white/8" />
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
