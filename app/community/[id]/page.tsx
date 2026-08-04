@@ -251,12 +251,13 @@ export default function CommunityPostDetailPage() {
         headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           title: `แชร์ต่อ: ${post.title}`,
-          content: `ยกโพสต์นี้มาคุยต่อในฟีด\n\nลิงก์โพสต์: ${window.location.origin}/community/${post.id}`,
+          content: `ยกโพสต์นี้มาคุยต่อในฟีด\n\nลิงก์โพสต์: ${window.location.origin}/community/${referenceId}`,
           category: "general",
           sharedItem: {
             type: "post",
             title: post.title,
-            url: `${window.location.origin}/community/${post.id}`,
+            description: post.excerpt || String(post.content || "").slice(0, 120),
+            url: `${window.location.origin}/community/${referenceId}`,
             image: Array.isArray(post.images) ? post.images[0] || "" : "",
             source: post.author?.name || "",
             postId: referenceId,
