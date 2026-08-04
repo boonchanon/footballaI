@@ -1,5 +1,7 @@
 import { randomUUID } from "crypto"
-import { access, copyFile, mkdir, readFile, rename, rm, writeFile } from "fs/promises"
+import { copyFile, mkdir, readFile, rename, rm, writeFile } from "fs/promises"
+import { existsSync } from "fs"
+import os from "os"
 import path from "path"
 
 const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"])
@@ -19,16 +21,28 @@ function sanitizeStoredName(filename: string) {
   return `${randomUUID()}${sanitizeExtension(filename, ".bin")}`
 }
 
-function getPendingStorageRoot() {
-  return process.env.COMMUNITY_PENDING_STORAGE_DIR?.trim() || path.join(process.cwd(), "storage", "community-moderation", "pending")
+async function getPendingStorageRoot() {
+  if (process.env.COMMUNITY_PENDING_STORAGE_DIR?.trim()) {
+    return process.env.COMMUNITY_PENDING_STORAGE_DIR.trim()
+  }
+  const defaultPath = path.join(process.cwd(), "storage", "community-moderation", "pending")
+  return existsSync(defaultPath) ? defaultPath : path.join(os.tmpdir(), "community-moderation", "pending")
 }
 
 function getProcessingStorageRoot() {
-  return path.join(process.cwd(), "storage", "community-moderation", "processing")
+  if (process.env.COMMUNITY_PROCESSING_STORAGE_DIR?.trim()) {
+    return process.env.COMMUNITY_PROCESSING_STORAGE_DIR.trim()
+  }
+  const defaultPath = path.join(process.cwd(), "storage", "community-moderation", "processing")
+  return existsSync(defaultPath) ? defaultPath : path.join(os.tmpdir(), "community-moderation", "processing")
 }
 
 function getApprovedStorageRoot() {
-  return path.join(process.cwd(), "public", "uploads", "community")
+  if (process.env.COMMUNITY_APPROVED_STORAGE_DIR?.trim()) {
+    return process.env.COMMUNITY_APPROVED_STORAGE_DIR.trim()
+  }
+  const defaultPath = path.join(process.cwd(), "public", "uploads", "community")
+  return existsSync(defaultPath) ? defaultPath : path.join(os.tmpdir(), "community-moderation", "approved")
 }
 
 function resolveSafePath(baseDir: string, relativeKey: string) {
