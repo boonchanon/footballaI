@@ -31,6 +31,7 @@ writeFileSync(
       },
       files: [
         "lib/admin-access.ts",
+        "lib/match-demo-override.ts",
         "lib/server/community-room-conversation.ts",
         "lib/server/admin-community-match-rooms.ts",
         "tests/admin-match-rooms.test.ts",

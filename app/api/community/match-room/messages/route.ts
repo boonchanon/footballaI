@@ -1,9 +1,12 @@
 import { NextRequest } from "next/server"
 
 import { canManageCommunityAdmin } from "@/lib/admin-access"
+import { getMatchDemoRoomAvailabilityPhase } from "@/lib/match-demo-override"
 import { getAuthUser, requireAuthUser } from "@/lib/server/auth"
 import { canViewerSeeModeratedContent } from "@/lib/server/community"
-import { buildMatchContext, getMatchRoomFixture } from "@/lib/server/community-match-room"
+import { buildMatchContext, getMatchRoomFixture, normalizeMatchRoomId } from "@/lib/server/community-match-room"
+import { getMatchDemoOverrideState } from "@/lib/server/community-match-demo-override"
+import { buildTacticalTopicTag, extractTacticalTopicFromTags, normalizeTacticalQuickTopic } from "@/lib/match-tactical-room-ui"
 import { buildTeamPreviewLoungeTag, buildTeamReactionLoungeTag, normalizeTeamPreviewSide, normalizeTeamReactionSide } from "@/lib/match-preview-lounges"
 import {
   buildRoomMessageMetadata,
@@ -63,12 +66,14 @@ function mapRoomMessage(message: any, viewer: any) {
   const reactionTeam = Array.isArray(message.tags)
     ? normalizeTeamReactionSide(message.tags.find((tag: unknown) => String(tag || "").startsWith("match-post-match:"))?.toString().replace("match-post-match:", ""))
     : null
+  const tacticalTopic = extractTacticalTopicFromTags(message.tags)
   return {
     id: message._id.toString(),
     matchId: message.matchId || "",
     roomType: message.roomType || "main",
     previewTeam: previewTeam || "",
     reactionTeam: reactionTeam || "",
+    tacticalTopic: tacticalTopic || "",
     contentType: message.contentType || "room_message",
     content: message.content || "",
     replyToId: message.replyToPost?.toString?.() || "",
@@ -105,11 +110,13 @@ function buildReactionLoungeFilter(roomType: string, reactionTeam: unknown) {
   return side ? { tags: buildTeamReactionLoungeTag(side) } : { tags: "__missing-post-match-lounge__" }
 }
 
-function buildRoomTeamLoungeTags(roomType: string, input: { previewTeam?: unknown; reactionTeam?: unknown }) {
+function buildRoomTeamLoungeTags(roomType: string, input: { previewTeam?: unknown; reactionTeam?: unknown; tacticalTopic?: unknown }) {
   const previewTeam = normalizeTeamPreviewSide(input.previewTeam)
   const reactionTeam = normalizeTeamReactionSide(input.reactionTeam)
+  const tacticalTopicTag = buildTacticalTopicTag(input.tacticalTopic)
   if (roomType === "preview" && previewTeam) return [buildTeamPreviewLoungeTag(previewTeam)]
   if (roomType === "post_match" && reactionTeam) return [buildTeamReactionLoungeTag(reactionTeam)]
+  if (roomType === "tactics" && tacticalTopicTag) return [tacticalTopicTag]
   return []
 }
 
@@ -126,25 +133,28 @@ async function getManualTemporaryRoomAction(matchId: string, roomType: string) {
 }
 
 export async function GET(request: NextRequest) {
+  const requestId = crypto.randomUUID()
   try {
     await connectDatabase()
     const viewer = await getAuthUser(request)
     const searchParams = request.nextUrl.searchParams
-    const matchId = String(searchParams.get("matchId") || "").trim()
+    const matchId = normalizeMatchRoomId(searchParams.get("matchId"))
     const roomType = normalizeMatchRoomType(searchParams.get("roomType") || "main")
     const previewTeam = normalizeTeamPreviewSide(searchParams.get("previewTeam"))
     const reactionTeam = normalizeTeamReactionSide(searchParams.get("reactionTeam"))
     const { page, limit, skip } = parsePagination(searchParams)
     const canModerate = canManageCommunityAdmin(viewer?.role)
 
-    if (!matchId) return errorResponse("Match not found", 404)
+    if (!matchId) return errorResponse("Match not found", 404, { code: "MATCH_NOT_FOUND", requestId })
     if (!roomType) return errorResponse("Invalid room type", 422)
     const fixture = await getMatchRoomFixture(matchId)
-    if (!fixture || fixture.id !== matchId) return errorResponse("Match not found", 404)
-    const room = getRoomState(fixture, roomType)
+    if (!fixture || normalizeMatchRoomId(fixture.id) !== matchId) return errorResponse("Match not found", 404, { code: "MATCH_NOT_FOUND", requestId })
+    const demoOverride = await getMatchDemoOverrideState(matchId, fixture)
+    const roomAvailabilityPhase = getMatchDemoRoomAvailabilityPhase(demoOverride)
+    const room = getRoomState(fixture, roomType, new Date(), roomAvailabilityPhase)
     const manualRoomAction = await getManualTemporaryRoomAction(matchId, roomType)
-    if (manualRoomAction?.action === "room_manual_archive" && !canModerate) return errorResponse("Room unavailable", 403, { code: "ROOM_UNAVAILABLE", room })
-    if (!canReadRoom(fixture, roomType, new Date(), viewer?.role)) return errorResponse("Room unavailable", 403, { code: "ROOM_UNAVAILABLE", room })
+    if (!demoOverride.enabled && manualRoomAction?.action === "room_manual_archive" && !canModerate) return errorResponse("Room unavailable", 403, { code: "ROOM_UNAVAILABLE", room })
+    if (!canReadRoom(fixture, roomType, new Date(), viewer?.role, roomAvailabilityPhase)) return errorResponse("Room unavailable", 403, { code: "ROOM_UNAVAILABLE", room })
 
     const filter = {
       matchId,
@@ -167,36 +177,49 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load room messages"
-    return errorResponse(message, message === "Authentication required" ? 401 : 500)
+    const status = message === "Authentication required" ? 401 : 500
+    console.error("[match-room-messages] load failed", {
+      requestId,
+      code: "MESSAGE_LOAD_ERROR",
+      message,
+    })
+    return errorResponse(status === 401 ? message : "โหลดข้อความไม่สำเร็จ", status, { code: status === 401 ? "AUTHENTICATION_REQUIRED" : "MESSAGE_LOAD_ERROR", requestId })
   }
 }
 
 export async function POST(request: NextRequest) {
+  const requestId = crypto.randomUUID()
   try {
     await connectDatabase()
     const user = await requireAuthUser(request)
     await assertCommunityPostingAllowed(user._id.toString())
     const body = await request.json()
-    const matchId = String(body.matchId || "").trim()
+    const matchId = normalizeMatchRoomId(body.matchId)
     const roomType = normalizeMatchRoomType(body.roomType || "main")
     const previewTeam = normalizeTeamPreviewSide(body.previewTeam)
     const reactionTeam = normalizeTeamReactionSide(body.reactionTeam)
+    const tacticalTopicInput = String(body.tacticalTopic || "").trim()
+    const tacticalTopic = normalizeTacticalQuickTopic(tacticalTopicInput)
     const content = String(body.content || "").trim()
     const replyToId = typeof body.replyToId === "string" ? body.replyToId.trim() : ""
     const imageMediaIds = parseMediaIdList(body.imageMediaIds || body.mediaIds, 4)
     const videoMediaIds = parseMediaIdList(body.videoMediaIds, 1)
 
-    if (!matchId) return errorResponse("Match not found", 404)
+    if (!matchId) return errorResponse("Match not found", 404, { code: "MATCH_NOT_FOUND", requestId })
     if (!roomType) return errorResponse("Invalid room type", 422)
     if (roomType === "preview" && !previewTeam) return errorResponse("Invalid preview lounge", 422)
     if (roomType === "post_match" && !reactionTeam) return errorResponse("Invalid reaction lounge", 422)
+    if (roomType !== "tactics" && tacticalTopicInput) return errorResponse("Invalid tactical topic", 422)
+    if (roomType === "tactics" && tacticalTopicInput && !tacticalTopic) return errorResponse("Invalid tactical topic", 422)
     if (!content || content.length > 1000) return errorResponse("Validation failed", 422)
 
     const fixture = await getMatchRoomFixture(matchId)
-    if (!fixture || fixture.id !== matchId) return errorResponse("Match not found", 404)
-    const room = getRoomState(fixture, roomType)
+    if (!fixture || normalizeMatchRoomId(fixture.id) !== matchId) return errorResponse("Match not found", 404, { code: "MATCH_NOT_FOUND", requestId })
+    const demoOverride = await getMatchDemoOverrideState(matchId, fixture)
+    const roomAvailabilityPhase = getMatchDemoRoomAvailabilityPhase(demoOverride)
+    const room = getRoomState(fixture, roomType, new Date(), roomAvailabilityPhase)
     const manualRoomAction = await getManualTemporaryRoomAction(matchId, roomType)
-    if (manualRoomAction) return errorResponse("Room is closed for new messages", 403, { code: "ROOM_CLOSED", room, moveTargetRoom: "main" })
+    if (!demoOverride.enabled && manualRoomAction) return errorResponse("Room is closed for new messages", 403, { code: "ROOM_CLOSED", room, moveTargetRoom: "main" })
     if (!room.canPost) return errorResponse("Room is closed for new messages", 403, { code: "ROOM_CLOSED", room, moveTargetRoom: "main" })
 
     const replyTo = replyToId
@@ -277,13 +300,13 @@ export async function POST(request: NextRequest) {
         reasons: hasPendingMedia ? [...new Set([...(moderation.reasons || []), "media:pending-review"])] : moderation.reasons,
         metadata: {
           ...(moderation.metadata || {}),
-          roomMessage: { matchId, roomType, previewTeam: previewTeam || "", reactionTeam: reactionTeam || "", replyToId: replyToId || "" },
+          roomMessage: { matchId, roomType, previewTeam: previewTeam || "", reactionTeam: reactionTeam || "", tacticalTopic: tacticalTopic || "", replyToId: replyToId || "" },
           attachedMedia: { imageMediaIds, videoMediaIds, hasPendingMedia },
         },
       },
       replyToPost: replyTo?._id || null,
       ...metadata,
-      tags: buildRoomTeamLoungeTags(roomType, { previewTeam, reactionTeam }),
+      tags: buildRoomTeamLoungeTags(roomType, { previewTeam, reactionTeam, tacticalTopic }),
     })
 
     const attachedRecords = [...imageAttachments.records, ...videoAttachments.records].filter(Boolean)
@@ -300,7 +323,7 @@ export async function POST(request: NextRequest) {
       reasons: message.moderation?.reasons || moderation.reasons,
       scores: moderation.scores,
       provider: moderation.provider,
-      metadata: { matchId, roomType, previewTeam: previewTeam || "", reactionTeam: reactionTeam || "", replyToId, imageMediaIds, videoMediaIds },
+      metadata: { matchId, roomType, previewTeam: previewTeam || "", reactionTeam: reactionTeam || "", tacticalTopic: tacticalTopic || "", replyToId, imageMediaIds, videoMediaIds },
     })
 
     if (finalModerationStatus === "pending_review") {
@@ -316,6 +339,11 @@ export async function POST(request: NextRequest) {
     return ok({ item: mapRoomMessage(populated, user), moderationStatus: finalModerationStatus }, { status: 201 })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to create room message"
+    console.error("[match-room-messages] create failed", {
+      requestId,
+      code: "MESSAGE_LOAD_ERROR",
+      message,
+    })
     return errorResponse(
       message,
       message === "Authentication required"
@@ -323,6 +351,7 @@ export async function POST(request: NextRequest) {
         : message.includes("attachments") || message.includes("selected") || message.includes("already linked")
           ? 422
           : 500,
+      { code: "MESSAGE_LOAD_ERROR", requestId },
     )
   }
 }

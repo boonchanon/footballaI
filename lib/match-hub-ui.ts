@@ -8,6 +8,15 @@ export type MatchHubRoomType = "main" | "tactics" | "preview" | "post_match"
 export type MatchHubRoomState = "unavailable" | "upcoming" | "open" | "closing" | "closed" | "archived"
 export type MatchHubDisplayState = "upcoming" | "live" | "finished" | "postponed" | "cancelled" | "closed"
 export type MatchHubConversationRoomId = MatchHubRoomType | "preview_home" | "preview_away" | "post_match_home" | "post_match_away"
+export type MatchHubErrorView = "loading" | "ready" | "not_found" | "transient_error"
+export type MatchHubCommunityPulse = {
+  messages: number
+  threads: number
+  polls: number
+  fans: number
+  highlights: number
+  hasSummary: boolean
+}
 
 const FINISHED_STATUSES = new Set(["FT", "AET", "PEN", "FINISHED", "MATCH FINISHED"])
 const LIVE_STATUSES = new Set(["1H", "2H", "HT", "ET", "BT", "P", "SUSP", "INT", "LIVE", "IN PROGRESS"])
@@ -95,4 +104,53 @@ export function getFavoriteTeamRecommendedRoom(input: {
   if (input.isFinished && input.postMatchCanRead) return "post_match"
   if (input.previewCanRead || input.previewState === "upcoming") return "preview"
   return "main"
+}
+
+export function getMatchHubErrorView(input: { isLoading?: boolean | null; hasFixture?: boolean | null; errorCode?: string | null; hasError?: boolean | null }): MatchHubErrorView {
+  if (input.hasFixture) return input.hasError ? "transient_error" : "ready"
+  if (input.hasError && input.errorCode === "MATCH_NOT_FOUND") return "not_found"
+  if (input.hasError) return "transient_error"
+  return input.isLoading ? "loading" : "not_found"
+}
+
+function positiveNumber(value: unknown) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0
+}
+
+export function buildMatchHubCommunityPulse(input: {
+  messages?: unknown
+  threads?: unknown
+  polls?: unknown
+  fans?: unknown
+  highlights?: unknown
+  summaryStatus?: string | null
+}): MatchHubCommunityPulse {
+  const summaryStatus = String(input.summaryStatus || "").trim()
+  return {
+    messages: positiveNumber(input.messages),
+    threads: positiveNumber(input.threads),
+    polls: positiveNumber(input.polls),
+    fans: positiveNumber(input.fans),
+    highlights: positiveNumber(input.highlights),
+    hasSummary: summaryStatus === "generated" || summaryStatus === "template",
+  }
+}
+
+export function getMatchHubFanMomentumLabel(pulse: MatchHubCommunityPulse) {
+  const score = pulse.messages + pulse.threads * 2 + pulse.polls * 2 + pulse.fans + pulse.highlights
+  if (score >= 50) return "High community momentum"
+  if (score >= 12) return "Community is warming up"
+  if (score > 0) return "Early fan voices"
+  return "Waiting for the first fan"
+}
+
+export function getMatchHubMilestones(pulse: MatchHubCommunityPulse) {
+  const milestones: string[] = []
+  if (pulse.messages > 0) milestones.push(`${pulse.messages} ${pulse.messages === 1 ? "message" : "messages"}`)
+  if (pulse.threads > 0) milestones.push(`${pulse.threads} ${pulse.threads === 1 ? "thread" : "threads"}`)
+  if (pulse.polls > 0) milestones.push(`${pulse.polls} ${pulse.polls === 1 ? "poll" : "polls"}`)
+  if (pulse.highlights > 0) milestones.push(`${pulse.highlights} match ${pulse.highlights === 1 ? "highlight" : "highlights"}`)
+  if (pulse.hasSummary) milestones.push("AI summary ready")
+  return milestones
 }

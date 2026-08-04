@@ -5,6 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 import useSWR from "swr"
 import {
+  ArrowLeft,
   Bell,
   Bookmark,
   Clock,
@@ -13,6 +14,8 @@ import {
   ExternalLink,
   Eye,
   Flag,
+  Hash,
+  Home,
   ImagePlus,
   Loader2,
   MessageCircle,
@@ -25,6 +28,7 @@ import {
   Repeat2,
   Search,
   Send,
+  SlidersHorizontal,
   Sparkles,
   Trash2,
   Trophy,
@@ -56,7 +60,17 @@ import { useToast } from "@/hooks/use-toast"
 import { fetchJson } from "@/lib/api-client"
 import { useAuthSession } from "@/hooks/use-auth-session"
 import { cn } from "@/lib/utils"
-import { CommunityMatchCardsSection } from "@/components/community-match-rooms"
+import {
+  COMMUNITY_FEED_UI_TEXT,
+  COMMUNITY_FEED_UI_TOKENS,
+  buildCommunityHeroMetrics,
+  deriveCommunityTrendingTopics,
+  getCommunityFixturePhase,
+  getCommunityFixtureScoreLabel,
+  getCommunityFixtureStatusLabel,
+  selectCommunityHeroFixture,
+  shouldShowCommunityFixtureScore,
+} from "@/lib/community-feed-ui"
 
 type CommunityPostMedia = {
   id: string
@@ -423,8 +437,8 @@ const categoryGroups = [
 const feedTabs = [
   { id: "for-you", label: "สำหรับคุณ", description: "จัดเรียงจากทีม นักเตะ และประเภทโพสต์ที่คุณชอบ" },
   { id: "latest", label: "ล่าสุด", description: "โพสต์ใหม่ล่าสุดในคอมมูนิตี้" },
-  { id: "favorites", label: "ทีมโปรด", description: "โพสต์ที่เกี่ยวข้องกับทีมโปรดของคุณ" },
-  { id: "trending", label: "กำลังเป็นที่นิยม", description: "โพสต์ที่มี engagement สูงในช่วงนี้" },
+  { id: "favorites", label: "กำลังติดตาม", description: "โพสต์ที่เกี่ยวข้องกับทีมโปรดของคุณผ่าน feed=favorites เดิม" },
+  { id: "trending", label: "ยอดนิยม", description: "โพสต์ที่มี engagement สูงในช่วงนี้" },
 ] as const
 
 type FeedTab = (typeof feedTabs)[number]["id"]
@@ -454,18 +468,18 @@ function isAuthenticationError(error: unknown) {
 function actionButtonClass(active = false, tone: "primary" | "danger" = "primary") {
   if (tone === "danger") {
     return cn(
-      "inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-background/70 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-all disabled:pointer-events-none disabled:opacity-60 sm:px-3 sm:py-1.5 sm:text-xs",
+      "inline-flex items-center gap-1.5 rounded-[10px] px-2 py-1 text-[12px] font-medium text-muted-foreground transition-all disabled:pointer-events-none disabled:opacity-60",
       active
         ? "border-destructive/40 bg-destructive/10 text-destructive"
-        : "hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive",
+        : "hover:bg-destructive/10 hover:text-destructive",
     )
   }
 
   return cn(
-    "inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-background/70 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-all disabled:pointer-events-none disabled:opacity-60 sm:px-3 sm:py-1.5 sm:text-xs",
+    "inline-flex items-center gap-1.5 rounded-[10px] px-2 py-1 text-[12px] font-medium text-muted-foreground transition-all disabled:pointer-events-none disabled:opacity-60",
     active
       ? "border-primary/40 bg-primary/10 text-primary"
-      : "hover:border-primary/40 hover:bg-primary/10 hover:text-primary",
+      : "hover:bg-primary/10 hover:text-primary",
   )
 }
 
@@ -641,7 +655,7 @@ export default function CommunityPage() {
     return `/community/posts?${params.toString()}`
   }, [feedTab, searchQuery, selectedCategory])
 
-  const { data, isLoading, mutate } = useSWR<{ items: CommunityPost[]; stats: Record<string, number> }>(
+  const { data, error: feedError, isLoading, mutate } = useSWR<{ items: CommunityPost[]; stats: Record<string, number> }>(
     token ? [query, token] : query,
     (key: string | [string, string]) => {
       if (Array.isArray(key)) {
@@ -666,7 +680,7 @@ export default function CommunityPage() {
     { shouldRetryOnError: false },
   )
   const matchRoomQuery = selectedMatchId ? `/community/match-room?matchId=${encodeURIComponent(selectedMatchId)}` : "/community/match-room"
-  const { data: matchRoomData, mutate: mutateMatchRoom } = useSWR<MatchRoomResponse>(
+  const { data: matchRoomData, error: matchRoomError, mutate: mutateMatchRoom } = useSWR<MatchRoomResponse>(
     token ? [matchRoomQuery, token] : matchRoomQuery,
     (key: string | [string, string]) => {
       if (Array.isArray(key)) {
@@ -718,7 +732,7 @@ export default function CommunityPage() {
       }),
     { refreshInterval: 4000, shouldRetryOnError: false },
   )
-  const { data: storiesData, mutate: mutateStories } = useSWR(
+  const { data: storiesData, error: storiesError, mutate: mutateStories } = useSWR(
     token ? ["/community/stories", token] : "/community/stories",
     (key: string | [string, string]) => {
       if (Array.isArray(key)) {
@@ -742,17 +756,19 @@ export default function CommunityPage() {
   const matchRoomFixture = matchRoomData?.fixture || null
   const matchRoomFixtures = matchRoomData?.fixtures || []
   const matchRoomPosts = matchRoomData?.posts || []
+  const heroFixture = selectCommunityHeroFixture(matchRoomFixtures, matchRoomFixture)
+  const heroPhase = getCommunityFixturePhase(heroFixture)
+  const heroMetrics = buildCommunityHeroMetrics({ roomStats: matchRoomData?.roomStats, posts: matchRoomPosts })
+  const trendingTopics = deriveCommunityTrendingTopics(posts)
+  const heroMediaUrl = posts.find((post) => (post.images || []).length)?.images?.[0] || matchRoomPosts.find((post) => (post.images || []).length)?.images?.[0] || ""
   const canCreateMatchRoomPoll = Boolean(matchRoomFixture?.isFinished)
   const storyGroups = storiesData?.items || []
   const activeStoryGroup = storyGroups[activeStoryGroupIndex] || null
   const stats = data?.stats || { total: 0 }
-  const totalUnreadMessages = notifications?.unreadMessages || 0
   const unreadActivityCount = notifications?.unreadActivity || 0
   const activityNotifications = notifications?.activity || []
-  const friendCount = socialData?.friends?.length || 0
   const incomingRequests = socialData?.requests?.incoming || []
   const suggestedPeople = socialData?.suggestions || []
-  const topConversations = socialData?.conversations?.slice(0, 4) || []
   const preferenceOptions = preferencesData?.options
   const hasPreferences = Boolean(
     preferencesData?.preferences.favoriteTeamIds.length ||
@@ -1695,9 +1711,11 @@ export default function CommunityPage() {
     try {
       const imageMediaIds = uploadedImages.map((item) => item.id)
       const videoMediaIds = uploadedVideos.map((item) => item.id)
+      const postMatchId = selectedMatchId && matchRoomFixture?.id === selectedMatchId ? selectedMatchId : ""
       logCommunityDebug("post-create:payload", {
         title,
         category,
+        matchId: postMatchId,
         imageMediaIds,
         videoMediaIds,
         teamIds: selectedPostTeamIds,
@@ -1712,7 +1730,7 @@ export default function CommunityPage() {
           title,
           content,
           category,
-          matchId: selectedMatchId,
+          matchId: postMatchId,
           imageMediaIds,
           videoMediaIds,
           teamIds: selectedPostTeamIds,
@@ -2440,43 +2458,56 @@ export default function CommunityPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="px-3 pb-8 pt-4 sm:px-4 sm:pt-5 lg:px-6">
-        <div className="mx-auto max-w-[1440px] overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,#1e1e20_0%,#151517_100%)] shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
-          <div className="flex flex-wrap items-center gap-4 border-b border-white/10 px-5 py-4 lg:px-7">
-            <Link href="/" className="inline-flex h-10 items-center gap-2 rounded-full border border-white/10 bg-background/60 px-4 text-sm font-medium text-muted-foreground transition hover:border-primary/40 hover:bg-primary/10 hover:text-primary">
-              <span aria-hidden="true">←</span>
-              กลับหน้าแรก
+    <div className={cn("min-h-screen text-foreground", COMMUNITY_FEED_UI_TOKENS.page)}>
+      <div className="pb-8">
+        <div className={cn("mx-auto min-h-screen max-w-[1440px] overflow-hidden bg-[linear-gradient(180deg,#05090b_0%,#080d0f_48%,#050708_100%)] shadow-[0_24px_90px_rgba(0,0,0,0.48)]", COMMUNITY_FEED_UI_TOKENS.shell)}>
+          <div className="sticky top-0 z-30 flex min-h-[72px] flex-wrap items-center gap-4 border-b border-white/[0.07] bg-[#05090b]/96 px-5 py-3 backdrop-blur lg:px-7">
+            <Link href="/" className="inline-flex items-center gap-2 rounded-full text-xl font-display font-semibold tracking-tight text-foreground transition hover:text-primary" aria-label="กลับหน้าแรก FootballAI">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/5">
+                <Trophy className="h-4 w-4 text-primary" />
+              </span>
+              Football<span className="text-primary">AI</span>
+            </Link>
+            <Link
+              href="/"
+              className="inline-flex h-10 items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 text-sm font-medium text-muted-foreground transition hover:border-primary/30 hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              aria-label="ย้อนกลับหน้า Home"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Home</span>
             </Link>
 
-            <div className="text-[30px] font-display font-semibold tracking-tight text-foreground">FootballAI</div>
-
-            <div className="relative min-w-[220px] flex-1">
+            <div className="relative min-w-[220px] flex-1 lg:max-w-[430px]">
               <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search community..."
-                className="h-11 rounded-full border-white/10 bg-background/70 pl-11 text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-primary/40"
+                placeholder={COMMUNITY_FEED_UI_TEXT.searchPlaceholder}
+                className="h-11 rounded-[18px] border-white/10 bg-[#0b1114] pl-11 pr-12 text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-primary/40"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
+                aria-label="ค้นหาใน Community Feed"
               />
             </div>
 
             <div className="hidden items-center gap-2 lg:flex">
-              <Link href="/community" className="inline-flex h-10 items-center gap-2 rounded-full bg-primary/15 px-4 text-sm font-medium text-primary">
-                <Users className="h-4 w-4" />
-                Feed
+              <Link
+                href="/worldcup-2026/predictions/payment"
+                className="inline-flex h-11 items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 text-sm font-semibold text-primary transition hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                aria-label="ซื้อ Plus และเติมเงิน"
+              >
+                <Sparkles className="h-4 w-4" />
+                ซื้อ Plus
               </Link>
-              <Link href="/community/matches" className="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-medium text-muted-foreground transition hover:bg-primary/10 hover:text-primary">
-                <Trophy className="h-4 w-4" />
-                Match Rooms
-              </Link>
-              <Link href="/community/messages" className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition hover:bg-primary/10 hover:text-primary">
-                <MessageSquare className="h-4 w-4" />
-              </Link>
-              <Link href="/community/my-posts" className="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-medium text-muted-foreground transition hover:bg-primary/10 hover:text-primary">
-                <Clock className="h-4 w-4" />
-                โพสต์ของฉัน
-              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreatePost(true)
+                  setComposerTool("general")
+                }}
+                className="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-6 text-sm font-semibold text-primary-foreground shadow-[0_10px_28px_rgba(34,197,94,0.28)] transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              >
+                <Plus className="h-4 w-4" />
+                สร้าง
+              </button>
               <button
                 type="button"
                 onClick={() => void handleOpenNotificationsDialog()}
@@ -2488,6 +2519,15 @@ export default function CommunityPage() {
                   <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary" />
                 ) : null}
               </button>
+              <Link href="/community/messages" className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition hover:bg-primary/10 hover:text-primary" aria-label="เปิดข้อความ">
+                <MessageSquare className="h-4 w-4" />
+              </Link>
+              <Link href="/profile" className="inline-flex items-center gap-2 rounded-full pl-1 pr-2 text-muted-foreground transition hover:bg-primary/10 hover:text-primary" aria-label="เปิดโปรไฟล์">
+                <Avatar className="h-10 w-10 border border-white/10">
+                  <AvatarImage src={user?.avatar || "/placeholder-user.jpg"} />
+                  <AvatarFallback>{user?.name?.charAt(0) || "F"}</AvatarFallback>
+                </Avatar>
+              </Link>
             </div>
           </div>
 
@@ -3352,97 +3392,281 @@ export default function CommunityPage() {
             </DialogContent>
           </Dialog>
 
-          <div className="grid gap-6 bg-[radial-gradient(circle_at_top_left,rgba(184,255,0,0.08),transparent_30%),linear-gradient(180deg,#1b1b1d_0%,#151517_100%)] p-4 lg:p-5 xl:grid-cols-[270px_minmax(0,1fr)_320px]">
-          <aside className="hidden space-y-5 xl:block">
-            <Card className="overflow-hidden rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
-              <div className="relative h-24 bg-[linear-gradient(135deg,rgba(184,255,0,0.22)_0%,rgba(184,255,0,0.08)_45%,rgba(255,255,255,0.06)_100%)]" />
-              <CardContent className="px-5 pb-5">
-                <div className="-mt-10 flex flex-col items-center text-center">
-                  <Avatar className="h-20 w-20 border-4 border-card shadow-md">
-                    <AvatarImage src={user?.avatar || "/placeholder-user.jpg"} />
-                    <AvatarFallback>{user?.name?.charAt(0) || "F"}</AvatarFallback>
-                  </Avatar>
-                  <p className="mt-3 text-lg font-semibold text-foreground">{user?.name || "Football Fan"}</p>
-                  <p className="text-sm text-muted-foreground">@{(user?.name || "footballfan").replace(/\s+/g, "_").toLowerCase()}</p>
-                  {user?.fanProfile?.badges?.length ? (
-                    <div className="mt-3 flex flex-wrap justify-center gap-1.5">
-                      {user.fanProfile.badges.slice(0, 3).map((badge) =>
-                        badge ? (
-                          <Badge key={badge.id} className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary hover:bg-primary/10">
-                            {badge.label}
-                          </Badge>
-                        ) : null,
+          <div className="grid gap-5 bg-[radial-gradient(circle_at_top_left,rgba(34,197,94,0.10),transparent_28%),linear-gradient(180deg,#060b0d_0%,#070b0d_100%)] p-3 lg:grid-cols-[88px_minmax(0,1fr)] lg:p-4 xl:grid-cols-[250px_minmax(0,820px)_280px]">
+          <aside className="hidden lg:block">
+            <div className="sticky top-[88px] space-y-5">
+              <nav aria-label="Community navigation" className="rounded-[10px] border border-white/[0.06] bg-[#071312] p-2 shadow-[0_12px_40px_rgba(0,0,0,0.26)] xl:p-3">
+                {[
+                  { label: "ฟีดคอมมูนิตี้", href: "/community", icon: Home, active: true },
+                  { label: "Match Hub", href: "/community/matches", icon: Trophy },
+                  { label: "กระทู้", href: "/community/matches", icon: MessageSquare },
+                  { label: "โพสต์", href: "/community/my-posts", icon: Clock },
+                  { label: "สตอรี่", action: () => setShowStoryComposer(true), icon: Play },
+                  { label: "แจ้งเตือน", action: () => void handleOpenNotificationsDialog(), icon: Bell, count: notifications?.total || 0 },
+                  { label: "โปรไฟล์", href: "/profile", icon: Users },
+                ].map((item) => {
+                  const Icon = item.icon
+                  const content = (
+                    <>
+                      <span className={cn("inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl", item.active ? "bg-primary/15 text-primary" : "text-muted-foreground")}>
+                        <Icon className="h-5 w-5" />
+                      </span>
+                      <span className="hidden min-w-0 flex-1 truncate text-sm font-medium xl:inline">{item.label}</span>
+                      {item.count ? <span className="hidden rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground xl:inline">{item.count > 99 ? "99+" : item.count}</span> : null}
+                    </>
+                  )
+                  const className = cn(
+                    "relative flex w-full items-center gap-3 rounded-[9px] px-2 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                    item.active ? "bg-primary/20 text-white" : "text-foreground hover:bg-white/[0.055] hover:text-primary",
+                  )
+                  return item.href ? (
+                    <Link key={item.label} href={item.href} className={className} aria-current={item.active ? "page" : undefined}>
+                      {content}
+                    </Link>
+                  ) : (
+                    <button key={item.label} type="button" onClick={item.action} className={className}>
+                      {content}
+                    </button>
+                  )
+                })}
+              </nav>
+
+              <Card className="hidden rounded-[10px] border-white/[0.06] bg-[#071012] shadow-[0_12px_40px_rgba(0,0,0,0.24)] xl:block">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <CardTitle className="text-sm text-foreground">ทีมที่คุณเชียร์</CardTitle>
+                    {token ? (
+                      <button type="button" onClick={() => setShowPreferenceDialog(true)} className="text-xs font-medium text-primary">
+                        แก้ไข
+                      </button>
+                    ) : null}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {(preferencesData?.preferences.favoriteTeams || []).length ? (
+                    preferencesData?.preferences.favoriteTeams.slice(0, 5).map((team) => (
+                      <button
+                        key={team.id}
+                        type="button"
+                        onClick={() => changeFeedTab("favorites")}
+                        className="flex w-full items-center gap-3 rounded-2xl px-2 py-2 text-left text-sm text-foreground transition hover:bg-white/[0.055]"
+                      >
+                        {team.logo ? <Image src={team.logo} alt="" width={28} height={28} className="h-7 w-7 rounded-full" unoptimized /> : <span className="h-7 w-7 rounded-full bg-primary/15" />}
+                        <span className="min-w-0 flex-1 truncate">{team.name}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowPreferenceDialog(true)}
+                      className="w-full rounded-2xl border border-dashed border-white/10 px-3 py-4 text-left text-sm text-muted-foreground transition hover:border-primary/30 hover:text-primary"
+                    >
+                      ตั้งค่าทีมโปรดเพื่อเปิด Feed ทีมโปรด
+                    </button>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="hidden rounded-[10px] border-white/[0.06] bg-[#071012] shadow-[0_12px_40px_rgba(0,0,0,0.24)] xl:block">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm text-foreground">แนะนำสำหรับคุณ</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {(preferenceOptions?.contentTypes || []).slice(0, 5).map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setSelectedCategory(item.id)}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-2xl px-2 py-2 text-left text-sm transition",
+                        selectedCategory === item.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-white/[0.055] hover:text-foreground",
                       )}
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="mt-5 grid grid-cols-3 gap-3 rounded-3xl bg-background/70 p-3 text-center">
-                  <div>
-                    <p className="text-lg font-semibold text-foreground">{stats.total || 0}</p>
-                    <p className="text-xs text-muted-foreground">Posts</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-semibold text-foreground">{friendCount}</p>
-                    <p className="text-xs text-muted-foreground">Friends</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-semibold text-foreground">{notifications?.pendingFriendRequests || 0}</p>
-                    <p className="text-xs text-muted-foreground">Requests</p>
-                  </div>
-                </div>
-
-                <Link href="/profile" className="mt-5 block">
-                  <Button className="h-11 w-full rounded-full">My Profile</Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            <Card id="community-activity" className="rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base text-foreground">Your shortcuts</CardTitle>
-                  <button type="button" className="text-xs font-medium text-muted-foreground">See all</button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {communityShortcuts.map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() => setSelectedCategory(item.value)}
-                    className={cn(
-                      "flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left transition",
-                      selectedCategory === item.value ? "bg-primary/15 text-primary" : "hover:bg-background/70 text-foreground",
-                    )}
-                  >
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-background/70 text-sm font-semibold text-muted-foreground">
-                      {item.label.slice(0, 1)}
-                    </span>
-                    <span className="text-sm font-medium">{item.label}</span>
-                  </button>
-                ))}
-              </CardContent>
-            </Card>
+                    >
+                      <Hash className="h-4 w-4" />
+                      <span className="truncate">{item.label}</span>
+                    </button>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
           </aside>
 
-          <main className="space-y-5">
-            <Card className="rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
-              <CardContent className="space-y-5 p-4 sm:p-5">
-                <div className="flex gap-3 overflow-x-auto pb-1">
+          <main className="min-w-0 space-y-5">
+            <section aria-label="Match Hub Hero">
+              <Card className="overflow-hidden rounded-[14px] border-white/[0.08] bg-[linear-gradient(135deg,rgba(11,19,18,0.98)_0%,rgba(7,12,14,0.98)_52%,rgba(10,25,18,0.92)_100%)] shadow-[0_18px_60px_rgba(0,0,0,0.34)]">
+                {matchRoomError && !heroFixture ? (
+                  <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-base font-semibold text-foreground">{COMMUNITY_FEED_UI_TEXT.matchHubErrorTitle}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{COMMUNITY_FEED_UI_TEXT.matchHubErrorDescription}</p>
+                    </div>
+                    <Button type="button" variant="outline" onClick={() => void mutateMatchRoom()} className="rounded-full border-white/10">
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Retry
+                    </Button>
+                  </CardContent>
+                ) : !heroFixture ? (
+                  <CardContent className="p-5">
+                    <div className="rounded-[24px] border border-dashed border-white/10 bg-white/[0.03] px-5 py-8 text-center">
+                      <Trophy className="mx-auto mb-3 h-10 w-10 text-primary/70" />
+                      <p className="text-base font-semibold text-foreground">{COMMUNITY_FEED_UI_TEXT.matchHubEmptyTitle}</p>
+                      <p className="mx-auto mt-1 max-w-xl text-sm text-muted-foreground">{COMMUNITY_FEED_UI_TEXT.matchHubEmptyDescription}</p>
+                    </div>
+                  </CardContent>
+                ) : (
+                  <CardContent className="relative min-h-[318px] overflow-hidden p-0">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_15%,rgba(34,197,94,0.16),transparent_30%),radial-gradient(circle_at_12%_90%,rgba(255,255,255,0.06),transparent_24%),linear-gradient(180deg,rgba(3,7,8,0.18)_0%,rgba(3,7,8,0.50)_54%,rgba(3,7,8,0.92)_100%)]" />
+                    {heroMediaUrl ? (
+                      <div className="absolute inset-0 overflow-hidden">
+                        <Image src={heroMediaUrl} alt="" fill className="object-cover opacity-45" unoptimized />
+                        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(3,7,8,0.20)_0%,rgba(3,7,8,0.58)_54%,rgba(3,7,8,0.94)_100%),linear-gradient(90deg,rgba(3,7,8,0.72)_0%,rgba(3,7,8,0.20)_50%,rgba(3,7,8,0.72)_100%)]" />
+                      </div>
+                    ) : null}
+                    <div className="relative flex min-h-[318px] flex-col px-5 py-4 sm:px-7 sm:py-5">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge className={cn("rounded-full px-3 py-1 text-[11px] font-semibold", heroPhase === "live" ? "bg-red-500 text-white hover:bg-red-500" : "bg-primary/15 text-primary hover:bg-primary/15")}>
+                            {getCommunityFixtureStatusLabel(heroFixture)}
+                          </Badge>
+                          <Badge variant="outline" className="rounded-full border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-muted-foreground">
+                            {heroFixture.status}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">Match Hub</span>
+                        </div>
+                        <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-white/10 hover:text-foreground" aria-label="Match Hub menu">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <div className="mt-3 text-left">
+                        <h2 className="truncate text-[28px] font-semibold leading-tight tracking-normal text-foreground sm:text-[32px]">
+                          {heroFixture.homeTeam} vs {heroFixture.awayTeam}
+                        </h2>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {heroFixture.venue || "Match Hub"} {heroFixture.dateThai || heroFixture.kickoff ? <span> • {heroFixture.dateThai || heroFixture.kickoff}</span> : null}
+                        </p>
+                      </div>
+
+                      <div className="mt-5 grid flex-1 items-center gap-4 sm:grid-cols-[1fr_auto_1fr]">
+                        <div className="min-w-0 text-center">
+                          {heroFixture.homeLogo ? <Image src={heroFixture.homeLogo} alt={`${heroFixture.homeTeam} logo`} width={76} height={76} className="mx-auto h-[76px] w-[76px] rounded-full object-contain" unoptimized /> : <span className="mx-auto block h-[76px] w-[76px] rounded-full bg-primary/15" />}
+                          <p className="mt-2 truncate text-sm font-semibold text-foreground">{heroFixture.homeTeam}</p>
+                        </div>
+
+                        <div className="min-w-[170px] text-center">
+                          <p className={cn("font-display text-[52px] font-semibold leading-none tracking-normal sm:text-[58px]", shouldShowCommunityFixtureScore(heroFixture) ? "text-foreground" : "text-primary")}>
+                            {getCommunityFixtureScoreLabel(heroFixture)}
+                          </p>
+                          <p className="mt-2 text-sm font-semibold text-muted-foreground">
+                            {heroPhase === "upcoming" ? "Kickoff" : heroPhase === "live" ? "Live" : "Full Time"}
+                          </p>
+                        </div>
+
+                        <div className="min-w-0 text-center">
+                          {heroFixture.awayLogo ? <Image src={heroFixture.awayLogo} alt={`${heroFixture.awayTeam} logo`} width={76} height={76} className="mx-auto h-[76px] w-[76px] rounded-full object-contain" unoptimized /> : <span className="mx-auto block h-[76px] w-[76px] rounded-full bg-primary/15" />}
+                          <p className="mt-2 truncate text-sm font-semibold text-foreground">{heroFixture.awayTeam}</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 text-center">
+                        <p className="text-sm text-muted-foreground">
+                          {heroMetrics.activity ? `${heroMetrics.activity.toLocaleString()} คนกำลังพูดคุยอยู่ใน Match Hub` : "Match Hub พร้อมสำหรับคอมมูนิตี้ของแมตช์นี้"}
+                        </p>
+                        <Link href={`/community/matches/${heroFixture.id}`} className="mx-auto mt-4 inline-flex h-12 items-center gap-3 rounded-full border border-white/18 bg-black/35 px-9 text-base font-semibold text-foreground transition hover:border-primary/50 hover:bg-primary hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+                          เข้าสู่ Match Hub
+                          <ExternalLink className="h-4 w-4" />
+                        </Link>
+                      </div>
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+              {matchRoomError && heroFixture ? (
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                  <span>Match Hub ใช้ข้อมูลล่าสุดที่โหลดสำเร็จอยู่ แต่ revalidate รอบล่าสุดล้มเหลว</span>
+                  <button type="button" onClick={() => void mutateMatchRoom()} className="font-semibold text-amber-50 underline-offset-4 hover:underline">
+                    Retry
+                  </button>
+                </div>
+              ) : null}
+            </section>
+
+            <div className="flex items-center gap-2 border-b border-white/[0.07]">
+              <div className="flex min-w-0 flex-1 items-center gap-5 overflow-x-auto">
+                {feedTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => changeFeedTab(tab.id)}
+                    className={cn(
+                      "shrink-0 border-b-2 px-1 py-3 text-sm transition",
+                      feedTab === tab.id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+                    )}
+                    aria-pressed={feedTab === tab.id}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex h-9 shrink-0 items-center gap-2 rounded-[10px] border border-white/10 bg-white/[0.045] px-3 text-sm text-muted-foreground transition hover:bg-white/[0.065] hover:text-foreground"
+                    aria-label="ตัวกรอง Feed"
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                    ตัวกรอง
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64 rounded-2xl border-white/10 bg-[#121416] p-2 text-foreground shadow-2xl">
+                  <DropdownMenuItem onSelect={() => setSelectedCategory("all")} className="rounded-xl">
+                    ทั้งหมด
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-white/10" />
+                  {categoryGroups.map((group) => (
+                    <div key={group.title} className="py-1">
+                      <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">{group.title}</p>
+                      {group.ids.map((categoryId) => {
+                        const item = categories.find((categoryItem) => categoryItem.id === categoryId)
+                        if (!item) return null
+                        return (
+                          <DropdownMenuItem key={item.id} onSelect={() => setSelectedCategory(item.id)} className="rounded-xl">
+                            {item.label}
+                          </DropdownMenuItem>
+                        )
+                      })}
+                    </div>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            <Card className="rounded-[14px] border-white/[0.08] bg-transparent shadow-none">
+              <CardContent className="space-y-4 p-0">
+                {storiesError ? (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                    <span>โหลด Stories ไม่สำเร็จ</span>
+                    <button type="button" onClick={() => void mutateStories()} className="font-semibold underline-offset-4 hover:underline">
+                      Retry
+                    </button>
+                  </div>
+                ) : null}
+                <div className="flex gap-2 overflow-x-auto pb-1">
                   <button
                     type="button"
                     onClick={() => setShowStoryComposer(true)}
-                    className="flex min-w-[76px] flex-col items-center gap-2"
+                    className="flex min-h-[134px] min-w-[112px] flex-col items-center justify-center gap-3 rounded-[10px] border border-white/[0.07] bg-white/[0.045] p-3 transition hover:bg-white/[0.065] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                    aria-label="สร้างสตอรี่"
                   >
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed border-primary/50 bg-primary/10 text-primary">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-primary">
                       <Plus className="h-5 w-5" />
                     </div>
-                    <span className="max-w-[76px] truncate text-[11px] font-medium text-muted-foreground">สตอรี่ของคุณ</span>
+                    <span className="max-w-[96px] truncate text-xs font-medium text-foreground">สร้างโพสต์</span>
                   </button>
 
                   {storyGroups.map((group, index) => (
-                    <button key={group.id} type="button" onClick={() => openStoryViewer(index)} className="flex min-w-[76px] flex-col items-center gap-2">
+                    <button key={group.id} type="button" onClick={() => openStoryViewer(index)} className="flex min-h-[134px] min-w-[112px] flex-col items-center justify-center gap-3 rounded-[10px] border border-white/[0.07] bg-white/[0.045] p-3 transition hover:bg-white/[0.065] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
                       <div
                         className={cn(
                           "relative h-16 w-16 overflow-hidden rounded-full border-2 p-0.5 transition-colors",
@@ -3453,14 +3677,19 @@ export default function CommunityPage() {
                           <Image src={getStoryGroupImage(group)} alt={group.author.name} fill className="object-cover" unoptimized />
                         </div>
                       </div>
-                      <span className={cn("max-w-[76px] truncate text-[11px] font-medium", group.hasUnviewed ? "text-foreground" : "text-muted-foreground")}>
+                      <span className={cn("max-w-[96px] truncate text-xs font-medium", group.hasUnviewed ? "text-foreground" : "text-muted-foreground")}>
                         {group.isOwn ? "ฉันเอง" : group.author.name}
                       </span>
                     </button>
                   ))}
+                  {!storyGroups.length && !storiesError ? (
+                    <div className="flex min-h-[134px] min-w-[112px] items-center justify-center rounded-[10px] border border-dashed border-white/10 px-3 text-center text-xs text-muted-foreground">
+                      ยังไม่มี Story
+                    </div>
+                  ) : null}
                 </div>
 
-                <div className="rounded-[26px] border border-white/10 bg-background/40 p-4">
+                <div className="rounded-[14px] border border-white/[0.08] bg-white/[0.035] p-4">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-11 w-11 border border-white/10">
                       <AvatarImage src={user?.avatar || "/placeholder-user.jpg"} />
@@ -3472,20 +3701,20 @@ export default function CommunityPage() {
                         setShowCreatePost((value) => !value)
                         setComposerTool("general")
                       }}
-                      className="flex h-11 flex-1 items-center rounded-full bg-background/70 px-4 text-left text-sm text-muted-foreground transition hover:bg-background"
+                      className="flex h-11 flex-1 items-center rounded-full bg-white/[0.055] px-4 text-left text-sm text-muted-foreground transition hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                     >
-                      Share something...
+                      {COMMUNITY_FEED_UI_TEXT.createPostPlaceholder}
                     </button>
                   </div>
 
                   <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-white/10 pt-4 text-sm text-muted-foreground">
-                    <button type="button" onClick={() => openComposer("image")} className="inline-flex items-center gap-2 rounded-full px-2 py-1 transition hover:bg-background/70">
+                    <button type="button" onClick={() => openComposer("image")} className="inline-flex items-center gap-2 rounded-full px-2 py-1 transition hover:bg-white/[0.055] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
                       <ImagePlus className="h-4 w-4 text-primary" />
-                      Image
+                      รูปภาพ
                     </button>
-                    <button type="button" onClick={() => openComposer("video")} className="inline-flex items-center gap-2 rounded-full px-2 py-1 transition hover:bg-background/70">
+                    <button type="button" onClick={() => openComposer("video")} className="inline-flex items-center gap-2 rounded-full px-2 py-1 transition hover:bg-white/[0.055] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
                       <Upload className="h-4 w-4 text-primary" />
-                      Video
+                      วิดีโอ
                     </button>
                     <button
                       type="button"
@@ -3493,7 +3722,7 @@ export default function CommunityPage() {
                         setShowCreatePost(true)
                         openPollBuilder()
                       }}
-                      className="inline-flex items-center gap-2 rounded-full px-2 py-1 transition hover:bg-background/70"
+                      className="inline-flex items-center gap-2 rounded-full px-2 py-1 transition hover:bg-white/[0.055] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                     >
                       <Bell className="h-4 w-4 text-primary" />
                       Poll
@@ -3517,10 +3746,8 @@ export default function CommunityPage() {
               </CardContent>
             </Card>
 
-            <CommunityMatchCardsSection data={matchRoomData} isLoading={!matchRoomData} />
-
             {token && !hasPreferences && !preferenceDismissed ? (
-              <Card className="rounded-[28px] border-primary/20 bg-primary/10 shadow-[0_12px_40px_rgba(0,0,0,0.18)]">
+              <Card className="rounded-[14px] border-primary/20 bg-primary/10 shadow-[0_12px_40px_rgba(0,0,0,0.18)]">
                 <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-base font-semibold text-foreground">เลือกทีมและนักเตะที่คุณชอบ</p>
@@ -3539,7 +3766,7 @@ export default function CommunityPage() {
             ) : null}
 
             {showCreatePost ? (
-              <Card className="rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+              <Card className="rounded-[14px] border-white/[0.08] bg-white/[0.045] shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-foreground">สร้างโพสต์ใหม่</CardTitle>
                 </CardHeader>
@@ -3656,72 +3883,26 @@ export default function CommunityPage() {
               </Card>
             ) : null}
 
-            <div className="rounded-[24px] border border-white/10 bg-card/80 p-3 shadow-[0_10px_28px_rgba(0,0,0,0.14)]">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="mr-1 text-xs font-semibold uppercase tracking-[0.18em] text-primary">Feed</span>
-                {feedTabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => changeFeedTab(tab.id)}
-                    className={cn(
-                      "rounded-full border px-3 py-1.5 text-sm transition",
-                      feedTab === tab.id
-                        ? "border-primary/40 bg-primary/15 text-primary"
-                        : "border-white/10 bg-background/35 text-muted-foreground hover:bg-background/70 hover:text-foreground",
-                    )}
-                    aria-pressed={feedTab === tab.id}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-background/35 px-3 py-1.5 text-sm text-muted-foreground transition hover:bg-background/70 hover:text-foreground"
-                    >
-                      หมวด: {categories.find((item) => item.id === selectedCategory)?.label || "ทั้งหมด"}
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-64 rounded-2xl border-white/10 bg-[#121416] p-2 text-foreground shadow-2xl">
-                    <DropdownMenuItem onSelect={() => setSelectedCategory("all")} className="rounded-xl">
-                      ทั้งหมด
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator className="bg-white/10" />
-                    {categoryGroups.map((group) => (
-                      <div key={group.title} className="py-1">
-                        <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">{group.title}</p>
-                        {group.ids.map((categoryId) => {
-                          const item = categories.find((categoryItem) => categoryItem.id === categoryId)
-                          if (!item) return null
-                          return (
-                            <DropdownMenuItem key={item.id} onSelect={() => setSelectedCategory(item.id)} className="rounded-xl">
-                              {item.label}
-                            </DropdownMenuItem>
-                          )
-                        })}
-                      </div>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                {token ? (
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setShowPreferenceDialog(true)} className="ml-auto rounded-full text-muted-foreground hover:text-foreground">
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    ตั้งค่า
-                  </Button>
-                ) : null}
+            {feedError ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                <div>
+                  <p className="font-semibold">{COMMUNITY_FEED_UI_TEXT.feedErrorTitle}</p>
+                  <p className="text-xs text-destructive/80">{COMMUNITY_FEED_UI_TEXT.feedErrorDescription}</p>
+                </div>
+                <button type="button" onClick={() => void mutate()} className="font-semibold underline-offset-4 hover:underline">
+                  Retry
+                </button>
               </div>
-            </div>
+            ) : null}
 
             <div className="space-y-5">
               {isLoading ? (
-                <Card className="rounded-[28px] border-white/10 bg-card/80 p-8 text-center text-sm text-muted-foreground">
+                <Card className="rounded-[14px] border-white/[0.08] bg-white/[0.045] p-8 text-center text-sm text-muted-foreground">
                   <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-primary" />
                   กำลังโหลด Feed...
                 </Card>
               ) : !posts.length ? (
-                <Card className="rounded-[28px] border-dashed border-white/10 bg-card/80 p-8 text-center">
+                <Card className="rounded-[14px] border-dashed border-white/[0.08] bg-white/[0.045] p-8 text-center">
                   <p className="font-semibold text-foreground">
                     {feedTab === "favorites"
                       ? "เลือกทีมโปรดเพื่อดูโพสต์จากทีมที่คุณสนใจ"
@@ -3746,7 +3927,7 @@ export default function CommunityPage() {
                 const isOwner = Boolean(user?.id && post.author.id === user.id)
                 const canUseAdminActions = user?.role === "admin"
                 return (
-                  <Card key={post.id} className="overflow-hidden rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+                  <Card key={post.id} className="overflow-hidden rounded-[14px] border-white/[0.08] bg-[#091012] shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
                     <CardContent className="p-4 sm:p-5">
                       <div className="flex items-start gap-3">
                         <Link href={`/community/friends/${post.author.id}`}>
@@ -3890,7 +4071,7 @@ export default function CommunityPage() {
                           ) : null}
 
                           {cover ? (
-                            <div className="relative mt-4 h-64 overflow-hidden rounded-[24px] bg-background/70 sm:h-[360px]">
+                            <div className="relative mt-4 aspect-[16/9] max-h-[420px] overflow-hidden rounded-[10px] bg-background/70">
                               <Image src={cover} alt={post.title} fill className="object-cover" unoptimized />
                               <div className="absolute left-3 top-3">
                                 <Badge className="rounded-full bg-background/90 px-2 py-1 text-[11px] text-foreground shadow-sm hover:bg-background/90">
@@ -3902,8 +4083,8 @@ export default function CommunityPage() {
                           ) : null}
 
                           {video ? (
-                            <div className="mt-4 overflow-hidden rounded-[24px] border border-white/10 bg-background/70">
-                              <video src={video} controls className="h-64 w-full bg-black object-cover sm:h-[360px]" />
+                            <div className="mt-4 overflow-hidden rounded-[10px] border border-white/10 bg-background/70">
+                              <video src={video} controls className="aspect-video w-full bg-black object-cover" />
                               <div className="border-t border-white/10 px-4 py-3">
                                 <Badge className="rounded-full bg-background/90 px-2 py-1 text-[11px] text-foreground shadow-sm hover:bg-background/90">
                                   <Play className="mr-1 h-3 w-3" />
@@ -3914,7 +4095,7 @@ export default function CommunityPage() {
                           ) : null}
 
                           {post.poll?.question && post.poll.options.length ? (
-                            <div className="mt-4 rounded-[24px] border border-white/10 bg-background/50 p-4">
+                            <div className="mt-4 rounded-[10px] border border-white/10 bg-background/50 p-4">
                               <div className="flex items-center justify-between gap-3">
                                 <h4 className="text-sm font-semibold text-foreground">{post.poll.question}</h4>
                                 <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
@@ -4016,8 +4197,116 @@ export default function CommunityPage() {
             </div>
           </main>
 
-          <aside className="space-y-5">
-            <Card className="rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+          <aside className="hidden space-y-5 xl:block">
+            <Card className="rounded-[10px] border-white/[0.08] bg-[#091012] shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base text-foreground">แมตช์น่าสนใจ</CardTitle>
+                  <Link href="/community/matches" className="text-xs font-medium text-primary">
+                    ดูทั้งหมด
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {matchRoomError && !matchRoomFixtures.length ? (
+                  <div className="rounded-2xl border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive">
+                    โหลดแมตช์ไม่สำเร็จ
+                  </div>
+                ) : null}
+                {matchRoomFixtures.slice(0, 3).map((fixture) => (
+                  <Link key={fixture.id} href={`/community/matches/${fixture.id}`} className="block rounded-[10px] border border-white/10 bg-black/20 p-3 transition hover:border-primary/30 hover:bg-white/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+                    <div className="flex items-center justify-between gap-3">
+                      <Badge className={cn("rounded-full px-2 py-0.5 text-[10px]", getCommunityFixturePhase(fixture) === "live" ? "bg-red-500 text-white hover:bg-red-500" : "bg-primary/15 text-primary hover:bg-primary/15")}>
+                        {getCommunityFixtureStatusLabel(fixture)}
+                      </Badge>
+                      <span className="text-[11px] text-muted-foreground">{fixture.dateThai || fixture.kickoff}</span>
+                    </div>
+                    <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-center">
+                      <div className="min-w-0">
+                        {fixture.homeLogo ? <Image src={fixture.homeLogo} alt="" width={34} height={34} className="mx-auto h-8 w-8 rounded-full object-contain" unoptimized /> : <span className="mx-auto block h-8 w-8 rounded-full bg-primary/15" />}
+                        <p className="mt-1 truncate text-xs text-foreground">{fixture.homeTeam}</p>
+                      </div>
+                      <p className="rounded-xl bg-white/[0.055] px-2 py-1 text-sm font-semibold text-foreground">{getCommunityFixtureScoreLabel(fixture)}</p>
+                      <div className="min-w-0">
+                        {fixture.awayLogo ? <Image src={fixture.awayLogo} alt="" width={34} height={34} className="mx-auto h-8 w-8 rounded-full object-contain" unoptimized /> : <span className="mx-auto block h-8 w-8 rounded-full bg-primary/15" />}
+                        <p className="mt-1 truncate text-xs text-foreground">{fixture.awayTeam}</p>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+                {!matchRoomFixtures.length && !matchRoomError ? (
+                  <div className="rounded-2xl border border-dashed border-white/10 p-4 text-sm text-muted-foreground">
+                    ยังไม่มี fixture จาก provider
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-[10px] border-white/[0.08] bg-[#091012] shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base text-foreground">เทรนด์วันนี้</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {trendingTopics.length ? (
+                  trendingTopics.map((topic, index) => (
+                    <button
+                      key={topic.label}
+                      type="button"
+                      onClick={() => setSearchQuery(topic.label)}
+                      className="grid w-full grid-cols-[24px_1fr] gap-3 rounded-2xl px-2 py-2 text-left transition hover:bg-white/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                    >
+                      <span className="text-sm font-semibold text-primary">{index + 1}</span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-foreground">#{topic.label}</span>
+                        <span className="text-xs text-muted-foreground">{topic.count} โพสต์</span>
+                      </span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-white/10 p-4 text-sm text-muted-foreground">
+                    ยังไม่มีเทรนด์จากโพสต์จริง
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {suggestedPeople.length ? (
+              <Card className="rounded-[10px] border-white/[0.08] bg-[#091012] shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base text-foreground">แนะนำคนที่น่าสนใจ</CardTitle>
+                    <span className="text-xs font-medium text-primary">ดูทั้งหมด</span>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {suggestedPeople.slice(0, 4).map((person) => (
+                    <div key={person.id} className="flex items-center gap-3">
+                      <Link href={`/community/friends/${person.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+                        <Avatar className="h-10 w-10 border border-white/10">
+                          <AvatarImage src={person.avatar || "/placeholder-user.jpg"} />
+                          <AvatarFallback>{person.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-foreground">{person.name}</p>
+                          <p className="truncate text-xs text-muted-foreground">{person.favoriteTeam || person.bio || "Suggested for you"}</p>
+                        </div>
+                      </Link>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => sendFriendRequest(person.id)}
+                        disabled={sendingFriendId === person.id}
+                        className="h-8 rounded-full border-primary/30 px-3 text-xs text-primary hover:bg-primary/10 hover:text-primary"
+                      >
+                        {sendingFriendId === person.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "ติดตาม"}
+                      </Button>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            ) : null}
+
+            <Card className="rounded-[10px] border-white/[0.08] bg-[#091012] shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base text-foreground">Activity</CardTitle>
@@ -4068,101 +4357,38 @@ export default function CommunityPage() {
                 )}
               </CardContent>
             </Card>
-
-            <Card className="rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base text-foreground">Suggested For You</CardTitle>
-                  <button type="button" className="text-xs font-medium text-muted-foreground">See all</button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {suggestedPeople.length ? (
-                  suggestedPeople.slice(0, 4).map((person) => (
-                    <div key={person.id} className="flex items-center gap-3">
-                      <Link href={`/community/friends/${person.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-                        <Avatar className="h-11 w-11 border border-white/10">
-                          <AvatarImage src={person.avatar || "/placeholder-user.jpg"} />
-                          <AvatarFallback>{person.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-foreground">{person.name}</p>
-                          <p className="truncate text-xs text-muted-foreground">{person.favoriteTeam || person.bio || "Suggested for you"}</p>
-                        </div>
-                      </Link>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => sendFriendRequest(person.id)}
-                        disabled={sendingFriendId === person.id}
-                        className="rounded-full px-3 text-primary hover:bg-primary/10 hover:text-primary"
-                      >
-                        {sendingFriendId === person.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Follow"}
-                      </Button>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">ยังไม่มีคนแนะนำเพิ่ม</p>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between gap-3">
-                  <CardTitle className="text-base text-foreground">Messages</CardTitle>
-                  {totalUnreadMessages ? (
-                    <Badge className="rounded-full bg-primary/15 px-3 py-1 text-[11px] font-semibold text-primary hover:bg-primary/15">
-                      {totalUnreadMessages > 99 ? "99+" : totalUnreadMessages} new
-                    </Badge>
-                  ) : null}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {!token ? (
-                  <div className="rounded-2xl border border-dashed border-white/10 bg-background/40 p-4 text-sm text-muted-foreground">
-                    เข้าสู่ระบบก่อนเพื่อดูห้องแชตและข้อความใหม่
-                  </div>
-                ) : null}
-
-                {token && socialData === undefined ? (
-                  <div className="rounded-2xl border border-white/10 bg-background/40 p-4">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      กำลังโหลดห้องแชต...
-                    </div>
-                  </div>
-                ) : null}
-
-                {topConversations.map((conversation) => (
-                  <Link key={conversation.id} href={`/community/messages?conversation=${conversation.id}`} className="flex items-start gap-3 rounded-2xl p-3 transition hover:bg-background/70">
-                    <Avatar className="h-10 w-10 border border-white/10">
-                      <AvatarImage src={conversation.user.avatar || "/placeholder-user.jpg"} />
-                      <AvatarFallback>{conversation.user.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="truncate text-sm font-semibold text-foreground">{conversation.user.name}</p>
-                        <span className="text-[11px] text-muted-foreground">{conversation.timeAgo}</span>
-                      </div>
-                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{conversation.preview?.content || conversation.lastMessageText}</p>
-                    </div>
-                  </Link>
-                ))}
-
-                {token && socialData && !socialData.conversations.length ? (
-                  <div className="rounded-2xl border border-dashed border-white/10 bg-background/40 p-4 text-sm text-muted-foreground">
-                    ยังไม่มีห้องแชตตอนนี้
-                  </div>
-                ) : null}
-
-                <Link href="/community/messages">
-                  <Button variant="outline" className="h-11 w-full rounded-full border-white/10 text-foreground hover:bg-background/70">Open Messages</Button>
-                </Link>
-              </CardContent>
-            </Card>
           </aside>
         </div>
+        <nav className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-5 rounded-[24px] border border-white/10 bg-[#071012]/95 p-2 shadow-[0_18px_50px_rgba(0,0,0,0.38)] backdrop-blur lg:hidden" aria-label="Community mobile navigation">
+          {[
+            { label: "ฟีด", href: "/community", icon: Home, active: true },
+            { label: "Match", href: "/community/matches", icon: Trophy },
+            { label: "Plus", href: "/worldcup-2026/predictions/payment", icon: Sparkles },
+            { label: "แจ้งเตือน", action: () => void handleOpenNotificationsDialog(), icon: Bell },
+            { label: "โปรไฟล์", href: "/profile", icon: Users },
+          ].map((item) => {
+            const Icon = item.icon
+            const className = cn(
+              "flex flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+              item.active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-white/[0.055] hover:text-primary",
+            )
+            const content = (
+              <>
+                <Icon className="h-4 w-4" />
+                <span>{item.label}</span>
+              </>
+            )
+            return item.href ? (
+              <Link key={item.label} href={item.href} className={className} aria-current={item.active ? "page" : undefined}>
+                {content}
+              </Link>
+            ) : (
+              <button key={item.label} type="button" onClick={item.action} className={className}>
+                {content}
+              </button>
+            )
+          })}
+        </nav>
       </div>
       </div>
     </div>

@@ -45,10 +45,15 @@ import { Textarea } from "@/components/ui/textarea"
 import { fetchJson } from "@/lib/api-client"
 import { getAuthToken } from "@/lib/auth-client"
 import { MAIN_ROOM_COPY, getMainRoomDateDividerLabel, getRoomMessageBubbleLayout, getSystemMessageLayout, mergeMainRoomMessages, shouldGroupMainRoomMessage, shouldShowMainRoomDateDivider } from "@/lib/match-main-room-ui"
+import { getMatchDemoOverrideNotice, type MatchDemoOverrideState } from "@/lib/match-demo-override"
 import {
   MATCH_HUB_EMPTY_STATES,
+  buildMatchHubCommunityPulse,
   getFavoriteTeamRecommendedRoom,
+  getMatchHubFanMomentumLabel,
+  getMatchHubMilestones,
   getMatchHubDisplayState,
+  getMatchHubErrorView,
   getMatchHubRoomBadge,
   getMatchHubScoreLabel,
   getMatchHubStatusLabel,
@@ -67,6 +72,14 @@ import {
   type MatchTimelineRoomId,
   type TimelineMatchEvent,
 } from "@/lib/match-timeline-ui"
+import {
+  TACTICAL_QUICK_TOPICS,
+  TACTICAL_ROOM_COPY,
+  getTacticalFixtureContext,
+  getTacticalPhaseFocus,
+  getTacticalQuickTopicLabel,
+  type TacticalQuickTopic,
+} from "@/lib/match-tactical-room-ui"
 import {
   getFavoriteTeamPreviewLounge,
   getFavoriteTeamReactionLounge,
@@ -94,6 +107,7 @@ export type CommunityMatchRoomFixture = {
   venue: string
   isFinished: boolean
   events?: TimelineMatchEvent[]
+  lineups?: unknown[]
 }
 
 export type CommunityMatchRoomPost = {
@@ -103,6 +117,7 @@ export type CommunityMatchRoomPost = {
   content?: string
   categoryLabel?: string
   threadCategoryLabel?: string
+  threadCategory?: string
   timeAgo?: string
   latestActivityTimeAgo?: string
   comments?: number
@@ -120,6 +135,7 @@ export type CommunityMatchRoomPost = {
 export type CommunityMatchRoomResponse = {
   fixtures: CommunityMatchRoomFixture[]
   fixture: CommunityMatchRoomFixture | null
+  demoOverride?: MatchDemoOverrideState | null
   channels?: MatchRoomChannel[]
   roomStats?: Record<
     string,
@@ -219,6 +235,7 @@ type MatchRoomMessage = {
   roomType: MatchRoomType
   previewTeam?: TeamPreviewLoungeSide | ""
   reactionTeam?: TeamReactionLoungeSide | ""
+  tacticalTopic?: TacticalQuickTopic | ""
   content: string
   replyToId?: string
   moderationStatus?: string
@@ -240,6 +257,7 @@ type MatchRoomMessagesResponse = {
 }
 
 type MatchRoomStats = NonNullable<CommunityMatchRoomResponse["roomStats"]>[string]
+type ApiClientError = Error & { status?: number; code?: string; details?: { code?: string; requestId?: string } }
 
 type MatchRoomSummaryHistoryResponse = {
   current: {
@@ -445,10 +463,10 @@ function getRoomAvailabilityText(channel?: MatchRoomChannel) {
   return getRoomStateLabel(channel.state)
 }
 
-function getRecommendedRoom(fixture: CommunityMatchRoomFixture, stats?: MatchRoomStats, channels: MatchRoomChannel[] = []) {
+function getRecommendedRoom(fixture: CommunityMatchRoomFixture, stats?: MatchRoomStats, channels: MatchRoomChannel[] = [], effectivePhase?: MatchTimelinePhase) {
   const preview = channels.find((channel) => channel.roomType === "preview")
   const postMatch = channels.find((channel) => channel.roomType === "post_match")
-  const timelinePhase = getMatchTimelinePhase(fixture)
+  const timelinePhase = effectivePhase || getMatchTimelinePhase(fixture)
   const timelineRoom = getTimelineRecommendedRoom(timelinePhase)
   const favoritePreviewLounge = getFavoriteTeamPreviewLounge({
     favoriteTeamName: stats?.favoriteTeamName,
@@ -511,6 +529,16 @@ function authUploadHeaders() {
 
 function matchRoomFetcher<T>(path: string) {
   return fetchJson<T>(path, { cache: "no-store" })
+}
+
+function getApiErrorCode(error: unknown) {
+  const apiError = error as ApiClientError | null
+  return apiError?.code || apiError?.details?.code || ""
+}
+
+function getApiRequestId(error: unknown) {
+  const apiError = error as ApiClientError | null
+  return apiError?.details?.requestId || ""
 }
 
 function getMatchTitle(fixture: CommunityMatchRoomFixture) {
@@ -1175,6 +1203,7 @@ function MatchHero({
   stats,
   channels = [],
   summary,
+  demoOverride,
   onToggleFollow,
   followingBusy,
 }: {
@@ -1182,13 +1211,15 @@ function MatchHero({
   stats?: MatchRoomStats
   channels?: MatchRoomChannel[]
   summary?: CommunityMatchRoomResponse["summary"]
+  demoOverride?: CommunityMatchRoomResponse["demoOverride"]
   onToggleFollow?: (fixture: CommunityMatchRoomFixture, nextFollow: boolean) => void
   followingBusy?: boolean
 }) {
-  const recommendation = getRecommendedRoom(fixture, stats, channels)
-  const timelinePhase = getMatchTimelinePhase(fixture)
+  const timelinePhase = demoOverride?.effectivePhase || getMatchTimelinePhase(fixture)
+  const recommendation = getRecommendedRoom(fixture, stats, channels, timelinePhase)
   const timelineLabel = getTimelineRoomLabel(timelinePhase)
   const kickoffCountdown = timelinePhase === "pre_match" ? getKickoffCountdownLabel(fixture) : ""
+  const demoNotice = demoOverride?.enabled ? getMatchDemoOverrideNotice(demoOverride.overridePhase) : ""
   const messageCount = stats?.newRoomMessageCount || stats?.discussions || 0
   const threadCount = stats?.discussions || 0
   const latestActivity = stats?.latestRoomActivityAt || stats?.latestActivityAt
@@ -1206,7 +1237,9 @@ function MatchHero({
           <div className="mt-3 flex flex-wrap gap-2">
             <Badge variant="outline" className="rounded-full border-primary/25 bg-primary/10 px-3 py-1 text-primary">{timelineLabel}</Badge>
             {kickoffCountdown ? <Badge className="rounded-full bg-primary px-3 py-1 text-primary-foreground">{kickoffCountdown}</Badge> : null}
+            {demoNotice ? <Badge variant="outline" className="rounded-full border-amber-400/40 bg-amber-400/10 px-3 py-1 text-amber-200">Demo Mode</Badge> : null}
           </div>
+          {demoNotice ? <p className="text-xs text-amber-100">{demoNotice}. Room availability is overridden for demo, while match facts still come from provider status {fixture.status || "unchanged"}.</p> : null}
         </div>
         <div className="flex flex-wrap gap-2">
           {onToggleFollow ? (
@@ -1308,6 +1341,157 @@ function MatchHero({
   )
 }
 
+function MatchCommunityExperience({
+  fixture,
+  stats,
+  pulse,
+  milestones,
+  highlights,
+  threads,
+  polls,
+  summary,
+  recommendation,
+  onOpenRoom,
+  onOpenThreads,
+  onOpenPolls,
+  onOpenSummary,
+}: {
+  fixture: CommunityMatchRoomFixture
+  stats?: MatchRoomStats
+  pulse: ReturnType<typeof buildMatchHubCommunityPulse>
+  milestones: string[]
+  highlights: TimelineMatchEvent[]
+  threads: CommunityMatchRoomPost[]
+  polls: CommunityMatchRoomPost[]
+  summary?: CommunityMatchRoomResponse["summary"]
+  recommendation: ReturnType<typeof getRecommendedRoom>
+  onOpenRoom: (roomType: ConversationRoomId) => void
+  onOpenThreads: () => void
+  onOpenPolls: () => void
+  onOpenSummary: () => void
+}) {
+  const momentumLabel = getMatchHubFanMomentumLabel(pulse)
+  const recommendedRoom = recommendation?.roomType || "main"
+  const safeRecommendedRoom = recommendedRoom === "preview" ? "preview_home" : recommendedRoom === "post_match" ? "post_match_home" : recommendedRoom
+  return (
+    <section className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]" aria-label="Match Hub community experience">
+      <Card className="rounded-[28px] border-primary/20 bg-card/90">
+        <CardContent className="space-y-5 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">Community Pulse</p>
+              <h2 className="mt-1 text-2xl font-bold">{momentumLabel}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{getMatchTitle(fixture)} is collecting fan voices across rooms, polls, threads and match context.</p>
+            </div>
+            {stats?.isFavoriteTeam ? <Badge className="rounded-full bg-primary text-primary-foreground">Your favorite team is playing</Badge> : null}
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-4">
+            {[
+              ["Messages", pulse.messages],
+              ["Threads", pulse.threads],
+              ["Polls", pulse.polls],
+              ["Fans", pulse.fans],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-2xl border border-white/10 bg-background/45 p-3">
+                <p className="text-xs text-muted-foreground">{label}</p>
+                <p className="mt-1 text-2xl font-black text-foreground">{value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-2xl border border-white/10 bg-background/45 p-4">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="font-bold">Smart Recommendation</h3>
+                <Badge variant="outline" className="rounded-full border-primary/25 text-primary">Non-forcing</Badge>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">{recommendation?.title || "Recommended Room: Main Room"}</p>
+              <Button type="button" onClick={() => onOpenRoom(safeRecommendedRoom as ConversationRoomId)} className="mt-4 rounded-full">
+                เปิดห้องที่แนะนำ
+              </Button>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-background/45 p-4">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="font-bold">Community Milestones</h3>
+                {pulse.hasSummary ? <Badge variant="outline" className="rounded-full border-primary/25 text-primary">Summary ready</Badge> : null}
+              </div>
+              {milestones.length ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {milestones.map((milestone) => (
+                    <Badge key={milestone} variant="outline" className="rounded-full border-white/10 bg-background/45 text-muted-foreground">{milestone}</Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">Community milestones will appear as fans join the match discussion.</p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-4">
+        <Card className="rounded-[28px] border-white/10 bg-card/85">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-lg font-bold">Match Highlights</h2>
+              <Badge variant="outline" className="rounded-full border-white/10">{highlights.length}</Badge>
+            </div>
+            {highlights.length ? (
+              <div className="mt-3 space-y-2">
+                {highlights.slice(0, 3).map((event) => (
+                  <div key={event.id} className="rounded-2xl border border-white/10 bg-background/45 p-3 text-sm">
+                    <p className="font-semibold">{event.minute ? `${event.minute}' ` : ""}{event.type.replace("_", " ")}</p>
+                    <p className="text-muted-foreground">{[event.team, event.player, event.detail].filter(Boolean).join(" · ") || "Verified match event"}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">Match highlights will appear when the provider supplies verified events.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-[28px] border-white/10 bg-card/85">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-lg font-bold">Trending Discussions</h2>
+              <Button type="button" variant="ghost" onClick={onOpenThreads} className="h-8 rounded-full px-3 text-xs">เปิด</Button>
+            </div>
+            {threads.length ? (
+              <div className="mt-3 space-y-2">
+                {threads.slice(0, 3).map((thread) => (
+                  <Link key={thread.id} href={`/community/matches/${fixture.id}/threads/${thread.id}`} className="block rounded-2xl border border-white/10 bg-background/45 p-3 transition hover:border-primary/40">
+                    <p className="line-clamp-1 font-semibold">{thread.title}</p>
+                    <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{thread.latestActivityTimeAgo || thread.timeAgo || "activity -"}</p>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">ยังไม่มีหัวข้อที่กำลังถูกพูดถึงในแมตช์นี้</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Button type="button" variant="outline" onClick={onOpenPolls} className="h-auto justify-start rounded-2xl border-white/10 p-4 text-left">
+            <span>
+              <span className="block font-semibold">Community Poll</span>
+              <span className="mt-1 block text-xs text-muted-foreground">{polls[0]?.poll?.question || MATCH_HUB_EMPTY_STATES.polls}</span>
+            </span>
+          </Button>
+          <Button type="button" variant="outline" onClick={onOpenSummary} className="h-auto justify-start rounded-2xl border-white/10 p-4 text-left">
+            <span>
+              <span className="block font-semibold">AI Summary</span>
+              <span className="mt-1 block text-xs text-muted-foreground">{summary?.headline || MATCH_HUB_EMPTY_STATES.summary}</span>
+            </span>
+          </Button>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export function MatchRoomDetail({ matchId }: { matchId: string }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -1344,6 +1528,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
   const [messagesError, setMessagesError] = useState("")
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [messageDraft, setMessageDraft] = useState("")
+  const [selectedTacticalTopic, setSelectedTacticalTopic] = useState<TacticalQuickTopic | "">("")
   const [replyTarget, setReplyTarget] = useState<MatchRoomMessage | null>(null)
   const [editingMessage, setEditingMessage] = useState<MatchRoomMessage | null>(null)
   const [editMessageDraft, setEditMessageDraft] = useState("")
@@ -1355,7 +1540,15 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
   const [showDraftMoveDialog, setShowDraftMoveDialog] = useState(false)
   const messageListRef = useRef<HTMLDivElement | null>(null)
   const messageEndRef = useRef<HTMLDivElement | null>(null)
-  const { data, error, isLoading, mutate } = useSWR<CommunityMatchRoomResponse>(`/community/match-room?matchId=${encodeURIComponent(matchId)}`, matchRoomFetcher, { revalidateOnFocus: true })
+  const [lastGoodData, setLastGoodData] = useState<CommunityMatchRoomResponse | null>(null)
+  const { data: liveData, error, isLoading, mutate } = useSWR<CommunityMatchRoomResponse>(`/community/match-room?matchId=${encodeURIComponent(matchId)}`, matchRoomFetcher, {
+    revalidateOnFocus: true,
+    keepPreviousData: true,
+  })
+  useEffect(() => {
+    if (liveData?.fixture) setLastGoodData(liveData)
+  }, [liveData])
+  const data = liveData?.fixture ? liveData : lastGoodData
   const threadQuery = `/community/match-room/threads?matchId=${encodeURIComponent(matchId)}&sort=${encodeURIComponent(threadSort)}${threadCategory !== "all" ? `&category=${encodeURIComponent(threadCategory)}` : ""}${officialOnly ? "&official=1" : ""}`
   const { data: threadData, error: threadError, isLoading: threadLoading, mutate: mutateThreads } = useSWR<CommunityMatchRoomThreadResponse>(
     data?.fixture ? threadQuery : null,
@@ -1363,9 +1556,26 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
     { revalidateOnFocus: true },
   )
   const fixture = data?.fixture || null
+  const parentErrorCode = getApiErrorCode(error)
+  const parentRequestId = getApiRequestId(error)
+  const parentErrorView = getMatchHubErrorView({ isLoading, hasFixture: Boolean(fixture), hasError: Boolean(error), errorCode: parentErrorCode })
+  const parentNotFound = parentErrorView === "not_found"
+  const parentTransientError = parentErrorView === "transient_error"
   const posts = data?.posts || []
   const polls = posts.filter((post) => post.poll?.question)
   const threads = threadData?.items || data?.threads || []
+  const stats = fixture ? data?.roomStats?.[fixture.id] : undefined
+  const matchHighlights = fixture ? normalizeTimelineMatchEvents(fixture.events) : []
+  const communityPulse = buildMatchHubCommunityPulse({
+    messages: stats?.newRoomMessageCount || stats?.discussions,
+    threads: threads.length || stats?.discussions,
+    polls: stats?.polls || polls.length,
+    fans: stats?.followers,
+    highlights: matchHighlights.length,
+    summaryStatus: data?.summary?.status,
+  })
+  const communityMilestones = getMatchHubMilestones(communityPulse)
+  const overviewRecommendation = fixture ? getRecommendedRoom(fixture, stats, data?.channels || [], data?.demoOverride?.effectivePhase) : null
   const roomQueryState = normalizeMatchHubRoomQuery(searchParams.get("room"))
   const activeConversationRoom = roomQueryState.roomId
   const activeRoomType = conversationRoomToRoomType(activeConversationRoom)
@@ -1392,6 +1602,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
     setNewMessageCount(0)
     setReplyTarget(null)
     setEditingMessage(null)
+    setSelectedTacticalTopic("")
     setMessagesError("")
     setHighlightedMessageId("")
   }, [matchId, activeConversationRoom])
@@ -1425,7 +1636,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
     const target = getRoomTargetTime(activeChannel)
     if (!target) return
     const timeout = window.setTimeout(() => {
-      void Promise.all([mutate(), mutateMessages()])
+      void mutateMessages()
     }, Math.max(1000, target - Date.now() + 500))
     return () => window.clearTimeout(timeout)
   }, [safeTab, activeChannel?.roomType, activeChannel?.state, activeChannel?.closesAt, activeChannel?.opensAt, mutate, mutateMessages])
@@ -1546,6 +1757,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
     const draft = messageDraft.trim()
     const image = messageImage
     const reply = replyTarget
+    const tacticalTopic = activeRoomType === "tactics" ? selectedTacticalTopic : ""
     const optimisticId = `optimistic-${Date.now()}`
     setSendingMessage(true)
     setMessagesError("")
@@ -1560,6 +1772,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
         roomType: activeRoomType,
         previewTeam: activePreviewSide || "",
         reactionTeam: activeReactionSide || "",
+        tacticalTopic,
         content: draft,
         replyToId: reply?.id,
         moderationStatus: "approved",
@@ -1580,23 +1793,27 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
           roomType: activeRoomType,
           previewTeam: activePreviewSide || "",
           reactionTeam: activeReactionSide || "",
+          tacticalTopic,
           content: draft,
           replyToId: reply?.id || "",
           imageMediaIds: image ? [image.id] : [],
         }),
       })
       setMessages((current) => mergeMainRoomMessages(current.filter((item) => item.id !== optimisticId), [response.item]))
-      await Promise.all([mutateMessages(), mutate()])
+      await mutateMessages()
+      void mutate()
       window.requestAnimationFrame(() => scrollMessagesToBottom())
     } catch (sendError) {
       setMessages((current) => current.filter((item) => item.id !== optimisticId))
       setMessageDraft(draft)
       setMessageImage(image)
       setReplyTarget(reply)
+      setSelectedTacticalTopic(tacticalTopic)
       const errorCode = typeof sendError === "object" && sendError && "code" in sendError ? String((sendError as any).code || "") : ""
       if (errorCode === "ROOM_CLOSED") {
         setShowDraftMoveDialog(true)
-        await Promise.all([mutate(), mutateMessages()])
+        await mutateMessages()
+        void mutate()
       }
       setMessagesError(sendError instanceof Error ? sendError.message : "ส่งข้อความไม่สำเร็จ")
     } finally {
@@ -1630,7 +1847,8 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
         setMessageDraft(editMessageDraft.trim())
         setEditingMessage(null)
         setEditMessageDraft("")
-        await Promise.all([mutate(), mutateMessages()])
+        await mutateMessages()
+        void mutate()
       }
       setMessagesError(editError instanceof Error ? editError.message : "แก้ไขข้อความไม่สำเร็จ")
     } finally {
@@ -1901,17 +2119,21 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
           </Button>
         </div>
 
-        {isLoading ? (
+        {isLoading && !fixture ? (
           <div className="flex min-h-[50vh] items-center justify-center rounded-[32px] border border-white/10 bg-card/80 text-muted-foreground">
             <Loader2 className="mr-3 h-5 w-5 animate-spin text-primary" />
             กำลังโหลด Match Room...
           </div>
         ) : null}
 
-        {error ? (
+        {parentTransientError ? (
           <Card className="rounded-[28px] border-destructive/30 bg-destructive/10">
             <CardContent className="flex flex-wrap items-center justify-between gap-3 p-6">
-              <p className="text-destructive">โหลด Match Room ไม่สำเร็จ กรุณาลองใหม่</p>
+              <div>
+                <p className="text-destructive">โหลดข้อมูล Match Hub ล่าสุดไม่สำเร็จ กรุณาลองใหม่</p>
+                {fixture ? <p className="mt-1 text-xs text-muted-foreground">ยังแสดงข้อมูลล่าสุดที่โหลดสำเร็จไว้ก่อน</p> : null}
+                {parentRequestId ? <p className="mt-1 text-xs text-muted-foreground">requestId: {parentRequestId}</p> : null}
+              </div>
               <Button variant="outline" onClick={() => void mutate()} className="rounded-full border-white/10">
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Retry
@@ -1920,7 +2142,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
           </Card>
         ) : null}
 
-        {!isLoading && !error && !fixture ? (
+        {(!isLoading && !error && !fixture) || parentNotFound ? (
           <Card className="rounded-[28px] border-dashed border-white/10 bg-card/70">
             <CardContent className="py-16 text-center">
               <h1 className="text-2xl font-semibold">ไม่พบ Match Room นี้</h1>
@@ -1934,7 +2156,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
 
         {fixture ? (
           <>
-            <MatchHero fixture={fixture} stats={data?.roomStats?.[fixture.id]} channels={data?.channels || []} summary={data?.summary} onToggleFollow={handleToggleFollow} followingBusy={followingBusyId === fixture.id} />
+            <MatchHero fixture={fixture} stats={data?.roomStats?.[fixture.id]} channels={data?.channels || []} summary={data?.summary} demoOverride={data?.demoOverride} onToggleFollow={handleToggleFollow} followingBusy={followingBusyId === fixture.id} />
 
             <Tabs value={safeTab} onValueChange={changeTab} className="space-y-4">
               <div className="overflow-x-auto pb-1">
@@ -1948,6 +2170,22 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
               </div>
 
               <TabsContent value="overview">
+                <div className="space-y-5">
+                  <MatchCommunityExperience
+                    fixture={fixture}
+                    stats={stats}
+                    pulse={communityPulse}
+                    milestones={communityMilestones}
+                    highlights={matchHighlights}
+                    threads={threads}
+                    polls={polls}
+                    summary={data?.summary}
+                    recommendation={overviewRecommendation}
+                    onOpenRoom={changeConversationRoom}
+                    onOpenThreads={() => changeTab("threads")}
+                    onOpenPolls={() => changeTab("polls")}
+                    onOpenSummary={() => changeTab("summary")}
+                  />
                 <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
                   <div className="space-y-5">
                     <Card className="rounded-[28px] border-white/10 bg-card/85">
@@ -2013,6 +2251,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                     </Card>
                   </aside>
                 </div>
+                </div>
               </TabsContent>
 
               <TabsContent value="discussion">
@@ -2038,11 +2277,12 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                   messageImage={messageImage}
                   messageListRef={messageListRef}
                   messageEndRef={messageEndRef}
+                  selectedTacticalTopic={selectedTacticalTopic}
                   polls={polls}
                   threads={threads}
                   onChangeRoom={changeConversationRoom}
                   onOpenView={openConversationView}
-                  onRetry={() => void Promise.all([mutate(), mutateMessages()])}
+                  onRetry={() => void mutateMessages()}
                   onLoadOlder={() => void loadOlderMessages()}
                   onJumpToLatest={() => {
                     setNewMessageCount(0)
@@ -2052,6 +2292,13 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                   onDraftKeyDown={handleComposerKeyDown}
                   onImageSelected={handleMessageImageSelected}
                   onClearImage={() => setMessageImage(null)}
+                  onSelectTacticalTopic={setSelectedTacticalTopic}
+                  onOpenTacticalThreads={() => {
+                    setThreadCategory("tactics")
+                    setThreadFormCategory("tactics")
+                    setShowCreateThread(true)
+                    changeTab("threads")
+                  }}
                   onSend={() => void sendRoomMessage()}
                   onReply={setReplyTarget}
                   onCancelReply={() => setReplyTarget(null)}
@@ -2568,6 +2815,95 @@ function ReactionTeamSummaryCard({
   )
 }
 
+function TacticalRoomContextPanel({
+  fixture,
+  context,
+  threads,
+  phase,
+  onOpenThreads,
+}: {
+  fixture: CommunityMatchRoomFixture
+  context: ReturnType<typeof getTacticalFixtureContext>
+  threads: CommunityMatchRoomPost[]
+  phase: MatchTimelinePhase
+  onOpenThreads: () => void
+}) {
+  const pinnedThread = threads.find((thread) => thread.isPinned)
+  const officialThread = threads.find((thread) => thread.isOfficialThread)
+  const focus = getTacticalPhaseFocus(phase)
+  return (
+    <section className="mb-4 rounded-[24px] border border-primary/20 bg-primary/8 p-4" aria-label={TACTICAL_ROOM_COPY.title}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">{TACTICAL_ROOM_COPY.title}</p>
+          <h3 className="mt-2 text-lg font-bold text-foreground">{TACTICAL_ROOM_COPY.intro}</h3>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">{TACTICAL_ROOM_COPY.description}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {focus.map((item) => (
+            <Badge key={item} variant="outline" className="rounded-full border-primary/25 text-primary">{item}</Badge>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <div className="rounded-2xl border border-white/10 bg-background/45 p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Formation / Lineup</p>
+          {context.lineups.length ? (
+            <div className="mt-2 space-y-2 text-sm text-muted-foreground">
+              {context.lineups.map((lineup) => (
+                <p key={`${lineup.teamName}-${lineup.formation}-${lineup.manager}`}>
+                  <span className="font-semibold text-foreground">{lineup.teamName || getMatchTitle(fixture)}</span>
+                  {lineup.formation ? ` · ${lineup.formation}` : ""}
+                  {lineup.manager ? ` · ${lineup.manager}` : ""}
+                </p>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">{TACTICAL_ROOM_COPY.missingProviderData}</p>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-background/45 p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Tactical Match Context</p>
+          {context.hasProviderData ? (
+            <div className="mt-2 space-y-2 text-sm text-muted-foreground">
+              {context.substitutions.slice(0, 3).map((event) => <p key={event.id}>Substitution {event.minute ? `${event.minute}'` : ""} {event.player || event.team || ""}</p>)}
+              {context.cards.slice(0, 3).map((event) => <p key={event.id}>{event.type === "red_card" ? "Red Card" : "Yellow Card"} {event.minute ? `${event.minute}'` : ""} {event.player || event.team || ""}</p>)}
+              {context.formationChanges.slice(0, 2).map((event) => <p key={event.id}>Formation Change {event.minute ? `${event.minute}'` : ""} {event.detail || ""}</p>)}
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">ไม่มีข้อมูลจากผู้ให้บริการ</p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-white/10 bg-background/45 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="font-semibold text-foreground">Tactical Threads</p>
+          <Button type="button" variant="outline" onClick={onOpenThreads} className="rounded-full border-white/10">
+            สร้างหัวข้อวิเคราะห์
+          </Button>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          <div className="rounded-xl bg-background/55 p-3 text-sm">
+            <p className="text-xs text-muted-foreground">Pinned Tactical Thread</p>
+            <p className="mt-1 line-clamp-1 font-semibold text-foreground">{pinnedThread?.title || "-"}</p>
+          </div>
+          <div className="rounded-xl bg-background/55 p-3 text-sm">
+            <p className="text-xs text-muted-foreground">Official Tactical Thread</p>
+            <p className="mt-1 line-clamp-1 font-semibold text-foreground">{officialThread?.title || "-"}</p>
+          </div>
+          <div className="rounded-xl bg-background/55 p-3 text-sm">
+            <p className="text-xs text-muted-foreground">Community Tactical Threads</p>
+            <p className="mt-1 font-semibold text-foreground">{threads.length}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function MatchRoomConversation({
   fixture,
   data,
@@ -2590,6 +2926,7 @@ function MatchRoomConversation({
   messageImage,
   messageListRef,
   messageEndRef,
+  selectedTacticalTopic,
   polls,
   threads,
   onChangeRoom,
@@ -2601,6 +2938,8 @@ function MatchRoomConversation({
   onDraftKeyDown,
   onImageSelected,
   onClearImage,
+  onSelectTacticalTopic,
+  onOpenTacticalThreads,
   onSend,
   onReply,
   onCancelReply,
@@ -2635,6 +2974,7 @@ function MatchRoomConversation({
   messageImage: { id: string; url?: string | null; ownerPreviewUrl?: string | null; status: string } | null
   messageListRef: RefObject<HTMLDivElement | null>
   messageEndRef: RefObject<HTMLDivElement | null>
+  selectedTacticalTopic: TacticalQuickTopic | ""
   polls: CommunityMatchRoomPost[]
   threads: CommunityMatchRoomPost[]
   onChangeRoom: (roomType: ConversationRoomId) => void
@@ -2646,6 +2986,8 @@ function MatchRoomConversation({
   onDraftKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void
   onImageSelected: (event: ChangeEvent<HTMLInputElement>) => void
   onClearImage: () => void
+  onSelectTacticalTopic: (topic: TacticalQuickTopic | "") => void
+  onOpenTacticalThreads: () => void
   onSend: () => void
   onReply: (message: MatchRoomMessage) => void
   onCancelReply: () => void
@@ -2665,6 +3007,7 @@ function MatchRoomConversation({
   const activePreviewLounge = activePreviewSide ? getTeamPreviewLounges(fixture).find((lounge) => lounge.side === activePreviewSide) || null : null
   const activeReactionLounge = activeReactionSide ? getTeamReactionLounges(fixture).find((lounge) => lounge.side === activeReactionSide) || null : null
   const isMainRoom = activeRoomId === "main"
+  const isTacticalRoom = activeRoomId === "tactics"
   const room = activeChannel || {
     roomType: activeRoomType,
     state: "unavailable" as const,
@@ -2676,6 +3019,8 @@ function MatchRoomConversation({
   const roomTitle = getRoomLabel(activeRoomId, fixture)
   const supporterComposerText = isMainRoom
     ? `${MAIN_ROOM_COPY.intro} ${MAIN_ROOM_COPY.description}`
+    : isTacticalRoom
+    ? `${TACTICAL_ROOM_COPY.intro}: ${TACTICAL_ROOM_COPY.description}`
     : activePreviewLounge
     ? `You're talking with ${activePreviewLounge.teamName} supporters before kickoff.`
     : activeReactionLounge
@@ -2683,6 +3028,8 @@ function MatchRoomConversation({
     : ""
   const emptyStateText = isMainRoom
     ? MAIN_ROOM_COPY.emptyTitle
+    : isTacticalRoom
+    ? TACTICAL_ROOM_COPY.emptyTitle
     : activePreviewLounge
     ? `Start the conversation with fellow ${activePreviewLounge.teamName} supporters.`
     : activeReactionLounge
@@ -2692,8 +3039,11 @@ function MatchRoomConversation({
   const refreshRef = useRef<string>("")
   const messagesById = new Map(messages.map((message) => [message.id, message]))
   const stats = data?.roomStats?.[fixture.id]
+  const timelinePhase = data?.demoOverride?.effectivePhase || getMatchTimelinePhase(fixture)
   const roomNotice = getTemporaryRoomNotice(room, clockNow)
   const matchEvents = isMainRoom ? normalizeTimelineMatchEvents(fixture.events) : []
+  const tacticalContext = isTacticalRoom ? getTacticalFixtureContext(fixture) : null
+  const tacticalThreads = isTacticalRoom ? threads.filter((thread) => thread.threadCategory === "tactics" || thread.threadCategoryLabel === COMMUNITY_THREAD_CATEGORY_LABELS.tactics) : []
   const reactionTeamSummary = selectReactionTeamSummary(data?.summary, activeReactionSide)
 
   useEffect(() => {
@@ -2733,7 +3083,7 @@ function MatchRoomConversation({
                 <SheetDescription>{getMatchTitle(fixture)}</SheetDescription>
               </SheetHeader>
               <div className="px-4 pb-4">
-                <MatchRoomInfoPanel fixture={fixture} data={data} polls={polls} threads={threads} onOpenView={onOpenView} />
+                <MatchRoomInfoPanel fixture={fixture} data={data} polls={polls} threads={threads} timelinePhase={timelinePhase} onOpenView={onOpenView} />
               </div>
             </SheetContent>
           </Sheet>
@@ -2743,13 +3093,14 @@ function MatchRoomConversation({
 
       <div className="grid min-h-[680px] lg:grid-cols-[300px_minmax(0,1fr)_320px]">
         <aside className="hidden border-r border-white/10 bg-background/35 p-4 lg:block">
-          <RoomSidebar fixture={fixture} activeRoomId={activeRoomId} channels={data?.channels || []} stats={stats} onChangeRoom={onChangeRoom} onOpenView={onOpenView} />
+          <RoomSidebar fixture={fixture} activeRoomId={activeRoomId} channels={data?.channels || []} stats={stats} timelinePhase={timelinePhase} onChangeRoom={onChangeRoom} onOpenView={onOpenView} />
         </aside>
 
           <div className="flex min-h-[680px] flex-col bg-[radial-gradient(circle_at_top_left,rgba(163,255,30,0.08),transparent_38%),linear-gradient(180deg,rgba(255,255,255,0.035),transparent)]">
           <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-white/10 bg-card/95 px-4 py-3 backdrop-blur">
             <div className="min-w-0">
               {isMainRoom ? <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">{MAIN_ROOM_COPY.eyebrow}</p> : null}
+              {isTacticalRoom ? <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">Match Analysis</p> : null}
               <div className="flex items-center gap-2">
                 <Hash className="h-4 w-4 text-primary" />
                 <h2 className="truncate text-lg font-bold">{roomTitle}</h2>
@@ -2785,6 +3136,15 @@ function MatchRoomConversation({
               </div>
             ) : null}
             {roomNotice ? <TemporaryRoomNotice notice={roomNotice} onGoMain={() => onChangeRoom("main")} /> : null}
+            {isTacticalRoom && tacticalContext ? (
+              <TacticalRoomContextPanel
+                fixture={fixture}
+                context={tacticalContext}
+                threads={tacticalThreads}
+                phase={timelinePhase}
+                onOpenThreads={onOpenTacticalThreads}
+              />
+            ) : null}
             {activeReactionLounge ? <ReactionTeamSummaryCard summary={data?.summary} teamSummary={reactionTeamSummary} lounge={activeReactionLounge} onOpenSummary={() => onOpenView("summary")} /> : null}
             {matchEvents.length ? <SystemMatchEvents events={matchEvents} /> : null}
 
@@ -2801,7 +3161,7 @@ function MatchRoomConversation({
               <div className="mx-auto mt-16 max-w-md rounded-[28px] border border-dashed border-white/10 bg-background/45 p-8 text-center">
                 <MessageCircle className="mx-auto h-10 w-10 text-primary" />
                 <h3 className="mt-4 text-xl font-bold">{emptyStateText}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{isMainRoom ? MAIN_ROOM_COPY.emptyDescription : "This room is waiting for the first match take from the community."}</p>
+                <p className="mt-2 text-sm text-muted-foreground">{isMainRoom ? MAIN_ROOM_COPY.emptyDescription : isTacticalRoom ? TACTICAL_ROOM_COPY.emptyDescription : "This room is waiting for the first match take from the community."}</p>
               </div>
             ) : null}
 
@@ -2856,6 +3216,8 @@ function MatchRoomConversation({
             onDraftKeyDown={onDraftKeyDown}
             onImageSelected={onImageSelected}
             onClearImage={onClearImage}
+            selectedTacticalTopic={isTacticalRoom ? selectedTacticalTopic : ""}
+            onSelectTacticalTopic={onSelectTacticalTopic}
             onSend={onSend}
             onCancelReply={onCancelReply}
             onEditDraftChange={onEditDraftChange}
@@ -2866,7 +3228,7 @@ function MatchRoomConversation({
         </div>
 
         <aside className="hidden border-l border-white/10 bg-background/35 p-4 lg:block">
-          <MatchRoomInfoPanel fixture={fixture} data={data} polls={polls} threads={threads} onOpenView={onOpenView} />
+          <MatchRoomInfoPanel fixture={fixture} data={data} polls={polls} threads={threads} timelinePhase={timelinePhase} onOpenView={onOpenView} />
         </aside>
       </div>
     </section>
@@ -2878,6 +3240,7 @@ function RoomSidebar({
   activeRoomId,
   channels,
   stats,
+  timelinePhase,
   onChangeRoom,
   onOpenView,
 }: {
@@ -2885,13 +3248,14 @@ function RoomSidebar({
   activeRoomId: ConversationRoomId
   channels: MatchRoomChannel[]
   stats?: MatchRoomStats
+  timelinePhase?: MatchTimelinePhase
   onChangeRoom: (roomType: ConversationRoomId) => void
   onOpenView: (view: "polls" | "summary" | "info") => void
 }) {
   const navigableRooms = getNavigableRooms(channels)
-  const timelinePhase = getMatchTimelinePhase(fixture)
-  const priority = getTimelineNavigationPriority(timelinePhase)
-  const highlightedRooms = getTimelineHighlightRooms(timelinePhase)
+  const effectivePhase = timelinePhase || getMatchTimelinePhase(fixture)
+  const priority = getTimelineNavigationPriority(effectivePhase)
+  const highlightedRooms = getTimelineHighlightRooms(effectivePhase)
   const previewChannel = channels.find((item) => item.roomType === "preview")
   const postMatchChannel = channels.find((item) => item.roomType === "post_match")
   const previewLounges = getTeamPreviewLounges(fixture)
@@ -3234,6 +3598,7 @@ function RoomMessageRow({
   const canManage = Boolean(message.canModerate)
   const layout = getRoomMessageBubbleLayout({ isOwner: message.isOwner, grouped, hasReply: Boolean(message.replyToId) })
   const timestamp = message.timeAgo || (message.createdAt ? new Date(message.createdAt).toLocaleString("th-TH") : "")
+  const tacticalTopicLabel = message.roomType === "tactics" ? getTacticalQuickTopicLabel(message.tacticalTopic) : ""
 
   return (
     <article
@@ -3265,6 +3630,11 @@ function RoomMessageRow({
         ) : null}
 
         <div className={cn("min-w-0 rounded-2xl border px-4 py-3 shadow-sm", layout.bubbleClass)}>
+          {tacticalTopicLabel ? (
+            <Badge variant="outline" className={cn("mb-2 rounded-full text-[10px]", message.isOwner ? "border-primary-foreground/40 text-primary-foreground" : "border-primary/30 text-primary")}>
+              {tacticalTopicLabel}
+            </Badge>
+          ) : null}
           {message.replyToId ? (
             <button
               type="button"
@@ -3345,10 +3715,12 @@ function RoomComposer({
   sending,
   uploadingImage,
   image,
+  selectedTacticalTopic,
   onDraftChange,
   onDraftKeyDown,
   onImageSelected,
   onClearImage,
+  onSelectTacticalTopic,
   onSend,
   onCancelReply,
   onEditDraftChange,
@@ -3367,10 +3739,12 @@ function RoomComposer({
   sending: boolean
   uploadingImage: boolean
   image: { id: string; url?: string | null; ownerPreviewUrl?: string | null; status: string } | null
+  selectedTacticalTopic?: TacticalQuickTopic | ""
   onDraftChange: (value: string) => void
   onDraftKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void
   onImageSelected: (event: ChangeEvent<HTMLInputElement>) => void
   onClearImage: () => void
+  onSelectTacticalTopic?: (topic: TacticalQuickTopic | "") => void
   onSend: () => void
   onCancelReply: () => void
   onEditDraftChange: (value: string) => void
@@ -3421,6 +3795,21 @@ function RoomComposer({
         </div>
       ) : (
         <div className="rounded-[24px] border border-white/10 bg-background/65 p-3">
+          {room.roomType === "tactics" && onSelectTacticalTopic ? (
+            <div className="mb-2 flex flex-wrap gap-2" aria-label="Tactical quick topics">
+              {TACTICAL_QUICK_TOPICS.map((topic) => (
+                <Button
+                  key={topic.id}
+                  type="button"
+                  variant={selectedTacticalTopic === topic.id ? "default" : "outline"}
+                  onClick={() => onSelectTacticalTopic(selectedTacticalTopic === topic.id ? "" : topic.id)}
+                  className="h-8 rounded-full border-white/10 px-3 text-xs"
+                >
+                  {topic.label}
+                </Button>
+              ))}
+            </div>
+          ) : null}
           {replyTarget ? (
             <div className="mb-2 flex items-start justify-between gap-3 rounded-2xl border-l-2 border-primary bg-primary/8 px-3 py-2">
               <div className="min-w-0 text-sm">
@@ -3477,23 +3866,25 @@ function MatchRoomInfoPanel({
   data,
   polls,
   threads,
+  timelinePhase,
   onOpenView,
 }: {
   fixture: CommunityMatchRoomFixture
   data?: CommunityMatchRoomResponse
   polls: CommunityMatchRoomPost[]
   threads: CommunityMatchRoomPost[]
+  timelinePhase?: MatchTimelinePhase
   onOpenView: (view: "polls" | "summary" | "info") => void
 }) {
   const stats = data?.roomStats?.[fixture.id]
   const pinnedThread = threads.find((thread) => thread.isPinned) || threads[0]
-  const timelinePhase = getMatchTimelinePhase(fixture)
+  const effectivePhase = timelinePhase || getMatchTimelinePhase(fixture)
   const timelineSignals = getTimelineActivityLabels({
-    phase: timelinePhase,
+    phase: effectivePhase,
     previewActive: stats?.activity?.temporaryRoom === "preview_open" || stats?.activity?.temporaryRoom === "preview_closing",
     reactionOpen: stats?.activity?.temporaryRoom === "post_match_open" || stats?.activity?.temporaryRoom === "post_match_closing",
     summaryReady: stats?.activity?.hasSummaryReady,
-    hasLiveStatus: timelinePhase === "live",
+    hasLiveStatus: effectivePhase === "live",
   })
   return (
     <div className="space-y-4">
@@ -3514,7 +3905,7 @@ function MatchRoomInfoPanel({
       <div className="rounded-[24px] border border-primary/20 bg-primary/8 p-4">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-bold">Match Activity</h3>
-          <Badge variant="outline" className="rounded-full border-primary/25 text-primary">{timelinePhase === "live" ? "LIVE HUB" : timelinePhase === "full_time" ? "FULL TIME" : "PRE MATCH"}</Badge>
+          <Badge variant="outline" className="rounded-full border-primary/25 text-primary">{effectivePhase === "live" ? "LIVE HUB" : effectivePhase === "full_time" ? "FULL TIME" : "PRE MATCH"}</Badge>
         </div>
         {timelineSignals.length ? (
           <div className="mt-3 flex flex-wrap gap-2">
@@ -3549,7 +3940,7 @@ function MatchRoomInfoPanel({
       <div className="rounded-[24px] border border-white/10 bg-background/45 p-4">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-bold">Poll</h3>
-          {timelinePhase === "pre_match" || timelinePhase === "full_time" ? <Badge variant="outline" className="rounded-full border-primary/25 text-primary">{timelinePhase === "full_time" ? "Results" : "Pre-match"}</Badge> : null}
+          {effectivePhase === "pre_match" || effectivePhase === "full_time" ? <Badge variant="outline" className="rounded-full border-primary/25 text-primary">{effectivePhase === "full_time" ? "Results" : "Pre-match"}</Badge> : null}
           <Button type="button" variant="ghost" onClick={() => onOpenView("polls")} className="h-8 rounded-full px-3 text-xs">เปิด</Button>
         </div>
         <p className="mt-2 text-sm text-muted-foreground">{polls[0]?.poll?.question || MATCH_HUB_EMPTY_STATES.polls}</p>
@@ -3558,7 +3949,7 @@ function MatchRoomInfoPanel({
       <div className="rounded-[24px] border border-white/10 bg-background/45 p-4">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-bold">AI Summary</h3>
-          {timelinePhase === "full_time" ? <Badge variant="outline" className="rounded-full border-primary/25 text-primary">Priority</Badge> : null}
+          {effectivePhase === "full_time" ? <Badge variant="outline" className="rounded-full border-primary/25 text-primary">Priority</Badge> : null}
           <Button type="button" variant="ghost" onClick={() => onOpenView("summary")} className="h-8 rounded-full px-3 text-xs">อ่าน</Button>
         </div>
         <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">{data?.summary?.headline || data?.summary?.shortSummary || MATCH_HUB_EMPTY_STATES.summary}</p>
