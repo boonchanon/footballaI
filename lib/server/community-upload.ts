@@ -21,7 +21,7 @@ function sanitizeStoredName(filename: string) {
   return `${randomUUID()}${sanitizeExtension(filename, ".bin")}`
 }
 
-async function getPendingStorageRoot() {
+function getPendingStorageRoot() {
   if (process.env.COMMUNITY_PENDING_STORAGE_DIR?.trim()) {
     return process.env.COMMUNITY_PENDING_STORAGE_DIR.trim()
   }
