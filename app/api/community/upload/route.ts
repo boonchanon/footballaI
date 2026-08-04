@@ -72,8 +72,10 @@ export async function POST(request: NextRequest) {
       )
     })
 
-    if (files.length === 0) return errorResponse("No files uploaded", 422)
-    if (files.length > 4) return errorResponse("You can upload up to 4 files", 422)
+    if (files.length === 0) return errorResponse("ยังไม่ได้เลือกไฟล์", 422)
+    if (files.length > 4) return errorResponse("อัปโหลดได้สูงสุด 4 ไฟล์ต่อครั้ง", 422)
+
+
 
     logUploadDebug("request", {
       requestId: uploadRequestId,
@@ -350,7 +352,7 @@ export async function POST(request: NextRequest) {
       { status: responseStatus },
     )
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to upload image"
+    const message = error instanceof Error ? error.message : "อัปโหลดไฟล์ไม่สำเร็จ"
     return errorResponse(message, message === "Authentication required" ? 401 : 500)
   }
 }
