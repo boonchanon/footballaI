@@ -3,6 +3,7 @@ import assert from "node:assert/strict"
 
 import {
   buildFallbackMatchSummary,
+  buildFallbackTeamSummary,
   buildFanReactionAggregate,
   buildMatchRoomSourceDataVersion,
   buildMatchRoomSummaryFromStructured,
@@ -29,6 +30,32 @@ import {
   canReceiveMatchNotification,
   getMatchNotificationPreferences,
 } from "../lib/server/community-notifications"
+import {
+  MATCH_HUB_EMPTY_STATES,
+  getFavoriteTeamRecommendedRoom,
+  getMatchHubDisplayState,
+  getMatchHubRoomBadge,
+  getMatchHubScoreLabel,
+  getMatchHubStatusLabel,
+  normalizeMatchHubRoomQuery,
+} from "../lib/match-hub-ui"
+import {
+  buildTeamPreviewLoungeTag,
+  buildTeamReactionLoungeTag,
+  getFavoriteTeamPreviewLounge,
+  getFavoriteTeamReactionLounge,
+  getTeamPreviewLounges,
+  getTeamReactionLounges,
+  normalizeTeamPreviewSide,
+  normalizeTeamReactionSide,
+} from "../lib/match-preview-lounges"
+import {
+  getMatchTimelinePhase,
+  getTimelineHighlightRooms,
+  getTimelineNavigationPriority,
+  getTimelineRecommendedRoom,
+  normalizeTimelineMatchEvents,
+} from "../lib/match-timeline-ui"
 
 test("scheduled/live/postponed matches should not open post-match poll", () => {
   assert.equal(canOpenPostMatchPoll({ status: "NS", isFinished: false }), false)
@@ -165,7 +192,13 @@ test("source data version should change when score or poll aggregate changes", (
     topPollOption: { question: "MOM?", label: "Player A", votes: 7, percent: 70 },
     topTopics: [{ label: "แท็กติก", count: 2 }],
   })
+  const versionC = buildMatchRoomSourceDataVersion({ ...fixture, events: [{ type: "Goal", team: { name: "Arsenal" }, player: { name: "Saka" }, time: { elapsed: 12 } }] }, {
+    participation: 10,
+    topPollOption: { question: "MOM?", label: "Player A", votes: 7, percent: 70 },
+    topTopics: [{ label: "แท็กติก", count: 2 }],
+  })
   assert.notEqual(versionA, versionB)
+  assert.notEqual(versionA, versionC)
 })
 
 test("structured summary validation should reject wrong score, gambling, and unsupported stats", () => {
@@ -185,6 +218,8 @@ test("structured summary validation should reject wrong score, gambling, and uns
       statisticsHighlights: [],
       topPlayers: [],
       tacticalSummary: "",
+      homeTeamSummary: buildFallbackTeamSummary(fixture, "home"),
+      awayTeamSummary: buildFallbackTeamSummary(fixture, "away"),
       limitations: [],
       disclaimer: "",
     },
@@ -203,6 +238,8 @@ test("structured summary validation should reject wrong score, gambling, and uns
       statisticsHighlights: ["possession 70%"],
       topPlayers: [],
       tacticalSummary: "",
+      homeTeamSummary: buildFallbackTeamSummary(fixture, "home"),
+      awayTeamSummary: buildFallbackTeamSummary(fixture, "away"),
       limitations: [],
       disclaimer: "",
     },
@@ -238,12 +275,193 @@ test("cached summary should not generate on first load and structured output kee
       statisticsHighlights: [],
       topPlayers: [],
       tacticalSummary: "",
+      homeTeamSummary: buildFallbackTeamSummary(fixture, "home"),
+      awayTeamSummary: buildFallbackTeamSummary(fixture, "away"),
       limitations: [],
       disclaimer: "",
     },
   })
   assert.equal(summary.text, "Arsenal ชนะ Chelsea 2-1")
   assert.equal(summary.headline, "Arsenal 2-1 Chelsea")
+  assert.equal(summary.homeTeamSummary?.teamName, "Arsenal")
+  assert.equal(summary.awayTeamSummary?.teamName, "Chelsea")
+})
+
+test("team summaries should be included with overall summary and keep home/away score perspective", () => {
+  const fixture = normalizeMatchRoomFixture({
+    fixture: { id: "match-team-summary", status: { short: "FT" } },
+    teams: { home: { name: "Arsenal" }, away: { name: "Chelsea" } },
+    goals: { home: 2, away: 1 },
+  })
+  const fallback = buildFallbackMatchSummary(fixture)
+
+  assert.equal(fallback.overallSummary?.headline, "Arsenal 2-1 Chelsea")
+  assert.equal(fallback.homeTeamSummary?.teamName, "Arsenal")
+  assert.equal(fallback.awayTeamSummary?.teamName, "Chelsea")
+  assert.match(fallback.homeTeamSummary?.shortSummary || "", /Arsenal 2-1 Chelsea/)
+  assert.match(fallback.awayTeamSummary?.shortSummary || "", /Arsenal 2-1 Chelsea/)
+  assert.match(fallback.homeTeamSummary?.headline || "", /ชนะ/)
+  assert.match(fallback.awayTeamSummary?.headline || "", /แพ้/)
+})
+
+test("team summary validation should strip unsupported player names and block unsupported stats", () => {
+  const fixture = normalizeMatchRoomFixture({
+    fixture: {
+      id: "match-team-safe",
+      status: { short: "FT" },
+      events: [{ type: "Goal", team: { name: "Arsenal" }, player: { name: "Saka" } }],
+    },
+    teams: { home: { name: "Arsenal" }, away: { name: "Chelsea" } },
+    goals: { home: 2, away: 1 },
+  })
+  const reaction = buildFanReactionAggregate({ texts: [], polls: [] })
+
+  const badStats = validateStructuredMatchSummary(
+    {
+      headline: "Arsenal 2-1 Chelsea",
+      shortSummary: "Arsenal ชนะ Chelsea 2-1",
+      matchStory: "",
+      keyMoments: [],
+      turningPoint: "",
+      statisticsHighlights: [],
+      topPlayers: [],
+      tacticalSummary: "",
+      homeTeamSummary: {
+        teamName: "Arsenal",
+        side: "home",
+        headline: "Arsenal ครองบอลเหนือกว่า",
+        shortSummary: "Arsenal ชนะด้วย possession 70%",
+        keyPositive: "possession 70%",
+        keyProblem: "",
+        turningPoint: "",
+        notablePlayers: [],
+        tacticalNote: "",
+        limitations: [],
+      },
+      awayTeamSummary: buildFallbackTeamSummary(fixture, "away"),
+      limitations: [],
+      disclaimer: "",
+    },
+    fixture,
+    reaction,
+  )
+  assert.equal(badStats, null)
+
+  const summary = buildMatchRoomSummaryFromStructured({
+    fixture,
+    fanReaction: reaction,
+    source: "ai",
+    status: "generated",
+    model: "mock-model",
+    providerStatus: "ready",
+    structured: {
+      headline: "Arsenal 2-1 Chelsea",
+      shortSummary: "Arsenal ชนะ Chelsea 2-1",
+      matchStory: "",
+      keyMoments: [],
+      turningPoint: "",
+      statisticsHighlights: [],
+      topPlayers: [],
+      tacticalSummary: "",
+      homeTeamSummary: {
+        teamName: "Arsenal",
+        side: "home",
+        headline: "Arsenal ได้ผลการแข่งขันที่ดี",
+        shortSummary: "Arsenal ชนะ Chelsea 2-1",
+        keyPositive: "Arsenal ทำประตูได้มากกว่า Chelsea",
+        keyProblem: "ยังไม่มีข้อมูลยืนยันเพิ่มเติม",
+        turningPoint: "",
+        notablePlayers: ["Saka", "Imaginary Player"],
+        tacticalNote: "",
+        limitations: [],
+      },
+      awayTeamSummary: buildFallbackTeamSummary(fixture, "away"),
+      limitations: [],
+      disclaimer: "",
+    },
+  })
+  assert.deepEqual(summary.homeTeamSummary?.notablePlayers, ["Saka"])
+})
+
+test("AI provider should return overall home and away summaries from one request", async () => {
+  const previousFetch = globalThis.fetch
+  const previousEnv = {
+    key: process.env.INTELSPHERE_API_KEY,
+    baseUrl: process.env.INTELSPHERE_BASE_URL,
+    model: process.env.INTELSPHERE_MODEL,
+  }
+  let callCount = 0
+  process.env.INTELSPHERE_API_KEY = "test-key"
+  process.env.INTELSPHERE_BASE_URL = "https://provider.test"
+  process.env.INTELSPHERE_MODEL = "test-model"
+  globalThis.fetch = (async () => {
+    callCount += 1
+    return {
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                headline: "Arsenal 2-1 Chelsea",
+                shortSummary: "Arsenal ชนะ Chelsea 2-1",
+                matchStory: "Arsenal และ Chelsea จบเกมด้วยสกอร์ 2-1",
+                keyMoments: ["Arsenal 2-1 Chelsea"],
+                turningPoint: "",
+                statisticsHighlights: [],
+                topPlayers: [],
+                tacticalSummary: "",
+                homeTeamSummary: {
+                  teamName: "Arsenal",
+                  headline: "Arsenal เก็บชัย",
+                  shortSummary: "Arsenal ชนะ Chelsea 2-1",
+                  keyPositive: "Arsenal ทำประตูได้มากกว่า Chelsea",
+                  keyProblem: "ยังไม่มีข้อมูลยืนยันเพิ่มเติม",
+                  turningPoint: "",
+                  notablePlayers: [],
+                  tacticalNote: "",
+                  limitations: [],
+                },
+                awayTeamSummary: {
+                  teamName: "Chelsea",
+                  headline: "Chelsea แพ้เกมนี้",
+                  shortSummary: "Chelsea แพ้ในเกมที่สกอร์เต็มเวลาคือ Arsenal 2-1 Chelsea",
+                  keyPositive: "Chelsea ยังมีประตูในสกอร์ที่ยืนยัน",
+                  keyProblem: "Chelsea เสียประตูมากกว่า Arsenal",
+                  turningPoint: "",
+                  notablePlayers: [],
+                  tacticalNote: "",
+                  limitations: [],
+                },
+                limitations: [],
+                disclaimer: "ใช้เฉพาะ facts จาก server",
+              }),
+            },
+          },
+        ],
+      }),
+    } as Response
+  }) as typeof fetch
+
+  try {
+    const summary = await generateMatchRoomSummary(
+      normalizeMatchRoomFixture({
+        fixture: { id: "match-provider-one-call", status: { short: "FT" } },
+        teams: { home: { name: "Arsenal" }, away: { name: "Chelsea" } },
+        goals: { home: 2, away: 1 },
+      }),
+    )
+    assert.equal(callCount, 1)
+    assert.equal(summary.status, "generated")
+    assert.equal(summary.overallSummary?.headline, "Arsenal 2-1 Chelsea")
+    assert.equal(summary.homeTeamSummary?.teamName, "Arsenal")
+    assert.equal(summary.awayTeamSummary?.teamName, "Chelsea")
+  } finally {
+    globalThis.fetch = previousFetch
+    process.env.INTELSPHERE_API_KEY = previousEnv.key
+    process.env.INTELSPHERE_BASE_URL = previousEnv.baseUrl
+    process.env.INTELSPHERE_MODEL = previousEnv.model
+  }
 })
 
 test("summary ready helper should emit only for a new usable version", () => {
@@ -324,4 +542,142 @@ test("match room notification helpers should dedupe and respect preferences", ()
   assert.equal(preferences.aiSummary, true)
   assert.equal(canReceiveMatchNotification({ notificationPreferences: { matchRoom: { matchLive: false } } }, "match_live"), false)
   assert.equal(canReceiveMatchNotification({ notificationPreferences: { matchRoom: { aiSummary: true } } }, "match_summary_ready"), true)
+})
+
+test("match hub labels and empty states should match the new UX contract", () => {
+  assert.equal(getMatchHubStatusLabel({ status: "NS", isFinished: false }), "Upcoming")
+  assert.equal(getMatchHubStatusLabel({ status: "1H", isFinished: false }), "Live")
+  assert.equal(getMatchHubStatusLabel({ status: "FT", isFinished: true }), "Finished")
+  assert.equal(getMatchHubStatusLabel({ status: "PST", isFinished: false }), "Postponed")
+  assert.equal(getMatchHubStatusLabel({ status: "CANC", isFinished: false }), "Cancelled")
+  assert.equal(MATCH_HUB_EMPTY_STATES.room, "Be the first fan to start this discussion.")
+  assert.equal(MATCH_HUB_EMPTY_STATES.polls, "No community polls yet.")
+  assert.equal(MATCH_HUB_EMPTY_STATES.summary, "Match summary will be available after the match.")
+})
+
+test("match hub display state should hide stale scores before kickoff and closed statuses", () => {
+  assert.equal(getMatchHubDisplayState({ status: "NS", isFinished: false }), "upcoming")
+  assert.equal(getMatchHubScoreLabel({ status: "NS", isFinished: false, homeScore: 2, awayScore: 1 }), "VS")
+  assert.equal(getMatchHubDisplayState({ status: "1H", isFinished: false }), "live")
+  assert.equal(getMatchHubScoreLabel({ status: "1H", isFinished: false, homeScore: 2, awayScore: 1 }), "2 - 1")
+  assert.equal(getMatchHubDisplayState({ status: "FT", isFinished: true }), "finished")
+  assert.equal(getMatchHubScoreLabel({ status: "FT", isFinished: true, homeScore: 2, awayScore: 1 }), "2 - 1")
+  assert.equal(getMatchHubScoreLabel({ status: "PST", isFinished: false, homeScore: 2, awayScore: 1 }), "VS")
+  assert.equal(getMatchHubScoreLabel({ status: "CANC", isFinished: false, homeScore: 2, awayScore: 1 }), "VS")
+})
+
+test("legacy match room urls should not silently fallback into home supporter lounges", () => {
+  assert.deepEqual(normalizeMatchHubRoomQuery("preview-home"), { roomId: "preview_home", legacyRoomType: null, notice: "" })
+  assert.equal(normalizeMatchHubRoomQuery("preview").roomId, "main")
+  assert.equal(normalizeMatchHubRoomQuery("preview").legacyRoomType, "preview")
+  assert.match(normalizeMatchHubRoomQuery("preview").notice, /older format/i)
+  assert.equal(normalizeMatchHubRoomQuery("post-match").roomId, "main")
+  assert.equal(normalizeMatchHubRoomQuery("post-match").legacyRoomType, "post_match")
+  assert.equal(normalizeMatchHubRoomQuery("post_match").roomId, "main")
+})
+
+test("match hub room badge and favorite-team recommendation should stay non-forcing", () => {
+  assert.equal(getMatchHubRoomBadge({ roomType: "main", state: "open", isArchived: false }), "OPEN")
+  assert.equal(getMatchHubRoomBadge({ roomType: "preview", state: "open", isArchived: false }), "LIVE")
+  assert.equal(getMatchHubRoomBadge({ roomType: "preview", state: "upcoming", isArchived: false }), "OPENS SOON")
+  assert.equal(getMatchHubRoomBadge({ roomType: "post_match", state: "archived", isArchived: true }), "ARCHIVED")
+
+  assert.equal(getFavoriteTeamRecommendedRoom({ isFavoriteTeam: false, previewCanRead: true }), null)
+  assert.equal(getFavoriteTeamRecommendedRoom({ isFavoriteTeam: true, isFinished: false, previewState: "upcoming" }), "preview")
+  assert.equal(getFavoriteTeamRecommendedRoom({ isFavoriteTeam: true, isFinished: true, postMatchCanRead: true }), "post_match")
+  assert.equal(getFavoriteTeamRecommendedRoom({ isFavoriteTeam: true, isFinished: false }), "main")
+})
+
+test("team preview lounges should use real home and away team names", () => {
+  const lounges = getTeamPreviewLounges({ homeTeam: "Manchester United", awayTeam: "Liverpool" })
+  assert.equal(lounges[0].id, "preview_home")
+  assert.equal(lounges[0].label, "Manchester United Fans")
+  assert.equal(lounges[0].query, "preview-home")
+  assert.equal(lounges[1].id, "preview_away")
+  assert.equal(lounges[1].label, "Liverpool Fans")
+  assert.equal(lounges[1].query, "preview-away")
+})
+
+test("favorite team preview recommendation should point to a lounge without locking navigation", () => {
+  const recommendation = getFavoriteTeamPreviewLounge({
+    favoriteTeamName: "Liverpool",
+    isFavoriteTeam: true,
+    homeTeam: "Manchester United",
+    awayTeam: "Liverpool",
+  })
+  assert.equal(recommendation?.id, "preview_away")
+  assert.equal(recommendation?.label, "Liverpool Fans")
+  assert.equal(getFavoriteTeamPreviewLounge({ favoriteTeamName: "Liverpool", isFavoriteTeam: false, homeTeam: "Manchester United", awayTeam: "Liverpool" }), null)
+})
+
+test("team preview lounge tags should isolate home and away messages without new models", () => {
+  assert.equal(normalizeTeamPreviewSide("preview-home"), "home")
+  assert.equal(normalizeTeamPreviewSide("preview-away"), "away")
+  assert.equal(buildTeamPreviewLoungeTag("home"), "match-preview:home")
+  assert.equal(buildTeamPreviewLoungeTag("away"), "match-preview:away")
+  assert.notEqual(buildTeamPreviewLoungeTag("home"), buildTeamPreviewLoungeTag("away"))
+})
+
+test("team reaction lounges should use real home and away team names", () => {
+  const lounges = getTeamReactionLounges({ homeTeam: "Manchester United", awayTeam: "Liverpool" })
+  assert.equal(lounges[0].id, "post_match_home")
+  assert.equal(lounges[0].label, "Manchester United Reactions")
+  assert.equal(lounges[0].query, "post-match-home")
+  assert.equal(lounges[1].id, "post_match_away")
+  assert.equal(lounges[1].label, "Liverpool Reactions")
+  assert.equal(lounges[1].query, "post-match-away")
+})
+
+test("favorite team reaction recommendation should point to the matching side without locking navigation", () => {
+  const recommendation = getFavoriteTeamReactionLounge({
+    favoriteTeamName: "Liverpool",
+    isFavoriteTeam: true,
+    homeTeam: "Manchester United",
+    awayTeam: "Liverpool",
+  })
+  assert.equal(recommendation?.id, "post_match_away")
+  assert.equal(recommendation?.label, "Liverpool Reactions")
+  assert.equal(getFavoriteTeamReactionLounge({ favoriteTeamName: "Liverpool", isFavoriteTeam: false, homeTeam: "Manchester United", awayTeam: "Liverpool" }), null)
+})
+
+test("team reaction lounge tags should isolate home and away messages without new models", () => {
+  assert.equal(normalizeTeamReactionSide("post-match-home"), "home")
+  assert.equal(normalizeTeamReactionSide("post-match-away"), "away")
+  assert.equal(buildTeamReactionLoungeTag("home"), "match-post-match:home")
+  assert.equal(buildTeamReactionLoungeTag("away"), "match-post-match:away")
+  assert.notEqual(buildTeamReactionLoungeTag("home"), buildTeamReactionLoungeTag("away"))
+})
+
+test("match timeline recommendation should follow pre, live, and full-time phases", () => {
+  assert.equal(getMatchTimelinePhase({ status: "NS", isFinished: false }), "pre_match")
+  assert.equal(getTimelineRecommendedRoom("pre_match"), "preview")
+  assert.equal(getMatchTimelinePhase({ status: "1H", isFinished: false }), "live")
+  assert.equal(getTimelineRecommendedRoom("live"), "main")
+  assert.equal(getMatchTimelinePhase({ status: "FT", isFinished: true }), "full_time")
+  assert.equal(getTimelineRecommendedRoom("full_time"), "post_match")
+})
+
+test("match timeline navigation priority and highlights should shift with status", () => {
+  assert.deepEqual(getTimelineNavigationPriority("pre_match").slice(0, 2), ["main", "preview"])
+  assert.deepEqual(getTimelineHighlightRooms("pre_match"), ["preview"])
+  assert.deepEqual(getTimelineNavigationPriority("live").slice(0, 2), ["main", "tactics"])
+  assert.deepEqual(getTimelineHighlightRooms("live"), ["main", "tactics"])
+  assert.deepEqual(getTimelineNavigationPriority("full_time").slice(0, 2), ["main", "post_match"])
+  assert.deepEqual(getTimelineHighlightRooms("full_time"), ["post_match"])
+})
+
+test("system match events should normalize only verified fixture event types", () => {
+  const events = normalizeTimelineMatchEvents([
+    { type: "Substitution", elapsed: 70, team: { name: "Arsenal" }, player: { name: "Martinelli" } },
+    { detail: "Yellow Card", minute: 44, team: "Chelsea", player: "Caicedo" },
+    { type: "Goal", time: { elapsed: 12 }, team: { name: "Arsenal" }, player: { name: "Saka" }, assist: { name: "Odegaard" } },
+    { type: "Goal", time: { elapsed: 12 }, team: { name: "Arsenal" }, player: { name: "Saka" }, assist: { name: "Odegaard" } },
+    { type: "VAR", minute: 80 },
+  ])
+  assert.deepEqual(events.map((event) => event.type), ["goal", "yellow_card", "substitution"])
+  assert.deepEqual(events.map((event) => event.minute), [12, 44, 70])
+  assert.equal(events[0].minute, 12)
+  assert.equal(events[0].player, "Saka")
+  assert.equal(events[0].assist, "Odegaard")
+  assert.equal(new Set(events.map((event) => event.id)).size, events.length)
 })

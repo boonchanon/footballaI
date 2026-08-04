@@ -19,6 +19,7 @@ import {
   getMatchRoomFixtures,
   selectMatchRoomFixture,
 } from "@/lib/server/community-match-room"
+import { buildApprovedRoomActivityFilter, getRoomState, getTemporaryRoomActivityState, getVisibleMatchRoomChannels } from "@/lib/server/community-room-conversation"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, ok } from "@/lib/server/http"
 import { Comment, CommunityMatchSummary, CommunityPost, User } from "@/lib/server/models"
@@ -36,6 +37,16 @@ function isFavoriteTeamFixture(fixture: { homeTeam: string; awayTeam: string }, 
   const homeTeam = normalizeTeamName(fixture.homeTeam)
   const awayTeam = normalizeTeamName(fixture.awayTeam)
   return homeTeam === favoriteTeam || awayTeam === favoriteTeam || homeTeam.includes(favoriteTeam) || awayTeam.includes(favoriteTeam)
+}
+
+function getFavoriteTeamSide(fixture: { homeTeam: string; awayTeam: string }, viewer: any): "home" | "away" | null {
+  const favoriteTeam = normalizeTeamName(viewer?.favoriteTeam)
+  if (!favoriteTeam) return null
+  const homeTeam = normalizeTeamName(fixture.homeTeam)
+  const awayTeam = normalizeTeamName(fixture.awayTeam)
+  if (homeTeam === favoriteTeam || homeTeam.includes(favoriteTeam) || favoriteTeam.includes(homeTeam)) return "home"
+  if (awayTeam === favoriteTeam || awayTeam.includes(favoriteTeam) || favoriteTeam.includes(awayTeam)) return "away"
+  return null
 }
 
 export async function GET(request: NextRequest) {
@@ -91,8 +102,91 @@ export async function GET(request: NextRequest) {
           CommunityMatchSummary.find({ matchId: { $in: fixtureIds } }).select("matchId status summaryVersion generatedAt").lean(),
         ])
       : [[], []]
+    const roomActivityEntries = fixtureIds.length
+      ? await CommunityPost.aggregate([
+          {
+            $match: {
+              matchId: { $in: fixtureIds },
+              ...buildApprovedRoomActivityFilter(),
+            },
+          },
+          {
+            $group: {
+              _id: "$matchId",
+              newRoomMessageCount: { $sum: 1 },
+              latestRoomActivityAt: { $max: "$latestActivityAt" },
+              latestRoomType: { $last: "$roomType" },
+            },
+          },
+        ])
+      : []
+    const previewLoungeActivityEntries = fixtureIds.length
+      ? await CommunityPost.aggregate([
+          {
+            $match: {
+              matchId: { $in: fixtureIds },
+              tags: { $in: ["match-preview:home", "match-preview:away"] },
+              ...buildApprovedRoomActivityFilter(),
+            },
+          },
+          { $unwind: "$tags" },
+          { $match: { tags: { $in: ["match-preview:home", "match-preview:away"] } } },
+          {
+            $group: {
+              _id: { matchId: "$matchId", tag: "$tags" },
+              messages: { $sum: 1 },
+              latestActivityAt: { $max: "$latestActivityAt" },
+            },
+          },
+        ])
+      : []
+    const postMatchLoungeActivityEntries = fixtureIds.length
+      ? await CommunityPost.aggregate([
+          {
+            $match: {
+              matchId: { $in: fixtureIds },
+              tags: { $in: ["match-post-match:home", "match-post-match:away"] },
+              ...buildApprovedRoomActivityFilter(),
+            },
+          },
+          { $unwind: "$tags" },
+          { $match: { tags: { $in: ["match-post-match:home", "match-post-match:away"] } } },
+          {
+            $group: {
+              _id: { matchId: "$matchId", tag: "$tags" },
+              messages: { $sum: 1 },
+              latestActivityAt: { $max: "$latestActivityAt" },
+            },
+          },
+        ])
+      : []
     const followerCounts = Object.fromEntries(followerEntries.map((item: any) => [item._id, item.followers || 0]))
     const summaryState = Object.fromEntries(summaryEntries.map((item: any) => [item.matchId, item]))
+    const roomActivityState = Object.fromEntries(roomActivityEntries.map((item: any) => [item._id, item]))
+    const defaultPreviewLounges = () => ({
+      home: { messages: 0, latestActivityAt: null as Date | string | null },
+      away: { messages: 0, latestActivityAt: null as Date | string | null },
+    })
+    const defaultPostMatchLounges = () => ({
+      home: { messages: 0, messageCount: 0, latestActivityAt: null as Date | string | null, status: "unavailable", recommended: false, archived: false },
+      away: { messages: 0, messageCount: 0, latestActivityAt: null as Date | string | null, status: "unavailable", recommended: false, archived: false },
+    })
+    const previewLoungeState = previewLoungeActivityEntries.reduce<Record<string, ReturnType<typeof defaultPreviewLounges>>>((acc, item: any) => {
+      const matchId = String(item?._id?.matchId || "")
+      const side = String(item?._id?.tag || "").replace("match-preview:", "")
+      if (!matchId || (side !== "home" && side !== "away")) return acc
+      acc[matchId] ||= defaultPreviewLounges()
+      acc[matchId][side] = { messages: item.messages || 0, latestActivityAt: item.latestActivityAt || null }
+      return acc
+    }, {})
+    const postMatchLoungeState = postMatchLoungeActivityEntries.reduce<Record<string, ReturnType<typeof defaultPostMatchLounges>>>((acc, item: any) => {
+      const matchId = String(item?._id?.matchId || "")
+      const side = String(item?._id?.tag || "").replace("match-post-match:", "")
+      if (!matchId || (side !== "home" && side !== "away")) return acc
+      acc[matchId] ||= defaultPostMatchLounges()
+      acc[matchId][side] = { ...acc[matchId][side], messages: item.messages || 0, messageCount: item.messages || 0, latestActivityAt: item.latestActivityAt || null }
+      return acc
+    }, {})
     const roomStats: Record<
       string,
       {
@@ -101,17 +195,24 @@ export async function GET(request: NextRequest) {
         followers: number
         latestActivityAt: Date | string | null
         latestPollAt: Date | string | null
+        newRoomMessageCount: number
+        latestRoomActivityAt: Date | string | null
+        latestRoomType: string
         summaryStatus: string
         summaryVersion: string
         isFollowing: boolean
         isRecent: boolean
         isFavoriteTeam: boolean
+        favoriteTeamName: string
+        previewLounges: ReturnType<typeof defaultPreviewLounges>
+        postMatchLounges: ReturnType<typeof defaultPostMatchLounges>
         lastVisitedAt: Date | string | null
         activity?: {
           hasNewActivity: boolean
           hasNewPoll: boolean
           hasSummaryReady: boolean
           statusChanged: boolean
+          temporaryRoom: string
         }
       }
     > = Object.fromEntries(
@@ -119,17 +220,24 @@ export async function GET(request: NextRequest) {
         item._id,
         (() => {
           const statsFixture = fixtures.find((fixtureItem) => fixtureItem.id === item._id)
+          const postMatchLounges = postMatchLoungeState[item._id] || defaultPostMatchLounges()
           return {
             discussions: item.discussions || 0,
             polls: item.polls || 0,
             followers: followerCounts[item._id] || 0,
             latestActivityAt: item.latestActivityAt || item.latestPostAt || null,
             latestPollAt: item.latestPollAt || null,
+            newRoomMessageCount: roomActivityState[item._id]?.newRoomMessageCount || 0,
+            latestRoomActivityAt: roomActivityState[item._id]?.latestRoomActivityAt || null,
+            latestRoomType: roomActivityState[item._id]?.latestRoomType || "",
             summaryStatus: summaryState[item._id]?.status || "not_generated",
             summaryVersion: summaryState[item._id]?.summaryVersion ? String(summaryState[item._id].summaryVersion) : "0",
             isFollowing: followedMatchIds.includes(item._id),
             isRecent: recentMatchIds.includes(item._id),
             isFavoriteTeam: statsFixture ? isFavoriteTeamFixture(statsFixture, viewer) : false,
+            favoriteTeamName: String(viewer?.favoriteTeam || ""),
+            previewLounges: previewLoungeState[item._id] || defaultPreviewLounges(),
+            postMatchLounges,
             lastVisitedAt: getMatchRoomLastVisited([...(viewer as any)?.followedMatchRooms || [], ...(viewer as any)?.recentMatchRooms || []], item._id),
           }
         })(),
@@ -142,11 +250,17 @@ export async function GET(request: NextRequest) {
         followers: followerCounts[fixtureItem.id] || 0,
         latestActivityAt: null,
         latestPollAt: null,
+        newRoomMessageCount: roomActivityState[fixtureItem.id]?.newRoomMessageCount || 0,
+        latestRoomActivityAt: roomActivityState[fixtureItem.id]?.latestRoomActivityAt || null,
+        latestRoomType: roomActivityState[fixtureItem.id]?.latestRoomType || "",
         summaryStatus: summaryState[fixtureItem.id]?.status || "not_generated",
         summaryVersion: summaryState[fixtureItem.id]?.summaryVersion ? String(summaryState[fixtureItem.id].summaryVersion) : "0",
         isFollowing: followedMatchIds.includes(fixtureItem.id),
         isRecent: recentMatchIds.includes(fixtureItem.id),
         isFavoriteTeam: isFavoriteTeamFixture(fixtureItem, viewer),
+        favoriteTeamName: String(viewer?.favoriteTeam || ""),
+        previewLounges: previewLoungeState[fixtureItem.id] || defaultPreviewLounges(),
+        postMatchLounges: postMatchLoungeState[fixtureItem.id] || defaultPostMatchLounges(),
         lastVisitedAt: getMatchRoomLastVisited([...(viewer as any)?.followedMatchRooms || [], ...(viewer as any)?.recentMatchRooms || []], fixtureItem.id),
       }
       roomStats[fixtureItem.id].activity = buildMatchRoomActivityIndicators({
@@ -157,10 +271,26 @@ export async function GET(request: NextRequest) {
         isLive: ["1H", "2H", "HT", "ET", "BT", "P", "SUSP", "INT", "live", "Live", "In Progress"].includes(fixtureItem.status),
         isFinished: fixtureItem.isFinished,
       })
+      roomStats[fixtureItem.id].activity.temporaryRoom =
+        getTemporaryRoomActivityState(fixtureItem, "preview") !== "none"
+          ? getTemporaryRoomActivityState(fixtureItem, "preview")
+          : getTemporaryRoomActivityState(fixtureItem, "post_match")
+      const postMatchRoom = getRoomState(fixtureItem, "post_match")
+      const favoriteSide = getFavoriteTeamSide(fixtureItem, viewer)
+      for (const side of ["home", "away"] as const) {
+        roomStats[fixtureItem.id].postMatchLounges[side] = {
+          ...roomStats[fixtureItem.id].postMatchLounges[side],
+          status: postMatchRoom.state,
+          recommended: favoriteSide === side,
+          archived: postMatchRoom.isArchived,
+        }
+      }
     }
     const discussionFilter: Record<string, unknown> = {
       matchId: selectedMatchId,
       isThreadRoot: { $ne: true },
+      isRoomMessage: { $ne: true },
+      contentType: { $nin: ["room_message", "thread_root"] },
       ...buildViewerVisibleModeratedContentFilter(null),
     }
 
@@ -228,6 +358,7 @@ export async function GET(request: NextRequest) {
     return ok({
       fixtures,
       fixture,
+      channels: getVisibleMatchRoomChannels(fixture, new Date(), viewer?.role),
       roomStats,
       summary: await getCachedMatchRoomSummary(fixture, fanReaction),
       fanReaction,

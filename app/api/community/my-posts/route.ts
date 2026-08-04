@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 
 import { requireAuthUser } from "@/lib/server/auth"
-import { mapCommunityPostWithMedia } from "@/lib/server/community"
+import { buildCommunityFeedIsolationFilter, mapCommunityPostWithMedia } from "@/lib/server/community"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, getTimeAgoThai, ok, parsePagination } from "@/lib/server/http"
 import { CommunityPost } from "@/lib/server/models"
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
     const { page, limit, skip } = parsePagination(searchParams)
     const status = String(searchParams.get("status") || "all").trim()
 
-    const allPosts = await CommunityPost.find({ author: user._id }).populate("author", "name avatar favoriteTeam role").sort({ updatedAt: -1 }).limit(500)
+    const allPosts = await CommunityPost.find({ author: user._id, ...buildCommunityFeedIsolationFilter() }).populate("author", "name avatar favoriteTeam role").sort({ updatedAt: -1 }).limit(500)
     const mapped = await Promise.all(allPosts.map((post) => mapMyPost(post, user)))
     const allFilteredItems = status === "all" ? mapped : mapped.filter((item) => item.status === status)
     const items = allFilteredItems.slice(skip, skip + limit)

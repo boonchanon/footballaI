@@ -100,7 +100,7 @@ const URL_PATTERN = /\b((?:https?:\/\/|www\.)[^\s<>"']+)/gi
 
 export type ModerationStatus = "approved" | "pending_review" | "rejected"
 export type ModerationProvider = "local" | "openai" | "combined" | "manual"
-export type ModerationContentType = "post" | "comment" | "story" | "image" | "video"
+export type ModerationContentType = "post" | "comment" | "story" | "image" | "video" | "room_message" | "thread_root" | "match_poll"
 export type LocalRiskLevel = "safe" | "risky" | "severe"
 
 export type ModerationDecision = {

@@ -13,11 +13,15 @@
     "moderation:repair": "node scripts/audit-community-moderation.js --apply",
     "moderation:test-image": "node scripts/moderation-test-image.js",
     "moderation:test-retry": "node scripts/moderation-test-retry.js",
+    "cleanup:temporary-match-rooms": "node scripts/cleanup-temporary-match-rooms.js",
     "start": "next start",
     "seed:admins": "node scripts/seed-admins.js",
     "test:moderation": "node scripts/run-moderation-tests.js",
+    "test:admin-match-rooms": "node scripts/run-admin-match-room-tests.js",
     "test:match-room": "node scripts/run-match-room-tests.js",
     "test:polls": "node scripts/run-poll-tests.js",
+    "test:temporary-rooms": "node scripts/run-temporary-room-tests.js",
+    "test:room-conversation": "node scripts/run-room-conversation-tests.js",
     "test:threads": "node scripts/run-thread-tests.js"
   },
   "dependencies": {

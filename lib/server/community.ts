@@ -55,6 +55,14 @@ export function buildViewerVisibleModeratedContentFilter(viewerId?: string | nul
   }
 }
 
+export function buildCommunityFeedIsolationFilter() {
+  return {
+    isThreadRoot: { $ne: true },
+    isRoomMessage: { $ne: true },
+    contentType: { $nin: ["room_message", "thread_root", "match_poll"] },
+  }
+}
+
 export function isApprovedCommentVisible(comment: {
   isApproved?: boolean | null
   isDeleted?: boolean | null
