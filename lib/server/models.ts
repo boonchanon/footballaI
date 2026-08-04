@@ -37,6 +37,19 @@ function extendStringEnumPath(path: any, values: readonly string[]) {
   }
 }
 
+function ensureSchemaPathDefault(path: any, defaultValue: unknown) {
+  if (!path) return
+  path.options = path.options || {}
+  path.options.default = defaultValue
+  if (typeof path.defaultValue !== "undefined") {
+    path.defaultValue = defaultValue
+  }
+}
+
+if (models.CommunityPost && models.CommunityPost.schema.path("roomType")) {
+  ensureSchemaPathDefault(models.CommunityPost.schema.path("roomType"), "main")
+}
+
 const moderationSchema = new Schema(
   {
     status: { type: String, enum: moderationStatusEnum, default: "approved", index: true },
@@ -313,7 +326,7 @@ const communityPostSchema =
       teamIds: { type: [String], default: [], index: true },
       playerIds: { type: [String], default: [], index: true },
       matchId: { type: String, default: "", trim: true, index: true },
-      roomType: { type: String, enum: matchRoomTypeEnum, default: "", index: true },
+      roomType: { type: String, enum: matchRoomTypeEnum, default: "main", index: true },
       contentType: { type: String, enum: communityPostContentTypeEnum, default: "community_post", index: true },
       isRoomMessage: { type: Boolean, default: false, index: true },
       archivedAt: { type: Date, default: null, index: true },
@@ -458,7 +471,7 @@ if (models.CommunityPost && !models.CommunityPost.schema.path("matchId")) {
 
 if (models.CommunityPost && !models.CommunityPost.schema.path("roomType")) {
   models.CommunityPost.schema.add({
-    roomType: { type: String, enum: matchRoomTypeEnum, default: "", index: true },
+    roomType: { type: String, enum: matchRoomTypeEnum, default: "main", index: true },
     contentType: { type: String, enum: communityPostContentTypeEnum, default: "community_post", index: true },
     isRoomMessage: { type: Boolean, default: false, index: true },
     archivedAt: { type: Date, default: null, index: true },
