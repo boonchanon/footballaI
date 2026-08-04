@@ -458,7 +458,7 @@ if (models.CommunityPost && !models.CommunityPost.schema.path("matchId")) {
 
 if (models.CommunityPost && !models.CommunityPost.schema.path("roomType")) {
   models.CommunityPost.schema.add({
-    roomType: { type: String, enum: matchRoomTypeEnum, default: "", index: true },
+    roomType: { type: String, enum: matchRoomTypeEnum, default: "main", index: true },
     contentType: { type: String, enum: communityPostContentTypeEnum, default: "community_post", index: true },
     isRoomMessage: { type: Boolean, default: false, index: true },
     archivedAt: { type: Date, default: null, index: true },
