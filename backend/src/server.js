@@ -1,15 +1,17 @@
 try {
   require("dotenv").config()
 } catch (error) {
-  // Railway injects env vars directly in production, so dotenv is optional there.
+  // Dotenv is optional in hosted environments.
 }
 
 const app = require("./app")
-const connectDatabase = require("./config/db")
+const { connectDatabase } = require("./config/db")
 const { env } = require("./config/env")
+const { startFootballDataCron } = require("./cron/football-data.cron")
 
 async function start() {
   await connectDatabase()
+  startFootballDataCron()
 
   app.listen(env.port, () => {
     console.log(`API listening on port ${env.port}`)

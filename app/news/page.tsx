@@ -29,6 +29,11 @@ interface NewsArticle {
   category?: string
 }
 
+interface NewsResponse {
+  articles?: NewsArticle[]
+  source?: string
+}
+
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 const categories = [
@@ -89,12 +94,13 @@ export default function NewsPage() {
   const [isSharing, setIsSharing] = useState(false)
   const { toast } = useToast()
 
-  const { data, error, isLoading, mutate } = useSWR("/api/news", fetcher, {
+  const { data, error, isLoading, mutate } = useSWR<NewsResponse>("/api/news", fetcher, {
     refreshInterval: 30 * 60 * 1000,
     revalidateOnFocus: false,
   })
 
   const newsArticles: NewsArticle[] = data?.articles || []
+  const isNewsApiDisabled = data?.source === "news-api-disabled"
   const filteredArticles =
     selectedCategory === "all"
       ? newsArticles
@@ -391,11 +397,15 @@ export default function NewsPage() {
           <Card className="border-2 border-dashed border-border/50">
             <CardContent className="py-20 text-center">
               <Newspaper className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-              <h3 className="mb-2 text-lg font-semibold">ไม่พบข่าวในหมวดนี้</h3>
-              <p className="mb-4 text-muted-foreground">ลองสลับไปดูหมวดอื่นหรือรีเฟรชอีกครั้ง</p>
-              <Button variant="outline" onClick={() => setSelectedCategory("all")}>
-                ดูข่าวทั้งหมด
-              </Button>
+              <h3 className="mb-2 text-lg font-semibold">{isNewsApiDisabled ? "ปิด API ข่าวอยู่" : "ไม่พบข่าวในหมวดนี้"}</h3>
+              <p className="mb-4 text-muted-foreground">
+                {isNewsApiDisabled ? "ระบบปิดการดึงข่าวจาก API อยู่โดยผู้ดูแล จึงไม่มีข่าวแสดงในขณะนี้" : "ลองสลับไปดูหมวดอื่นหรือรีเฟรชอีกครั้ง"}
+              </p>
+              {isNewsApiDisabled ? null : (
+                <Button variant="outline" onClick={() => setSelectedCategory("all")}>
+                  ดูข่าวทั้งหมด
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}

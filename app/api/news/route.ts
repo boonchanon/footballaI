@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 import { formatDateThai, getTimeAgoThai } from "@/lib/sportmonks"
+import { getNewsApiConfig } from "@/lib/server/app-settings"
 
 type NewsCategory = "match" | "transfer" | "preview" | "result" | "general"
 type NewsTopic = "premier-league" | "worldcup"
@@ -532,6 +533,25 @@ function getFallbackNews(topic: NewsTopic): NewsArticle[] {
 export async function GET(request: NextRequest) {
   try {
     const topic = parseTopic(request.nextUrl.searchParams.get("topic"))
+    const newsApiConfig = await getNewsApiConfig().catch(() => ({ enabled: true }))
+    if (!newsApiConfig.enabled) {
+      return NextResponse.json({
+        topic,
+        articles: [],
+        lastUpdated: new Date().toISOString(),
+        lastUpdatedThai: formatDateThai(new Date().toISOString()),
+        source: "news-api-disabled",
+        stats: {
+          total: 0,
+          results: 0,
+          previews: 0,
+          transfers: 0,
+          general: 0,
+          match: 0,
+        },
+      })
+    }
+
     const realNews = await fetchRealNews(topic)
     const articles = realNews.length > 0 ? realNews : getFallbackNews(topic)
     const source = realNews.length > 0 ? "gnews" : "fallback"

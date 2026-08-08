@@ -82,6 +82,8 @@ import { cn } from "@/lib/utils"
 
 export type CommunityMatchRoomFixture = {
   id: string
+  weekNumber?: number | null
+  isFeatured?: boolean
   homeTeam: string
   awayTeam: string
   homeLogo: string
@@ -767,6 +769,18 @@ function MatchRoomMiniCard({
           <div className="flex min-w-0 items-center gap-3">
             <TeamLogo src={fixture.homeLogo} name={fixture.homeTeam} size="sm" />
             <div className="min-w-0">
+              <div className="mb-1 flex flex-wrap items-center gap-2">
+                {fixture.weekNumber ? (
+                  <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
+                    Week {fixture.weekNumber}
+                  </Badge>
+                ) : null}
+                {fixture.isFeatured ? (
+                  <Badge className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] text-amber-200 hover:bg-amber-500/15">
+                    Featured
+                  </Badge>
+                ) : null}
+              </div>
               <p className="truncate text-sm font-semibold text-foreground">{fixture.homeTeam}</p>
               <p className="truncate text-sm font-semibold text-foreground">{fixture.awayTeam}</p>
             </div>

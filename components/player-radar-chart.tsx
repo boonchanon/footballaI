@@ -3,31 +3,32 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { HelpCircle } from "lucide-react"
 
-interface PlayerTraitsProps {
-  position: string
-  stats: {
-    touches: number
-    chancesCreated: number
-    shotAttempts: number
-    goals: number
-    aerialDuelsWon: number
-    defensiveContributions: number
-  }
+type RadarMetric = {
+  label: string
+  value: number | null
+  displayValue: string
+  max: number
 }
 
-export function PlayerRadarChart({ position, stats }: PlayerTraitsProps) {
-  const normalizeValue = (value: number) => {
-    return Math.max(20, Math.min(value, 100))
-  }
+interface PlayerRadarChartProps {
+  title?: string
+  subtitle?: string
+  metrics: RadarMetric[]
+}
 
-  const traits = [
-    { label: "Touches", value: normalizeValue(stats.touches) },
-    { label: "Chances created", value: normalizeValue(stats.chancesCreated) },
-    { label: "Aerial duels won", value: normalizeValue(stats.aerialDuelsWon) },
-    { label: "Defensive contributions", value: normalizeValue(stats.defensiveContributions) },
-    { label: "Goals", value: normalizeValue(stats.goals) },
-    { label: "Shot attempts", value: normalizeValue(stats.shotAttempts) },
-  ]
+export function PlayerRadarChart({
+  title = "ตัวชี้วัดเพิ่มเติม",
+  subtitle = "ใช้ค่าจริงจากฤดูกาลปัจจุบัน และย่อสเกลเฉพาะรูปกราฟ",
+  metrics,
+}: PlayerRadarChartProps) {
+  const safeMetrics = metrics.slice(0, 6).map((metric) => {
+    const numericValue = typeof metric.value === "number" && Number.isFinite(metric.value) ? metric.value : 0
+    const normalized = metric.max > 0 ? Math.max(0.08, Math.min(numericValue / metric.max, 1)) : 0.08
+    return {
+      ...metric,
+      normalized,
+    }
+  })
 
   const size = 280
   const cx = size / 2
@@ -35,9 +36,9 @@ export function PlayerRadarChart({ position, stats }: PlayerTraitsProps) {
   const maxRadius = 85
 
   const getHexagonPoints = (radius: number) => {
-    return traits
-      .map((_, i) => {
-        const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2
+    return safeMetrics
+      .map((_, index) => {
+        const angle = (Math.PI * 2 * index) / 6 - Math.PI / 2
         const x = cx + radius * Math.cos(angle)
         const y = cy + radius * Math.sin(angle)
         return `${x},${y}`
@@ -46,10 +47,10 @@ export function PlayerRadarChart({ position, stats }: PlayerTraitsProps) {
   }
 
   const getDataPoints = () => {
-    return traits
-      .map((trait, i) => {
-        const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2
-        const radius = (trait.value / 100) * maxRadius
+    return safeMetrics
+      .map((metric, index) => {
+        const angle = (Math.PI * 2 * index) / 6 - Math.PI / 2
+        const radius = metric.normalized * maxRadius
         const x = cx + radius * Math.cos(angle)
         const y = cy + radius * Math.sin(angle)
         return `${x},${y}`
@@ -58,30 +59,29 @@ export function PlayerRadarChart({ position, stats }: PlayerTraitsProps) {
   }
 
   const labelPositions = [
-    { x: cx, y: 15, anchor: "middle", valueY: 5 }, // Top - Touches
-    { x: size - 10, y: 70, anchor: "end", valueY: 60 }, // Top right - Chances created
-    { x: size - 10, y: size - 60, anchor: "end", valueY: size - 50 }, // Bottom right - Aerial duels
-    { x: cx, y: size - 5, anchor: "middle", valueY: size - 25 }, // Bottom - Defensive contributions
-    { x: 10, y: size - 60, anchor: "start", valueY: size - 50 }, // Bottom left - Goals
-    { x: 10, y: 70, anchor: "start", valueY: 60 }, // Top left - Shot attempts
+    { x: cx, y: 15, anchor: "middle", valueY: 5 },
+    { x: size - 10, y: 70, anchor: "end", valueY: 60 },
+    { x: size - 10, y: size - 60, anchor: "end", valueY: size - 50 },
+    { x: cx, y: size - 5, anchor: "middle", valueY: size - 25 },
+    { x: 10, y: size - 60, anchor: "start", valueY: size - 50 },
+    { x: 10, y: 70, anchor: "start", valueY: 60 },
   ]
 
   return (
-    <Card className="border-border/50 bg-card h-full flex flex-col">
-      <CardHeader className="pb-2 shrink-0">
-        <CardTitle className="text-lg">Player traits</CardTitle>
-        <p className="text-sm text-muted-foreground flex items-center gap-1">
-          Stats compared to other {position.toLowerCase()}s
-          <HelpCircle className="w-4 h-4 cursor-help opacity-60" />
+    <Card className="h-full border-border/50 bg-card">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg">{title}</CardTitle>
+        <p className="flex items-center gap-1 text-sm text-muted-foreground">
+          {subtitle}
+          <HelpCircle className="h-4 w-4 cursor-help opacity-60" />
         </p>
       </CardHeader>
-      <CardContent className="flex-1 flex items-center justify-center py-4">
+      <CardContent className="flex items-center justify-center py-4">
         <div className="relative w-full max-w-[320px]">
-          <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-full overflow-visible">
-            {/* Background hexagons - 4 levels */}
-            {[1, 0.75, 0.5, 0.25].map((scale, i) => (
+          <svg viewBox={`0 0 ${size} ${size}`} className="h-full w-full overflow-visible">
+            {[1, 0.75, 0.5, 0.25].map((scale, index) => (
               <polygon
-                key={i}
+                key={index}
                 points={getHexagonPoints(maxRadius * scale)}
                 fill="none"
                 stroke="hsl(var(--border))"
@@ -91,14 +91,13 @@ export function PlayerRadarChart({ position, stats }: PlayerTraitsProps) {
               />
             ))}
 
-            {/* Lines from center to vertices */}
-            {traits.map((_, i) => {
-              const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2
+            {safeMetrics.map((_, index) => {
+              const angle = (Math.PI * 2 * index) / 6 - Math.PI / 2
               const x = cx + maxRadius * Math.cos(angle)
               const y = cy + maxRadius * Math.sin(angle)
               return (
                 <line
-                  key={i}
+                  key={index}
                   x1={cx}
                   y1={cy}
                   x2={x}
@@ -111,46 +110,42 @@ export function PlayerRadarChart({ position, stats }: PlayerTraitsProps) {
               )
             })}
 
-            {/* Data polygon with gradient */}
             <defs>
-              <linearGradient id="radarGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#dc2626" />
-                <stop offset="100%" stopColor="#991b1b" />
+              <linearGradient id="realMetricRadarGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#c6ff00" />
+                <stop offset="100%" stopColor="#16a34a" />
               </linearGradient>
             </defs>
+
             <polygon
               points={getDataPoints()}
-              fill="url(#radarGradient)"
-              fillOpacity="0.8"
-              stroke="#ef4444"
-              strokeWidth="2"
+              fill="url(#realMetricRadarGradient)"
+              fillOpacity="0.55"
+              stroke="#b7ff00"
+              strokeWidth="2.5"
             />
 
-            {/* Data points at vertices */}
-            {traits.map((trait, i) => {
-              const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2
-              const radius = (trait.value / 100) * maxRadius
+            {safeMetrics.map((metric, index) => {
+              const angle = (Math.PI * 2 * index) / 6 - Math.PI / 2
+              const radius = metric.normalized * maxRadius
               const x = cx + radius * Math.cos(angle)
               const y = cy + radius * Math.sin(angle)
-              return <circle key={i} cx={x} cy={y} r="4" fill="#ef4444" stroke="white" strokeWidth="2" />
+              return <circle key={index} cx={x} cy={y} r="4.5" fill="#b7ff00" stroke="white" strokeWidth="2" />
             })}
 
-            {/* Labels with values */}
-            {traits.map((trait, i) => {
-              const pos = labelPositions[i]
+            {safeMetrics.map((metric, index) => {
+              const pos = labelPositions[index]
               return (
-                <g key={i}>
-                  {/* Value */}
+                <g key={metric.label}>
                   <text
                     x={pos.x}
                     y={pos.valueY}
                     textAnchor={pos.anchor as "start" | "middle" | "end"}
-                    className="fill-red-500 font-bold"
+                    className="fill-lime-400 font-bold"
                     fontSize="12"
                   >
-                    {trait.value}%
+                    {metric.displayValue}
                   </text>
-                  {/* Label */}
                   <text
                     x={pos.x}
                     y={pos.y}
@@ -158,7 +153,7 @@ export function PlayerRadarChart({ position, stats }: PlayerTraitsProps) {
                     className="fill-muted-foreground"
                     fontSize="9"
                   >
-                    {trait.label}
+                    {metric.label}
                   </text>
                 </g>
               )

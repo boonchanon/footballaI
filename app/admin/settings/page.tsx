@@ -1,438 +1,280 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useEffect, useState } from "react"
+import { Database, RefreshCw, Save, Wifi, WifiOff } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Settings,
-  Globe,
-  Bell,
-  Shield,
-  Database,
-  Mail,
-  Save,
-  RefreshCw,
-} from "lucide-react"
+import { getAuthToken } from "@/lib/auth-client"
+
+type SettingsResponse = {
+  footballApi?: {
+    enabled: boolean
+  }
+  footballTeamsApi?: {
+    enabled: boolean
+  }
+  newsApi?: {
+    enabled: boolean
+  }
+  fixtureCount?: number
+}
 
 export default function SettingsPage() {
-  const [isSaving, setIsSaving] = useState(false)
+  const [footballApiEnabled, setFootballApiEnabled] = useState(true)
+  const [footballTeamsApiEnabled, setFootballTeamsApiEnabled] = useState(true)
+  const [newsApiEnabled, setNewsApiEnabled] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [syncingHistorical, setSyncingHistorical] = useState(false)
+  const [message, setMessage] = useState("")
 
-  const handleSave = async () => {
-    setIsSaving(true)
-    await new Promise((r) => setTimeout(r, 1500))
-    setIsSaving(false)
+  const loadSettings = async () => {
+    const token = getAuthToken()
+    if (!token) {
+      setMessage("ไม่พบ token ของแอดมิน")
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    setMessage("")
+
+    try {
+      const response = await fetch("/api/admin/sync/premier-league", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      const data = (await response.json().catch(() => null)) as SettingsResponse | null
+
+      if (!response.ok) {
+        setMessage("โหลดการตั้งค่าไม่สำเร็จ")
+        return
+      }
+
+      setFootballApiEnabled(Boolean(data?.footballApi?.enabled))
+      setFootballTeamsApiEnabled(Boolean(data?.footballTeamsApi?.enabled))
+      setNewsApiEnabled(Boolean(data?.newsApi?.enabled))
+    } catch {
+      setMessage("เชื่อมต่อการตั้งค่าแอดมินไม่สำเร็จ")
+    } finally {
+      setLoading(false)
+    }
   }
+
+  const saveSettings = async () => {
+    const token = getAuthToken()
+    if (!token) {
+      setMessage("ไม่พบ token ของแอดมิน")
+      return
+    }
+
+    setSaving(true)
+    setMessage("")
+
+    try {
+      const response = await fetch("/api/admin/sync/premier-league", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          footballApi: {
+            enabled: footballApiEnabled,
+          },
+          footballTeamsApi: {
+            enabled: footballTeamsApiEnabled,
+          },
+          newsApi: {
+            enabled: newsApiEnabled,
+          },
+        }),
+      })
+
+      const data = (await response.json().catch(() => null)) as SettingsResponse | null
+      if (!response.ok) {
+        setMessage("บันทึกการตั้งค่าไม่สำเร็จ")
+        return
+      }
+
+      setFootballApiEnabled(Boolean(data?.footballApi?.enabled))
+      setFootballTeamsApiEnabled(Boolean(data?.footballTeamsApi?.enabled))
+      setNewsApiEnabled(Boolean(data?.newsApi?.enabled))
+      setMessage("บันทึกการตั้งค่าเรียบร้อยแล้ว")
+    } catch {
+      setMessage("เชื่อมต่อเพื่อบันทึกการตั้งค่าไม่สำเร็จ")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const syncFiveSeasons = async () => {
+    const token = getAuthToken()
+    if (!token) {
+      setMessage("ไม่พบ token ของแอดมิน")
+      return
+    }
+
+    setSyncingHistorical(true)
+    setMessage("กำลัง sync ข้อมูลพรีเมียร์ลีกย้อนหลัง 5 ฤดูกาล...")
+
+    try {
+      const response = await fetch("/api/admin/sync/premier-league", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          mode: "fixtures",
+        }),
+      })
+
+      const data = await response.json().catch(() => null)
+      if (!response.ok) {
+        setMessage("sync 5 ฤดูกาลไม่สำเร็จ")
+        return
+      }
+
+      const syncedCount = Number(data?.status?.fixtureCount || 0)
+      setMessage(`sync 5 ฤดูกาลเรียบร้อยแล้ว ขณะนี้มี fixtures ในฐานข้อมูล ${syncedCount.toLocaleString()} รายการ`)
+      await loadSettings()
+    } catch {
+      setMessage("เชื่อมต่อเพื่อ sync 5 ฤดูกาลไม่สำเร็จ")
+    } finally {
+      setSyncingHistorical(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadSettings()
+  }, [])
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Settings</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage application settings and preferences
-          </p>
+          <h1 className="text-3xl font-bold">ตั้งค่า</h1>
+          <p className="mt-1 text-muted-foreground">ควบคุมการใช้งาน API ภายนอกและแหล่งข้อมูลสำรองใน MongoDB</p>
         </div>
-        <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving ? (
-            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4 mr-2" />
-          )}
-          Save Changes
-        </Button>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={() => void loadSettings()} disabled={loading || saving}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            รีเฟรช
+          </Button>
+          <Button onClick={() => void saveSettings()} disabled={loading || saving}>
+            <Save className={`mr-2 h-4 w-4 ${saving ? "animate-pulse" : ""}`} />
+            บันทึก
+          </Button>
+        </div>
       </div>
 
-      <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="general" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            General
-          </TabsTrigger>
-          <TabsTrigger value="appearance" className="flex items-center gap-2">
-            <Globe className="h-4 w-4" />
-            Appearance
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2">
-            <Bell className="h-4 w-4" />
-            Notifications
-          </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center gap-2">
-            <Shield className="h-4 w-4" />
-            Security
-          </TabsTrigger>
-          <TabsTrigger value="advanced" className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
-            Advanced
-          </TabsTrigger>
-        </TabsList>
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Football API Fixtures
+          </CardTitle>
+          <CardDescription>ควบคุมการ refresh ข้อมูลแมตช์จาก API ภายนอก และใช้ MongoDB เป็นข้อมูลหลักเมื่อ API มีปัญหา</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-background/70 p-4">
+            <div className="space-y-1">
+              <Label className="text-base">เปิดใช้งาน Football API Refresh</Label>
+              <p className="text-sm text-muted-foreground">เมื่อเปิด ระบบจะ refresh ข้อมูลแมตช์จาก API แล้ว sync ลง MongoDB ตามรอบ cache</p>
+            </div>
+            <Switch checked={footballApiEnabled} onCheckedChange={setFootballApiEnabled} disabled={loading || saving} />
+          </div>
 
-        {/* General Settings */}
-        <TabsContent value="general" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Site Information</CardTitle>
-              <CardDescription>Basic information about your site</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="siteName">Site Name</Label>
-                  <Input id="siteName" defaultValue="Premier League Stats" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="siteUrl">Site URL</Label>
-                  <Input id="siteUrl" defaultValue="https://premierleague-stats.com" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="siteDescription">Site Description</Label>
-                <Textarea
-                  id="siteDescription"
-                  defaultValue="Comprehensive Premier League statistics, match predictions, and analytics platform"
-                  rows={3}
-                />
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="timezone">Timezone</Label>
-                  <Select defaultValue="utc">
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="utc">UTC</SelectItem>
-                      <SelectItem value="london">Europe/London</SelectItem>
-                      <SelectItem value="bangkok">Asia/Bangkok</SelectItem>
-                      <SelectItem value="new-york">America/New_York</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="language">Default Language</Label>
-                  <Select defaultValue="en">
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="th">Thai</SelectItem>
-                      <SelectItem value="es">Spanish</SelectItem>
-                      <SelectItem value="fr">French</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            {footballApiEnabled ? <Wifi className="h-4 w-4 text-primary" /> : <WifiOff className="h-4 w-4 text-destructive" />}
+            <span>{footballApiEnabled ? "สถานะปัจจุบัน: เปิดใช้งาน API แมตช์" : "สถานะปัจจุบัน: ปิด API แมตช์ ใช้ข้อมูลจาก MongoDB เท่านั้น"}</span>
+          </div>
+        </CardContent>
+      </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Contact Information</CardTitle>
-              <CardDescription>How users can reach you</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="adminEmail">Admin Email</Label>
-                  <Input id="adminEmail" type="email" defaultValue="admin@premierleague-stats.com" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="supportEmail">Support Email</Label>
-                  <Input id="supportEmail" type="email" defaultValue="support@premierleague-stats.com" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+      <Card className="border-lime-500/30 bg-lime-500/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Sync 5 Seasons
+          </CardTitle>
+          <CardDescription>ดึง fixtures พรีเมียร์ลีกย้อนหลัง 5 ฤดูกาลลง MongoDB เพื่อให้หน้า player, match และ season dropdown ใช้ข้อมูลย้อนหลังได้จริงโดยไม่ต้องรอ API ตอนเปิดหน้า</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-2xl border border-border/60 bg-background/70 p-4">
+            <p className="text-sm text-muted-foreground">
+              ปุ่มนี้จะ sync ฤดูกาล 2026/27, 2025/26, 2024/25, 2023/24 และ 2022/23 ลงฐานข้อมูลของระบบ
+            </p>
+          </div>
 
-        {/* Appearance Settings */}
-        <TabsContent value="appearance" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Theme Settings</CardTitle>
-              <CardDescription>Customize the look and feel</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Dark Mode</Label>
-                  <p className="text-sm text-muted-foreground">Enable dark mode by default</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Compact Mode</Label>
-                  <p className="text-sm text-muted-foreground">Use compact layout for tables</p>
-                </div>
-                <Switch />
-              </div>
-              <div className="space-y-2">
-                <Label>Primary Color</Label>
-                <div className="flex items-center gap-4">
-                  <Input type="color" className="w-20 h-10 p-1" defaultValue="#3b82f6" />
-                  <span className="text-sm text-muted-foreground">Choose your brand color</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              onClick={() => void syncFiveSeasons()}
+              disabled={loading || saving || syncingHistorical}
+              className="bg-lime-500 text-slate-950 hover:bg-lime-400"
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${syncingHistorical ? "animate-spin" : ""}`} />
+              {syncingHistorical ? "กำลัง Sync 5 Seasons..." : "Sync 5 Seasons"}
+            </Button>
+            <span className="text-sm text-muted-foreground">ใช้เมื่ออยากเติม historical cache ให้ครบก่อนเปิดหน้าผู้เล่นย้อนหลัง</span>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Notifications Settings */}
-        <TabsContent value="notifications" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Email Notifications</CardTitle>
-              <CardDescription>Configure email notification preferences</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>New User Registration</Label>
-                  <p className="text-sm text-muted-foreground">Get notified when new users register</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Match Results</Label>
-                  <p className="text-sm text-muted-foreground">Receive match result updates</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>AI Prediction Alerts</Label>
-                  <p className="text-sm text-muted-foreground">Get notified about prediction performance</p>
-                </div>
-                <Switch />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>System Alerts</Label>
-                  <p className="text-sm text-muted-foreground">Critical system notifications</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-            </CardContent>
-          </Card>
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Football API Teams
+          </CardTitle>
+          <CardDescription>ควบคุมการ refresh รายชื่อสโมสรและทีมสำหรับหน้า /clubs และ /teams โดยเก็บข้อมูลลง MongoDB เป็นแหล่งสำรอง</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-background/70 p-4">
+            <div className="space-y-1">
+              <Label className="text-base">เปิดใช้งาน Team Directory API Refresh</Label>
+              <p className="text-sm text-muted-foreground">เมื่อเปิด ระบบจะ refresh รายชื่อทีมจาก AllSportsAPI แล้วบันทึกลง MongoDB เมื่อปิด ระบบจะใช้ข้อมูลสโมสรและทีมที่เก็บไว้ในฐานข้อมูลเท่านั้น</p>
+            </div>
+            <Switch checked={footballTeamsApiEnabled} onCheckedChange={setFootballTeamsApiEnabled} disabled={loading || saving} />
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>SMTP Configuration</CardTitle>
-              <CardDescription>Configure email server settings</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="smtpHost">SMTP Host</Label>
-                  <Input id="smtpHost" placeholder="smtp.example.com" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="smtpPort">SMTP Port</Label>
-                  <Input id="smtpPort" placeholder="587" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="smtpUser">SMTP Username</Label>
-                  <Input id="smtpUser" placeholder="username" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="smtpPass">SMTP Password</Label>
-                  <Input id="smtpPass" type="password" placeholder="********" />
-                </div>
-              </div>
-              <Button variant="outline">
-                <Mail className="h-4 w-4 mr-2" />
-                Send Test Email
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            {footballTeamsApiEnabled ? <Wifi className="h-4 w-4 text-primary" /> : <WifiOff className="h-4 w-4 text-destructive" />}
+            <span>{footballTeamsApiEnabled ? "สถานะปัจจุบัน: เปิดใช้งาน API รายชื่อทีมและสโมสร" : "สถานะปัจจุบัน: ปิด API รายชื่อทีมและสโมสร ใช้ข้อมูลจาก MongoDB เท่านั้น"}</span>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Security Settings */}
-        <TabsContent value="security" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Authentication</CardTitle>
-              <CardDescription>Configure authentication settings</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Two-Factor Authentication</Label>
-                  <p className="text-sm text-muted-foreground">Require 2FA for admin accounts</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Session Timeout</Label>
-                  <p className="text-sm text-muted-foreground">Auto logout after inactivity</p>
-                </div>
-                <Select defaultValue="30">
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="15">15 minutes</SelectItem>
-                    <SelectItem value="30">30 minutes</SelectItem>
-                    <SelectItem value="60">1 hour</SelectItem>
-                    <SelectItem value="120">2 hours</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Login Attempts</Label>
-                  <p className="text-sm text-muted-foreground">Max failed login attempts before lockout</p>
-                </div>
-                <Select defaultValue="5">
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="3">3 attempts</SelectItem>
-                    <SelectItem value="5">5 attempts</SelectItem>
-                    <SelectItem value="10">10 attempts</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            API ข่าว
+          </CardTitle>
+          <CardDescription>ควบคุมการดึงข่าวจาก GNews แยกจากข้อมูลฟุตบอล เมื่อปิดจะใช้ fallback news ภายในระบบแทน</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-background/70 p-4">
+            <div className="space-y-1">
+              <Label className="text-base">เปิดใช้งาน API ข่าว</Label>
+              <p className="text-sm text-muted-foreground">เมื่อเปิด ระบบจะเรียก GNews ตามปกติ เมื่อปิดจะหยุดยิง API ข่าวและใช้ fallback news ของระบบแทน</p>
+            </div>
+            <Switch checked={newsApiEnabled} onCheckedChange={setNewsApiEnabled} disabled={loading || saving} />
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Password Policy</CardTitle>
-              <CardDescription>Set password requirements</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Minimum Length</Label>
-                  <p className="text-sm text-muted-foreground">Minimum password length</p>
-                </div>
-                <Select defaultValue="8">
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="6">6 characters</SelectItem>
-                    <SelectItem value="8">8 characters</SelectItem>
-                    <SelectItem value="12">12 characters</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Require Uppercase</Label>
-                  <p className="text-sm text-muted-foreground">At least one uppercase letter</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Require Numbers</Label>
-                  <p className="text-sm text-muted-foreground">At least one number</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Require Special Characters</Label>
-                  <p className="text-sm text-muted-foreground">At least one special character</p>
-                </div>
-                <Switch />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            {newsApiEnabled ? <Wifi className="h-4 w-4 text-primary" /> : <WifiOff className="h-4 w-4 text-destructive" />}
+            <span>{newsApiEnabled ? "สถานะปัจจุบัน: เปิดใช้งาน API ข่าว" : "สถานะปัจจุบัน: ปิด API ข่าว ใช้ fallback news"}</span>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Advanced Settings */}
-        <TabsContent value="advanced" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Data Management</CardTitle>
-              <CardDescription>Database and cache settings</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Auto Backup</Label>
-                  <p className="text-sm text-muted-foreground">Automatically backup database daily</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Cache Duration</Label>
-                  <p className="text-sm text-muted-foreground">How long to cache API responses</p>
-                </div>
-                <Select defaultValue="60">
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="30">30 seconds</SelectItem>
-                    <SelectItem value="60">1 minute</SelectItem>
-                    <SelectItem value="300">5 minutes</SelectItem>
-                    <SelectItem value="600">10 minutes</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex gap-4">
-                <Button variant="outline">Clear Cache</Button>
-                <Button variant="outline">Export Data</Button>
-                <Button variant="destructive">Reset Database</Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>API Settings</CardTitle>
-              <CardDescription>External API configuration</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="footballApiKey">Football Data API Key</Label>
-                <Input id="footballApiKey" type="password" placeholder="Your API key" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="sportmonksApiKey">SportMonks API Key</Label>
-                <Input id="sportmonksApiKey" type="password" placeholder="Your API key" />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Rate Limiting</Label>
-                  <p className="text-sm text-muted-foreground">Max API requests per minute</p>
-                </div>
-                <Select defaultValue="60">
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="30">30/min</SelectItem>
-                    <SelectItem value="60">60/min</SelectItem>
-                    <SelectItem value="100">100/min</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      {message ? <div className="text-sm text-muted-foreground">{message}</div> : null}
     </div>
   )
 }

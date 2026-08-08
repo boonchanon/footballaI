@@ -1,37 +1,33 @@
 const express = require("express")
 
 const {
-  createPost,
-  createPostComment,
-  createPostValidation,
-  deletePost,
-  getPostById,
   listPosts,
-  listPostsValidation,
-  postIdValidation,
-  createReport,
-  createReportValidation,
-  listReports,
-  listReportsValidation,
-  resolveReport,
-  resolveReportValidation,
+  getPostById,
+  createPost,
+  updatePost,
+  deletePost,
+  listComments,
+  createPostComment,
   toggleLike,
-  updateModeration,
-  updateModerationValidation,
-} = require("../controllers/community.controller")
-const { requireAdmin, requireAuth } = require("../middleware/auth")
+} = require("../controllers/community.controller.api")
+const { requireAuth } = require("../middleware/auth.middleware")
+const {
+  validatePostId,
+  validatePostCreate,
+  validatePostUpdate,
+  validateCommentCreate,
+} = require("../validators/community.validator")
 
 const router = express.Router()
 
-router.get("/posts", listPostsValidation, listPosts)
-router.post("/posts", requireAuth, createPostValidation, createPost)
-router.get("/reports", requireAuth, requireAdmin, listReportsValidation, listReports)
-router.get("/posts/:id", postIdValidation, getPostById)
-router.post("/posts/:id/like", requireAuth, postIdValidation, toggleLike)
-router.post("/posts/:id/comments", requireAuth, postIdValidation, createPostComment)
-router.post("/posts/:id/report", requireAuth, createReportValidation, createReport)
-router.patch("/posts/:id/moderation", requireAuth, requireAdmin, updateModerationValidation, updateModeration)
-router.patch("/reports/:id", requireAuth, requireAdmin, resolveReportValidation, resolveReport)
-router.delete("/posts/:id", requireAuth, postIdValidation, deletePost)
+router.get("/", listPosts)
+router.get("/:id", validatePostId, getPostById)
+router.post("/", requireAuth, validatePostCreate, createPost)
+router.put("/:id", requireAuth, validatePostId, validatePostUpdate, updatePost)
+router.delete("/:id", requireAuth, validatePostId, deletePost)
+router.get("/:id/comments", validatePostId, listComments)
+router.post("/:id/comments", requireAuth, validatePostId, validateCommentCreate, createPostComment)
+router.post("/:id/like", requireAuth, validatePostId, toggleLike)
+router.delete("/:id/like", requireAuth, validatePostId, toggleLike)
 
 module.exports = router

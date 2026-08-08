@@ -41,6 +41,7 @@ import { Separator } from "@/components/ui/separator"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
@@ -88,6 +89,15 @@ type ProfileStoryGroup = {
     avatar: string
   }
   stories: ProfileStory[]
+}
+
+type FootballTeamOption = {
+  team: {
+    id: string
+    name: string
+    nameEn?: string
+    logo?: string
+  }
 }
 
 function authorizedFetcher<T>(url: string, token: string) {
@@ -202,6 +212,10 @@ export function ProfilePage() {
   const { data: activityData, mutate: mutateActivity } = useSWR(
     token ? ["/users/me/activity", token] : null,
     ([url, authToken]) => authorizedFetcher<any>(url, authToken),
+  )
+  const { data: teamOptionsData } = useSWR(
+    token ? ["/football/teams", token] : null,
+    ([url, authToken]) => authorizedFetcher<{ data: FootballTeamOption[] }>(url, authToken),
   )
 
   const stableUserId = user?.id || profileData?.user?.id || ""
@@ -333,6 +347,28 @@ export function ProfilePage() {
     () => ((favoritesData?.items || []) as any[]).filter((item) => item.itemType === "team").map((item) => item.title).slice(0, 5),
     [favoritesData?.items],
   )
+  const teamOptions = useMemo(
+    () =>
+      (teamOptionsData?.data || [])
+        .map((item) => ({
+          id: String(item.team?.id || ""),
+          name: String(item.team?.name || item.team?.nameEn || ""),
+          logo: String(item.team?.logo || ""),
+        }))
+        .filter((item) => item.id && item.name),
+    [teamOptionsData?.data],
+  )
+  const selectedFavoriteTeamOption = useMemo(
+    () =>
+      teamOptions.find(
+        (team) =>
+          team.id === String(currentUser?.favoriteTeamIds?.[0] || "") ||
+          team.name === profileForm.favoriteTeam ||
+          team.name === currentUser?.favoriteTeam,
+      ) || null,
+    [currentUser?.favoriteTeam, currentUser?.favoriteTeamIds, profileForm.favoriteTeam, teamOptions],
+  )
+  const primaryFavoriteTeamLabel = selectedFavoriteTeamOption?.name || favoriteTeams[0] || currentUser?.favoriteTeam || "-"
   const favoritePlayers = useMemo(
     () => ((favoritesData?.items || []) as any[]).filter((item) => item.itemType === "player").map((item) => item.title).slice(0, 5),
     [favoritesData?.items],
@@ -455,7 +491,12 @@ export function ProfilePage() {
     if (!token) return
     setSavingProfile(true)
     try {
-      await updateProfileFields(profileForm)
+      const selectedTeam = teamOptions.find((team) => team.name === profileForm.favoriteTeam)
+      await updateProfileFields({
+        ...profileForm,
+        favoriteTeam: selectedTeam?.name || profileForm.favoriteTeam,
+        favoriteTeamIds: selectedTeam ? [selectedTeam.id] : [],
+      })
       if (profileForm.coverImage) {
         setCoverImagePreview(profileForm.coverImage)
       }
@@ -1301,11 +1342,22 @@ export function ProfilePage() {
                             </div>
                             <div className="space-y-2">
                               <Label htmlFor="favoriteTeam">ทีมโปรดหลัก</Label>
-                              <Input
-                                id="favoriteTeam"
-                                value={profileForm.favoriteTeam}
-                                onChange={(e) => setProfileForm((prev) => ({ ...prev, favoriteTeam: e.target.value }))}
-                              />
+                              <Select
+                                value={profileForm.favoriteTeam || undefined}
+                                onValueChange={(value) => setProfileForm((prev) => ({ ...prev, favoriteTeam: value }))}
+                              >
+                                <SelectTrigger id="favoriteTeam">
+                                  <SelectValue placeholder="เลือกทีมโปรดหลัก" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {teamOptions.map((team) => (
+                                    <SelectItem key={team.id} value={team.name}>
+                                      {team.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <p className="text-xs text-muted-foreground">เลือกจากรายชื่อทีมจริง เพื่อเชื่อมกับ Match Rooms, โปรแกรมแข่ง และคอนเทนต์ที่เกี่ยวข้อง</p>
                             </div>
                             <div className="space-y-2">
                               <Label htmlFor="bio">Bio</Label>
@@ -1570,7 +1622,7 @@ export function ProfilePage() {
                     <div className="space-y-3">
                       <div>
                         <p className="mb-2 text-xs text-muted-foreground">ทีมโปรด</p>
-                        <p className="text-sm font-medium">{favoriteTeams[0] || currentUser.favoriteTeam || "-"}</p>
+                        <p className="text-sm font-medium">{primaryFavoriteTeamLabel}</p>
                       </div>
                       <div>
                         <p className="mb-2 text-xs text-muted-foreground">นักเตะโปรด</p>
@@ -1595,12 +1647,50 @@ export function ProfilePage() {
                     <Separator />
                     <div>
                       <p className="text-xs text-muted-foreground">ทีมโปรดหลัก</p>
-                      <p className="font-medium">{currentUser.favoriteTeam || "-"}</p>
+                      <p className="font-medium">{primaryFavoriteTeamLabel}</p>
                     </div>
                     <Separator />
                     <div>
                       <p className="text-xs text-muted-foreground">สมาชิกตั้งแต่</p>
                       <p className="font-medium">{memberSince}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className={panelClass}>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Trophy className="h-5 w-5 text-primary" />
+                      ทางลัดจากทีมโปรด
+                    </CardTitle>
+                    <CardDescription>ใช้ทีมหลักเป็นจุดเริ่มต้นไปยังแมตช์ ห้องคุย และตารางคะแนน</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {selectedFavoriteTeamOption ? (
+                      <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-background/50 p-3">
+                        <div className="relative h-11 w-11 overflow-hidden rounded-full border border-white/10 bg-black/20">
+                          {selectedFavoriteTeamOption.logo ? (
+                            <Image src={selectedFavoriteTeamOption.logo} alt={selectedFavoriteTeamOption.name} fill className="object-contain p-1.5" />
+                          ) : null}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm text-muted-foreground">ทีมหลักของคุณ</p>
+                          <p className="truncate font-medium">{selectedFavoriteTeamOption.name}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">เลือกทีมโปรดหลักก่อน เพื่อให้ระบบคัดแมตช์และเนื้อหาที่ตรงกับคุณได้ดีขึ้น</p>
+                    )}
+                    <div className="grid grid-cols-1 gap-2">
+                      <Button asChild variant="outline" className="justify-start rounded-2xl border-white/10 bg-background/50">
+                        <Link href="/matches">ดูโปรแกรมแข่ง</Link>
+                      </Button>
+                      <Button asChild variant="outline" className="justify-start rounded-2xl border-white/10 bg-background/50">
+                        <Link href="/community">ไปคอมมูนิตี้และ Match Rooms</Link>
+                      </Button>
+                      <Button asChild variant="outline" className="justify-start rounded-2xl border-white/10 bg-background/50">
+                        <Link href="/standings">ดูตารางคะแนน</Link>
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
