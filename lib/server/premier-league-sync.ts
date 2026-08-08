@@ -1,5 +1,4 @@
-import { footballService } from "@/app/api/football/service"
-import { PREMIER_LEAGUE_DATA_SEASON } from "@/lib/season"
+import { syncHistoricalFixturesCache } from "@/app/api/football/service"
 
 import { connectDatabase } from "./db"
 import { PremierLeagueFixture, PremierLeagueSnapshot } from "./models"
@@ -315,64 +314,7 @@ export async function generatePremierLeagueAiSnapshot(section: string = "all") {
 
 export async function seedPremierLeagueFixtures() {
   await connectDatabase()
-
-  const fixtures = await footballService.getFixtures({ type: "all" })
-  const operations = fixtures.map((fixture: any) => ({
-    updateOne: {
-      filter: { externalId: String(fixture.id) },
-      update: {
-        $set: {
-          season: PREMIER_LEAGUE_DATA_SEASON.labelLong,
-          roundNumber: fixture.roundNumber ?? null,
-          roundLabel: fixture.league?.round || "",
-          kickoffAt: new Date(fixture.date),
-          kickoffLabel: fixture.dateThai || fixture.date,
-          homeTeam: {
-            id: String(fixture.teams?.home?.id || ""),
-            name: fixture.teams?.home?.name || "",
-            nameEn: fixture.teams?.home?.nameEn || "",
-            logo: fixture.teams?.home?.logo || "",
-          },
-          awayTeam: {
-            id: String(fixture.teams?.away?.id || ""),
-            name: fixture.teams?.away?.name || "",
-            nameEn: fixture.teams?.away?.nameEn || "",
-            logo: fixture.teams?.away?.logo || "",
-          },
-          venue: {
-            name: fixture.venue?.name || "",
-            city: fixture.venue?.city || "",
-          },
-          status: {
-            short: fixture.status?.short || "",
-            long: fixture.status?.long || "",
-            isLive: Boolean(fixture.status?.isLive),
-            isFinished: Boolean(fixture.status?.isFinished),
-            isUpcoming: Boolean(fixture.status?.isUpcoming),
-          },
-          score: {
-            home: fixture.goals?.home ?? null,
-            away: fixture.goals?.away ?? null,
-          },
-          source: process.env.API_FOOTBALL_KEY ? "api-football" : "internal-fallback",
-          syncedAt: new Date(),
-          metadata: {
-            league: fixture.league || {},
-          },
-        },
-      },
-      upsert: true,
-    },
-  }))
-
-  if (operations.length > 0) {
-    await PremierLeagueFixture.bulkWrite(operations, { ordered: false })
-  }
-
-  return {
-    insertedOrUpdated: operations.length,
-    source: process.env.API_FOOTBALL_KEY ? "api-football" : "internal-fallback",
-  }
+  return syncHistoricalFixturesCache()
 }
 
 export async function syncPremierLeagueSnapshot() {

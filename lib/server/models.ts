@@ -993,6 +993,33 @@ const premierLeagueFixtureSchema =
     { timestamps: true },
   )
 
+const premierLeagueTeamSchema =
+  models.PremierLeagueTeam?.schema ||
+  new Schema(
+    {
+      externalId: { type: String, required: true, unique: true, index: true },
+      season: { type: String, required: true, index: true },
+      name: { type: String, required: true, trim: true, index: true },
+      nameEn: { type: String, default: "", trim: true, index: true },
+      logo: { type: String, default: "" },
+      country: { type: String, default: "" },
+      league: { type: String, default: "" },
+      founded: { type: Number, default: null },
+      website: { type: String, default: "" },
+      venue: {
+        name: { type: String, default: "" },
+        city: { type: String, default: "" },
+        capacity: { type: Number, default: 0 },
+        image: { type: String, default: "" },
+      },
+      manager: { type: String, default: "" },
+      source: { type: String, default: "internal-football-service" },
+      syncedAt: { type: Date, default: Date.now, index: true },
+      metadata: { type: Schema.Types.Mixed, default: {} },
+    },
+    { timestamps: true },
+  )
+
 const premierLeagueSnapshotSchema =
   models.PremierLeagueSnapshot?.schema ||
   new Schema(
@@ -1012,6 +1039,17 @@ const premierLeagueSnapshotSchema =
       syncedAt: { type: Date, default: Date.now, index: true },
       status: { type: String, enum: ["ready", "error"], default: "ready" },
       lastError: { type: String, default: "" },
+    },
+    { timestamps: true },
+  )
+
+const appSettingSchema =
+  models.AppSetting?.schema ||
+  new Schema(
+    {
+      key: { type: String, required: true, unique: true, index: true },
+      value: { type: Schema.Types.Mixed, default: {} },
+      updatedBy: { type: Schema.Types.ObjectId, ref: "Admin", default: null },
     },
     { timestamps: true },
   )
@@ -1104,8 +1142,10 @@ export const Prediction = models.Prediction || model("Prediction", predictionSch
 export const PaymentOrder = models.PaymentOrder || model("PaymentOrder", paymentOrderSchema)
 export const PaymentEntitlement = models.PaymentEntitlement || model("PaymentEntitlement", paymentEntitlementSchema)
 export const PremierLeagueFixture = models.PremierLeagueFixture || model("PremierLeagueFixture", premierLeagueFixtureSchema)
+export const PremierLeagueTeam = models.PremierLeagueTeam || model("PremierLeagueTeam", premierLeagueTeamSchema)
 export const PremierLeagueSnapshot =
   models.PremierLeagueSnapshot || model("PremierLeagueSnapshot", premierLeagueSnapshotSchema)
+export const AppSetting = models.AppSetting || model("AppSetting", appSettingSchema)
 export const CommunityMatchSummary =
   models.CommunityMatchSummary || model("CommunityMatchSummary", communityMatchSummarySchema)
 export const CommunityMatchSummaryHistory =

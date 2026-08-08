@@ -1,968 +1,392 @@
 "use client"
 
 import { Navigation } from "@/components/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Star, MapPin, Trophy, ArrowLeft, Loader2, AlertCircle, Users } from "lucide-react"
-import Link from "next/link"
-import { useParams } from "next/navigation"
-import useSWR from "swr"
-import Image from "next/image"
 import { PlayerRadarChart } from "@/components/player-radar-chart"
 import { PlayerShotMap } from "@/components/player-shot-map"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { AlertCircle, ArrowLeft, CalendarDays, Loader2, MapPin, ShieldAlert, Star, Trophy, Users } from "lucide-react"
+import Image from "next/image"
+import Link from "next/link"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
+import useSWR from "swr"
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
-
-// Mock data for when API is not available
-const mockPlayer = {
-  id: "1100",
-  name: "เออร์ลิง ฮาลันด์",
-  firstname: "Erling",
-  lastname: "Haaland",
-  photo: null,
-  nationality: "นอร์เวย์",
-  age: 24,
-  height: "194 cm",
-  weight: "88 kg",
-  injured: false,
-  birth: {
-    date: "2000-07-21",
-    place: "Leeds",
-    country: "England",
-  },
-  team: {
-    id: "50",
-    name: "แมนเชสเตอร์ ซิตี้",
-    logo: null,
-  },
-  position: "กองหน้า",
-  statistics: {
-    games: {
-      appearences: 26,
-      lineups: 25,
-      minutes: 2340,
-      rating: "8.20",
-      captain: false,
-    },
-    goals: {
-      total: 28,
-      assists: 5,
-      conceded: 0,
-      saves: 0,
-    },
-    shots: {
-      total: 98,
-      on: 62,
-    },
-    passes: {
-      total: 456,
-      key: 25,
-      accuracy: 78,
-    },
-    tackles: {
-      total: 8,
-      blocks: 2,
-      interceptions: 5,
-    },
-    duels: {
-      total: 245,
-      won: 125,
-    },
-    dribbles: {
-      attempts: 35,
-      success: 18,
-    },
-    fouls: {
-      drawn: 32,
-      committed: 15,
-    },
-    cards: {
-      yellow: 2,
-      yellowred: 0,
-      red: 0,
-    },
-    penalty: {
-      won: 3,
-      commited: 0,
-      scored: 5,
-      missed: 1,
-      saved: 0,
-    },
-  },
-  allSeasonStats: [
-    {
-      season: "2024",
-      league: "Premier League",
-      team: "แมนเชสเตอร์ ซิตี้",
-      games: 26,
-      goals: 28,
-      assists: 5,
-      rating: "8.20",
-    },
-    {
-      season: "2023",
-      league: "Premier League",
-      team: "แมนเชสเตอร์ ซิตี้",
-      games: 35,
-      goals: 36,
-      assists: 8,
-      rating: "8.45",
-    },
-    {
-      season: "2022",
-      league: "Premier League",
-      team: "แมนเชสเตอร์ ซิตี้",
-      games: 35,
-      goals: 36,
-      assists: 8,
-      rating: "8.30",
-    },
-  ],
-  transfers: [],
+const fetcher = async (url: string) => {
+  const response = await fetch(url)
+  const payload = await response.json()
+  if (!response.ok) throw new Error(payload?.error || "ไม่สามารถโหลดข้อมูลนักเตะได้")
+  return payload
 }
 
-const mockShots = [
-  {
-    id: 1,
-    x: 48,
-    y: 75,
-    result: "goal" as const,
-    type: "right_foot" as const,
-    situation: "regular_play" as const,
-    xG: 0.43,
-    xGOT: 0.98,
-    homeScore: 2,
-    awayScore: 3,
-  },
-  {
-    id: 2,
-    x: 52,
-    y: 70,
-    result: "goal" as const,
-    type: "right_foot" as const,
-    situation: "regular_play" as const,
-    xG: 0.35,
-    xGOT: 0.72,
-    homeScore: 1,
-    awayScore: 2,
-  },
-  {
-    id: 3,
-    x: 45,
-    y: 80,
-    result: "goal" as const,
-    type: "header" as const,
-    situation: "corner" as const,
-    xG: 0.28,
-    xGOT: 0.65,
-    homeScore: 3,
-    awayScore: 1,
-  },
-  {
-    id: 4,
-    x: 55,
-    y: 65,
-    result: "goal" as const,
-    type: "left_foot" as const,
-    situation: "free_kick" as const,
-    xG: 0.15,
-    xGOT: 0.45,
-    homeScore: 2,
-    awayScore: 0,
-  },
-  {
-    id: 5,
-    x: 40,
-    y: 55,
-    result: "saved" as const,
-    type: "right_foot" as const,
-    situation: "regular_play" as const,
-    xG: 0.22,
-    xGOT: 0.0,
-    homeScore: 1,
-    awayScore: 1,
-  },
-  {
-    id: 6,
-    x: 60,
-    y: 50,
-    result: "saved" as const,
-    type: "right_foot" as const,
-    situation: "regular_play" as const,
-    xG: 0.18,
-    xGOT: 0.0,
-    homeScore: 0,
-    awayScore: 2,
-  },
-  {
-    id: 7,
-    x: 35,
-    y: 45,
-    result: "blocked" as const,
-    type: "right_foot" as const,
-    situation: "regular_play" as const,
-    xG: 0.12,
-    xGOT: 0.0,
-    homeScore: 2,
-    awayScore: 2,
-  },
-  {
-    id: 8,
-    x: 58,
-    y: 60,
-    result: "missed" as const,
-    type: "header" as const,
-    situation: "set_piece" as const,
-    xG: 0.25,
-    xGOT: 0.0,
-    homeScore: 3,
-    awayScore: 0,
-  },
-  {
-    id: 9,
-    x: 42,
-    y: 72,
-    result: "saved" as const,
-    type: "right_foot" as const,
-    situation: "fast_break" as const,
-    xG: 0.45,
-    xGOT: 0.0,
-    homeScore: 1,
-    awayScore: 3,
-  },
-  {
-    id: 10,
-    x: 50,
-    y: 40,
-    result: "missed" as const,
-    type: "right_foot" as const,
-    situation: "regular_play" as const,
-    xG: 0.08,
-    xGOT: 0.0,
-    homeScore: 2,
-    awayScore: 1,
-  },
-]
+type SeasonStatus = "NOT_STARTED" | "NO_APPEARANCE" | "HAS_STATS"
 
-function normalizePlayer(rawPlayer: any) {
-  const fallback = mockPlayer
-  const incoming = rawPlayer ?? {}
-  const incomingStats = incoming.statistics ?? {}
-  const fallbackStats = fallback.statistics
+type PlayerResponse = {
+  id: string
+  name: string
+  firstname?: string
+  lastname?: string
+  number?: number | null
+  photo?: string
+  nationality?: string
+  age?: number | null
+  injured?: boolean
+  team?: { id?: string; name?: string }
+  position?: string
+  captainCount?: number
+  season?: string
+  seasonStatus?: SeasonStatus
+  seasonStats?: {
+    appearances?: number
+    minutes?: number
+    goals?: number
+    assists?: number
+    rating?: string | null
+  } | null
+  availableSeasons?: Array<{
+    value: string
+    label: string
+    startDate: string
+    endDate: string
+  }>
+  statistics?: {
+    games?: { appearences?: number; minutes?: number; rating?: string | null; captain?: boolean }
+    goals?: { total?: number; assists?: number }
+    shots?: { total?: number }
+    passes?: { total?: number; key?: number; accuracy?: number; accuracyPercent?: number | null; crosses?: number }
+    tackles?: { total?: number; blocks?: number; interceptions?: number; clearances?: number }
+    duels?: { total?: number; won?: number; winPercent?: number | null }
+    dribbles?: { attempts?: number; success?: number; successPercent?: number | null }
+    fouls?: { committed?: number }
+    cards?: { yellow?: number; red?: number }
+    penalty?: { won?: number; scored?: number; missed?: number }
+    goalkeeper?: { saves?: number; insideBoxSaves?: number; goalsConceded?: number }
+    possession?: { dispossessed?: number }
+    meta?: { woodwork?: number }
+  }
+}
+
+const toDisplayNumber = (value?: number | null) => (typeof value === "number" && Number.isFinite(value) ? value.toLocaleString() : "-")
+const toDisplayText = (value?: string | number | null) => (value === "" || value == null ? "-" : String(value))
+const formatPercent = (value?: number | null) => (typeof value === "number" && Number.isFinite(value) ? `${value.toFixed(1)}%` : "-")
+
+function buildSeasonOptions() {
+  return Array.from({ length: 2 }, (_, index) => {
+    const startYear = 2025 - index
+    const endYear = startYear + 1
+    return {
+      value: `${startYear}-${endYear}`,
+      label: `${startYear}/${String(endYear).slice(-2)}`,
+    }
+  })
+}
+
+function getPositionLabel(position?: string) {
+  const normalized = String(position || "").toLowerCase()
+  if (normalized.includes("goal")) return "ผู้รักษาประตู"
+  if (normalized.includes("def")) return "กองหลัง"
+  if (normalized.includes("mid")) return "กองกลาง"
+  if (normalized.includes("for") || normalized.includes("striker") || normalized.includes("attack")) return "กองหน้า"
+  return position || "-"
+}
+
+function buildStatRows(player: PlayerResponse) {
+  const stats = player.statistics || {}
+  const games = stats.games || {}
+  const goals = stats.goals || {}
+  const shots = stats.shots || {}
+  const passes = stats.passes || {}
+  const tackles = stats.tackles || {}
+  const duels = stats.duels || {}
+  const dribbles = stats.dribbles || {}
+  const fouls = stats.fouls || {}
+  const cards = stats.cards || {}
+  const penalty = stats.penalty || {}
+  const goalkeeper = stats.goalkeeper || {}
+  const possession = stats.possession || {}
+  const meta = stats.meta || {}
 
   return {
-    ...fallback,
-    ...incoming,
-    birth: {
-      ...fallback.birth,
-      ...(incoming.birth ?? {}),
-    },
-    team: {
-      ...fallback.team,
-      ...(incoming.team ?? {}),
-    },
-    statistics: {
-      ...fallbackStats,
-      ...incomingStats,
-      games: {
-        ...fallbackStats.games,
-        ...(incomingStats.games ?? {}),
-      },
-      goals: {
-        ...fallbackStats.goals,
-        ...(incomingStats.goals ?? {}),
-      },
-      shots: {
-        ...fallbackStats.shots,
-        ...(incomingStats.shots ?? {}),
-      },
-      passes: {
-        ...fallbackStats.passes,
-        ...(incomingStats.passes ?? {}),
-      },
-      tackles: {
-        ...fallbackStats.tackles,
-        ...(incomingStats.tackles ?? {}),
-      },
-      duels: {
-        ...fallbackStats.duels,
-        ...(incomingStats.duels ?? {}),
-      },
-      dribbles: {
-        ...fallbackStats.dribbles,
-        ...(incomingStats.dribbles ?? {}),
-      },
-      fouls: {
-        ...fallbackStats.fouls,
-        ...(incomingStats.fouls ?? {}),
-      },
-      cards: {
-        ...fallbackStats.cards,
-        ...(incomingStats.cards ?? {}),
-      },
-      penalty: {
-        ...fallbackStats.penalty,
-        ...(incomingStats.penalty ?? {}),
-      },
-    },
-    allSeasonStats: Array.isArray(incoming.allSeasonStats) ? incoming.allSeasonStats : fallback.allSeasonStats,
-    transfers: Array.isArray(incoming.transfers) ? incoming.transfers : fallback.transfers,
+    summary: [
+      { label: "ลงเล่น", value: toDisplayNumber(games.appearences) },
+      { label: "นาที", value: toDisplayNumber(games.minutes) },
+      { label: "ประตู", value: toDisplayNumber(goals.total) },
+      { label: "แอสซิสต์", value: toDisplayNumber(goals.assists) },
+      { label: "ใบเหลือง", value: toDisplayNumber(cards.yellow) },
+      { label: "ใบแดง", value: toDisplayNumber(cards.red) },
+      { label: "เรตติ้ง", value: toDisplayText(games.rating) },
+    ],
+    attacking: [
+      { label: "ประตู", value: toDisplayNumber(goals.total) },
+      { label: "แอสซิสต์", value: toDisplayNumber(goals.assists) },
+      { label: "ยิงทั้งหมด", value: toDisplayNumber(shots.total) },
+      { label: "เลี้ยงบอล", value: toDisplayNumber(dribbles.attempts) },
+      { label: "เลี้ยงผ่าน", value: toDisplayNumber(dribbles.success) },
+      { label: "ชนะจุดโทษ", value: toDisplayNumber(penalty.won) },
+      { label: "ยิงจุดโทษเข้า", value: toDisplayNumber(penalty.scored) },
+      { label: "ยิงจุดโทษพลาด", value: toDisplayNumber(penalty.missed) },
+      { label: "เสียบอล", value: toDisplayNumber(possession.dispossessed) },
+      { label: "ชนเสา/คาน", value: toDisplayNumber(meta.woodwork) },
+    ],
+    passing: [
+      { label: "จ่ายบอล", value: toDisplayNumber(passes.total) },
+      { label: "จ่ายสำเร็จ", value: toDisplayNumber(passes.accuracy) },
+      { label: "ความแม่นยำ", value: formatPercent(passes.accuracyPercent) },
+      { label: "คีย์พาส", value: toDisplayNumber(passes.key) },
+      { label: "ครอส", value: toDisplayNumber(passes.crosses) },
+    ],
+    defensive: [
+      { label: "แท็กเกิล", value: toDisplayNumber(tackles.total) },
+      { label: "ตัดบอล", value: toDisplayNumber(tackles.interceptions) },
+      { label: "เคลียร์บอล", value: toDisplayNumber(tackles.clearances) },
+      { label: "บล็อก", value: toDisplayNumber(tackles.blocks) },
+      { label: "ฟาวล์", value: toDisplayNumber(fouls.committed) },
+      { label: "ดวลทั้งหมด", value: toDisplayNumber(duels.total) },
+      { label: "ดวลชนะ", value: toDisplayNumber(duels.won) },
+      { label: "ดวลชนะ %", value: formatPercent(duels.winPercent) },
+    ],
+    goalkeeper: [
+      { label: "เซฟ", value: toDisplayNumber(goalkeeper.saves) },
+      { label: "เซฟในกรอบ", value: toDisplayNumber(goalkeeper.insideBoxSaves) },
+      { label: "เสียประตู", value: toDisplayNumber(goalkeeper.goalsConceded) },
+    ],
   }
 }
 
-// Stat progress bar component
-function StatBar({
-  value,
-  max,
-  color = "primary",
-}: { value: number; max: number; color?: "primary" | "success" | "warning" | "destructive" }) {
-  const percentage = Math.min((value / max) * 100, 100)
-  const colorClasses = {
-    primary: "bg-primary",
-    success: "bg-green-500",
-    warning: "bg-amber-500",
-    destructive: "bg-red-500",
-  }
-
+function StatGrid({ items }: { items: Array<{ label: string; value: string | number }> }) {
   return (
-    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-      <div
-        className={`h-full ${colorClasses[color]} transition-all duration-500`}
-        style={{ width: `${percentage}%` }}
-      />
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+      {items.map((item) => (
+        <div key={item.label} className="rounded-lg border border-border/50 bg-muted/30 p-4 text-center">
+          <p className="text-2xl font-bold text-primary">{item.value}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{item.label}</p>
+        </div>
+      ))}
     </div>
   )
 }
 
-// Get stat color based on percentile/value
-function getStatColor(value: number, max: number): "success" | "warning" | "destructive" {
-  const percentage = (value / max) * 100
-  if (percentage >= 70) return "success"
-  if (percentage >= 40) return "warning"
-  return "destructive"
+function InfoRow({ label, value, accent = "default" }: { label: string; value: string | number; accent?: "default" | "success" | "primary" }) {
+  const accentClass = accent === "success" ? "text-emerald-400" : accent === "primary" ? "text-primary" : "text-foreground"
+  return (
+    <div className="group flex items-center justify-between gap-4 border-b border-border/40 py-4 last:border-b-0">
+      <span className="text-sm text-muted-foreground transition-colors group-hover:text-foreground/80">{label}</span>
+      <span className={`text-right text-xl font-semibold tracking-tight ${accentClass}`}>{value}</span>
+    </div>
+  )
+}
+
+function SeasonStatusCard({ season, seasonStatus }: { season?: string; seasonStatus?: SeasonStatus }) {
+  if (seasonStatus === "HAS_STATS") return null
+
+  const title = seasonStatus === "NOT_STARTED" ? "ยังไม่มีสถิติในฤดูกาลนี้" : "ยังไม่ได้ลงสนามในฤดูกาลนี้"
+  const description =
+    seasonStatus === "NOT_STARTED"
+      ? "พรีเมียร์ลีกฤดูกาลนี้ยังไม่มีการแข่งขัน"
+      : "ทีมมีการแข่งขันแล้ว แต่ผู้เล่นยังไม่มีส่วนร่วม"
+
+  return (
+    <Card className="border-border/50 bg-card">
+      <CardContent className="flex items-start gap-4 p-6">
+        <div className="rounded-full bg-primary/10 p-3">
+          <CalendarDays className="h-5 w-5 text-primary" />
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-muted-foreground">ฤดูกาล {season || "-"}</p>
+          <h3 className="text-xl font-bold">{title}</h3>
+          <p className="text-muted-foreground">{description}</p>
+        </div>
+      </CardContent>
+    </Card>
+  )
 }
 
 export default function PlayerDetailPage() {
   const params = useParams()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const playerId = params.id as string
-
-  const { data, isLoading, error } = useSWR(`/api/football/players/${playerId}`, fetcher)
-
-  const player = normalizePlayer(data?.data)
-  const hasApiData = !!data?.data
+  const selectedSeason = searchParams.get("season") || "2025-2026"
+  const { data, isLoading, error } = useSWR<{ data: PlayerResponse | null }>(
+    `/api/football/players/${playerId}?season=${encodeURIComponent(selectedSeason)}`,
+    fetcher,
+  )
+  const player = data?.data ?? null
+  const seasonOptions = player?.availableSeasons || buildSeasonOptions()
 
   if (isLoading) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-screen bg-background">
         <Navigation />
         <main className="container mx-auto px-4 py-16">
-          <div className="flex items-center justify-center min-h-[60vh]">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <div className="mx-auto max-w-7xl space-y-6">
+            <div className="h-6 w-40 animate-pulse rounded bg-muted" />
+            <div className="grid gap-6 lg:grid-cols-12">
+              <div className="h-72 animate-pulse rounded-2xl bg-muted lg:col-span-8" />
+              <div className="h-72 animate-pulse rounded-2xl bg-muted lg:col-span-4" />
+            </div>
+            <div className="h-48 animate-pulse rounded-2xl bg-muted" />
           </div>
         </main>
       </div>
     )
   }
 
-  const stats = player.statistics
-
-  const playerTraits = {
-    touches: Math.max(25, Math.min(Math.round(((stats.passes.total * 1.8) / 2500) * 100), 95)),
-    chancesCreated: Math.max(20, Math.min(Math.round((stats.passes.key / 50) * 100), 95)),
-    shotAttempts: Math.max(20, Math.min(Math.round((stats.shots.total / 100) * 100), 95)),
-    goals: Math.max(15, Math.min(Math.round((stats.goals.total / 30) * 100), 95)),
-    aerialDuelsWon: stats.duels.total > 0 ? Math.max(20, Math.round((stats.duels.won / stats.duels.total) * 100)) : 40,
-    defensiveContributions: Math.max(
-      15,
-      Math.min(Math.round(((stats.tackles.total + stats.tackles.interceptions + stats.tackles.blocks) / 80) * 100), 90),
-    ),
+  if (error || !player) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <main className="container mx-auto px-4 py-16">
+          <div className="mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center rounded-2xl border border-border/50 bg-card px-6 text-center">
+            <ShieldAlert className="mb-4 h-10 w-10 text-muted-foreground" />
+            <h1 className="text-2xl font-bold">ไม่พบข้อมูลนักเตะ</h1>
+            <p className="mt-2 text-muted-foreground">ตรวจสอบ `playerId` หรือกลับไปเลือกจากหน้าทีมอีกครั้ง</p>
+            <div className="mt-6 flex gap-3">
+              <Button asChild variant="outline"><Link href="/teams">กลับหน้าทีม</Link></Button>
+              <Button asChild><Link href="/players">หน้ารวมนักเตะ</Link></Button>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
   }
 
-  // Season performance stats for the detailed view
-  const shootingStats = [
-    { label: "ประตู", value: stats.goals.total, max: 40 },
-    { label: "Expected goals (xG)", value: (stats.goals.total * 0.85).toFixed(2), max: 35, isCalculated: true },
-    { label: "xG on target (xGOT)", value: (stats.shots.on * 0.15).toFixed(2), max: 15, isCalculated: true },
-    {
-      label: "Non-penalty xG",
-      value: ((stats.goals.total - stats.penalty.scored) * 0.85).toFixed(2),
-      max: 30,
-      isCalculated: true,
-    },
-    { label: "การยิงทั้งหมด", value: stats.shots.total, max: 150 },
-    { label: "การยิงโดนกรอบ", value: stats.shots.on, max: 80 },
+  const stats = player.statistics || {}
+  const games = stats.games || {}
+  const passes = stats.passes || {}
+  const duels = stats.duels || {}
+  const dribbles = stats.dribbles || {}
+  const summary = buildStatRows(player)
+  const isGoalkeeper = String(player.position || "").toLowerCase().includes("goal")
+  const seasonStatus = player.seasonStatus || "HAS_STATS"
+  const hasStats = seasonStatus === "HAS_STATS"
+
+  const radarMetrics = [
+    { label: "จ่ายสำเร็จ", value: hasStats ? passes.accuracy ?? null : null, displayValue: hasStats ? toDisplayText(passes.accuracy) : "-", max: Math.max(passes.accuracy || 0, 1) },
+    { label: "แม่นยำจ่าย", value: hasStats ? passes.accuracyPercent ?? null : null, displayValue: hasStats ? formatPercent(passes.accuracyPercent) : "-", max: 100 },
+    { label: "ดวลชนะ", value: hasStats ? duels.won ?? null : null, displayValue: hasStats ? toDisplayText(duels.won) : "-", max: Math.max(duels.won || 0, 1) },
+    { label: "ดวลชนะ %", value: hasStats ? duels.winPercent ?? null : null, displayValue: hasStats ? formatPercent(duels.winPercent) : "-", max: 100 },
+    { label: "เลี้ยงสำเร็จ", value: hasStats ? dribbles.success ?? null : null, displayValue: hasStats ? toDisplayText(dribbles.success) : "-", max: Math.max(dribbles.success || 0, 1) },
+    { label: "เลี้ยงสำเร็จ %", value: hasStats ? dribbles.successPercent ?? null : null, displayValue: hasStats ? formatPercent(dribbles.successPercent) : "-", max: 100 },
   ]
 
-  const passingStats = [
-    { label: "แอสซิสต์", value: stats.goals.assists, max: 20 },
-    { label: "Expected assists (xA)", value: (stats.goals.assists * 1.1).toFixed(2), max: 18, isCalculated: true },
-    { label: "พาสสำเร็จ", value: stats.passes.total, max: 2000 },
-    { label: "ความแม่นยำพาส %", value: stats.passes.accuracy, max: 100, isPercentage: true },
-    { label: "Key passes", value: stats.passes.key, max: 80 },
-  ]
-
-  const possessionStats = [
-    { label: "เลี้ยงบอลสำเร็จ", value: stats.dribbles.success, max: 100 },
-    {
-      label: "เลี้ยงบอลสำเร็จ %",
-      value: stats.dribbles.attempts > 0 ? ((stats.dribbles.success / stats.dribbles.attempts) * 100).toFixed(1) : 0,
-      max: 100,
-      isPercentage: true,
-    },
-    { label: "สัมผัสบอล", value: Math.round(stats.passes.total * 1.5), max: 3000 },
-    { label: "ถูกแย่งบอล", value: stats.fouls.committed, max: 50 },
-    { label: "ได้ฟรีคิก", value: stats.fouls.drawn, max: 60 },
-  ]
-
-  const defendingStats = [
-    { label: "เข้าสกัด", value: stats.tackles.total, max: 80 },
-    { label: "ดวลชนะ", value: stats.duels.won, max: 200 },
-    {
-      label: "ดวลชนะ %",
-      value: stats.duels.total > 0 ? ((stats.duels.won / stats.duels.total) * 100).toFixed(1) : 0,
-      max: 100,
-      isPercentage: true,
-    },
-    { label: "สกัดกั้น", value: stats.tackles.interceptions, max: 50 },
-    { label: "บล็อก", value: stats.tackles.blocks, max: 30 },
-    { label: "กู้บอล", value: Math.round(stats.tackles.total * 2.5), max: 200 },
-  ]
-
-  const disciplineStats = [
-    { label: "ใบเหลือง", value: stats.cards.yellow, max: 15 },
-    { label: "ใบแดง", value: stats.cards.red, max: 3 },
-  ]
+  const handleSeasonChange = (season: string) => {
+    const next = new URLSearchParams(searchParams.toString())
+    next.set("season", season)
+    router.replace(`/players/${playerId}?${next.toString()}`)
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
       <main className="container mx-auto px-4 py-16">
-        <div className="max-w-7xl mx-auto space-y-8">
-          <Link
-            href="/players"
-            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            กลับไปหน้านักเตะ
-          </Link>
+        <div className="mx-auto max-w-7xl space-y-8">
+          <Link href={player.team?.id ? `/teams/${player.team.id}` : "/teams"} className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" />กลับหน้าทีม</Link>
 
-          {!hasApiData && (
-            <div className="flex items-center gap-2 text-sm text-amber-500 bg-amber-500/10 px-3 py-2 rounded-md w-fit">
-              <AlertCircle className="w-4 h-4" />
-              <span>กำลังใช้ข้อมูลตัวอย่าง - เพิ่ม APIFOOTBALL_KEY เพื่อดูข้อมูลจริง</span>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-            {/* Player Header Card - Takes 8 columns */}
-            <Card className="border-border/50 overflow-hidden lg:col-span-8 flex flex-col">
-              {/* Red Header with Player Info */}
+          <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-12">
+            <Card className="overflow-hidden border-border/50 lg:col-span-8">
               <div className="bg-gradient-to-br from-red-600 via-red-600 to-red-700 p-6 md:p-8">
-                <div className="flex flex-col sm:flex-row items-center gap-6">
-                  {/* Player Photo */}
+                <div className="flex flex-col items-center gap-6 sm:flex-row">
                   <div className="relative shrink-0">
-                    {player.photo ? (
-                      <Image
-                        src={player.photo || "/placeholder.svg"}
-                        alt={player.name}
-                        width={140}
-                        height={140}
-                        className="h-28 w-28 rounded-full border-4 border-border/70 bg-card/80 object-cover shadow-xl md:h-32 md:w-32 dark:border-white/30 dark:bg-white/10"
-                      />
-                    ) : (
-                      <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-border/70 bg-card/80 shadow-xl md:h-32 md:w-32 dark:border-white/30 dark:bg-white/10">
-                        <Users className="h-14 w-14 text-foreground/45 dark:text-white/60" />
-                      </div>
-                    )}
-                    {player.injured && (
-                      <div className="absolute -bottom-1 -right-1 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-medium">
-                        บาดเจ็บ
-                      </div>
-                    )}
+                    {player.photo ? <Image src={player.photo} alt={player.name} width={140} height={140} className="h-28 w-28 rounded-full border-4 border-border/70 bg-card/80 object-cover shadow-xl md:h-32 md:w-32 dark:border-white/30 dark:bg-white/10" /> : <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-border/70 bg-card/80 shadow-xl md:h-32 md:w-32 dark:border-white/30 dark:bg-white/10"><Users className="h-14 w-14 text-foreground/45 dark:text-white/60" /></div>}
+                    {player.injured && <div className="absolute -bottom-1 -right-1 rounded-full bg-red-500 px-2 py-1 text-xs font-medium text-white">บาดเจ็บ</div>}
                   </div>
-
-                  {/* Player Name & Team */}
                   <div className="flex-1 text-center sm:text-left">
-                    <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl lg:text-4xl dark:text-white">
-                      {player.name}
-                    </h1>
-                    <div className="flex items-center gap-3 justify-center sm:justify-start mt-2">
-                      {player.team?.logo && (
-                        <Image
-                          src={player.team.logo || "/placeholder.svg"}
-                          alt={player.team.name}
-                          width={24}
-                          height={24}
-                          className="w-6 h-6"
-                        />
-                      )}
-                      <span className="text-base font-medium text-foreground/85 dark:text-white/90">{player.team?.name}</span>
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl lg:text-4xl dark:text-white">{player.name}</h1>
+                    <div className="mt-2 flex flex-wrap items-center justify-center gap-3 sm:justify-start">
+                      {player.team?.id ? <Link href={`/teams/${player.team.id}`} className="text-base font-medium text-foreground/85 hover:underline dark:text-white/90">{player.team?.name || "-"}</Link> : <span className="text-base font-medium text-foreground/85 dark:text-white/90">{player.team?.name || "-"}</span>}
+                      {games.captain && <Badge variant="secondary">กัปตันทีม</Badge>}
+                      {games.rating && hasStats && <Badge className="bg-card text-primary dark:bg-white dark:text-red-600">เรตติ้ง {games.rating}</Badge>}
+                    </div>
+                    <div className="mt-4 flex justify-center sm:justify-start">
+                      <Select value={selectedSeason} onValueChange={handleSeasonChange}>
+                        <SelectTrigger className="w-36 border-white/25 bg-white/10 text-white hover:bg-white/15">
+                          <SelectValue placeholder="เลือกฤดูกาล" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {seasonOptions.map((season) => (
+                            <SelectItem key={season.value} value={season.value}>
+                              {season.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
-
-                  {/* Follow Button */}
-                  <Button
-                    variant="secondary"
-                    size="default"
-                    className="shrink-0 gap-2 bg-card text-primary shadow-lg hover:bg-card/90 dark:bg-white dark:text-red-600 dark:hover:bg-white/90"
-                  >
-                    <Star className="w-4 h-4" />
-                    ติดตาม
-                  </Button>
+                  <Button variant="secondary" size="default" className="shrink-0 gap-2 bg-card text-primary shadow-lg hover:bg-card/90 dark:bg-white dark:text-red-600 dark:hover:bg-white/90"><Star className="h-4 w-4" />ติดตาม</Button>
                 </div>
               </div>
-
-              {/* Player Details Grid - flex-1 to fill remaining space */}
-              <CardContent className="p-0 flex-1">
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 h-full divide-x divide-y lg:divide-y-0 divide-border/50">
-                  <div className="p-4 md:p-5 flex flex-col items-center justify-center hover:bg-muted/30 transition-colors">
-                    <p className="text-xl md:text-2xl font-bold text-foreground">
-                      {player.height?.replace(" cm", "") || "-"}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">ส่วนสูง (cm)</p>
-                  </div>
-                  <div className="p-4 md:p-5 flex flex-col items-center justify-center hover:bg-muted/30 transition-colors">
-                    <p className="text-xl md:text-2xl font-bold text-foreground">{stats.games.lineups || "-"}</p>
-                    <p className="text-xs text-muted-foreground mt-1">เบอร์เสื้อ</p>
-                  </div>
-                  <div className="p-4 md:p-5 flex flex-col items-center justify-center hover:bg-muted/30 transition-colors">
-                    <p className="text-xl md:text-2xl font-bold text-foreground">
-                      {player.age} <span className="text-base font-normal">ปี</span>
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">{player.birth?.date || "-"}</p>
-                  </div>
-                  <div className="p-4 md:p-5 flex flex-col items-center justify-center hover:bg-muted/30 transition-colors">
-                    <p className="text-lg md:text-xl font-bold text-foreground">{player.position}</p>
-                    <p className="text-xs text-muted-foreground mt-1">ตำแหน่ง</p>
-                  </div>
-                  <div className="p-4 md:p-5 flex flex-col items-center justify-center hover:bg-muted/30 transition-colors">
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-                      <p className="text-base md:text-lg font-bold text-foreground">{player.nationality}</p>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">สัญชาติ</p>
-                  </div>
-                  <div className="p-4 md:p-5 flex flex-col items-center justify-center hover:bg-muted/30 transition-colors">
-                    <p className="text-xl md:text-2xl font-bold text-foreground">
-                      {player.weight?.replace(" kg", "") || "-"}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">น้ำหนัก (kg)</p>
-                  </div>
+              <CardContent className="p-0">
+                <div className="grid grid-cols-2 divide-x divide-y divide-border/50 sm:grid-cols-3 lg:grid-cols-6 lg:divide-y-0">
+                  <div className="flex flex-col items-center justify-center p-4 md:p-5"><p className="text-lg font-bold text-foreground md:text-xl">{toDisplayText(player.position ? getPositionLabel(player.position) : null)}</p><p className="mt-1 text-xs text-muted-foreground">ตำแหน่ง</p></div>
+                  <div className="flex flex-col items-center justify-center p-4 md:p-5"><p className="text-xl font-bold text-foreground md:text-2xl">{toDisplayText(player.age)}</p><p className="mt-1 text-xs text-muted-foreground">อายุ</p></div>
+                  <div className="flex flex-col items-center justify-center p-4 md:p-5"><div className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-muted-foreground" /><p className="text-base font-bold text-foreground md:text-lg">{toDisplayText(player.nationality)}</p></div><p className="mt-1 text-xs text-muted-foreground">สัญชาติ</p></div>
+                  <div className="flex flex-col items-center justify-center p-4 md:p-5"><p className="text-xl font-bold text-foreground md:text-2xl">{toDisplayText(player.number)}</p><p className="mt-1 text-xs text-muted-foreground">หมายเลขเสื้อ</p></div>
+                  <div className="flex flex-col items-center justify-center p-4 md:p-5"><p className="text-xl font-bold text-foreground md:text-2xl">{toDisplayText(player.season)}</p><p className="mt-1 text-xs text-muted-foreground">ฤดูกาล</p></div>
+                  <div className="flex flex-col items-center justify-center p-4 md:p-5"><p className="text-lg font-bold text-foreground md:text-xl">{player.injured ? "บาดเจ็บ" : "พร้อมลงสนาม"}</p><p className="mt-1 text-xs text-muted-foreground">สถานะ</p></div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Player Traits Radar Chart - Takes 4 columns with same height */}
-            <div className="lg:col-span-4 h-full">
-              <PlayerRadarChart position={player.position} stats={playerTraits} />
+            <div className="lg:col-span-4">
+              <PlayerRadarChart metrics={radarMetrics} />
             </div>
           </div>
-          {/* </CHANGE> */}
 
-          {/* Season Stats Summary */}
-          <Card className="border-border/50 bg-card">
-            <CardHeader className="pb-4">
-              <div className="flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-primary" />
-                <CardTitle>Premier League 2024/2025</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-                <div className="text-center p-3 bg-muted/30 rounded-lg">
-                  <p className="text-3xl font-bold text-primary">{stats.goals.total}</p>
-                  <p className="text-sm text-muted-foreground">ประตู</p>
-                </div>
-                <div className="text-center p-3 bg-muted/30 rounded-lg">
-                  <p className="text-3xl font-bold text-primary">{stats.goals.assists}</p>
-                  <p className="text-sm text-muted-foreground">แอสซิสต์</p>
-                </div>
-                <div className="text-center p-3 bg-muted/30 rounded-lg">
-                  <p className="text-3xl font-bold text-primary">{stats.games.lineups}</p>
-                  <p className="text-sm text-muted-foreground">ลงสนาม</p>
-                </div>
-                <div className="text-center p-3 bg-muted/30 rounded-lg">
-                  <p className="text-3xl font-bold text-primary">{stats.games.appearences}</p>
-                  <p className="text-sm text-muted-foreground">แมทช์</p>
-                </div>
-                <div className="text-center p-3 bg-muted/30 rounded-lg">
-                  <p className="text-3xl font-bold text-primary">{stats.games.minutes?.toLocaleString()}</p>
-                  <p className="text-sm text-muted-foreground">นาที</p>
-                </div>
-                <div className="text-center p-3 bg-muted/30 rounded-lg">
-                  <Badge className="text-lg px-3 py-1 bg-green-600">{stats.games.rating}</Badge>
-                  <p className="text-sm text-muted-foreground mt-1">เรตติ้ง</p>
-                </div>
-                <div className="text-center p-3 bg-muted/30 rounded-lg">
-                  <div className="flex items-center justify-center gap-1">
-                    <div className="w-4 h-5 bg-yellow-400 rounded-sm" />
-                    <span className="text-xl font-bold">{stats.cards.yellow}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">ใบเหลือง</p>
-                </div>
-                <div className="text-center p-3 bg-muted/30 rounded-lg">
-                  <div className="flex items-center justify-center gap-1">
-                    <div className="w-4 h-5 bg-red-500 rounded-sm" />
-                    <span className="text-xl font-bold">{stats.cards.red}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">ใบแดง</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <SeasonStatusCard season={player.season} seasonStatus={seasonStatus} />
 
-          <PlayerShotMap
-            shots={mockShots}
-            totalShots={stats.shots.total}
-            totalGoals={stats.goals.total}
-            totalXG={stats.goals.total * 0.85}
-            onTargetPercentage={stats.shots.total > 0 ? Math.round((stats.shots.on / stats.shots.total) * 100) : 0}
-          />
+          {hasStats && (
+            <>
+              <Card className="border-border/50 bg-card">
+                <CardHeader className="pb-4"><div className="flex items-center gap-2"><Trophy className="h-5 w-5 text-primary" /><CardTitle>สถิติฤดูกาล</CardTitle></div></CardHeader>
+                <CardContent><StatGrid items={summary.summary} /></CardContent>
+              </Card>
+              {Number(stats.shots?.total || 0) > 0 && <PlayerShotMap shots={[]} totalShots={stats.shots?.total || 0} totalGoals={stats.goals?.total || 0} totalXG={0} onTargetPercentage={0} />}
+            </>
+          )}
 
-          {/* Detailed Stats Tabs */}
           <Tabs defaultValue="performance" className="w-full">
             <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="performance">สถิติฤดูกาล</TabsTrigger>
-              <TabsTrigger value="career">สถิติอาชีพ</TabsTrigger>
-              <TabsTrigger value="info">ข้อมูลส่วนตัว</TabsTrigger>
-              <TabsTrigger value="transfers">ประวัติย้ายทีม</TabsTrigger>
+              <TabsTrigger value="performance" disabled={!hasStats}>ผลงานฤดูกาล</TabsTrigger>
+              <TabsTrigger value="attacking" disabled={!hasStats}>เกมรุก</TabsTrigger>
+              <TabsTrigger value="defending" disabled={!hasStats}>เกมรับ</TabsTrigger>
+              <TabsTrigger value="info">ข้อมูลทั่วไป</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="performance" className="space-y-6 mt-6">
-              {/* Season Performance - Similar to reference image */}
-              <Card className="border-border/50">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>Season performance</CardTitle>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Minutes played: {stats.games.minutes?.toLocaleString()}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm">
-                        Total
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        Per 90
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-8">
-                  {/* Shooting */}
-                  <div>
-                    <h4 className="font-semibold mb-4 text-muted-foreground">Shooting</h4>
-                    <div className="space-y-3">
-                      {shootingStats.map((stat, i) => (
-                        <div key={i} className="flex items-center gap-4">
-                          <span className="text-sm w-40 text-muted-foreground">{stat.label}</span>
-                          <span className="font-bold w-16 text-right">{stat.value}</span>
-                          <StatBar
-                            value={typeof stat.value === "string" ? Number.parseFloat(stat.value) : stat.value}
-                            max={stat.max}
-                            color={getStatColor(
-                              typeof stat.value === "string" ? Number.parseFloat(stat.value) : stat.value,
-                              stat.max,
-                            )}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Passing */}
-                  <div>
-                    <h4 className="font-semibold mb-4 text-muted-foreground">Passing</h4>
-                    <div className="space-y-3">
-                      {passingStats.map((stat, i) => (
-                        <div key={i} className="flex items-center gap-4">
-                          <span className="text-sm w-40 text-muted-foreground">{stat.label}</span>
-                          <span className="font-bold w-16 text-right">
-                            {stat.value}
-                            {stat.isPercentage ? "%" : ""}
-                          </span>
-                          <StatBar
-                            value={typeof stat.value === "string" ? Number.parseFloat(stat.value) : stat.value}
-                            max={stat.max}
-                            color={getStatColor(
-                              typeof stat.value === "string" ? Number.parseFloat(stat.value) : stat.value,
-                              stat.max,
-                            )}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Possession */}
-                  <div>
-                    <h4 className="font-semibold mb-4 text-muted-foreground">Possession</h4>
-                    <div className="space-y-3">
-                      {possessionStats.map((stat, i) => (
-                        <div key={i} className="flex items-center gap-4">
-                          <span className="text-sm w-40 text-muted-foreground">{stat.label}</span>
-                          <span className="font-bold w-16 text-right">
-                            {stat.value}
-                            {stat.isPercentage ? "%" : ""}
-                          </span>
-                          <StatBar
-                            value={typeof stat.value === "string" ? Number.parseFloat(stat.value) : stat.value}
-                            max={stat.max}
-                            color={getStatColor(
-                              typeof stat.value === "string" ? Number.parseFloat(stat.value) : stat.value,
-                              stat.max,
-                            )}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Defending */}
-                  <div>
-                    <h4 className="font-semibold mb-4 text-muted-foreground">Defending</h4>
-                    <div className="space-y-3">
-                      {defendingStats.map((stat, i) => (
-                        <div key={i} className="flex items-center gap-4">
-                          <span className="text-sm w-40 text-muted-foreground">{stat.label}</span>
-                          <span className="font-bold w-16 text-right">
-                            {stat.value}
-                            {stat.isPercentage ? "%" : ""}
-                          </span>
-                          <StatBar
-                            value={typeof stat.value === "string" ? Number.parseFloat(stat.value) : stat.value}
-                            max={stat.max}
-                            color={getStatColor(
-                              typeof stat.value === "string" ? Number.parseFloat(stat.value) : stat.value,
-                              stat.max,
-                            )}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Discipline */}
-                  <div>
-                    <h4 className="font-semibold mb-4 text-muted-foreground">Discipline</h4>
-                    <div className="space-y-3">
-                      {disciplineStats.map((stat, i) => (
-                        <div key={i} className="flex items-center gap-4">
-                          <span className="text-sm w-40 text-muted-foreground">{stat.label}</span>
-                          <span className="font-bold w-16 text-right">{stat.value}</span>
-                          <StatBar
-                            value={stat.value}
-                            max={stat.max}
-                            color={
-                              stat.value > stat.max * 0.5
-                                ? "destructive"
-                                : stat.value > stat.max * 0.3
-                                  ? "warning"
-                                  : "success"
-                            }
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="career" className="space-y-4 mt-6">
-              <Card className="border-border/50">
-                <CardHeader>
-                  <CardTitle>สถิติตลอดอาชีพ</CardTitle>
-                </CardHeader>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="border-b border-border/50 bg-muted/30">
-                      <tr className="text-sm text-muted-foreground">
-                        <th className="text-left py-3 px-4 font-medium">ฤดูกาล</th>
-                        <th className="text-left py-3 px-4 font-medium">ลีก</th>
-                        <th className="text-left py-3 px-4 font-medium">ทีม</th>
-                        <th className="text-center py-3 px-3 font-medium">นัดที่เล่น</th>
-                        <th className="text-center py-3 px-3 font-medium">ประตู</th>
-                        <th className="text-center py-3 px-3 font-medium">แอสซิสต์</th>
-                        <th className="text-center py-3 px-4 font-medium">เรตติ้ง</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {player.allSeasonStats?.map((season: any, i: number) => (
-                        <tr key={i} className="border-b border-border/30 hover:bg-muted/50 transition-colors">
-                          <td className="py-4 px-4 font-semibold">{season.season}</td>
-                          <td className="py-4 px-4">{season.league}</td>
-                          <td className="py-4 px-4 flex items-center gap-2">
-                            {season.teamLogo && (
-                              <Image
-                                src={season.teamLogo || "/placeholder.svg"}
-                                alt={season.team}
-                                width={20}
-                                height={20}
-                              />
-                            )}
-                            {season.team}
-                          </td>
-                          <td className="text-center py-4 px-3">{season.games}</td>
-                          <td className="text-center py-4 px-3">
-                            <span className="font-bold text-primary">{season.goals}</span>
-                          </td>
-                          <td className="text-center py-4 px-3">{season.assists}</td>
-                          <td className="text-center py-4 px-4">
-                            <Badge variant={Number.parseFloat(season.rating) >= 7 ? "default" : "secondary"}>
-                              {season.rating}
-                            </Badge>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="info" className="space-y-6 mt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="border-border/50">
-                  <CardHeader>
-                    <CardTitle>ข้อมูลส่วนตัว</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex justify-between py-2 border-b border-border/30">
-                      <span className="text-muted-foreground">ชื่อเต็ม</span>
-                      <span className="font-semibold">
-                        {player.firstname} {player.lastname}
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-border/30">
-                      <span className="text-muted-foreground">วันเกิด</span>
-                      <span className="font-semibold">{player.birth?.date || "-"}</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-border/30">
-                      <span className="text-muted-foreground">อายุ</span>
-                      <span className="font-semibold">{player.age} ปี</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-border/30">
-                      <span className="text-muted-foreground">สัญชาติ</span>
-                      <span className="font-semibold">{player.nationality}</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-border/30">
-                      <span className="text-muted-foreground">ส่วนสูง</span>
-                      <span className="font-semibold">{player.height || "-"}</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-border/30">
-                      <span className="text-muted-foreground">น้ำหนัก</span>
-                      <span className="font-semibold">{player.weight || "-"}</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-border/30">
-                      <span className="text-muted-foreground">บาดเจ็บ</span>
-                      <span className={`font-semibold ${player.injured ? "text-red-500" : "text-green-500"}`}>
-                        {player.injured ? "บาดเจ็บ" : "ปกติ"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-2">
-                      <span className="text-muted-foreground">สถานที่เกิด</span>
-                      <span className="font-semibold">
-                        {player.birth?.place || "-"}, {player.birth?.country || "-"}
-                      </span>
-                    </div>
+            <TabsContent value="performance" className="mt-6">{hasStats && <Card className="border-border/50"><CardHeader><CardTitle>การจ่ายบอล</CardTitle></CardHeader><CardContent><StatGrid items={summary.passing} /></CardContent></Card>}</TabsContent>
+            <TabsContent value="attacking" className="mt-6">{hasStats && <Card className="border-border/50"><CardHeader><CardTitle>สถิติเกมรุก</CardTitle></CardHeader><CardContent><StatGrid items={summary.attacking} /></CardContent></Card>}</TabsContent>
+            <TabsContent value="defending" className="mt-6 space-y-6">{hasStats && <><Card className="border-border/50"><CardHeader><CardTitle>สถิติเกมรับ</CardTitle></CardHeader><CardContent><StatGrid items={summary.defensive} /></CardContent></Card>{isGoalkeeper && <Card className="border-border/50"><CardHeader><CardTitle>สถิติผู้รักษาประตู</CardTitle></CardHeader><CardContent><StatGrid items={summary.goalkeeper} /></CardContent></Card>}</>}</TabsContent>
+            <TabsContent value="info" className="mt-6">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <Card className="overflow-hidden border-border/50 bg-card/95">
+                  <CardHeader className="border-b border-border/40 bg-gradient-to-r from-muted/35 to-transparent pb-5"><div className="flex items-center justify-between"><CardTitle>ข้อมูลนักเตะ</CardTitle><Badge variant="outline" className="border-border/60 bg-background/40">{getPositionLabel(player.position)}</Badge></div></CardHeader>
+                  <CardContent className="p-6">
+                    <div className="mb-6 rounded-2xl border border-border/40 bg-muted/20 p-4"><p className="text-xs uppercase tracking-[0.28em] text-muted-foreground">Player Snapshot</p><div className="mt-3 flex items-end justify-between gap-4"><div><p className="text-2xl font-bold">{player.name}</p><p className="mt-1 text-sm text-muted-foreground">{toDisplayText(player.team?.name)}</p></div><div className="rounded-2xl bg-primary/12 px-4 py-3 text-center"><p className="text-xs uppercase tracking-[0.2em] text-primary/80">No.</p><p className="text-2xl font-black text-primary">{toDisplayText(player.number)}</p></div></div></div>
+                    <InfoRow label="ชื่อเต็ม" value={toDisplayText(`${player.firstname || ""} ${player.lastname || ""}`.trim() || player.name)} />
+                    <InfoRow label="ทีม" value={toDisplayText(player.team?.name)} />
+                    <InfoRow label="หมายเลขเสื้อ" value={toDisplayText(player.number)} />
+                    <InfoRow label="อายุ" value={toDisplayText(player.age)} />
+                    <InfoRow label="สัญชาติ" value={toDisplayText(player.nationality)} />
+                    <InfoRow label="อาการบาดเจ็บ" value={player.injured ? "บาดเจ็บ" : "ปกติ"} accent={player.injured ? "default" : "success"} />
                   </CardContent>
                 </Card>
-
-                <Card className="border-border/50">
-                  <CardHeader>
-                    <CardTitle>สถิติสำคัญ</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex justify-between py-2 border-b border-border/30">
-                      <span className="text-muted-foreground">ตำแหน่ง</span>
-                      <span className="font-semibold">{player.position}</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-border/30">
-                      <span className="text-muted-foreground">เรตติ้งเฉลี่ย</span>
-                      <span className="font-semibold text-primary">{stats.games.rating}</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-border/30">
-                      <span className="text-muted-foreground">ประตูต่อนัด</span>
-                      <span className="font-semibold text-primary">
-                        {stats.games.appearences > 0
-                          ? (stats.goals.total / stats.games.appearences).toFixed(2)
-                          : "0.00"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-border/30">
-                      <span className="text-muted-foreground">ความแม่นยำพาส</span>
-                      <span className="font-semibold">{stats.passes.accuracy}%</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-border/30">
-                      <span className="text-muted-foreground">ดวลชนะ %</span>
-                      <span className="font-semibold">
-                        {stats.duels.total > 0 ? ((stats.duels.won / stats.duels.total) * 100).toFixed(1) : "0"}%
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-2">
-                      <span className="text-muted-foreground">เลี้ยงบอลสำเร็จ %</span>
-                      <span className="font-semibold">
-                        {stats.dribbles.attempts > 0
-                          ? ((stats.dribbles.success / stats.dribbles.attempts) * 100).toFixed(1)
-                          : "0"}
-                        %
-                      </span>
-                    </div>
+                <Card className="overflow-hidden border-border/50 bg-card/95">
+                  <CardHeader className="border-b border-border/40 bg-gradient-to-r from-primary/10 via-transparent to-transparent pb-5"><div className="flex items-center justify-between"><CardTitle>ข้อมูลฤดูกาล</CardTitle><Badge className="bg-primary/15 text-primary hover:bg-primary/15">{player.season || "-"}</Badge></div></CardHeader>
+                  <CardContent className="p-6">
+                    <InfoRow label="สถานะฤดูกาล" value={seasonStatus} accent="primary" />
+                    <InfoRow label="ลงเล่น" value={hasStats ? toDisplayText(player.seasonStats?.appearances) : "-"} />
+                    <InfoRow label="นาที" value={hasStats ? toDisplayText(player.seasonStats?.minutes) : "-"} />
+                    <InfoRow label="ประตู" value={hasStats ? toDisplayText(player.seasonStats?.goals) : "-"} />
+                    <InfoRow label="แอสซิสต์" value={hasStats ? toDisplayText(player.seasonStats?.assists) : "-"} />
                   </CardContent>
                 </Card>
               </div>
             </TabsContent>
-
-            <TabsContent value="transfers" className="space-y-4 mt-6">
-              <Card className="border-border/50">
-                <CardHeader>
-                  <CardTitle>ประวัติการย้ายทีม</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {player.transfers && player.transfers.length > 0 ? (
-                    <div className="space-y-4">
-                      {player.transfers.map((transfer: any, i: number) => (
-                        <div key={i} className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg">
-                          <div className="flex items-center gap-2 flex-1">
-                            {transfer.from?.logo && (
-                              <Image
-                                src={transfer.from.logo || "/placeholder.svg"}
-                                alt={transfer.from.name}
-                                width={32}
-                                height={32}
-                              />
-                            )}
-                            <span className="font-medium">{transfer.from?.name}</span>
-                          </div>
-                          <div className="flex flex-col items-center">
-                            <Badge variant="outline">{transfer.type}</Badge>
-                            <span className="text-xs text-muted-foreground mt-1">{transfer.date}</span>
-                          </div>
-                          <div className="flex items-center gap-2 flex-1 justify-end">
-                            <span className="font-medium">{transfer.to?.name}</span>
-                            {transfer.to?.logo && (
-                              <Image
-                                src={transfer.to.logo || "/placeholder.svg"}
-                                alt={transfer.to.name}
-                                width={32}
-                                height={32}
-                              />
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-center text-muted-foreground py-8">ไม่มีข้อมูลการย้ายทีม</p>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
           </Tabs>
+
+          {!data?.data && <div className="flex items-center gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-sm text-amber-500"><AlertCircle className="h-4 w-4" /><span>ไม่พบข้อมูลจาก API สำหรับนักเตะคนนี้</span></div>}
         </div>
       </main>
     </div>

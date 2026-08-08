@@ -1,45 +1,49 @@
 const express = require("express")
 
 const {
-  cleanSheets,
-  fixtureEvents,
-  fixtureIdValidation,
-  fixtureLineups,
-  fixturePrediction,
-  fixtures,
-  fixturesValidation,
-  injuries,
-  liveFixtures,
-  playerDetails,
-  playerStats,
-  playerValidation,
-  predictionValidation,
-  results,
-  standings,
-  suspensions,
-  teams,
-  topAssists,
-  topScorers,
-  transfers
-} = require("../controllers/football.controller")
+  listLeagues,
+  listFixtures,
+  getLiveScores,
+  getStandings,
+  listTeamsByLeague,
+  getTeamById,
+  listTopScorers,
+  getMatchDetails,
+  getMatchEvents,
+  getMatchLineups,
+  listTeamFixtures,
+  listTeamPlayers,
+  getPlayerById,
+  getHeadToHead,
+} = require("../controllers/football.controller.api")
+
+const {
+  validateLeagueId,
+  validateMatchId,
+  validateTeamId,
+  validatePlayerId,
+  validateFixturesQuery,
+  validateTeamFixturesQuery,
+  validateLiveQuery,
+  validateTeamsQuery,
+  validateH2HQuery,
+} = require("../validators/football.validator")
 
 const router = express.Router()
 
-router.get("/standings", standings)
-router.get("/teams", teams)
-router.get("/fixtures", fixturesValidation, fixtures)
-router.get("/live", liveFixtures)
-router.get("/results", results)
-router.get("/topscorers", topScorers)
-router.get("/topassists", topAssists)
-router.get("/cleansheets", cleanSheets)
-router.get("/player-stats", playerStats)
-router.get("/injuries", injuries)
-router.get("/suspensions", suspensions)
-router.get("/transfers", transfers)
-router.get("/players/:id", playerValidation, playerDetails)
-router.get("/predictions/:id", predictionValidation, fixturePrediction)
-router.get("/lineups/:id", fixtureIdValidation, fixtureLineups)
-router.get("/events/:id", fixtureIdValidation, fixtureEvents)
+router.get("/leagues", listLeagues)
+router.get("/fixtures", validateFixturesQuery, listFixtures)
+router.get("/live", validateLiveQuery, getLiveScores)
+router.get("/standings/:leagueId", validateLeagueId, getStandings)
+router.get("/topscorers/:leagueId", validateLeagueId, listTopScorers)
+router.get("/teams", validateTeamsQuery, listTeamsByLeague)
+router.get("/team/:teamId", validateTeamId, getTeamById)
+router.get("/team/:teamId/fixtures", validateTeamFixturesQuery, listTeamFixtures)
+router.get("/team/:teamId/players", validateTeamId, listTeamPlayers)
+router.get("/player/:playerId", validatePlayerId, getPlayerById)
+router.get("/match/:matchId", validateMatchId, getMatchDetails)
+router.get("/match/:matchId/events", validateMatchId, getMatchEvents)
+router.get("/match/:matchId/lineups", validateMatchId, getMatchLineups)
+router.get("/h2h", validateH2HQuery, getHeadToHead)
 
 module.exports = router

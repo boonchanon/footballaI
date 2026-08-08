@@ -1,23 +1,12 @@
 ﻿const express = require("express")
 
-const {
-  deleteUser,
-  getMyActivity,
-  getUserById,
-  listUsers,
-  listUsersValidation,
-  updateUser,
-  updateUserValidation,
-  userIdValidation,
-} = require("../controllers/user.controller")
-const { requireAdmin, requireAuth } = require("../middleware/auth")
+const { getProfile, updateProfile } = require("../controllers/user.controller.api")
+const { requireAuth } = require("../middleware/auth.middleware")
+const { validateUpdateProfile } = require("../validators/auth.validator")
 
 const router = express.Router()
 
-router.get("/me/activity", requireAuth, getMyActivity)
-router.get("/", requireAuth, requireAdmin, listUsersValidation, listUsers)
-router.get("/:id", requireAuth, requireAdmin, userIdValidation, getUserById)
-router.patch("/:id", requireAuth, requireAdmin, updateUserValidation, updateUser)
-router.delete("/:id", requireAuth, requireAdmin, userIdValidation, deleteUser)
+router.get("/profile", requireAuth, getProfile)
+router.put("/profile", requireAuth, validateUpdateProfile, updateProfile)
 
 module.exports = router

@@ -1,0 +1,232 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  name       String
+  email      String   @unique
+  password   String
+  role       String   @default("user")
+  avatar     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  posts      Post[]
+  comments   Comment[]
+  likes      Like[]
+}
+
+model Post {
+  id         Int       @id @default(autoincrement())
+  title      String
+  content    String
+  published  Boolean   @default(false)
+  author     User      @relation(fields: [authorId], references: [id])
+  authorId   Int
+  comments   Comment[]
+  likes      Like[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  content   String
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  Int
+  post      Post     @relation(fields: [postId], references: [id])
+  postId    Int
+  createdAt DateTime @default(now())
+}
+
+model Like {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  post      Post     @relation(fields: [postId], references: [id])
+  postId    Int
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+}
+
+model League {
+  id          Int       @id
+  name        String
+  country     String?
+  logo        String?
+  teams       Team[]
+  standings   Standing[]
+  fixtures    Fixture[]
+  topScorers  TopScorer[]
+}
+
+model Team {
+  id          Int         @id
+  name        String
+  shortName   String?
+  logo        String?
+  venue       String?
+  country     String?
+  founded     Int?
+  leagueId    Int?
+  league      League?     @relation(fields: [leagueId], references: [id])
+  players     Player[]
+  fixturesHome Fixture[]   @relation("homeFixtures")
+  fixturesAway Fixture[]   @relation("awayFixtures")
+  matchesHome Match[]      @relation("homeMatches")
+  matchesAway Match[]      @relation("awayMatches")
+  standings   Standing[]
+  topScorers  TopScorer[]
+}
+
+model Player {
+  id            Int       @id
+  name          String
+  photo         String?
+  position      String?
+  nationality   String?
+  dateOfBirth   DateTime?
+  age           Int?
+  height        String?
+  weight        String?
+  preferredFoot String?
+  teamId        Int?
+  team          Team?     @relation(fields: [teamId], references: [id])
+  status        String?
+  shirtNumber   Int?
+  updatedAt     DateTime  @updatedAt
+  lineups       Lineup[]
+  events        MatchEvent[]
+}
+
+model Fixture {
+  id            Int      @id
+  leagueId      Int
+  homeTeamId    Int
+  awayTeamId    Int
+  season        String?
+  date          DateTime
+  time          String?
+  status        String?
+  round         String?
+  venue         String?
+  homeScore     Int?
+  awayScore     Int?
+  lastUpdated   DateTime?
+  cachedAt      DateTime @default(now())
+  league        League   @relation(fields: [leagueId], references: [id])
+  homeTeam      Team     @relation("homeFixtures", fields: [homeTeamId], references: [id])
+  awayTeam      Team     @relation("awayFixtures", fields: [awayTeamId], references: [id])
+}
+
+model Match {
+  id             Int          @id
+  leagueId       Int
+  season         String?
+  date           DateTime
+  time           String?
+  stadium        String?
+  homeTeamId     Int
+  awayTeamId     Int
+  homeScore      Int?
+  awayScore      Int?
+  status         String?
+  halfTimeHome   Int?
+  halfTimeAway   Int?
+  referee        String?
+  attendance     Int?
+  lastUpdated    DateTime?
+  cachedAt       DateTime     @default(now())
+  league         League       @relation(fields: [leagueId], references: [id])
+  homeTeam       Team         @relation("homeMatches", fields: [homeTeamId], references: [id])
+  awayTeam       Team         @relation("awayMatches", fields: [awayTeamId], references: [id])
+  events         MatchEvent[]
+  lineups        Lineup[]
+}
+
+model MatchEvent {
+  id         Int      @id @default(autoincrement())
+  matchId    Int
+  type       String
+  detail     String?
+  minute     Int?
+  teamId     Int?
+  playerId   Int?
+  assistId   Int?
+  side       String?
+  createdAt  DateTime @default(now())
+  match      Match    @relation(fields: [matchId], references: [id])
+  player     Player?  @relation(fields: [playerId], references: [id])
+}
+
+model Lineup {
+  id         Int      @id @default(autoincrement())
+  matchId    Int
+  teamId     Int
+  playerId   Int?
+  name       String
+  number     Int?
+  position   String?
+  photo      String?
+  role       String?
+  isStarting Boolean
+  createdAt  DateTime @default(now())
+  match      Match    @relation(fields: [matchId], references: [id])
+  team       Team     @relation(fields: [teamId], references: [id])
+  player     Player?  @relation(fields: [playerId], references: [id])
+}
+
+model Standing {
+  id            Int      @id @default(autoincrement())
+  leagueId      Int
+  teamId        Int
+  rank          Int
+  played        Int
+  win           Int
+  draw          Int
+  loss          Int
+  points        Int
+  goalsFor      Int
+  goalsAgainst  Int
+  goalDifference Int
+  form          String?
+  lastUpdated   DateTime @default(now())
+  league        League   @relation(fields: [leagueId], references: [id])
+  team          Team     @relation(fields: [teamId], references: [id])
+}
+
+model TopScorer {
+  id          Int      @id @default(autoincrement())
+  leagueId    Int
+  playerId    Int
+  teamId      Int
+  goals       Int
+  assists     Int?
+  rank        Int
+  lastUpdated DateTime @default(now())
+  league      League   @relation(fields: [leagueId], references: [id])
+  team        Team     @relation(fields: [teamId], references: [id])
+  player      Player   @relation(fields: [playerId], references: [id])
+}
+
+model ApiCache {
+  id         Int      @id @default(autoincrement())
+  cacheKey   String   @unique
+  endpoint   String
+  externalId String?
+  source     String
+  payload    Json
+  fetchedAt  DateTime
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([endpoint, externalId])
+  @@index([expiresAt])
+}

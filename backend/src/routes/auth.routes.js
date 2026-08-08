@@ -1,38 +1,20 @@
 const express = require("express")
 
 const {
-  changePassword,
-  changePasswordValidation,
-  deleteAccount,
-  deleteAccountValidation,
-  login,
-  loginValidation,
-  me,
   register,
-  registerValidation,
+  login,
+  getProfile,
   updateProfile,
-  updateProfileValidation,
-} = require("../controllers/auth.controller")
-const {
-  forgotPassword,
-  forgotPasswordValidation,
-  resetPassword,
-  resetPasswordValidation,
-  verifyResetOtp,
-  verifyResetOtpValidation,
-} = require("../controllers/password.controller")
-const { requireAuth } = require("../middleware/auth")
+} = require("../controllers/auth.controller.api")
+
+const { requireAuth } = require("../middleware/auth.middleware")
+const { validateRegister, validateLogin, validateUpdateProfile } = require("../validators/auth.validator")
 
 const router = express.Router()
 
-router.post("/register", registerValidation, register)
-router.post("/login", loginValidation, login)
-router.post("/forgot-password", forgotPasswordValidation, forgotPassword)
-router.post("/verify-reset-otp", verifyResetOtpValidation, verifyResetOtp)
-router.post("/reset-password", resetPasswordValidation, resetPassword)
-router.get("/me", requireAuth, me)
-router.patch("/me", requireAuth, updateProfileValidation, updateProfile)
-router.delete("/me", requireAuth, deleteAccountValidation, deleteAccount)
-router.patch("/change-password", requireAuth, changePasswordValidation, changePassword)
+router.post("/register", validateRegister, register)
+router.post("/login", validateLogin, login)
+router.get("/profile", requireAuth, getProfile)
+router.put("/profile", requireAuth, validateUpdateProfile, updateProfile)
 
 module.exports = router

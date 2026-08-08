@@ -2,6 +2,8 @@ import { CommunityMatchSummary, CommunityMatchSummaryHistory } from "./models"
 
 export type MatchRoomFixture = {
   id: string
+  weekNumber?: number | null
+  isFeatured?: boolean
   homeTeam: string
   awayTeam: string
   homeLogo: string
@@ -156,6 +158,123 @@ function getFootballService() {
   }
 }
 
+const MARQUEE_TEAMS = [
+  "arsenal",
+  "chelsea",
+  "liverpool",
+  "manchester city",
+  "manchester utd",
+  "manchester united",
+  "tottenham",
+  "tottenham hotspur",
+  "newcastle",
+  "newcastle united",
+]
+
+const DERBY_RULES = [
+  ["arsenal", "tottenham"],
+  ["liverpool", "everton"],
+  ["manchester city", "manchester utd"],
+  ["newcastle", "sunderland"],
+  ["chelsea", "fulham"],
+  ["aston villa", "birmingham"],
+] as const
+
+function normalizeClubName(value: string) {
+  return safeString(value).toLowerCase()
+}
+
+function countMarqueeTeams(fixture: Pick<MatchRoomFixture, "homeTeam" | "awayTeam">) {
+  const clubs = [normalizeClubName(fixture.homeTeam), normalizeClubName(fixture.awayTeam)]
+  return clubs.reduce((count, club) => count + (MARQUEE_TEAMS.some((item) => club.includes(item)) ? 1 : 0), 0)
+}
+
+function hasFavoriteTeamFixture(fixture: Pick<MatchRoomFixture, "homeTeam" | "awayTeam">, favoriteTeamName?: string | null) {
+  const favorite = normalizeClubName(favoriteTeamName || "")
+  if (!favorite) return false
+  const clubs = [normalizeClubName(fixture.homeTeam), normalizeClubName(fixture.awayTeam)]
+  return clubs.some((club) => club === favorite || club.includes(favorite) || favorite.includes(club))
+}
+
+function hasDerbyFixture(fixture: Pick<MatchRoomFixture, "homeTeam" | "awayTeam">) {
+  const home = normalizeClubName(fixture.homeTeam)
+  const away = normalizeClubName(fixture.awayTeam)
+  return DERBY_RULES.some(([left, right]) => {
+    const leftMatch = home.includes(left) || away.includes(left)
+    const rightMatch = home.includes(right) || away.includes(right)
+    return leftMatch && rightMatch
+  })
+}
+
+function isBigMatchFixture(fixture: Pick<MatchRoomFixture, "homeTeam" | "awayTeam">) {
+  return countMarqueeTeams(fixture) >= 2
+}
+
+function getKickoffTimeValue(value: string) {
+  const time = safeString(value)
+  if (!time) return Number.MAX_SAFE_INTEGER
+  const parsed = new Date(time).getTime()
+  return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER
+}
+
+function getFeaturedFixturePriority(fixture: MatchRoomFixture, favoriteTeamName?: string | null) {
+  let score = 0
+  if (hasFavoriteTeamFixture(fixture, favoriteTeamName)) score += 100
+  if (hasDerbyFixture(fixture)) score += 80
+  if (isBigMatchFixture(fixture)) score += 60
+  score += countMarqueeTeams(fixture) * 10
+  if (isLiveMatchStatus(fixture.status)) score += 5
+  return score
+}
+
+function buildFeaturedWeekFixtureIds(fixtures: MatchRoomFixture[], favoriteTeamName?: string | null) {
+  const grouped = new Map<number, MatchRoomFixture[]>()
+  for (const fixture of fixtures) {
+    const weekNumber = Number(fixture.weekNumber || 0)
+    if (!weekNumber) continue
+    if (!grouped.has(weekNumber)) grouped.set(weekNumber, [])
+    grouped.get(weekNumber)!.push(fixture)
+  }
+
+  const featured = new Set<string>()
+  for (const [weekNumber, weekFixtures] of grouped.entries()) {
+    const selected = [...weekFixtures]
+      .sort((left, right) => {
+        const featuredDiff =
+          getFeaturedFixturePriority(right, favoriteTeamName) - getFeaturedFixturePriority(left, favoriteTeamName)
+        if (featuredDiff !== 0) return featuredDiff
+        const liveDiff = Number(isLiveMatchStatus(right.status)) - Number(isLiveMatchStatus(left.status))
+        if (liveDiff !== 0) return liveDiff
+        return getKickoffTimeValue(left.kickoff) - getKickoffTimeValue(right.kickoff)
+      })
+      .slice(0, 4)
+
+    for (const fixture of selected) {
+      featured.add(fixture.id)
+    }
+  }
+
+  return featured
+}
+
+function sortFixturesForMatchRooms(fixtures: MatchRoomFixture[], favoriteTeamName?: string | null) {
+  const featuredIds = buildFeaturedWeekFixtureIds(fixtures, favoriteTeamName)
+  return [...fixtures]
+    .map((fixture) => ({
+      ...fixture,
+      isFeatured: featuredIds.has(fixture.id),
+    }))
+    .sort((left, right) => {
+    const weekDiff = Number(left.weekNumber || 0) - Number(right.weekNumber || 0)
+    if (weekDiff !== 0) return weekDiff
+
+    const featuredDiff = Number(Boolean(right.isFeatured)) - Number(Boolean(left.isFeatured))
+    if (featuredDiff !== 0) return featuredDiff
+
+    return getKickoffTimeValue(left.kickoff) - getKickoffTimeValue(right.kickoff)
+  })
+}
+
 export function normalizeMatchRoomFixture(fixture: any): MatchRoomFixture {
   const status = safeString(fixture?.status?.short || fixture?.status || fixture?.fixture?.status?.short)
   const home = fixture?.teams?.home || fixture?.home || {}
@@ -164,6 +283,12 @@ export function normalizeMatchRoomFixture(fixture: any): MatchRoomFixture {
 
   return {
     id: String(fixture?.id || fixture?.fixture?.id || fixture?._id || ""),
+    weekNumber:
+      typeof fixture?.roundNumber === "number"
+        ? fixture.roundNumber
+        : typeof fixture?.weekNumber === "number"
+          ? fixture.weekNumber
+          : null,
     homeTeam: safeString(home.nameEn || home.name || fixture?.homeTeam || fixture?.homeTeamThai) || "Home Team",
     awayTeam: safeString(away.nameEn || away.name || fixture?.awayTeam || fixture?.awayTeamThai) || "Away Team",
     homeLogo: safeString(home.logo || fixture?.homeLogo),
@@ -221,10 +346,13 @@ export function buildMatchContext(fixture: MatchRoomFixture | null) {
   }
 }
 
-export async function getMatchRoomFixtures() {
+export async function getMatchRoomFixtures(options?: { favoriteTeamName?: string | null }) {
   const footballService = getFootballService()
-  const fixtures = await footballService.getFixtures({ type: "all", limit: "40" })
-  return fixtures.map(normalizeMatchRoomFixture).filter((fixture) => fixture.id)
+  const fixtures = await footballService.getFixtures({ type: "all" })
+  return sortFixturesForMatchRooms(
+    fixtures.map(normalizeMatchRoomFixture).filter((fixture) => fixture.id),
+    options?.favoriteTeamName,
+  )
 }
 
 export async function getMatchRoomFixture(matchId: string) {

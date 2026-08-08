@@ -69,8 +69,6 @@ function PlayerCategoryCard({
 
   if (!hero) return null
 
-  const heroName = splitName(hero.name)
-
   return (
     <Card className="overflow-hidden border-border/60 bg-card shadow-none">
       <CardContent className="p-0">
@@ -98,27 +96,18 @@ function PlayerCategoryCard({
               <Badge className="border-0 bg-primary text-primary-foreground">อันดับ 1</Badge>
             </div>
 
-            <Link href={`/players/${hero.id}`} className="block">
-              <div className="relative mt-3 h-[290px]">
-                <div className="absolute inset-x-5 top-0 h-[150px] rounded-[26px] bg-gradient-to-b from-muted/40 to-muted/10" />
-                <div className="absolute inset-x-0 bottom-0 mx-auto h-[250px] w-[74%]">
-                  <Image
-                    src={hero.photo}
-                    alt={hero.name}
-                    fill
-                    className="object-contain object-bottom drop-shadow-[0_18px_22px_rgba(0,0,0,0.38)]"
-                    sizes="(max-width: 768px) 70vw, (max-width: 1280px) 30vw, 20vw"
-                  />
+              <Link href={`/players/${hero.id}`} className="block">
+              <div className="relative mt-3 h-[200px] flex items-center justify-center">
+                <div className="text-center px-6">
+                  <h2 className="text-3xl md:text-4xl font-black text-foreground">{hero.name}</h2>
+                  <p className="mt-2 text-sm uppercase tracking-[0.12em] text-muted-foreground">{hero.team}</p>
                 </div>
               </div>
 
               <div className="border-t border-border/60 px-4 py-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <h3 className="truncate text-2xl font-black uppercase leading-none text-foreground">{heroName.last}</h3>
-                    {heroName.first ? (
-                      <p className="mt-1 truncate text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">{heroName.first}</p>
-                    ) : null}
+                    <h3 className="truncate text-2xl font-black leading-none text-foreground">{hero.team}</h3>
                   </div>
                   {hero.teamLogo ? (
                     <div className="h-10 w-10 flex-shrink-0 rounded-full bg-card p-1.5">
@@ -142,13 +131,8 @@ function PlayerCategoryCard({
                       className="flex items-center gap-3 rounded-2xl border border-border bg-muted/20 px-3 py-2.5 transition-colors hover:bg-muted/40"
                     >
                       <span className="w-5 flex-shrink-0 text-center text-xs font-black text-muted-foreground">{index + 2}</span>
-                      <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-background">
-                        <Image src={player.photo} alt={player.name} width={36} height={36} className="h-full w-full object-cover" />
-                      </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-foreground">
-                          {name.first} <span className="font-black uppercase">{name.last}</span>
-                        </p>
+                        <p className="truncate text-sm font-semibold text-foreground">{`${name.first} ${name.last}`.trim()}</p>
                       </div>
                       <span className="text-lg font-black tabular-nums text-foreground">{player.value}</span>
                     </Link>

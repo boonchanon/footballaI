@@ -1,70 +1,95 @@
-import { Navigation } from "@/components/navigation"
+"use client"
+
+import Image from "next/image"
+import Link from "next/link"
+import useSWR from "swr"
+import { MapPin, Star, Users } from "lucide-react"
+
 import { Footer } from "@/components/footer"
+import { Navigation } from "@/components/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { SearchInput } from "@/components/search-input"
-import { Star, Users } from "lucide-react"
-import Link from "next/link"
+
+type TeamListResponse = {
+  data?: Array<{
+    team?: {
+      id?: string
+      name?: string
+      nameEn?: string
+      logo?: string
+    }
+    venue?: {
+      name?: string
+    }
+  }>
+}
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 export default function TeamsPage() {
-  const teams = [
-    { name: "แมนเชสเตอร์ ซิตี้", rating: 90 },
-    { name: "ลิเวอร์พูล", rating: 89 },
-    { name: "อาร์เซนอล", rating: 88 },
-    { name: "แมนเชสเตอร์ ยูไนเต็ด", rating: 85 },
-    { name: "เชลซี", rating: 84 },
-    { name: "ท็อตแนม ฮ็อทสเปอร์", rating: 83 },
-    { name: "นิวคาสเซิล ยูไนเต็ด", rating: 82 },
-    { name: "แอสตัน วิลล่า", rating: 81 },
-    { name: "ไบรท์ตัน", rating: 80 },
-    { name: "เวสต์แฮม ยูไนเต็ด", rating: 79 },
-    { name: "คริสตัล พาเลซ", rating: 78 },
-    { name: "เบรนท์ฟอร์ด", rating: 77 },
-    { name: "ฟูแล่ม", rating: 77 },
-    { name: "วูล์ฟแฮมป์ตัน", rating: 76 },
-    { name: "บอร์นมัธ", rating: 75 },
-    { name: "น็อตติงแฮม ฟอเรสต์", rating: 75 },
-    { name: "เอฟเวอร์ตัน", rating: 74 },
-    { name: "เลสเตอร์ ซิตี้", rating: 74 },
-    { name: "อิปสวิช ทาวน์", rating: 72 },
-    { name: "เซาท์แธมป์ตัน", rating: 71 },
-  ]
+  const { data, isLoading } = useSWR<TeamListResponse>("/api/football/teams", fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60000,
+  })
+
+  const teams = (data?.data || [])
+    .map((item, index) => ({
+      id: String(item.team?.id || ""),
+      name: String(item.team?.nameEn || item.team?.name || ""),
+      logo: String(item.team?.logo || "/placeholder-logo.png"),
+      stadium: String(item.venue?.name || ""),
+      rating: Math.max(70, 90 - (index % 18)),
+    }))
+    .filter((team) => team.id && team.name)
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
 
-      {/* Header */}
       <div className="border-b border-border bg-muted/30">
         <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center gap-3 mb-2">
+          <div className="mb-2 flex items-center gap-3">
             <Users className="w-8 h-8 text-primary" />
             <h1 className="text-3xl md:text-4xl font-display">ทีมทั้งหมด</h1>
           </div>
-          <p className="text-muted-foreground mb-4">20 ทีมในพรีเมียร์ลีก อังกฤษ</p>
+          <p className="mb-4 text-muted-foreground">{teams.length || 20} ทีมจากข้อมูลฟุตบอลล่าสุด</p>
           <SearchInput placeholder="ค้นหาทีม..." className="max-w-md" />
         </div>
       </div>
 
       <main className="flex-1 container mx-auto px-4 py-8">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {teams.map((team, i) => (
-            <Link key={i} href={`/teams/${i + 1}`}>
-              <Card className="border-border/50 hover:border-primary/50 transition-all hover:shadow-md h-full">
-                <CardContent className="p-4 text-center">
-                  <div className="w-16 h-16 bg-muted rounded-full mx-auto mb-3 flex items-center justify-center">
-                    <Users className="w-8 h-8 text-muted-foreground" />
-                  </div>
-                  <h3 className="font-semibold text-sm mb-1 line-clamp-1">{team.name}</h3>
-                  <p className="text-xs text-muted-foreground mb-2">พรีเมียร์ลีก</p>
-                  <div className="flex items-center justify-center gap-1">
-                    <Star className="w-4 h-4 text-primary fill-current" />
-                    <span className="font-bold text-primary">{team.rating}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {Array.from({ length: 10 }).map((_, index) => (
+              <div key={index} className="h-44 animate-pulse rounded-3xl bg-muted" />
+            ))}
+          </div>
+        ) : teams.length > 0 ? (
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {teams.map((team) => (
+              <Link key={team.id} href={`/teams/${team.id}`}>
+                <Card className="h-full border-border/50 transition-all hover:border-primary/50 hover:shadow-md">
+                  <CardContent className="p-4 text-center">
+                    <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-muted">
+                      <Image src={team.logo} alt={team.name} width={64} height={64} className="h-12 w-12 object-contain" unoptimized={team.logo.startsWith("http")} />
+                    </div>
+                    <h3 className="mb-1 line-clamp-1 text-sm font-semibold">{team.name}</h3>
+                    <div className="mb-2 flex items-center justify-center gap-1 text-xs text-muted-foreground">
+                      <MapPin className="w-3 h-3" />
+                      <span className="line-clamp-1">{team.stadium || "ไม่มีข้อมูลสนาม"}</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-1">
+                      <Star className="w-4 h-4 fill-current text-primary" />
+                      <span className="font-bold text-primary">{team.rating}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-border/50 bg-card p-8 text-center text-muted-foreground">ไม่พบข้อมูลทีมจาก API</div>
+        )}
       </main>
 
       <Footer />

@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     const viewer = await getAuthUser(request)
     const searchParams = request.nextUrl.searchParams
     const matchId = String(searchParams.get("matchId") || "").trim()
-    const fixtures = await getMatchRoomFixtures()
+    const fixtures = await getMatchRoomFixtures({ favoriteTeamName: String(viewer?.favoriteTeam || "") })
     const fixture = selectMatchRoomFixture(fixtures, matchId)
     const selectedMatchId = fixture?.id || matchId
     const fixtureIds = fixtures.map((item) => item.id).filter(Boolean)

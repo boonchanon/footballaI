@@ -57,11 +57,11 @@ export function translateTeamName(name: string): string {
 }
 
 async function fetchFromAPI(endpoint: string) {
-  const apiKey = process.env.API_FOOTBALL_KEY
+  const apiKey = process.env.FOOTBALL_DATA_API_KEY
 
   if (!apiKey) {
     throw new Error(
-      "API_FOOTBALL_KEY is not configured. Please add your API-Football key to environment variables. Get your key from https://www.api-football.com/"
+      "FOOTBALL_DATA_API_KEY is not configured. Please add your Football-Data.org key to environment variables."
     )
   }
 
