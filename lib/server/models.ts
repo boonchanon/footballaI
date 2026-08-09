@@ -624,7 +624,9 @@ const communityStorySchema =
   new Schema(
     {
       author: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+      mediaType: { type: String, enum: ["image", "video"], default: "image", index: true },
       image: { type: String, default: "", trim: true },
+      video: { type: String, default: "", trim: true },
       mediaId: { type: Schema.Types.ObjectId, ref: "CommunityMedia", default: null, index: true },
       caption: { type: String, default: "", trim: true, maxlength: 180 },
       style: {
@@ -712,6 +714,18 @@ if (models.CommunityStory && !models.CommunityStory.schema.path("moderation")) {
 if (models.CommunityStory && !models.CommunityStory.schema.path("mediaId")) {
   models.CommunityStory.schema.add({
     mediaId: { type: Schema.Types.ObjectId, ref: "CommunityMedia", default: null, index: true },
+  })
+}
+
+if (models.CommunityStory && !models.CommunityStory.schema.path("mediaType")) {
+  models.CommunityStory.schema.add({
+    mediaType: { type: String, enum: ["image", "video"], default: "image", index: true },
+  })
+}
+
+if (models.CommunityStory && !models.CommunityStory.schema.path("video")) {
+  models.CommunityStory.schema.add({
+    video: { type: String, default: "", trim: true },
   })
 }
 
@@ -886,7 +900,7 @@ const predictionSchema =
     { timestamps: true },
   )
 
-const paymentOrderStatusValues = ["pending", "reviewing", "paid", "expired", "cancelled"] as const
+const paymentOrderStatusValues = ["pending", "reviewing", "paid", "expired", "cancelled", "failed"] as const
 
 const paymentOrderSchema =
   models.PaymentOrder?.schema ||
@@ -895,7 +909,14 @@ const paymentOrderSchema =
       user: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
       productCode: {
         type: String,
-        enum: ["prediction_5_matches", "prediction_15_matches", "prediction_tournament"],
+        enum: [
+          "prediction_5_matches",
+          "prediction_15_matches",
+          "prediction_tournament",
+          "basic_monthly",
+          "pro_monthly",
+          "premium_monthly",
+        ],
         required: true,
         index: true,
       },
@@ -904,8 +925,12 @@ const paymentOrderSchema =
       currency: { type: String, default: "THB" },
       status: { type: String, enum: paymentOrderStatusValues, default: "pending", index: true },
       paymentProvider: { type: String, default: "thunder" },
-      targetType: { type: String, enum: ["credits", "daypass"], required: true },
+      targetType: { type: String, enum: ["credits", "daypass", "subscription"], required: true },
       targetId: { type: String, default: "", index: true },
+      planInterval: { type: String, default: "month" },
+      periodStart: { type: Date, default: null },
+      periodEnd: { type: Date, default: null, index: true },
+      subscriptionRef: { type: Schema.Types.ObjectId, ref: "Subscription", default: null, index: true },
       slipPayload: { type: String, default: "" },
       slipImageUrl: { type: String, default: "" },
       paidAt: { type: Date, default: null },
@@ -936,14 +961,48 @@ const paymentEntitlementSchema =
       order: { type: Schema.Types.ObjectId, ref: "PaymentOrder", required: true, index: true },
       productCode: {
         type: String,
-        enum: ["prediction_5_matches", "prediction_15_matches", "prediction_tournament"],
+        enum: [
+          "prediction_5_matches",
+          "prediction_15_matches",
+          "prediction_tournament",
+          "basic_monthly",
+          "pro_monthly",
+          "premium_monthly",
+        ],
         required: true,
       },
-      targetType: { type: String, enum: ["credits", "daypass"], required: true },
+      targetType: { type: String, enum: ["credits", "daypass", "subscription"], required: true },
       targetId: { type: String, default: "", index: true },
       amount: { type: Number, required: true, min: 1 },
       active: { type: Boolean, default: true, index: true },
       expiresAt: { type: Date, default: null, index: true },
+      metadata: { type: Schema.Types.Mixed, default: {} },
+    },
+    { timestamps: true },
+  )
+
+const subscriptionSchema =
+  models.Subscription?.schema ||
+  new Schema(
+    {
+      user: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+      productCode: {
+        type: String,
+        enum: ["basic_monthly", "pro_monthly", "premium_monthly"],
+        required: true,
+        index: true,
+      },
+      productName: { type: String, required: true, trim: true },
+      status: { type: String, enum: ["pending", "active", "past_due", "cancelled", "expired"], default: "pending", index: true },
+      paymentProvider: { type: String, default: "thunder" },
+      currentPeriodStart: { type: Date, default: null, index: true },
+      currentPeriodEnd: { type: Date, default: null, index: true },
+      cancelAtPeriodEnd: { type: Boolean, default: false },
+      lastPaymentAt: { type: Date, default: null },
+      nextBillingAt: { type: Date, default: null, index: true },
+      gracePeriodEnd: { type: Date, default: null },
+      latestOrder: { type: Schema.Types.ObjectId, ref: "PaymentOrder", default: null, index: true },
+      features: { type: [String], default: [] },
       metadata: { type: Schema.Types.Mixed, default: {} },
     },
     { timestamps: true },
@@ -1141,6 +1200,7 @@ export const ModerationLog = models.ModerationLog || model("ModerationLog", mode
 export const Prediction = models.Prediction || model("Prediction", predictionSchema)
 export const PaymentOrder = models.PaymentOrder || model("PaymentOrder", paymentOrderSchema)
 export const PaymentEntitlement = models.PaymentEntitlement || model("PaymentEntitlement", paymentEntitlementSchema)
+export const Subscription = models.Subscription || model("Subscription", subscriptionSchema)
 export const PremierLeagueFixture = models.PremierLeagueFixture || model("PremierLeagueFixture", premierLeagueFixtureSchema)
 export const PremierLeagueTeam = models.PremierLeagueTeam || model("PremierLeagueTeam", premierLeagueTeamSchema)
 export const PremierLeagueSnapshot =

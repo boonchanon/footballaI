@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 
 import { requireAdminRoles } from "@/lib/server/auth"
-import { readPendingFile } from "@/lib/server/community-upload"
+import { fileExists, readPendingFile } from "@/lib/server/community-upload"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse } from "@/lib/server/http-utils"
 import { CommunityMedia } from "@/lib/server/models"
@@ -14,7 +14,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     await requireAdminRoles(request, ["superadmin", "admincommunity"])
     const { id } = await params
     const media = await CommunityMedia.findById(id).select("mediaType status pendingKey mimeType")
-    if (!media || media.mediaType !== "image" || !media.pendingKey) {
+    if (!media || !["image", "video"].includes(String(media.mediaType || "")) || !media.pendingKey) {
+      return errorResponse("Preview not available", 404)
+    }
+
+    const pendingExists = await fileExists("pending", media.pendingKey)
+    if (!pendingExists) {
       return errorResponse("Preview not available", 404)
     }
 
@@ -28,6 +33,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load preview"
-    return errorResponse(message, message === "Admin authentication required" ? 401 : message === "Admin permission denied" ? 403 : 500)
+    return errorResponse(
+      message.includes("ENOENT") || message.includes("no such file") ? "Preview not available" : message,
+      message === "Admin authentication required" ? 401 : message === "Admin permission denied" ? 403 : message.includes("ENOENT") || message.includes("no such file") ? 404 : 500,
+    )
   }
 }

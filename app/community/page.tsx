@@ -279,6 +279,8 @@ type Conversation = {
 type CommunityStory = {
   id: string
   image: string
+  video?: string
+  mediaType?: "image" | "video"
   caption: string
   style?: {
     theme: "neon" | "midnight" | "sunset" | "glass"
@@ -507,6 +509,18 @@ function buildChatShareHref(post: CommunityPost) {
   return `/community/messages?${params.toString()}`
 }
 
+function sanitizeCommunityAssetUrl(url: string | null | undefined) {
+  const value = String(url || "").trim()
+  if (!value) return ""
+  if (!value.startsWith("/uploads/community/")) return value
+  const relative = value.slice("/uploads/community/".length).split("?")[0].replace(/^\/+/, "")
+  return relative.includes("/") ? value : ""
+}
+
+function getSafeAvatarSrc(url: string | null | undefined) {
+  return sanitizeCommunityAssetUrl(url) || "/placeholder-user.jpg"
+}
+
 export default function CommunityPage() {
   const { token, user, logout } = useAuthSession()
   const { toast } = useToast()
@@ -584,12 +598,15 @@ export default function CommunityPage() {
   const [activeStoryGroupIndex, setActiveStoryGroupIndex] = useState(0)
   const [activeStoryIndex, setActiveStoryIndex] = useState(0)
   const [storyProgress, setStoryProgress] = useState(0)
+  const [activeStoryDurationMs, setActiveStoryDurationMs] = useState(15000)
   const [storyPreviewUrls, setStoryPreviewUrls] = useState<Record<string, string>>({})
+  const activeStoryVideoRef = useRef<HTMLVideoElement | null>(null)
   const [postPreviewUrls, setPostPreviewUrls] = useState<Record<string, string>>({})
   const previousUnreadMessagesRef = useRef(0)
   const previousUnreadActivityRef = useRef(0)
   const authErrorNotifiedRef = useRef(false)
   const viewedStoryIdsRef = useRef<Set<string>>(new Set())
+  const failedStoryPreviewIdsRef = useRef<Set<string>>(new Set())
   const imageInputRef = useRef<HTMLInputElement | null>(null)
   const videoInputRef = useRef<HTMLInputElement | null>(null)
   const editImageInputRef = useRef<HTMLInputElement | null>(null)
@@ -819,13 +836,43 @@ export default function CommunityPage() {
   useEffect(() => {
     if (!token || !storyGroups.length) return
     let cancelled = false
-    const pendingStories = storyGroups.flatMap((group) => group.stories).filter((story) => story.ownerPreviewUrl && !storyPreviewUrls[story.id])
+    const pendingStories = storyGroups
+      .flatMap((group) => group.stories)
+      .filter(
+        (story) =>
+          story.ownerPreviewUrl &&
+          !storyPreviewUrls[story.id] &&
+          !failedStoryPreviewIdsRef.current.has(story.id),
+      )
     if (!pendingStories.length) return
 
     Promise.all(
       pendingStories.map(async (story) => {
         const response = await fetch(story.ownerPreviewUrl as string, { headers: { Authorization: `Bearer ${token}` } })
-        if (!response.ok) return null
+        if (!response.ok) {
+          if (response.status === 404) {
+            failedStoryPreviewIdsRef.current.add(story.id)
+            void mutateStories((current) => {
+              if (!current?.items) return current
+              const nextGroups = current.items
+                .map((group) => {
+                  const nextStories = group.stories.filter((item) => item.id !== story.id)
+                  if (!nextStories.length) return null
+                  return {
+                    ...group,
+                    stories: nextStories,
+                    hasUnviewed: nextStories.some((item) => !item.isViewed),
+                    latestCreatedAt: nextStories[nextStories.length - 1]?.createdAt || group.latestCreatedAt,
+                    latestTimeAgo: nextStories[nextStories.length - 1]?.timeAgo || group.latestTimeAgo,
+                    latestImage: nextStories[nextStories.length - 1]?.image || "",
+                  }
+                })
+                .filter(Boolean)
+              return { ...current, items: nextGroups as CommunityStoryGroup[] }
+            }, false)
+          }
+          return null
+        }
         const blob = await response.blob()
         return [story.id, URL.createObjectURL(blob)] as const
       }),
@@ -839,15 +886,33 @@ export default function CommunityPage() {
     return () => {
       cancelled = true
     }
-  }, [storyGroups, storyPreviewUrls, token])
+  }, [mutateStories, storyGroups, storyPreviewUrls, token])
 
   function getStoryImage(story: CommunityStory) {
-    return storyPreviewUrls[story.id] || story.image
+    return sanitizeCommunityAssetUrl(storyPreviewUrls[story.id] || story.image || "")
+  }
+
+  function getStoryVideo(story: CommunityStory) {
+    return sanitizeCommunityAssetUrl(storyPreviewUrls[story.id] || story.video || "")
+  }
+
+  function storyNeedsProtectedPreview(story: CommunityStory | null | undefined) {
+    if (!story) return false
+    return Boolean(story.ownerPreviewUrl && !storyPreviewUrls[story.id] && !story.image && !story.video)
+  }
+
+  function storyIsVideo(story: CommunityStory | null | undefined) {
+    return Boolean(story && (story.mediaType === "video" || (!!story.video && !story.image)))
   }
 
   function getStoryGroupImage(group: CommunityStoryGroup) {
     const latest = group.stories[group.stories.length - 1]
-    return latest ? getStoryImage(latest) : group.latestImage
+    return latest ? getStoryImage(latest) : sanitizeCommunityAssetUrl(group.latestImage)
+  }
+
+  function getStoryGroupVideo(group: CommunityStoryGroup) {
+    const latest = group.stories[group.stories.length - 1]
+    return latest ? getStoryVideo(latest) : ""
   }
 
   function getPostImages(post: CommunityPost) {
@@ -857,7 +922,9 @@ export default function CommunityPage() {
   }
 
   function getMediaUrl(media: CommunityPostMedia | UploadedMedia) {
-    return media.publicUrl || media.url || media.ownerPreviewUrl || ("previewUrl" in media ? media.previewUrl : null) || ""
+    return sanitizeCommunityAssetUrl(
+      media.publicUrl || media.url || ("previewUrl" in media ? media.previewUrl : null) || media.ownerPreviewUrl || "",
+    )
   }
 
   function buildLegacyPostMedia(urls: string[] | undefined, mediaType: "image" | "video") {
@@ -986,12 +1053,16 @@ export default function CommunityPage() {
   useEffect(() => {
     if (!activeStory) {
       setStoryProgress(0)
+      setActiveStoryDurationMs(15000)
       return
     }
 
     setStoryProgress(0)
+    if (!storyIsVideo(activeStory)) {
+      setActiveStoryDurationMs(15000)
+    }
 
-    const duration = 5000
+    const duration = Math.max(1000, activeStoryDurationMs)
     const startedAt = Date.now()
     const interval = window.setInterval(() => {
       const nextProgress = Math.min(((Date.now() - startedAt) / duration) * 100, 100)
@@ -1022,7 +1093,35 @@ export default function CommunityPage() {
       window.clearInterval(interval)
       window.clearTimeout(timer)
     }
-  }, [activeStory, activeStoryGroupIndex, storyGroups])
+  }, [activeStory, activeStoryDurationMs, activeStoryGroupIndex, storyGroups])
+
+  useEffect(() => {
+    if (!activeStory || !storyIsVideo(activeStory)) return
+
+    const element = activeStoryVideoRef.current
+    if (!element) return
+
+    const syncDurationFromMetadata = () => {
+      const rawDurationMs = Number.isFinite(element.duration) ? Math.round(element.duration * 1000) : 15000
+      const nextDurationMs = Math.min(Math.max(rawDurationMs, 1000), 15000)
+      setActiveStoryDurationMs(nextDurationMs)
+    }
+
+    setActiveStoryDurationMs(15000)
+    element.currentTime = 0
+    element.load()
+    element.addEventListener("loadedmetadata", syncDurationFromMetadata)
+    element.addEventListener("durationchange", syncDurationFromMetadata)
+    const playPromise = element.play()
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => undefined)
+    }
+
+    return () => {
+      element.removeEventListener("loadedmetadata", syncDurationFromMetadata)
+      element.removeEventListener("durationchange", syncDurationFromMetadata)
+    }
+  }, [activeStory, storyPreviewUrls])
 
   useEffect(() => {
     if (!activeStory?.id || viewedStoryIdsRef.current.has(activeStory.id)) return
@@ -1540,44 +1639,60 @@ export default function CommunityPage() {
         result,
       })
       if (!response.ok) throw new Error(result?.error || "Upload failed")
-      const nextStoryImage = normalizeUploadItems(result).find((item) => item.mediaType === "image") || null
-      setStoryImage(nextStoryImage ? { ...nextStoryImage, previewUrl: nextStoryImage.status === "pending_review" ? URL.createObjectURL(file) : null } : null)
-      setShowStoryEditor(Boolean(nextStoryImage))
+      const nextStoryImage = normalizeUploadItems(result)[0] || null
+      const preparedStoryImage = nextStoryImage
+        ? { ...nextStoryImage, previewUrl: nextStoryImage.status === "pending_review" ? URL.createObjectURL(file) : null }
+        : null
+      setStoryImage(preparedStoryImage)
+      setShowStoryComposer(true)
+      setShowStoryEditor(Boolean(preparedStoryImage))
       toast({
-        title: "Story image ready",
+        title: preparedStoryImage?.mediaType === "video" ? "Story video ready" : "Story image ready",
         description:
-          nextStoryImage?.status === "pending_review"
-            ? "รูปสตอรี่นี้กำลังรอการตรวจสอบจากผู้ดูแลระบบ"
-            : "Your story cover has been uploaded.",
+          preparedStoryImage?.status === "pending_review"
+            ? "อัปโหลดแล้ว กดโพสต์สตอรี่เพื่อส่งเข้าตรวจ"
+            : "อัปโหลดแล้ว กดโพสต์สตอรี่เพื่อเผยแพร่",
       })
     } catch (error) {
       if (handleAuthError(error, "กรุณาเข้าสู่ระบบบนหน้านี้ก่อนเพิ่มสตอรี่")) return
-      toast({
-        title: "Story upload failed",
-        description: error instanceof Error ? error.message : "Something went wrong",
-        variant: "destructive",
-      })
+      toast({ title: "Story upload failed", description: error instanceof Error ? error.message : "Something went wrong", variant: "destructive" })
     } finally {
       setStoryUploading(false)
       event.target.value = ""
     }
   }
 
-  async function handleCreateStory() {
+  async function createStoryFromMedia(media: UploadedMedia) {
     if (!requireLogin("กรุณาเข้าสู่ระบบเพื่อเพิ่มสตอรี่")) return
-    if (!storyImage?.id || (!storyImage.url && !storyImage.previewUrl && !storyImage.ownerPreviewUrl)) {
-      toast({ title: "Story image required", description: "Please upload an image before posting your story.", variant: "destructive" })
+    if (!media?.id || (!media.url && !media.previewUrl && !media.ownerPreviewUrl)) {
+      toast({ title: "Story media required", description: "Please upload an image or video before posting your story.", variant: "destructive" })
       return
     }
 
     try {
       setStorySubmitting(true)
-      await fetchJson("/community/stories", {
+      logCommunityDebug("story-create:request", {
+        mediaId: media.id,
+        mediaType: media.mediaType,
+        mediaStatus: media.status,
+        hasUrl: Boolean(media.url),
+        hasPreviewUrl: Boolean(media.previewUrl),
+        hasOwnerPreviewUrl: Boolean(media.ownerPreviewUrl),
+        captionLength: storyCaption.length,
+        style: {
+          theme: storyTheme,
+          captionAlign: storyCaptionAlign,
+          captionSize: storyCaptionSize,
+          sticker: storySticker,
+        },
+      })
+      const response = await fetchJson<{ item: CommunityStory }>("/community/stories", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          image: storyImage.url || "",
-          imageMediaId: storyImage.id,
+          image: media.mediaType === "image" ? media.url || "" : "",
+          video: media.mediaType === "video" ? media.url || "" : "",
+          mediaId: media.id,
           caption: storyCaption,
           style: {
             theme: storyTheme,
@@ -1587,6 +1702,53 @@ export default function CommunityPage() {
           },
         }),
       })
+      logCommunityDebug("story-create:response", {
+        ok: true,
+        item: response.item,
+      })
+      const nextItem = {
+        ...response.item,
+        image: response.item.image || (media.mediaType === "image" ? media.previewUrl || "" : ""),
+        video: response.item.video || (media.mediaType === "video" ? media.previewUrl || "" : ""),
+      }
+      if (media.previewUrl) {
+        setStoryPreviewUrls((current) => ({ ...current, [response.item.id]: media.previewUrl || "" }))
+      }
+      await mutateStories((current) => {
+        const currentItems = current?.items || []
+        const ownAuthorId = response.item.author.id
+        const existingIndex = currentItems.findIndex((group) => group.author.id === ownAuthorId)
+        if (existingIndex === -1) {
+          return {
+            ...(current || { items: [] }),
+            items: [
+              {
+                id: ownAuthorId,
+                isOwn: true,
+                latestCreatedAt: nextItem.createdAt || new Date().toISOString(),
+                latestTimeAgo: nextItem.timeAgo,
+                latestImage: nextItem.image || "",
+                hasUnviewed: false,
+                author: nextItem.author,
+                stories: [nextItem],
+              },
+              ...currentItems,
+            ],
+          }
+        }
+
+        const nextItems = [...currentItems]
+        const targetGroup = nextItems[existingIndex]
+        const nextStories = [...targetGroup.stories.filter((item) => item.id !== nextItem.id), nextItem]
+        nextItems[existingIndex] = {
+          ...targetGroup,
+          latestCreatedAt: nextItem.createdAt || new Date().toISOString(),
+          latestTimeAgo: nextItem.timeAgo,
+          latestImage: nextItem.image || targetGroup.latestImage,
+          stories: nextStories,
+        }
+        return { ...(current || { items: [] }), items: nextItems }
+      }, false)
       setShowStoryComposer(false)
       setStoryImage(null)
       setStoryCaption("")
@@ -1596,9 +1758,21 @@ export default function CommunityPage() {
       setStorySticker("")
       setShowStoryEditor(false)
       setStoryEditorTab("theme")
-      void mutateStories()
-      toast({ title: "Story posted", description: "Your story is now live for 24 hours." })
+      if (media.status !== "pending_review") {
+        void mutateStories()
+      } else {
+        window.setTimeout(() => {
+          void mutateStories()
+        }, 1500)
+      }
+      toast({
+        title: "Story posted",
+        description: media.status === "pending_review" ? "สตอรี่ถูกส่งแล้ว และกำลังรอการตรวจสอบ" : "Your story has been submitted successfully.",
+      })
     } catch (error) {
+      logCommunityDebug("story-create:error", {
+        message: error instanceof Error ? error.message : "unknown",
+      })
       if (handleAuthError(error, "กรุณาเข้าสู่ระบบบนหน้านี้ก่อนโพสต์สตอรี่")) return
       toast({
         title: "Story post failed",
@@ -1608,6 +1782,19 @@ export default function CommunityPage() {
     } finally {
       setStorySubmitting(false)
     }
+  }
+
+  async function handleCreateStory() {
+    if (!storyImage) {
+      logCommunityDebug("story-create:skipped", { reason: "missing-story-image" })
+      return
+    }
+    logCommunityDebug("story-create:clicked", {
+      mediaId: storyImage.id,
+      mediaType: storyImage.mediaType,
+      mediaStatus: storyImage.status,
+    })
+    await createStoryFromMedia(storyImage)
   }
 
   function closeStoryViewer() {
@@ -2513,7 +2700,7 @@ export default function CommunityPage() {
                       {incomingRequests.slice(0, 3).map((request) => (
                         <div key={request.id} className="flex items-center gap-3">
                           <Avatar className="h-10 w-10 border border-white/10">
-                            <AvatarImage src={request.user.avatar || "/placeholder-user.jpg"} />
+                            <AvatarImage src={getSafeAvatarSrc(request.user.avatar)} />
                             <AvatarFallback>{request.user.name.charAt(0)}</AvatarFallback>
                           </Avatar>
                           <div className="min-w-0 flex-1">
@@ -2543,7 +2730,7 @@ export default function CommunityPage() {
                       className="flex items-start gap-3 rounded-2xl border border-white/10 bg-background/35 p-4 transition hover:border-primary/25 hover:bg-background/55"
                     >
                       <Avatar className="h-11 w-11 border border-white/10">
-                        <AvatarImage src={item.actor.avatar || "/placeholder-user.jpg"} />
+                        <AvatarImage src={getSafeAvatarSrc(item.actor.avatar)} />
                         <AvatarFallback>{item.actor.name.charAt(0) || "F"}</AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">
@@ -2890,19 +3077,19 @@ export default function CommunityPage() {
             <DialogContent className="max-w-lg rounded-[28px] border-border/60 bg-[#101214] p-0 text-foreground">
               <DialogHeader className="border-b border-border/60 px-6 py-5">
                 <DialogTitle>สร้างสตอรี่</DialogTitle>
-                <DialogDescription>แชร์อัปเดตรูปภาพที่จะอยู่บนหน้าโปรไฟล์ 24 ชั่วโมง</DialogDescription>
+                <DialogDescription>แชร์รูปหรือวิดีโอที่จะอยู่บนหน้าโปรไฟล์ 24 ชั่วโมง</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 px-6 py-5">
                 <label className="flex cursor-pointer items-center justify-between rounded-2xl border border-dashed border-border/60 bg-muted/20 p-4">
                   <div>
-                    <p className="text-sm font-medium">อัปโหลดรูปสตอรี่</p>
-                    <p className="text-xs text-muted-foreground">1 รูป ขนาดไม่เกิน 5MB</p>
+                    <p className="text-sm font-medium">อัปโหลดสตอรี่</p>
+                    <p className="text-xs text-muted-foreground">รองรับ 1 ไฟล์ รูปหรือวิดีโอ</p>
                   </div>
                   <div className="inline-flex items-center gap-2 rounded-full border border-border/60 px-4 py-2 text-sm">
                     {storyUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                    เลือกรูป
+                    เลือกไฟล์
                   </div>
-                  <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleStoryImageUpload} />
+                  <input type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,video/quicktime,video/x-m4v" className="hidden" onChange={handleStoryImageUpload} />
                 </label>
 
                 {storyImage?.url || storyImage?.previewUrl || storyImage?.ownerPreviewUrl ? (
@@ -2911,7 +3098,27 @@ export default function CommunityPage() {
                     onClick={() => setShowStoryEditor(true)}
                     className="group relative block h-80 w-full overflow-hidden rounded-[24px] border border-border/60 text-left transition hover:border-primary/40"
                   >
-                    <Image src={storyImage.url || storyImage.previewUrl || storyImage.ownerPreviewUrl || ""} alt="Story preview" fill className="object-cover transition duration-300 group-hover:scale-[1.015]" unoptimized />
+                    {(() => {
+                      const storyPreviewSrc = getMediaUrl(storyImage)
+                      if (!storyPreviewSrc) return <div className="h-full w-full bg-black/30" />
+                      return storyImage.mediaType === "video" ? (
+                        <video
+                          src={storyPreviewSrc}
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.015]"
+                          muted
+                          playsInline
+                          autoPlay
+                          loop
+                          preload="metadata"
+                        />
+                      ) : (
+                        <img
+                          src={storyPreviewSrc}
+                          alt="Story preview"
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.015]"
+                        />
+                      )
+                    })()}
                     <div className="absolute inset-0" style={{ backgroundImage: getStoryThemeStyle(storyTheme).overlay.replaceAll("_", " ") }} />
                     <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4">
                       <span className="rounded-full border border-white/15 bg-black/35 px-3 py-1 text-[11px] font-medium text-white/80 backdrop-blur">
@@ -2987,7 +3194,27 @@ export default function CommunityPage() {
                   <div className="relative mx-auto h-[42vh] min-h-[320px] max-h-[540px] w-auto max-w-full aspect-[9/16] overflow-hidden rounded-[30px] border border-white/10 bg-black shadow-[0_24px_60px_rgba(0,0,0,0.35)]">
                     {storyImage?.url || storyImage?.previewUrl || storyImage?.ownerPreviewUrl ? (
                       <>
-                        <Image src={storyImage.url || storyImage.previewUrl || storyImage.ownerPreviewUrl || ""} alt="Story editor preview" fill className="object-cover" unoptimized />
+                        {(() => {
+                          const storyPreviewSrc = getMediaUrl(storyImage)
+                          if (!storyPreviewSrc) return <div className="h-full w-full bg-black/30" />
+                          return storyImage.mediaType === "video" ? (
+                            <video
+                              src={storyPreviewSrc}
+                              className="h-full w-full object-cover"
+                              muted
+                              playsInline
+                              autoPlay
+                              loop
+                              preload="metadata"
+                            />
+                          ) : (
+                            <img
+                              src={storyPreviewSrc}
+                              alt="Story editor preview"
+                              className="h-full w-full object-cover"
+                            />
+                          )
+                        })()}
                         <div className="absolute inset-0" style={{ backgroundImage: getStoryThemeStyle(storyTheme).overlay.replaceAll("_", " ") }} />
                         <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/45 via-black/10 to-transparent" />
                         <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
@@ -3197,10 +3424,42 @@ export default function CommunityPage() {
 
           <Dialog open={Boolean(activeStory)} onOpenChange={(open) => (!open ? closeStoryViewer() : undefined)}>
             <DialogContent className="max-w-md rounded-[28px] border-border/60 bg-[#101214] p-0 text-foreground">
+              <DialogHeader className="sr-only">
+                <DialogTitle>ตัวดูสตอรี่</DialogTitle>
+                <DialogDescription>แสดงสตอรี่ของผู้ใช้ พร้อมปุ่มเลื่อนไปสตอรี่ก่อนหน้าและถัดไป</DialogDescription>
+              </DialogHeader>
               {activeStory ? (
                 <div className="overflow-hidden rounded-[28px]">
                   <div className="relative h-[560px]">
-                    <Image src={getStoryImage(activeStory)} alt={activeStory.author.name} fill className="object-cover" unoptimized />
+                    {storyNeedsProtectedPreview(activeStory) ? (
+                      <div className="flex h-full w-full items-center justify-center bg-black/30 text-sm text-white/70">
+                        กำลังโหลดสตอรี่...
+                      </div>
+                    ) : storyIsVideo(activeStory) ? (
+                      <video
+                        key={`${activeStory.id}:${getStoryVideo(activeStory)}`}
+                        ref={activeStoryVideoRef}
+                        src={getStoryVideo(activeStory)}
+                        className="h-full w-full object-cover"
+                        autoPlay
+                        playsInline
+                        muted
+                        loop
+                        controls
+                        preload="auto"
+                      />
+                    ) : getStoryImage(activeStory) ? (
+                      <img
+                        key={`${activeStory.id}:${getStoryImage(activeStory)}`}
+                        src={getStoryImage(activeStory)}
+                        alt={activeStory.author.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-black/30 text-sm text-white/70">
+                        กำลังโหลดสตอรี่...
+                      </div>
+                    )}
                     <div
                       className="absolute inset-0"
                       style={{
@@ -3227,7 +3486,7 @@ export default function CommunityPage() {
                       </div>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-11 w-11 border border-white/30">
-                          <AvatarImage src={activeStory.author.avatar || "/placeholder-user.jpg"} />
+                          <AvatarImage src={getSafeAvatarSrc(activeStory.author.avatar)} />
                           <AvatarFallback>{activeStory.author.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
@@ -3293,7 +3552,7 @@ export default function CommunityPage() {
                 <div className="space-y-4 px-6 py-5">
                   <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-muted/20 p-3">
                     <Avatar className="h-11 w-11">
-                      <AvatarImage src={repostTarget.author.avatar || "/placeholder-user.jpg"} />
+                      <AvatarImage src={getSafeAvatarSrc(repostTarget.author.avatar)} />
                       <AvatarFallback>{repostTarget.author.name.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
@@ -3319,7 +3578,7 @@ export default function CommunityPage() {
                     <div className="space-y-3 p-4">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-9 w-9">
-                          <AvatarImage src={repostTarget.author.avatar || "/placeholder-user.jpg"} />
+                          <AvatarImage src={getSafeAvatarSrc(repostTarget.author.avatar)} />
                           <AvatarFallback>{repostTarget.author.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
@@ -3359,7 +3618,7 @@ export default function CommunityPage() {
               <CardContent className="px-5 pb-5">
                 <div className="-mt-10 flex flex-col items-center text-center">
                   <Avatar className="h-20 w-20 border-4 border-card shadow-md">
-                    <AvatarImage src={user?.avatar || "/placeholder-user.jpg"} />
+                    <AvatarImage src={getSafeAvatarSrc(user?.avatar)} />
                     <AvatarFallback>{user?.name?.charAt(0) || "F"}</AvatarFallback>
                   </Avatar>
                   <p className="mt-3 text-lg font-semibold text-foreground">{user?.name || "Football Fan"}</p>
@@ -3448,9 +3707,35 @@ export default function CommunityPage() {
                           "relative h-16 w-16 overflow-hidden rounded-full border-2 p-0.5 transition-colors",
                           group.hasUnviewed ? "border-primary" : "border-white/10",
                         )}
-                      >
+                        >
                         <div className="relative h-full w-full overflow-hidden rounded-full">
-                          <Image src={getStoryGroupImage(group)} alt={group.author.name} fill className="object-cover" unoptimized />
+                          {storyIsVideo(group.stories[group.stories.length - 1]) ? (
+                            storyNeedsProtectedPreview(group.stories[group.stories.length - 1]) ? (
+                              <div className="flex h-full w-full items-center justify-center bg-black/30 text-[10px] text-white/60">
+                                Loading
+                              </div>
+                            ) : (
+                              getStoryGroupVideo(group) ? (
+                                <video
+                                  src={getStoryGroupVideo(group)}
+                                  className="h-full w-full object-cover"
+                                  muted
+                                  playsInline
+                                  autoPlay
+                                  loop
+                                  preload="metadata"
+                                />
+                              ) : (
+                                <div className="h-full w-full bg-black/30" />
+                              )
+                            )
+                          ) : (
+                            getStoryGroupImage(group) ? (
+                              <img src={getStoryGroupImage(group)} alt={group.author.name} className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="h-full w-full bg-black/30" />
+                            )
+                          )}
                         </div>
                       </div>
                       <span className={cn("max-w-[76px] truncate text-[11px] font-medium", group.hasUnviewed ? "text-foreground" : "text-muted-foreground")}>
@@ -3463,7 +3748,7 @@ export default function CommunityPage() {
                 <div className="rounded-[26px] border border-white/10 bg-background/40 p-4">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-11 w-11 border border-white/10">
-                      <AvatarImage src={user?.avatar || "/placeholder-user.jpg"} />
+                      <AvatarImage src={getSafeAvatarSrc(user?.avatar)} />
                       <AvatarFallback>{user?.name?.charAt(0) || "F"}</AvatarFallback>
                     </Avatar>
                     <button
@@ -3751,7 +4036,7 @@ export default function CommunityPage() {
                       <div className="flex items-start gap-3">
                         <Link href={`/community/friends/${post.author.id}`}>
                           <Avatar className="h-11 w-11 border border-white/10">
-                            <AvatarImage src={post.author.avatar || "/placeholder-user.jpg"} />
+                            <AvatarImage src={getSafeAvatarSrc(post.author.avatar)} />
                             <AvatarFallback>{post.author.name.charAt(0)}</AvatarFallback>
                           </Avatar>
                         </Link>
@@ -3996,7 +4281,7 @@ export default function CommunityPage() {
 
                           <div className="mt-4 flex items-center gap-3 rounded-full bg-background/70 px-3 py-2">
                             <Avatar className="h-8 w-8 border border-white/10">
-                              <AvatarImage src={user?.avatar || "/placeholder-user.jpg"} />
+                              <AvatarImage src={getSafeAvatarSrc(user?.avatar)} />
                               <AvatarFallback>{user?.name?.charAt(0) || "F"}</AvatarFallback>
                             </Avatar>
                             <Link href={`/community/${post.id}`} className="text-sm text-muted-foreground transition hover:text-foreground">
@@ -4029,7 +4314,7 @@ export default function CommunityPage() {
                   activityNotifications.slice(0, 5).map((item) => (
                     <Link key={item.id} href={item.post.id ? `/community/${item.post.id}` : "/community"} className="flex items-start gap-3 rounded-2xl px-1 py-1 transition hover:bg-background/40">
                       <Avatar className="h-11 w-11 border border-white/10">
-                        <AvatarImage src={item.actor.avatar || "/placeholder-user.jpg"} />
+                        <AvatarImage src={getSafeAvatarSrc(item.actor.avatar)} />
                         <AvatarFallback>{item.actor.name.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">
@@ -4047,7 +4332,7 @@ export default function CommunityPage() {
                   incomingRequests.slice(0, 4).map((request) => (
                     <div key={request.id} className="flex items-center gap-3 rounded-2xl px-1 py-1">
                       <Avatar className="h-11 w-11 border border-white/10">
-                        <AvatarImage src={request.user.avatar || "/placeholder-user.jpg"} />
+                        <AvatarImage src={getSafeAvatarSrc(request.user.avatar)} />
                         <AvatarFallback>{request.user.name.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">
@@ -4082,7 +4367,7 @@ export default function CommunityPage() {
                     <div key={person.id} className="flex items-center gap-3">
                       <Link href={`/community/friends/${person.id}`} className="flex min-w-0 flex-1 items-center gap-3">
                         <Avatar className="h-11 w-11 border border-white/10">
-                          <AvatarImage src={person.avatar || "/placeholder-user.jpg"} />
+                          <AvatarImage src={getSafeAvatarSrc(person.avatar)} />
                           <AvatarFallback>{person.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
@@ -4137,7 +4422,7 @@ export default function CommunityPage() {
                 {topConversations.map((conversation) => (
                   <Link key={conversation.id} href={`/community/messages?conversation=${conversation.id}`} className="flex items-start gap-3 rounded-2xl p-3 transition hover:bg-background/70">
                     <Avatar className="h-10 w-10 border border-white/10">
-                      <AvatarImage src={conversation.user.avatar || "/placeholder-user.jpg"} />
+                      <AvatarImage src={getSafeAvatarSrc(conversation.user.avatar)} />
                       <AvatarFallback>{conversation.user.name.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">

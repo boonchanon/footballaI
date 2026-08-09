@@ -1,8 +1,17 @@
 import { randomUUID } from "crypto"
-import { copyFile, mkdir, readFile, rename, rm, writeFile } from "fs/promises"
+import { access, copyFile, mkdir, readFile, rename, rm, writeFile } from "fs/promises"
 import { existsSync } from "fs"
 import os from "os"
 import path from "path"
+
+import {
+  cloudinaryAssetExists,
+  deleteCloudinaryAsset,
+  fetchCloudinaryAssetBuffer,
+  isCloudinaryEnabled,
+  parseCloudinaryAssetKey,
+  uploadCommunityAssetToCloudinary,
+} from "./cloudinary"
 
 const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"])
 const VIDEO_EXTENSIONS = new Set([".mp4", ".mov", ".webm", ".m4v"])
@@ -68,6 +77,15 @@ export async function saveApprovedFileFromBuffer(params: {
   bytes: Buffer
   directory: ApprovedDirectoryType
 }) {
+  if (isCloudinaryEnabled()) {
+    return uploadCommunityAssetToCloudinary({
+      bytes: params.bytes,
+      filename: params.file.name,
+      mimeType: params.file.type,
+      folder: `approved/${params.directory}`,
+    })
+  }
+
   const storedName = sanitizeStoredName(params.file.name)
   const relativeKey = path.posix.join(params.directory, storedName)
   const absoluteDir = path.join(getApprovedStorageRoot(), params.directory)
@@ -86,6 +104,15 @@ export async function savePendingFileFromBuffer(params: {
   bytes: Buffer
   directory: PendingDirectoryType
 }) {
+  if (isCloudinaryEnabled()) {
+    return uploadCommunityAssetToCloudinary({
+      bytes: params.bytes,
+      filename: params.file.name,
+      mimeType: params.file.type,
+      folder: `pending/${params.directory}`,
+    })
+  }
+
   const storedName = sanitizeStoredName(params.file.name)
   const relativeKey = path.posix.join(params.directory, storedName)
   const absoluteDir = path.join(getPendingStorageRoot(), params.directory)
@@ -120,6 +147,14 @@ export async function movePendingFileToApproved(params: {
   storedName?: string
   approvedDirectory: ApprovedDirectoryType
 }) {
+  const cloudinaryAsset = parseCloudinaryAssetKey(params.pendingKey)
+  if (cloudinaryAsset) {
+    return {
+      relativeKey: params.pendingKey,
+      publicUrl: cloudinaryAsset.secureUrl,
+    }
+  }
+
   const source = resolveSafePath(getPendingStorageRoot(), params.pendingKey)
   const storedName = params.storedName || path.basename(params.pendingKey)
   const destinationDir = path.join(getApprovedStorageRoot(), params.approvedDirectory)
@@ -140,6 +175,10 @@ export async function movePendingFileToApproved(params: {
 }
 
 export async function deletePendingFile(relativeKey: string) {
+  if (parseCloudinaryAssetKey(relativeKey)) {
+    await deleteCloudinaryAsset(relativeKey)
+    return
+  }
   const absolutePath = resolveSafePath(getPendingStorageRoot(), relativeKey)
   await rm(absolutePath, { force: true })
 }
@@ -150,11 +189,17 @@ export async function deleteProcessingFile(relativeKey: string) {
 }
 
 export async function readPendingFile(relativeKey: string) {
+  if (parseCloudinaryAssetKey(relativeKey)) {
+    return fetchCloudinaryAssetBuffer(relativeKey)
+  }
   const absolutePath = resolveSafePath(getPendingStorageRoot(), relativeKey)
   return readFile(absolutePath)
 }
 
 export async function fileExists(baseDir: "pending" | "processing" | "approved", relativeKey: string) {
+  if (parseCloudinaryAssetKey(relativeKey)) {
+    return cloudinaryAssetExists(relativeKey)
+  }
   const root =
     baseDir === "pending" ? getPendingStorageRoot() : baseDir === "processing" ? getProcessingStorageRoot() : getApprovedStorageRoot()
   try {

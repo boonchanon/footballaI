@@ -43,6 +43,7 @@ type ModerationActionResponse = {
 
 export default function AdminCommunityModerationPage() {
   const [items, setItems] = useState<ModerationItem[]>([])
+  const [mediaPreviewUrls, setMediaPreviewUrls] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [query, setQuery] = useState("")
@@ -87,6 +88,45 @@ export default function AdminCommunityModerationPage() {
   useEffect(() => {
     void loadQueue()
   }, [query, typeFilter, statusFilter])
+
+  useEffect(() => {
+    const token = getAuthToken()
+    if (!token || !items.length) return
+
+    const previewItems = items.filter(
+      (item) =>
+        Boolean(item.imageUrl) &&
+        item.imageUrl?.startsWith("/api/admin/community/moderation/media/") &&
+        !mediaPreviewUrls[item.id],
+    )
+    if (!previewItems.length) return
+
+    let cancelled = false
+
+    Promise.all(
+      previewItems.map(async (item) => {
+        const response = await fetch(item.imageUrl as string, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        })
+        if (!response.ok) return null
+        const blob = await response.blob()
+        return [item.id, URL.createObjectURL(blob)] as const
+      }),
+    )
+      .then((entries) => {
+        if (cancelled) return
+        setMediaPreviewUrls((current) => ({
+          ...current,
+          ...Object.fromEntries(entries.filter(Boolean) as Array<readonly [string, string]>),
+        }))
+      })
+      .catch(() => undefined)
+
+    return () => {
+      cancelled = true
+    }
+  }, [items, mediaPreviewUrls])
 
   async function applyAction(id: string, action: "approve" | "reject" | "hide", userAction?: "" | "warn" | "restrict" | "suspend" | "ban") {
     const token = getAuthToken()
@@ -134,6 +174,10 @@ export default function AdminCommunityModerationPage() {
       canReject: isPending || isPublished,
       isPublished,
     }
+  }
+
+  function getRenderableImageUrl(item: ModerationItem) {
+    return mediaPreviewUrls[item.id] || item.imageUrl || ""
   }
 
   return (
@@ -244,9 +288,9 @@ export default function AdminCommunityModerationPage() {
                             </div>
                           </div>
                         ) : null}
-                        {item.imageUrl ? (
+                        {getRenderableImageUrl(item) ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={item.imageUrl} alt="Moderation preview" className="mt-2 h-36 w-28 rounded-xl object-cover" />
+                          <img src={getRenderableImageUrl(item)} alt="Moderation preview" className="mt-2 h-36 w-28 rounded-xl object-cover" />
                         ) : null}
                       </div>
                     </div>

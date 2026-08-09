@@ -1,5 +1,14 @@
 import { getTimeAgoThai } from "./http-utils"
 
+function sanitizeCommunityAssetUrl(value: unknown) {
+  const url = typeof value === "string" ? value.trim() : ""
+  if (!url.startsWith("/uploads/community/")) return url
+  const relative = url.slice("/uploads/community/".length).split("?")[0].replace(/^\/+/, "")
+  if (!relative) return ""
+  if (!relative.includes("/")) return ""
+  return url
+}
+
 export function toPlainId(value: unknown) {
   if (!value) return ""
   if (typeof value === "string") return value
@@ -17,7 +26,7 @@ export function mapSocialUser(user: any) {
   return {
     id: toPlainId(user?._id),
     name: user?.name || "ผู้ใช้งาน",
-    avatar: user?.avatar || "",
+    avatar: sanitizeCommunityAssetUrl(user?.avatar || ""),
     favoriteTeam: user?.favoriteTeam || "",
     bio: user?.bio || "",
   }
