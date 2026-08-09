@@ -5,7 +5,6 @@ import Image from "next/image"
 import Link from "next/link"
 import useSWR from "swr"
 import {
-  ArrowLeft,
   Bell,
   Bookmark,
   Clock,
@@ -2460,7 +2459,7 @@ export default function CommunityPage() {
   return (
     <div className={cn("min-h-screen text-foreground", COMMUNITY_FEED_UI_TOKENS.page)}>
       <div className="pb-8">
-        <div className={cn("mx-auto min-h-screen max-w-[1440px] overflow-hidden bg-[linear-gradient(180deg,#05090b_0%,#080d0f_48%,#050708_100%)] shadow-[0_24px_90px_rgba(0,0,0,0.48)]", COMMUNITY_FEED_UI_TOKENS.shell)}>
+        <div className={cn("mx-auto min-h-screen max-w-[1480px] overflow-hidden bg-[#05090b] shadow-[0_24px_90px_rgba(0,0,0,0.48)]", COMMUNITY_FEED_UI_TOKENS.shell)}>
           <div className="sticky top-0 z-30 flex min-h-[72px] flex-wrap items-center gap-4 border-b border-white/[0.07] bg-[#05090b]/96 px-5 py-3 backdrop-blur lg:px-7">
             <Link href="/" className="inline-flex items-center gap-2 rounded-full text-xl font-display font-semibold tracking-tight text-foreground transition hover:text-primary" aria-label="กลับหน้าแรก FootballAI">
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/5">
@@ -2468,15 +2467,6 @@ export default function CommunityPage() {
               </span>
               Football<span className="text-primary">AI</span>
             </Link>
-            <Link
-              href="/"
-              className="inline-flex h-10 items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 text-sm font-medium text-muted-foreground transition hover:border-primary/30 hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-              aria-label="ย้อนกลับหน้า Home"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span className="hidden sm:inline">Home</span>
-            </Link>
-
             <div className="relative min-w-[220px] flex-1 lg:max-w-[430px]">
               <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -2488,7 +2478,7 @@ export default function CommunityPage() {
               />
             </div>
 
-            <div className="hidden items-center gap-2 lg:flex">
+            <div className="ml-auto hidden shrink-0 items-center justify-end gap-2 lg:flex">
               <Link
                 href="/worldcup-2026/predictions/payment"
                 className="inline-flex h-11 items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 text-sm font-semibold text-primary transition hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
@@ -3392,7 +3382,7 @@ export default function CommunityPage() {
             </DialogContent>
           </Dialog>
 
-          <div className="grid gap-5 bg-[radial-gradient(circle_at_top_left,rgba(34,197,94,0.10),transparent_28%),linear-gradient(180deg,#060b0d_0%,#070b0d_100%)] p-3 lg:grid-cols-[88px_minmax(0,1fr)] lg:p-4 xl:grid-cols-[250px_minmax(0,820px)_280px]">
+          <div className="grid gap-4 bg-[#060a0c] p-3 lg:grid-cols-[88px_minmax(0,1fr)] lg:p-4 xl:grid-cols-[240px_minmax(0,780px)_290px]">
           <aside className="hidden lg:block">
             <div className="sticky top-[88px] space-y-5">
               <nav aria-label="Community navigation" className="rounded-[10px] border border-white/[0.06] bg-[#071312] p-2 shadow-[0_12px_40px_rgba(0,0,0,0.26)] xl:p-3">
@@ -3491,9 +3481,23 @@ export default function CommunityPage() {
             </div>
           </aside>
 
-          <main className="min-w-0 space-y-5">
-            <section aria-label="Match Hub Hero">
-              <Card className="overflow-hidden rounded-[14px] border-white/[0.08] bg-[linear-gradient(135deg,rgba(11,19,18,0.98)_0%,rgba(7,12,14,0.98)_52%,rgba(10,25,18,0.92)_100%)] shadow-[0_18px_60px_rgba(0,0,0,0.34)]">
+          <main className="min-w-0 space-y-4">
+            <section aria-label="Community context" className="rounded-[12px] border border-white/[0.07] bg-[#091012] px-5 py-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">{COMMUNITY_FEED_UI_TEXT.contextEyebrow}</p>
+                  <h1 className="mt-1 text-[22px] font-semibold leading-tight text-foreground">{COMMUNITY_FEED_UI_TEXT.contextTitle}</h1>
+                  <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">{COMMUNITY_FEED_UI_TEXT.contextDescription}</p>
+                </div>
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <span>{stats.total?.toLocaleString?.() || stats.total || 0} โพสต์</span>
+                  {heroMetrics.activity ? <span>{heroMetrics.activity.toLocaleString()} match activity</span> : null}
+                </div>
+              </div>
+            </section>
+
+            <section aria-label="Match Hub Spotlight">
+              <Card className="overflow-hidden rounded-[14px] border-white/[0.08] bg-[#091012] shadow-[0_14px_42px_rgba(0,0,0,0.28)]">
                 {matchRoomError && !heroFixture ? (
                   <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -3514,16 +3518,16 @@ export default function CommunityPage() {
                     </div>
                   </CardContent>
                 ) : (
-                  <CardContent className="relative min-h-[318px] overflow-hidden p-0">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_15%,rgba(34,197,94,0.16),transparent_30%),radial-gradient(circle_at_12%_90%,rgba(255,255,255,0.06),transparent_24%),linear-gradient(180deg,rgba(3,7,8,0.18)_0%,rgba(3,7,8,0.50)_54%,rgba(3,7,8,0.92)_100%)]" />
+                  <CardContent className="relative overflow-hidden p-0">
+                    <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(34,197,94,0.10),transparent_34%),linear-gradient(180deg,rgba(3,7,8,0.12)_0%,rgba(3,7,8,0.88)_100%)]" />
                     {heroMediaUrl ? (
                       <div className="absolute inset-0 overflow-hidden">
-                        <Image src={heroMediaUrl} alt="" fill className="object-cover opacity-45" unoptimized />
-                        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(3,7,8,0.20)_0%,rgba(3,7,8,0.58)_54%,rgba(3,7,8,0.94)_100%),linear-gradient(90deg,rgba(3,7,8,0.72)_0%,rgba(3,7,8,0.20)_50%,rgba(3,7,8,0.72)_100%)]" />
+                        <Image src={heroMediaUrl} alt="" fill className="object-cover opacity-22" unoptimized />
+                        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(3,7,8,0.94)_0%,rgba(3,7,8,0.70)_55%,rgba(3,7,8,0.88)_100%)]" />
                       </div>
                     ) : null}
-                    <div className="relative flex min-h-[318px] flex-col px-5 py-4 sm:px-7 sm:py-5">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="relative grid gap-4 px-5 py-4 sm:grid-cols-[1fr_auto] sm:items-center sm:px-6">
+                      <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge className={cn("rounded-full px-3 py-1 text-[11px] font-semibold", heroPhase === "live" ? "bg-red-500 text-white hover:bg-red-500" : "bg-primary/15 text-primary hover:bg-primary/15")}>
                             {getCommunityFixtureStatusLabel(heroFixture)}
@@ -3533,49 +3537,41 @@ export default function CommunityPage() {
                           </Badge>
                           <span className="text-xs text-muted-foreground">Match Hub</span>
                         </div>
-                        <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-white/10 hover:text-foreground" aria-label="Match Hub menu">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </button>
-                      </div>
 
-                      <div className="mt-3 text-left">
-                        <h2 className="truncate text-[28px] font-semibold leading-tight tracking-normal text-foreground sm:text-[32px]">
+                        <h2 className="mt-3 truncate text-xl font-semibold leading-tight tracking-normal text-foreground sm:text-2xl">
                           {heroFixture.homeTeam} vs {heroFixture.awayTeam}
                         </h2>
-                        <p className="mt-1 text-sm text-muted-foreground">
+                        <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
                           {heroFixture.venue || "Match Hub"} {heroFixture.dateThai || heroFixture.kickoff ? <span> • {heroFixture.dateThai || heroFixture.kickoff}</span> : null}
                         </p>
+                        <div className="mt-4 flex flex-wrap items-center gap-3">
+                          <Link href={`/community/matches/${heroFixture.id}`} className="inline-flex h-10 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+                            เข้าสู่ Match Hub
+                            <ExternalLink className="h-4 w-4" />
+                          </Link>
+                          <p className="text-xs text-muted-foreground">
+                            {heroMetrics.activity ? `${heroMetrics.activity.toLocaleString()} activity` : "พร้อมสำหรับคอมมูนิตี้ของแมตช์นี้"}
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="mt-5 grid flex-1 items-center gap-4 sm:grid-cols-[1fr_auto_1fr]">
-                        <div className="min-w-0 text-center">
-                          {heroFixture.homeLogo ? <Image src={heroFixture.homeLogo} alt={`${heroFixture.homeTeam} logo`} width={76} height={76} className="mx-auto h-[76px] w-[76px] rounded-full object-contain" unoptimized /> : <span className="mx-auto block h-[76px] w-[76px] rounded-full bg-primary/15" />}
-                          <p className="mt-2 truncate text-sm font-semibold text-foreground">{heroFixture.homeTeam}</p>
+                      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-[12px] border border-white/10 bg-black/25 px-4 py-3 text-center">
+                        <div className="min-w-0">
+                          {heroFixture.homeLogo ? <Image src={heroFixture.homeLogo} alt={`${heroFixture.homeTeam} logo`} width={42} height={42} className="mx-auto h-[42px] w-[42px] rounded-full object-contain" unoptimized /> : <span className="mx-auto block h-[42px] w-[42px] rounded-full bg-primary/15" />}
+                          <p className="mt-1 max-w-[86px] truncate text-xs font-medium text-foreground">{heroFixture.homeTeam}</p>
                         </div>
-
-                        <div className="min-w-[170px] text-center">
-                          <p className={cn("font-display text-[52px] font-semibold leading-none tracking-normal sm:text-[58px]", shouldShowCommunityFixtureScore(heroFixture) ? "text-foreground" : "text-primary")}>
+                        <div className="min-w-[96px]">
+                          <p className={cn("font-display text-2xl font-semibold leading-none tracking-normal", shouldShowCommunityFixtureScore(heroFixture) ? "text-foreground" : "text-primary")}>
                             {getCommunityFixtureScoreLabel(heroFixture)}
                           </p>
-                          <p className="mt-2 text-sm font-semibold text-muted-foreground">
+                          <p className="mt-1 text-[11px] font-medium text-muted-foreground">
                             {heroPhase === "upcoming" ? "Kickoff" : heroPhase === "live" ? "Live" : "Full Time"}
                           </p>
                         </div>
-
-                        <div className="min-w-0 text-center">
-                          {heroFixture.awayLogo ? <Image src={heroFixture.awayLogo} alt={`${heroFixture.awayTeam} logo`} width={76} height={76} className="mx-auto h-[76px] w-[76px] rounded-full object-contain" unoptimized /> : <span className="mx-auto block h-[76px] w-[76px] rounded-full bg-primary/15" />}
-                          <p className="mt-2 truncate text-sm font-semibold text-foreground">{heroFixture.awayTeam}</p>
+                        <div className="min-w-0">
+                          {heroFixture.awayLogo ? <Image src={heroFixture.awayLogo} alt={`${heroFixture.awayTeam} logo`} width={42} height={42} className="mx-auto h-[42px] w-[42px] rounded-full object-contain" unoptimized /> : <span className="mx-auto block h-[42px] w-[42px] rounded-full bg-primary/15" />}
+                          <p className="mt-1 max-w-[86px] truncate text-xs font-medium text-foreground">{heroFixture.awayTeam}</p>
                         </div>
-                      </div>
-
-                      <div className="mt-4 text-center">
-                        <p className="text-sm text-muted-foreground">
-                          {heroMetrics.activity ? `${heroMetrics.activity.toLocaleString()} คนกำลังพูดคุยอยู่ใน Match Hub` : "Match Hub พร้อมสำหรับคอมมูนิตี้ของแมตช์นี้"}
-                        </p>
-                        <Link href={`/community/matches/${heroFixture.id}`} className="mx-auto mt-4 inline-flex h-12 items-center gap-3 rounded-full border border-white/18 bg-black/35 px-9 text-base font-semibold text-foreground transition hover:border-primary/50 hover:bg-primary hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
-                          เข้าสู่ Match Hub
-                          <ExternalLink className="h-4 w-4" />
-                        </Link>
                       </div>
                     </div>
                   </CardContent>
@@ -3656,20 +3652,20 @@ export default function CommunityPage() {
                   <button
                     type="button"
                     onClick={() => setShowStoryComposer(true)}
-                    className="flex min-h-[134px] min-w-[112px] flex-col items-center justify-center gap-3 rounded-[10px] border border-white/[0.07] bg-white/[0.045] p-3 transition hover:bg-white/[0.065] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                    className="flex min-h-[104px] min-w-[92px] flex-col items-center justify-center gap-2 rounded-[10px] border border-white/[0.07] bg-white/[0.04] p-3 transition hover:bg-white/[0.065] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                     aria-label="สร้างสตอรี่"
                   >
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-primary">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-primary">
                       <Plus className="h-5 w-5" />
                     </div>
-                    <span className="max-w-[96px] truncate text-xs font-medium text-foreground">สร้างโพสต์</span>
+                    <span className="max-w-[80px] truncate text-xs font-medium text-foreground">สร้างสตอรี่</span>
                   </button>
 
                   {storyGroups.map((group, index) => (
-                    <button key={group.id} type="button" onClick={() => openStoryViewer(index)} className="flex min-h-[134px] min-w-[112px] flex-col items-center justify-center gap-3 rounded-[10px] border border-white/[0.07] bg-white/[0.045] p-3 transition hover:bg-white/[0.065] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+                    <button key={group.id} type="button" onClick={() => openStoryViewer(index)} className="flex min-h-[104px] min-w-[92px] flex-col items-center justify-center gap-2 rounded-[10px] border border-white/[0.07] bg-white/[0.04] p-3 transition hover:bg-white/[0.065] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
                       <div
                         className={cn(
-                          "relative h-16 w-16 overflow-hidden rounded-full border-2 p-0.5 transition-colors",
+                          "relative h-12 w-12 overflow-hidden rounded-full border-2 p-0.5 transition-colors",
                           group.hasUnviewed ? "border-primary" : "border-white/10",
                         )}
                       >
@@ -3677,14 +3673,14 @@ export default function CommunityPage() {
                           <Image src={getStoryGroupImage(group)} alt={group.author.name} fill className="object-cover" unoptimized />
                         </div>
                       </div>
-                      <span className={cn("max-w-[96px] truncate text-xs font-medium", group.hasUnviewed ? "text-foreground" : "text-muted-foreground")}>
+                      <span className={cn("max-w-[80px] truncate text-xs font-medium", group.hasUnviewed ? "text-foreground" : "text-muted-foreground")}>
                         {group.isOwn ? "ฉันเอง" : group.author.name}
                       </span>
                     </button>
                   ))}
                   {!storyGroups.length && !storiesError ? (
-                    <div className="flex min-h-[134px] min-w-[112px] items-center justify-center rounded-[10px] border border-dashed border-white/10 px-3 text-center text-xs text-muted-foreground">
-                      ยังไม่มี Story
+                    <div className="flex min-h-[104px] min-w-[92px] items-center justify-center rounded-[10px] border border-dashed border-white/10 px-3 text-center text-xs text-muted-foreground">
+                      ว่าง
                     </div>
                   ) : null}
                 </div>
@@ -3729,7 +3725,7 @@ export default function CommunityPage() {
                     </button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button type="button" className="ml-auto inline-flex items-center gap-2 rounded-full px-2 py-1 text-sm text-muted-foreground transition hover:bg-background/70">
+                        <button type="button" className="inline-flex items-center gap-2 rounded-full px-2 py-1 text-sm text-muted-foreground transition hover:bg-background/70">
                           <Users className="h-4 w-4" />
                           {visibility === "friends" ? "Friends" : "Public"}
                         </button>
@@ -3741,6 +3737,17 @@ export default function CommunityPage() {
                         </DropdownMenuRadioGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCreatePost(true)
+                        setComposerTool("general")
+                      }}
+                      className="ml-auto inline-flex h-9 items-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                    >
+                      <Send className="h-4 w-4" />
+                      โพสต์
+                    </button>
                   </div>
                 </div>
               </CardContent>
@@ -4198,6 +4205,7 @@ export default function CommunityPage() {
           </main>
 
           <aside className="hidden space-y-5 xl:block">
+            {(matchRoomFixtures.length || matchRoomError) ? (
             <Card className="rounded-[10px] border-white/[0.08] bg-[#091012] shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
@@ -4234,21 +4242,17 @@ export default function CommunityPage() {
                     </div>
                   </Link>
                 ))}
-                {!matchRoomFixtures.length && !matchRoomError ? (
-                  <div className="rounded-2xl border border-dashed border-white/10 p-4 text-sm text-muted-foreground">
-                    ยังไม่มี fixture จาก provider
-                  </div>
-                ) : null}
               </CardContent>
             </Card>
+            ) : null}
 
+            {trendingTopics.length ? (
             <Card className="rounded-[10px] border-white/[0.08] bg-[#091012] shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base text-foreground">เทรนด์วันนี้</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {trendingTopics.length ? (
-                  trendingTopics.map((topic, index) => (
+                {trendingTopics.map((topic, index) => (
                     <button
                       key={topic.label}
                       type="button"
@@ -4261,14 +4265,10 @@ export default function CommunityPage() {
                         <span className="text-xs text-muted-foreground">{topic.count} โพสต์</span>
                       </span>
                     </button>
-                  ))
-                ) : (
-                  <div className="rounded-2xl border border-dashed border-white/10 p-4 text-sm text-muted-foreground">
-                    ยังไม่มีเทรนด์จากโพสต์จริง
-                  </div>
-                )}
+                  ))}
               </CardContent>
             </Card>
+            ) : null}
 
             {suggestedPeople.length ? (
               <Card className="rounded-[10px] border-white/[0.08] bg-[#091012] shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
@@ -4306,6 +4306,7 @@ export default function CommunityPage() {
               </Card>
             ) : null}
 
+            {(activityNotifications.length || incomingRequests.length) ? (
             <Card className="rounded-[10px] border-white/[0.08] bg-[#091012] shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
@@ -4352,11 +4353,10 @@ export default function CommunityPage() {
                       </div>
                     </div>
                   ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">วันนี้ยังไม่มี activity ใหม่</p>
-                )}
+                ) : null}
               </CardContent>
             </Card>
+            ) : null}
           </aside>
         </div>
         <nav className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-5 rounded-[24px] border border-white/10 bg-[#071012]/95 p-2 shadow-[0_18px_50px_rgba(0,0,0,0.38)] backdrop-blur lg:hidden" aria-label="Community mobile navigation">

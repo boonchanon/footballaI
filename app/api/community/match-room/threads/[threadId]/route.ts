@@ -4,7 +4,7 @@ import { canManageCommunityAdmin } from "@/lib/admin-access"
 import { getAuthUser, requireAuthUser } from "@/lib/server/auth"
 import { canViewerSeeModeratedContent, isApprovedCommentVisible, mapCommunityPostWithMedia } from "@/lib/server/community"
 import { buildThreadDbSort, buildThreadActionPermissions, normalizeCommunityThreadCategory } from "@/lib/server/community-threads"
-import { createModerationLog, moderateCommunityText } from "@/lib/server/content-moderation"
+import { assertCommunityInteractionAllowed, createModerationLog, moderateCommunityText } from "@/lib/server/content-moderation"
 import { getMatchRoomFixture } from "@/lib/server/community-match-room"
 import { createCommunityNotification } from "@/lib/server/community-notifications"
 import { connectDatabase } from "@/lib/server/db"
@@ -160,6 +160,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     if (typeof body.title === "string" || typeof body.content === "string" || typeof body.threadCategory === "string") {
       if (!permissions.canEdit) return errorResponse("Not allowed to edit thread", 403)
+      if (!canModerate) await assertCommunityInteractionAllowed(viewer._id.toString(), "create_thread")
       const title = String(body.title || thread.title || "").trim()
       const content = String(body.content || thread.content || "").trim()
       const threadCategory = normalizeCommunityThreadCategory(body.threadCategory) || thread.threadCategory || "general"
@@ -267,6 +268,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       canModerate,
     })
     if (!permissions.canDelete) return errorResponse("Not allowed to delete thread", 403)
+    if (!canModerate) await assertCommunityInteractionAllowed(viewer._id.toString(), "create_thread")
 
     thread.status = "hidden"
     thread.isPinned = false

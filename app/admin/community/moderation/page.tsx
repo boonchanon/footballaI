@@ -1,14 +1,23 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { AlertTriangle, CheckCircle2, EyeOff, Search, ShieldAlert, UserX } from "lucide-react"
+import { AlertTriangle, CheckCircle2, EyeOff, Search, ShieldAlert } from "lucide-react"
 
+import { AdminEmptyState, AdminPageHeader, AdminStatusBadge, getCommunityStatusTone } from "@/components/admin/community-admin-ui"
 import { fetchJson } from "@/lib/api-client"
 import { getAuthToken } from "@/lib/auth-client"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -16,7 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 type ModerationItem = {
   id: string
   sourceId: string
-  contentType: "post" | "comment" | "story" | "image" | "video"
+  contentType: "post" | "comment" | "story" | "image" | "video" | "room_message" | "thread_root" | "match_poll"
   status: "approved" | "pending_review" | "rejected" | "processing" | "failed"
   publishStatus?: string
   reasons: string[]
@@ -41,6 +50,15 @@ type ModerationActionResponse = {
   item?: Pick<ModerationItem, "id" | "sourceId" | "contentType" | "status" | "publishStatus">
 }
 
+type UserActionChoice = "" | "warn" | "restrict" | "suspend" | "ban"
+
+const userActionOptions: Array<{ label: string; value: UserActionChoice; moderationAction: "approve" | "reject" | "hide"; destructive?: boolean }> = [
+  { label: "Warn user", value: "warn", moderationAction: "approve" },
+  { label: "Restrict user", value: "restrict", moderationAction: "reject" },
+  { label: "Suspend user", value: "suspend", moderationAction: "reject", destructive: true },
+  { label: "Ban user", value: "ban", moderationAction: "reject", destructive: true },
+]
+
 export default function AdminCommunityModerationPage() {
   const [items, setItems] = useState<ModerationItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -50,6 +68,8 @@ export default function AdminCommunityModerationPage() {
   const [statusFilter, setStatusFilter] = useState("pending_review")
   const [actionError, setActionError] = useState("")
   const [actingId, setActingId] = useState<string | null>(null)
+  const [selectedUserActionItem, setSelectedUserActionItem] = useState<ModerationItem | null>(null)
+  const [selectedUserAction, setSelectedUserAction] = useState<UserActionChoice>("warn")
 
   async function loadQueue() {
     const token = getAuthToken()
@@ -88,7 +108,11 @@ export default function AdminCommunityModerationPage() {
     void loadQueue()
   }, [query, typeFilter, statusFilter])
 
-  async function applyAction(id: string, action: "approve" | "reject" | "hide", userAction?: "" | "warn" | "restrict" | "suspend" | "ban") {
+  async function applyAction(
+    id: string,
+    action: "approve" | "reject" | "hide",
+    userAction?: "" | "warn" | "restrict" | "clear_restriction" | "suspend" | "unsuspend" | "ban" | "unban",
+  ) {
     const token = getAuthToken()
     if (!token) return
 
@@ -138,10 +162,7 @@ export default function AdminCommunityModerationPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold md:text-3xl">Community Moderation</h1>
-        <p className="text-muted-foreground">ตรวจคิวเนื้อหาที่ระบบส่งมาให้แอดมินตัดสินใจขั้นสุดท้าย</p>
-      </div>
+      <AdminPageHeader title="Moderation Queue" description="ตรวจคิวเนื้อหาที่ระบบส่งมาให้แอดมินตัดสินใจขั้นสุดท้าย" />
 
       <Card>
         <CardContent className="flex flex-col gap-4 p-4 md:flex-row">
@@ -160,6 +181,9 @@ export default function AdminCommunityModerationPage() {
               <SelectItem value="story">สตอรี่</SelectItem>
               <SelectItem value="image">รูปภาพ</SelectItem>
               <SelectItem value="video">วิดีโอ</SelectItem>
+              <SelectItem value="room_message">Room message</SelectItem>
+              <SelectItem value="thread_root">Thread root</SelectItem>
+              <SelectItem value="match_poll">Match poll</SelectItem>
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -201,10 +225,8 @@ export default function AdminCommunityModerationPage() {
                       </Avatar>
                       <div className="min-w-0 space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant="secondary">{item.contentType}</Badge>
-                          <Badge className={item.status === "pending_review" ? "bg-amber-500/10 text-amber-400" : item.status === "rejected" ? "bg-red-500/10 text-red-400" : "bg-emerald-500/10 text-emerald-400"}>
-                            {item.status}
-                          </Badge>
+                          <AdminStatusBadge tone="info">{item.contentType}</AdminStatusBadge>
+                          <AdminStatusBadge tone={getCommunityStatusTone(item.status)}>{item.status}</AdminStatusBadge>
                           {item.publishStatus ? <Badge variant="outline">post:{item.publishStatus}</Badge> : null}
                           <Badge variant="outline">{item.provider}</Badge>
                           {item.repeatOffenses > 1 ? (
@@ -271,19 +293,12 @@ export default function AdminCommunityModerationPage() {
                           Reject
                         </Button>
                       ) : null}
-                      <Button size="sm" variant="outline" disabled={actingId === item.id || !actions.canApprove} onClick={() => void applyAction(item.id, "approve", "warn")}>
+                      <Button size="sm" variant="outline" disabled={actingId === item.id} onClick={() => {
+                        setSelectedUserAction("warn")
+                        setSelectedUserActionItem(item)
+                      }}>
                         <ShieldAlert className="mr-2 h-4 w-4" />
-                        Warn
-                      </Button>
-                      <Button size="sm" variant="outline" disabled={actingId === item.id || !actions.canReject} onClick={() => void applyAction(item.id, "reject", "restrict")}>
-                        จำกัดโพสต์
-                      </Button>
-                      <Button size="sm" variant="outline" disabled={actingId === item.id || !actions.canReject} onClick={() => void applyAction(item.id, "reject", "suspend")}>
-                        Suspend
-                      </Button>
-                      <Button size="sm" variant="outline" disabled={actingId === item.id || !actions.canReject} onClick={() => void applyAction(item.id, "reject", "ban")}>
-                        <UserX className="mr-2 h-4 w-4" />
-                        Ban
+                        User action
                       </Button>
                     </div>
                   </div>
@@ -291,9 +306,50 @@ export default function AdminCommunityModerationPage() {
                   })()}
                 </div>
               ))}
-          {!loading && items.length === 0 ? <p className="text-sm text-muted-foreground">ไม่มีรายการตามตัวกรองที่เลือก</p> : null}
+          {!loading && items.length === 0 ? <AdminEmptyState title="Moderation queue is clear" description="ไม่มีรายการตามตัวกรองที่เลือก" /> : null}
         </CardContent>
       </Card>
+
+      <Dialog open={Boolean(selectedUserActionItem)} onOpenChange={(open) => {
+        if (!open && !actingId) setSelectedUserActionItem(null)
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>User Actions</DialogTitle>
+            <DialogDescription>เลือก action ต่อผู้เขียน content นี้ ระบบจะใช้ moderation route เดิมและบันทึก audit ตามเดิม</DialogDescription>
+          </DialogHeader>
+          {selectedUserActionItem ? (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-border bg-muted/20 p-3 text-sm">
+                <p className="font-medium">{selectedUserActionItem.author.name}</p>
+                <p className="mt-1 line-clamp-3 text-muted-foreground">{selectedUserActionItem.preview}</p>
+              </div>
+              <Select value={selectedUserAction} onValueChange={(value) => setSelectedUserAction(value as UserActionChoice)}>
+                <SelectTrigger><SelectValue placeholder="User action" /></SelectTrigger>
+                <SelectContent>
+                  {userActionOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button variant="outline" disabled={Boolean(actingId)} onClick={() => setSelectedUserActionItem(null)}>Cancel</Button>
+            <Button
+              variant={userActionOptions.find((option) => option.value === selectedUserAction)?.destructive ? "destructive" : "default"}
+              disabled={!selectedUserActionItem || Boolean(actingId)}
+              onClick={() => {
+                const option = userActionOptions.find((item) => item.value === selectedUserAction)
+                if (!selectedUserActionItem || !option) return
+                void applyAction(selectedUserActionItem.id, option.moderationAction, option.value).then(() => setSelectedUserActionItem(null))
+              }}
+            >
+              {actingId ? "Processing..." : "Apply user action"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

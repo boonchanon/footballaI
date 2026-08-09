@@ -24,8 +24,11 @@ export type NotificationType =
   | "community_content_hidden"
   | "community_user_warned"
   | "community_user_restricted"
+  | "community_user_restriction_cleared"
   | "community_user_suspended"
+  | "community_user_unsuspended"
   | "community_user_banned"
+  | "community_user_unbanned"
   | "community_moderation_strike_alert"
   | (typeof MATCH_NOTIFICATION_TYPES)[number]
 
@@ -131,8 +134,11 @@ function buildNotificationDedupeKey(input: NotificationPayload) {
   if (input.type === "community_content_hidden") return `content-hidden:${input.referenceType}:${input.postId || input.storyId || input.mediaId}:${input.recipientId}`
   if (input.type === "community_user_warned") return `user-warned:${input.recipientId}:${input.postId || input.commentId || input.storyId || input.mediaId || "account"}`
   if (input.type === "community_user_restricted") return `user-restricted:${input.recipientId}:${input.postId || input.commentId || input.storyId || input.mediaId || "account"}`
+  if (input.type === "community_user_restriction_cleared") return `user-restriction-cleared:${input.recipientId}:${input.message || "account"}`
   if (input.type === "community_user_suspended") return `user-suspended:${input.recipientId}:${input.postId || input.commentId || input.storyId || input.mediaId || "account"}`
+  if (input.type === "community_user_unsuspended") return `user-unsuspended:${input.recipientId}:${input.message || "account"}`
   if (input.type === "community_user_banned") return `user-banned:${input.recipientId}:${input.postId || input.commentId || input.storyId || input.mediaId || "account"}`
+  if (input.type === "community_user_unbanned") return `user-unbanned:${input.recipientId}:${input.message || "account"}`
   if (input.type === "community_moderation_strike_alert") return `moderation-strike:${input.recipientId}:${input.message || "threshold"}`
   if (input.type === "match_starting") return `match-starting:${input.referenceType}:${input.recipientId}`
   if (input.type === "match_live") return `match-live:${input.referenceType}:${input.recipientId}`
@@ -193,8 +199,11 @@ export function getCommunityNotificationText(type: NotificationType) {
   if (type === "community_content_hidden") return "your content was hidden by admin"
   if (type === "community_user_warned") return "your community account received a warning"
   if (type === "community_user_restricted") return "your community posting access is restricted"
+  if (type === "community_user_restriction_cleared") return "your community posting restriction was cleared"
   if (type === "community_user_suspended") return "your community account was suspended"
+  if (type === "community_user_unsuspended") return "your community suspension was lifted"
   if (type === "community_user_banned") return "your community account was banned"
+  if (type === "community_user_unbanned") return "your community ban was lifted"
   if (type === "match_starting") return "match you follow is starting soon"
   if (type === "match_live") return "match you follow is live"
   if (type === "match_finished") return "match you follow has finished"

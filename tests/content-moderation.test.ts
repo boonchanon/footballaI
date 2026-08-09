@@ -7,7 +7,15 @@ import {
   classifyOpenAIProviderError,
   runOpenAIProviderRetry,
 } from "../lib/server/ai-moderation"
-import { moderateCommunityImage, moderateCommunityStory, moderateCommunityText, normalizeText } from "../lib/server/content-moderation"
+import {
+  calculateRestrictionUntil,
+  getCommunityInteractionDenial,
+  moderateCommunityImage,
+  moderateCommunityStory,
+  moderateCommunityText,
+  normalizeRestrictionDuration,
+  normalizeText,
+} from "../lib/server/content-moderation"
 
 process.env.CONTENT_MODERATION_ENABLED = "true"
 process.env.AI_MODERATION_ENABLED = "false"
@@ -20,6 +28,29 @@ test.afterEach(() => {
   process.env.AI_MODERATION_ENABLED = "false"
   process.env.IMAGE_MODERATION_ENABLED = "false"
   process.env.IMAGE_TEXT_EXTRACTION_ENABLED = "false"
+})
+
+test("community ban policy should block interactions while allowing reports", () => {
+  assert.equal(getCommunityInteractionDenial({ moderationState: { bannedAt: new Date() }, interaction: "like" }), "Your account is banned from community interactions")
+  assert.equal(getCommunityInteractionDenial({ moderationState: { bannedAt: new Date() }, interaction: "report" }), "")
+})
+
+test("community restriction should block content creation but allow lightweight engagement", () => {
+  const moderationState = { postingRestrictedUntil: new Date(Date.now() + 60_000) }
+  assert.equal(getCommunityInteractionDenial({ moderationState, interaction: "create_post" }), "Your account is temporarily restricted from community posting")
+  assert.equal(getCommunityInteractionDenial({ moderationState, interaction: "vote_poll" }), "")
+  assert.equal(getCommunityInteractionDenial({ moderationState, interaction: "like" }), "")
+})
+
+test("community suspension should block interactions until admin unsuspends", () => {
+  assert.equal(getCommunityInteractionDenial({ moderationState: { suspendedAt: new Date() }, interaction: "follow_match_room" }), "Your account is suspended from community interactions")
+})
+
+test("restriction duration should be normalized through server allowlist", () => {
+  const now = new Date("2026-08-09T00:00:00.000Z")
+  assert.equal(normalizeRestrictionDuration("24h"), "24h")
+  assert.equal(normalizeRestrictionDuration("client-timestamp"), "7d")
+  assert.equal(calculateRestrictionUntil("1h", now).toISOString(), "2026-08-09T01:00:00.000Z")
 })
 
 test("OpenAI classifier ควรแยก invalid_api_key จาก 401", () => {

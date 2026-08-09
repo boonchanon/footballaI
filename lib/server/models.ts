@@ -754,8 +754,11 @@ const communityNotificationSchema =
           "community_content_hidden",
           "community_user_warned",
           "community_user_restricted",
+          "community_user_restriction_cleared",
           "community_user_suspended",
+          "community_user_unsuspended",
           "community_user_banned",
+          "community_user_unbanned",
           "community_moderation_strike_alert",
           ...matchRoomNotificationTypeEnum,
         ],
@@ -782,7 +785,16 @@ if (!models.CommunityNotification) {
 
 if (models.CommunityNotification?.schema.path("type")) {
   const typePath = models.CommunityNotification.schema.path("type") as any
-  for (const value of ["post_poll_vote", "community_match_room_posted", "community_fan_badge_unlocked", "thread_reply", "thread_pinned"]) {
+  for (const value of [
+    "post_poll_vote",
+    "community_match_room_posted",
+    "community_fan_badge_unlocked",
+    "thread_reply",
+    "thread_pinned",
+    "community_user_restriction_cleared",
+    "community_user_unsuspended",
+    "community_user_unbanned",
+  ]) {
     if (Array.isArray(typePath.enumValues) && !typePath.enumValues.includes(value)) {
       typePath.enumValues.push(value)
     }

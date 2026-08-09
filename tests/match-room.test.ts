@@ -244,10 +244,10 @@ test("community feed trending topics should derive from real posts only", () => 
   assert.ok(topics.every((topic) => topic.label !== "CHEMUN"))
 })
 
-test("community feed presentation order should keep hero before tabs, stories, composer, and posts", () => {
-  assert.deepEqual(COMMUNITY_FEED_REFERENCE_ORDER, ["match-hub-hero", "feed-tabs", "stories-rail", "composer", "feed-posts"])
-  assert.equal(assertCommunityFeedReferenceOrder(["match-hub-hero", "feed-tabs", "stories-rail", "composer", "feed-posts"]), true)
-  assert.equal(assertCommunityFeedReferenceOrder(["stories-rail", "match-hub-hero", "feed-tabs", "composer", "feed-posts"]), false)
+test("community feed presentation order should keep context, match spotlight, tabs, stories, composer, and posts", () => {
+  assert.deepEqual(COMMUNITY_FEED_REFERENCE_ORDER, ["community-context", "match-hub-spotlight", "feed-tabs", "stories-rail", "composer", "feed-posts"])
+  assert.equal(assertCommunityFeedReferenceOrder(["community-context", "match-hub-spotlight", "feed-tabs", "stories-rail", "composer", "feed-posts"]), true)
+  assert.equal(assertCommunityFeedReferenceOrder(["stories-rail", "community-context", "match-hub-spotlight", "feed-tabs", "composer", "feed-posts"]), false)
 })
 
 test("match hub community pulse should use real counts and avoid fabricated momentum", () => {

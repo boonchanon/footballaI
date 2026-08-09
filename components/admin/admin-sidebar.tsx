@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button"
 interface SubLink {
   title: string
   href: string
+  group?: string
 }
 
 interface SidebarLink {
@@ -114,12 +115,18 @@ const sidebarLinks: SidebarLink[] = [
     icon: MessageSquare,
     section: "community",
     subLinks: [
-      { title: "โพสต์ทั้งหมด", href: "/admin/community" },
-      { title: "Match Rooms", href: "/admin/community/match-rooms" },
-      { title: "Moderation Queue", href: "/admin/community/moderation" },
-      { title: "รายงาน", href: "/admin/community/reports" },
-      { title: "คำต้องห้าม", href: "/admin/community/banned-words" },
-      { title: "ตั้งค่า", href: "/admin/community/settings" },
+      { title: "Overview", href: "/admin/community" },
+      { title: "Users", href: "/admin/community/users", group: "Management" },
+      { title: "Posts", href: "/admin/community/content/posts", group: "Management" },
+      { title: "Threads", href: "/admin/community/content/threads", group: "Management" },
+      { title: "Polls", href: "/admin/community/content/polls", group: "Management" },
+      { title: "Stories", href: "/admin/community/content/stories", group: "Management" },
+      { title: "Match Rooms", href: "/admin/community/match-rooms", group: "Management" },
+      { title: "Moderation Queue", href: "/admin/community/moderation", group: "Moderation" },
+      { title: "Reports", href: "/admin/community/reports", group: "Moderation" },
+      { title: "Banned Words", href: "/admin/community/banned-words", group: "Moderation" },
+      { title: "Audit Log", href: "/admin/community/audit", group: "System" },
+      { title: "Settings", href: "/admin/community/settings", group: "System" },
     ],
   },
   {
@@ -153,6 +160,11 @@ export function AdminSidebar() {
 
   const isMenuExpanded = (href: string) => expandedMenus.includes(href)
   const visibleLinks = sidebarLinks.filter((link) => canAccessAdminSection(role, link.section))
+  const communitySubLinkGroups = [
+    { key: "Management", label: "Management" },
+    { key: "Moderation", label: "Moderation" },
+    { key: "System", label: "System" },
+  ]
 
   return (
     <>
@@ -208,7 +220,58 @@ export function AdminSidebar() {
                       )}
                     </button>
 
-                    {!collapsed && isExpanded && (
+                    {!collapsed && isExpanded && link.section === "community" ? (
+                      <div className="ml-4 mt-1 space-y-1 border-l border-primary/15 pl-4">
+                        {link.subLinks?.filter((subLink) => !subLink.group).map((subLink) => {
+                          const isSubActive = pathname === subLink.href
+                          return (
+                            <Link
+                              key={subLink.href}
+                              href={subLink.href}
+                              className={cn(
+                                "block rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                                isSubActive
+                                  ? "border-l-2 border-primary/60 bg-primary/12 text-foreground"
+                                  : "text-foreground hover:bg-primary/8 hover:text-foreground",
+                              )}
+                            >
+                              {subLink.title}
+                            </Link>
+                          )
+                        })}
+                        {communitySubLinkGroups.map((group) => {
+                          const groupLinks = link.subLinks?.filter((subLink) => subLink.group === group.key) || []
+                          if (!groupLinks.length) return null
+
+                          return (
+                            <React.Fragment key={group.key}>
+                              <div className="px-3 pb-1 pt-3 text-[11px] font-bold text-foreground">
+                                {group.label}
+                              </div>
+                              {groupLinks.map((subLink) => {
+                                const isSubActive = pathname === subLink.href
+                                return (
+                                  <Link
+                                    key={subLink.href}
+                                    href={subLink.href}
+                                    className={cn(
+                                      "block rounded-lg px-3 py-2 text-sm transition-colors",
+                                      isSubActive
+                                        ? "border-l-2 border-primary/60 bg-primary/12 text-foreground"
+                                        : "text-muted-foreground hover:bg-primary/8 hover:text-foreground",
+                                    )}
+                                  >
+                                    {subLink.title}
+                                  </Link>
+                                )
+                              })}
+                            </React.Fragment>
+                          )
+                        })}
+                      </div>
+                    ) : null}
+
+                    {!collapsed && isExpanded && link.section !== "community" ? (
                       <div className="ml-4 mt-1 space-y-1 border-l border-border pl-4">
                         {link.subLinks?.map((subLink) => {
                           const isSubActive = pathname === subLink.href
@@ -226,7 +289,7 @@ export function AdminSidebar() {
                           )
                         })}
                       </div>
-                    )}
+                    ) : null}
                   </>
                 ) : (
                   <Link

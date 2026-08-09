@@ -3,19 +3,22 @@
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent, type RefObject } from "react"
+import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent, type ReactNode, type RefObject } from "react"
 import useSWR from "swr"
 import {
   Bell,
+  BarChart3,
   CalendarClock,
   ChevronRight,
   Copy,
   Edit3,
   Flag,
   Hash,
+  Home,
   ImageIcon,
   Info,
   Loader2,
+  Menu,
   MessageCircle,
   MoreHorizontal,
   Pin,
@@ -95,6 +98,8 @@ import { cn } from "@/lib/utils"
 
 export type CommunityMatchRoomFixture = {
   id: string
+  leagueId?: string
+  leagueName?: string
   homeTeam: string
   awayTeam: string
   homeLogo: string
@@ -130,6 +135,27 @@ export type CommunityMatchRoomPost = {
   poll?: { question: string; totalVotes: number; options: Array<{ id: string; text: string; votes: number }> } | null
   author?: { id?: string; name: string; avatar?: string }
   isOwner?: boolean
+}
+
+type MatchHubNotificationItem = {
+  id: string
+  type: string
+  isRead?: boolean
+  timeAgo?: string
+  text?: string
+  actor?: { name?: string; avatar?: string }
+  post?: { id?: string; title?: string }
+  commentPreview?: string
+  story?: { id?: string; caption?: string } | null
+  media?: { originalName?: string } | null
+}
+
+type MatchHubNotificationsResponse = {
+  total?: number
+  unreadActivity?: number
+  unreadMessages?: number
+  pendingFriendRequests?: number
+  activity?: MatchHubNotificationItem[]
 }
 
 export type CommunityMatchRoomResponse = {
@@ -531,6 +557,21 @@ function matchRoomFetcher<T>(path: string) {
   return fetchJson<T>(path, { cache: "no-store" })
 }
 
+function matchHubNotificationsFetcher([path, token]: [string, string]) {
+  return fetchJson<MatchHubNotificationsResponse>(path, {
+    cache: "no-store",
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+function getMatchHubNotificationHref(item: MatchHubNotificationItem) {
+  if (item.post?.id) return `/community/${item.post.id}`
+  if (item.type === "community_user_warned" || item.type === "community_user_restricted" || item.type === "community_user_suspended" || item.type === "community_user_banned" || item.type === "community_moderation_strike_alert") {
+    return "/profile"
+  }
+  return "/community"
+}
+
 function getApiErrorCode(error: unknown) {
   const apiError = error as ApiClientError | null
   return apiError?.code || apiError?.details?.code || ""
@@ -854,6 +895,436 @@ function filterFixtures(fixtures: CommunityMatchRoomFixture[], query: string, st
   })
 }
 
+function isPremierLeagueFixture(fixture: CommunityMatchRoomFixture) {
+  const leagueId = String(fixture.leagueId || "").trim()
+  const leagueName = String(fixture.leagueName || "").trim().toLowerCase()
+  return leagueId === "39" || leagueName === "premier league" || leagueName.includes("premier league")
+}
+
+function filterPremierLeagueFixtures(fixtures: CommunityMatchRoomFixture[]) {
+  const fixturesWithLeague = fixtures.filter((fixture) => fixture.leagueId || fixture.leagueName)
+  if (!fixturesWithLeague.length) return fixtures
+  return fixtures.filter(isPremierLeagueFixture)
+}
+
+function getFixtureTime(fixture: CommunityMatchRoomFixture) {
+  const value = new Date(fixture.kickoff).getTime()
+  return Number.isFinite(value) ? value : Number.MAX_SAFE_INTEGER
+}
+
+function getThailandDateKey(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date)
+  const value = (type: string) => parts.find((part) => part.type === type)?.value || ""
+  return `${value("year")}-${value("month")}-${value("day")}`
+}
+
+function getThailandTodayKey() {
+  return getThailandDateKey(new Date())
+}
+
+function parseDateKey(dateKey: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey)
+  if (!match) return null
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12, 0, 0)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function addDaysToDateKey(dateKey: string, days: number) {
+  const date = parseDateKey(dateKey)
+  if (!date) return dateKey
+  date.setDate(date.getDate() + days)
+  return getThailandDateKey(date)
+}
+
+function formatMatchHubDateLabel(dateKey: string, options: Intl.DateTimeFormatOptions = { weekday: "short", day: "numeric", month: "short" }) {
+  const date = parseDateKey(dateKey)
+  if (!date) return dateKey
+  return new Intl.DateTimeFormat("th-TH", { timeZone: "Asia/Bangkok", ...options }).format(date)
+}
+
+function getFixtureDateKey(fixture: CommunityMatchRoomFixture) {
+  const date = new Date(fixture.kickoff)
+  if (Number.isNaN(date.getTime())) return fixture.dateThai || "unknown"
+  return getThailandDateKey(date)
+}
+
+function getInitialMatchHubDate(fixtures: CommunityMatchRoomFixture[]) {
+  const firstFixture = fixtures.slice().sort((a, b) => getFixtureTime(a) - getFixtureTime(b))[0]
+  return firstFixture ? getFixtureDateKey(firstFixture) : getThailandTodayKey()
+}
+
+function buildMatchHubDateTabs(selectedDate: string) {
+  const start = /^\d{4}-\d{2}-\d{2}$/.test(selectedDate) ? selectedDate : getThailandTodayKey()
+  return Array.from({ length: 5 }, (_, index) => {
+    const key = addDaysToDateKey(start, index)
+    return {
+      key,
+      label: formatMatchHubDateLabel(key),
+    }
+  })
+}
+
+function getFixtureMinuteLabel(fixture: CommunityMatchRoomFixture) {
+  const events = normalizeTimelineMatchEvents(fixture.events)
+  const latestMinute = events.reduce((max, event) => Math.max(max, Number(event.minute || 0)), 0)
+  if (latestMinute > 0 && getMatchHubDisplayState({ status: fixture.status, isFinished: fixture.isFinished }) === "live") return `${latestMinute}'`
+  return getHubMatchStatusLabel(fixture)
+}
+
+function buildFavoriteTeamItems(fixtures: CommunityMatchRoomFixture[], roomStats?: CommunityMatchRoomResponse["roomStats"]) {
+  const teams = new Map<string, { name: string; logo: string }>()
+  for (const fixture of fixtures) {
+    const stats = roomStats?.[fixture.id]
+    if (!stats?.isFavoriteTeam) continue
+    const favorite = String(stats.favoriteTeamName || "").toLowerCase()
+    const homeMatches = favorite && fixture.homeTeam.toLowerCase().includes(favorite)
+    const awayMatches = favorite && fixture.awayTeam.toLowerCase().includes(favorite)
+    const name = homeMatches ? fixture.homeTeam : awayMatches ? fixture.awayTeam : stats.favoriteTeamName || fixture.homeTeam
+    const logo = homeMatches ? fixture.homeLogo : awayMatches ? fixture.awayLogo : fixture.homeLogo
+    if (name) teams.set(name, { name, logo })
+  }
+  return Array.from(teams.values())
+}
+
+function buildDirectoryCommunityTotals(fixtures: CommunityMatchRoomFixture[], roomStats?: CommunityMatchRoomResponse["roomStats"]) {
+  return fixtures.reduce(
+    (total, fixture) => {
+      const stats = roomStats?.[fixture.id]
+      total.rooms += 1
+      total.followers += Number(stats?.followers || 0)
+      total.messages += Number(stats?.newRoomMessageCount || stats?.discussions || 0)
+      total.polls += Number(stats?.polls || 0)
+      return total
+    },
+    { rooms: 0, followers: 0, messages: 0, polls: 0 },
+  )
+}
+
+function getEventIcon(event: TimelineMatchEvent) {
+  if (event.type === "goal") return "⚽"
+  if (event.type === "yellow_card") return "▰"
+  if (event.type === "red_card") return "■"
+  return "⇄"
+}
+
+function CompactEmptyState({ message, description, icon }: { message: string; description?: string; icon?: ReactNode }) {
+  return (
+    <div className="flex min-h-[62px] items-center gap-3 rounded-lg bg-white/[0.035] px-3.5 py-3 text-sm text-muted-foreground">
+      {icon ? <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-black/15 text-muted-foreground">{icon}</span> : null}
+      <span className="min-w-0">
+        <span className="block font-medium text-foreground/80">{message}</span>
+        {description ? <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">{description}</span> : null}
+      </span>
+    </div>
+  )
+}
+
+function LiveEmptyBanner() {
+  return (
+    <div className="flex min-h-[72px] flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-[#0b151b] px-4 py-3">
+      <Badge className="rounded-full bg-red-500 px-2 py-0.5 text-[11px] text-white hover:bg-red-500">LIVE</Badge>
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-foreground">ไม่มีการแข่งขันสดในขณะนี้</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">ดูแมตช์ที่กำลังจะเริ่มด้านล่าง</p>
+      </div>
+    </div>
+  )
+}
+
+function MatchHubDirectorySkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-3 overflow-hidden">
+        {[0, 1, 2].map((item) => <div key={item} className="h-48 min-w-[240px] flex-1 animate-pulse rounded-xl border border-white/10 bg-white/5 motion-reduce:animate-none" />)}
+      </div>
+      <div className="grid items-start gap-3 lg:grid-cols-3">
+        {[0, 1, 2].map((item) => <div key={item} className="h-36 animate-pulse rounded-xl border border-white/10 bg-white/5 motion-reduce:animate-none" />)}
+      </div>
+    </div>
+  )
+}
+
+function PremierMatchCard({
+  fixture,
+  stats,
+  onToggleFollow,
+  followingBusy,
+}: {
+  fixture: CommunityMatchRoomFixture
+  stats?: MatchRoomStats
+  onToggleFollow: (fixture: CommunityMatchRoomFixture, nextFollow: boolean) => void
+  followingBusy?: boolean
+}) {
+  const displayState = getMatchHubDisplayState({ status: fixture.status, isFinished: fixture.isFinished })
+  const activityCount = Number(stats?.newRoomMessageCount || stats?.discussions || stats?.followers || 0)
+  return (
+    <div className="min-w-[240px] flex-1 rounded-xl border border-white/10 bg-[#0b151b] p-3.5 transition hover:border-primary/35 hover:bg-primary/10">
+      <div className="mb-3 flex items-center justify-between">
+        <span className={cn("text-sm font-bold", displayState === "live" ? "text-primary" : "text-muted-foreground")}>{displayState === "live" ? getFixtureMinuteLabel(fixture) : formatKickoff(fixture)}</span>
+        {displayState === "live" ? <Badge className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] text-white hover:bg-red-500">LIVE</Badge> : null}
+      </div>
+      <Link href={`/community/matches/${fixture.id}`} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+          <div className="min-w-0 text-center">
+            <TeamLogo src={fixture.homeLogo} name={fixture.homeTeam} />
+            <p className="mt-2 truncate text-sm">{fixture.homeTeam}</p>
+          </div>
+          <p className="text-center text-2xl font-black">{getScoreLabel(fixture)}</p>
+          <div className="min-w-0 text-center">
+            <TeamLogo src={fixture.awayLogo} name={fixture.awayTeam} />
+            <p className="mt-2 truncate text-sm">{fixture.awayTeam}</p>
+          </div>
+        </div>
+        <div className="mt-3 space-y-1.5 text-center text-xs text-muted-foreground">
+          {fixture.venue ? <p className="truncate">{fixture.venue}</p> : null}
+          {activityCount > 0 ? <p><span className="text-primary">●</span> {activityCount.toLocaleString("th-TH")} กำลังคุย</p> : null}
+        </div>
+      </Link>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <Button asChild className="rounded-lg">
+          <Link href={`/community/matches/${fixture.id}`}>เข้าร่วมห้อง</Link>
+        </Button>
+        <Button
+          type="button"
+          variant={stats?.isFollowing ? "default" : "outline"}
+          disabled={followingBusy}
+          onClick={() => onToggleFollow(fixture, !stats?.isFollowing)}
+          className="rounded-lg border-white/10"
+        >
+          {stats?.isFollowing ? "ติดตามแล้ว" : "ติดตาม"}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function UpcomingMatchesPanel({
+  fixtures,
+  stats,
+  onToggleFollow,
+  followingBusyId,
+}: {
+  fixtures: CommunityMatchRoomFixture[]
+  stats?: CommunityMatchRoomResponse["roomStats"]
+  onToggleFollow: (fixture: CommunityMatchRoomFixture, nextFollow: boolean) => void
+  followingBusyId: string | null
+}) {
+  return (
+    <section className="rounded-xl border border-white/10 bg-[#0b151b] p-3.5">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-base font-semibold">กำลังจะเริ่ม</h2>
+        <Link href="/community/matches" className="text-xs text-primary">ดูทั้งหมด ›</Link>
+      </div>
+      {fixtures.length ? (
+        <div className="space-y-2.5">
+          {fixtures.map((fixture) => (
+            <div key={fixture.id} className="rounded-lg bg-white/[0.025] p-2.5">
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm">
+                <div className="min-w-0 text-center">
+                  <TeamLogo src={fixture.homeLogo} name={fixture.homeTeam} size="sm" />
+                  <p className="mt-1 truncate text-[11px]">{fixture.homeTeam}</p>
+                </div>
+                <span className="text-xs font-semibold text-muted-foreground">vs</span>
+                <div className="min-w-0 text-center">
+                  <TeamLogo src={fixture.awayLogo} name={fixture.awayTeam} size="sm" />
+                  <p className="mt-1 truncate text-[11px]">{fixture.awayTeam}</p>
+                </div>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <p className="min-w-0 truncate text-[11px] text-muted-foreground">{formatKickoff(fixture)}{fixture.venue ? ` · ${fixture.venue}` : ""}</p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={followingBusyId === fixture.id}
+                  onClick={() => onToggleFollow(fixture, !stats?.[fixture.id]?.isFollowing)}
+                  className="h-8 shrink-0 rounded-lg border-white/10 px-2.5 text-xs"
+                >
+                  เตือนฉัน
+                </Button>
+              </div>
+              {Number(stats?.[fixture.id]?.followers || 0) > 0 ? <p className="mt-1 text-xs text-muted-foreground"><span className="text-primary">●</span> {stats?.[fixture.id]?.followers} followers</p> : null}
+            </div>
+          ))}
+        </div>
+      ) : <CompactEmptyState message="ยังไม่มีแมตช์ที่กำลังจะเริ่ม" description="เช็กตารางในวันถัดไป" icon={<CalendarClock className="h-4 w-4" />} />}
+    </section>
+  )
+}
+
+function MatchEventsPanel({ fixture, events }: { fixture: CommunityMatchRoomFixture | null; events: TimelineMatchEvent[] }) {
+  const isUpcoming = fixture ? getMatchHubDisplayState({ status: fixture.status, isFinished: fixture.isFinished }) === "upcoming" : false
+  return (
+    <section className="rounded-xl border border-primary/15 bg-[#0b151b] p-3.5">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-semibold">Match Events / เหตุการณ์สำคัญ</h2>
+            {fixture && getMatchHubDisplayState({ status: fixture.status, isFinished: fixture.isFinished }) === "live" ? <Badge className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] text-white hover:bg-red-500">LIVE</Badge> : null}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">อัปเดตเหตุการณ์สำคัญจาก provider เท่านั้น</p>
+        </div>
+      </div>
+      {fixture ? (
+        <div className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-lg bg-black/25 p-3">
+          <div className="min-w-0 text-center">
+            <TeamLogo src={fixture.homeLogo} name={fixture.homeTeam} size="sm" />
+            <span className="mt-1 block truncate text-xs">{fixture.homeTeam}</span>
+          </div>
+          <div className="text-center">
+            <p className="text-3xl font-black leading-none">{getScoreLabel(fixture)}</p>
+            <p className="mt-1 text-xs font-bold text-primary">{events[0]?.minute ? `${events[0].minute}'` : getHubMatchStatusLabel(fixture)}</p>
+          </div>
+          <div className="min-w-0 text-center">
+            <TeamLogo src={fixture.awayLogo} name={fixture.awayTeam} size="sm" />
+            <span className="mt-1 block truncate text-xs">{fixture.awayTeam}</span>
+          </div>
+        </div>
+      ) : null}
+      {events.length ? (
+        <div className="relative space-y-1 before:absolute before:left-[53px] before:top-3 before:h-[calc(100%-24px)] before:w-px before:bg-white/10">
+          {events.slice(0, 6).map((event) => (
+            <div key={event.id} className="grid grid-cols-[42px_24px_1fr_auto] gap-3 py-2 text-sm">
+              <span className="text-muted-foreground">{event.minute ? `${event.minute}'` : "-"}</span>
+              <span className={cn("relative z-10 flex h-6 w-6 items-center justify-center rounded-full bg-[#0b151b] text-center text-xs ring-1 ring-white/10", event.type === "yellow_card" && "text-yellow-300", event.type === "red_card" && "text-red-400")}>{getEventIcon(event)}</span>
+              <div className="min-w-0">
+                <p className="truncate font-medium">{event.player || event.team || event.type.replace("_", " ")}</p>
+                {event.assist ? <p className="truncate text-xs text-muted-foreground">Assist: {event.assist}</p> : event.detail ? <p className="truncate text-xs text-muted-foreground">{event.detail}</p> : null}
+              </div>
+              {event.type === "goal" ? <span className="text-primary">{event.team || ""}</span> : null}
+            </div>
+          ))}
+        </div>
+      ) : <CompactEmptyState message={isUpcoming ? "Match Events จะปรากฏเมื่อการแข่งขันเริ่ม" : "ยังไม่มีเหตุการณ์สำคัญจากผู้ให้บริการ"} description={isUpcoming ? "ข้อมูลจะอัปเดตจากผู้ให้บริการเมื่อมีเหตุการณ์จริง" : "Panel นี้จะขยายเป็น timeline เมื่อ provider ส่งเหตุการณ์"} icon={<Info className="h-4 w-4" />} />}
+      {events.length ? (
+        <Button asChild variant="outline" className="mt-4 w-full rounded-xl border-white/10">
+          <Link href={fixture ? `/community/matches/${fixture.id}` : "/community/matches"}>ดูเหตุการณ์ทั้งหมด ›</Link>
+        </Button>
+      ) : null}
+    </section>
+  )
+}
+
+function ThreadsDiscoveryPanel({ fixture, threads }: { fixture: CommunityMatchRoomFixture | null; threads: CommunityMatchRoomPost[] }) {
+  return (
+    <section className="rounded-xl border border-white/10 bg-[#0b151b] p-3.5">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-base font-semibold">กระทู้กำลังคุย</h2>
+        {fixture ? <Link href={`/community/matches/${fixture.id}?tab=threads`} className="text-xs text-primary">ดูทั้งหมด ›</Link> : null}
+      </div>
+      {threads.length && fixture ? (
+        <div className="space-y-2">
+          {threads.slice(0, 5).map((thread) => (
+            <Link key={thread.id} href={`/community/matches/${fixture.id}/threads/${thread.id}`} className="flex gap-3 rounded-xl p-2 transition hover:bg-white/5">
+              <TeamLogo src={fixture.homeLogo} name={fixture.homeTeam} size="sm" />
+              <div className="min-w-0 flex-1">
+                <p className="line-clamp-1 text-sm font-medium">{thread.title}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{thread.threadCategoryLabel || "Main Room"} · {thread.comments || 0} ความคิดเห็น</p>
+              </div>
+              <span className="shrink-0 text-xs text-muted-foreground">{thread.latestActivityTimeAgo || thread.timeAgo || ""}</span>
+            </Link>
+          ))}
+        </div>
+      ) : <CompactEmptyState message="ยังไม่มีกระทู้สำหรับแมตช์นี้" description="เริ่มบทสนทนาจากห้อง Match Hub ได้เลย" icon={<MessageCircle className="h-4 w-4" />} />}
+    </section>
+  )
+}
+
+function RightRailSection({ title, actionLabel, children }: { title: string; actionLabel?: string; children: ReactNode }) {
+  return (
+    <section className="rounded-xl border border-white/10 bg-[#0b151b] p-3.5">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="font-bold">{title}</h2>
+        {actionLabel ? <span className="text-xs text-primary">{actionLabel}</span> : null}
+      </div>
+      <div className="space-y-2.5">{children}</div>
+    </section>
+  )
+}
+
+function MatchHubCalendarPopover({
+  selectedDate,
+  visibleMonth,
+  fixtureDateKeys,
+  onSelectDate,
+  onChangeMonth,
+  onClose,
+}: {
+  selectedDate: string
+  visibleMonth: Date
+  fixtureDateKeys: Set<string>
+  onSelectDate: (dateKey: string) => void
+  onChangeMonth: (date: Date) => void
+  onClose: () => void
+}) {
+  const monthStart = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1, 12, 0, 0)
+  const calendarStart = new Date(monthStart)
+  const mondayOffset = (calendarStart.getDay() + 6) % 7
+  calendarStart.setDate(calendarStart.getDate() - mondayOffset)
+  const days = Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(calendarStart)
+    date.setDate(calendarStart.getDate() + index)
+    return date
+  })
+  const todayKey = getThailandTodayKey()
+  const monthLabel = new Intl.DateTimeFormat("th-TH", { month: "long", year: "numeric" }).format(monthStart)
+
+  function moveMonth(offset: number) {
+    onChangeMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + offset, 1, 12, 0, 0))
+  }
+
+  return (
+    <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[320px] rounded-2xl border border-white/10 bg-[#0b151b] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.42)]">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <Button type="button" variant="ghost" size="icon" onClick={() => moveMonth(-1)} className="h-8 w-8 rounded-lg" aria-label="เดือนก่อนหน้า">‹</Button>
+        <p className="text-sm font-semibold">{monthLabel}</p>
+        <Button type="button" variant="ghost" size="icon" onClick={() => moveMonth(1)} className="h-8 w-8 rounded-lg" aria-label="เดือนถัดไป">›</Button>
+      </div>
+      <div className="grid grid-cols-7 gap-1 text-center text-[11px] text-muted-foreground">
+        {["จ", "อ", "พ", "พฤ", "ศ", "ส", "อา"].map((day) => <span key={day} className="py-1">{day}</span>)}
+      </div>
+      <div className="mt-1 grid grid-cols-7 gap-1">
+        {days.map((date) => {
+          const key = getThailandDateKey(date)
+          const inMonth = date.getMonth() === monthStart.getMonth()
+          const isSelected = key === selectedDate
+          const isToday = key === todayKey
+          const hasFixture = fixtureDateKeys.has(key)
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onSelectDate(key)}
+              className={cn(
+                "relative flex h-9 items-center justify-center rounded-lg text-sm transition hover:bg-primary/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+                inMonth ? "text-foreground" : "text-muted-foreground/40",
+                isSelected && "bg-primary text-primary-foreground hover:bg-primary",
+                !isSelected && isToday && "ring-1 ring-primary/50",
+              )}
+            >
+              {date.getDate()}
+              {hasFixture ? <span className={cn("absolute bottom-1 h-1 w-1 rounded-full", isSelected ? "bg-primary-foreground" : "bg-primary")} /> : null}
+            </button>
+          )
+        })}
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <Button type="button" variant="outline" onClick={() => onSelectDate(todayKey)} className="h-9 rounded-xl border-white/10 px-3 text-xs">
+          วันนี้
+        </Button>
+        <Button type="button" variant="ghost" onClick={onClose} className="h-9 rounded-xl px-3 text-xs">
+          ปิด
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 const threadCategories = [
   { id: "all", label: "ทั้งหมด" },
   ...Object.entries(COMMUNITY_THREAD_CATEGORY_LABELS).map(([id, label]) => ({ id, label })),
@@ -1038,39 +1509,84 @@ export function CommunityMatchCardsSection({ data, isLoading }: { data?: Communi
 }
 
 export function MatchRoomsDirectory() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const urlDate = searchParams.get("date") || ""
   const [query, setQuery] = useState("")
-  const [status, setStatus] = useState("all")
-  const [view, setView] = useState<"all" | "following" | "recent" | "favorite">("all")
+  const [activeDate, setActiveDate] = useState(urlDate)
+  const [showCalendar, setShowCalendar] = useState(false)
+  const [calendarMonth, setCalendarMonth] = useState(() => parseDateKey(urlDate) || new Date())
   const [followingBusyId, setFollowingBusyId] = useState<string | null>(null)
   const [followError, setFollowError] = useState("")
+  const [showNotificationsDialog, setShowNotificationsDialog] = useState(false)
+  const authToken = getAuthToken()
   const { data, error, isLoading, mutate } = useSWR<CommunityMatchRoomResponse>("/community/match-room", matchRoomFetcher, { revalidateOnFocus: true })
-  const fixtures = data?.fixtures || []
-  const visibleFixtures = filterFixtures(fixtures, query, status).filter((fixture) => {
-    if (view === "following") return Boolean(data?.roomStats?.[fixture.id]?.isFollowing)
-    if (view === "recent") return Boolean(data?.roomStats?.[fixture.id]?.isRecent)
-    if (view === "favorite") return Boolean(data?.roomStats?.[fixture.id]?.isFavoriteTeam)
-    return true
-  })
-  const liveFixtures = visibleFixtures.filter((fixture) => getStatusLabel(fixture.status, fixture.isFinished) === "ถ่ายทอดสด")
-  const scheduledFixtures = visibleFixtures.filter((fixture) => getStatusLabel(fixture.status, fixture.isFinished) === "กำลังจะเริ่ม")
-  const finishedFixtures = visibleFixtures.filter((fixture) => getStatusLabel(fixture.status, fixture.isFinished) === "จบการแข่งขัน")
-  const otherFixtures = visibleFixtures.filter((fixture) => !liveFixtures.includes(fixture) && !scheduledFixtures.includes(fixture) && !finishedFixtures.includes(fixture))
-  const favoriteFixtures = visibleFixtures.filter((fixture) => data?.roomStats?.[fixture.id]?.isFavoriteTeam)
-  const featuredIds = new Set(favoriteFixtures.map((fixture) => fixture.id))
-  const sections =
-    view === "following"
-      ? [{ title: "ห้องที่ติดตาม", items: visibleFixtures }]
-      : view === "recent"
-        ? [{ title: "ห้องที่เคยเข้า", items: visibleFixtures }]
-        : view === "favorite"
-          ? [{ title: "ห้องทีมโปรด", items: visibleFixtures }]
-          : [
-              { title: "ทีมโปรด", items: favoriteFixtures.slice(0, 6) },
-              { title: "กำลังแข่งขัน", items: liveFixtures.filter((fixture) => !featuredIds.has(fixture.id)) },
-              { title: "กำลังจะเริ่ม", items: scheduledFixtures.filter((fixture) => !featuredIds.has(fixture.id)) },
-              { title: "จบล่าสุด", items: finishedFixtures.filter((fixture) => !featuredIds.has(fixture.id)).slice(0, 9) },
-              { title: "รายการอื่น", items: otherFixtures.filter((fixture) => !featuredIds.has(fixture.id)) },
-            ]
+  const { data: notifications, mutate: mutateNotifications } = useSWR<MatchHubNotificationsResponse>(
+    authToken ? ["/community/notifications", authToken] : null,
+    matchHubNotificationsFetcher,
+    { revalidateOnFocus: true },
+  )
+  const fixtures = filterPremierLeagueFixtures(data?.fixtures || [])
+  const searchedFixtures = filterFixtures(fixtures, query, "all")
+  const fallbackDate = getInitialMatchHubDate(searchedFixtures)
+  const selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(activeDate) ? activeDate : fallbackDate
+  const dateTabs = buildMatchHubDateTabs(selectedDate)
+  const fixtureDateKeys = new Set(fixtures.map(getFixtureDateKey).filter((key) => /^\d{4}-\d{2}-\d{2}$/.test(key)))
+  const visibleFixtures = selectedDate ? searchedFixtures.filter((fixture) => getFixtureDateKey(fixture) === selectedDate) : searchedFixtures
+  const liveFixtures = visibleFixtures.filter((fixture) => getMatchHubDisplayState({ status: fixture.status, isFinished: fixture.isFinished }) === "live")
+  const upcomingFixtures = visibleFixtures
+    .filter((fixture) => getMatchHubDisplayState({ status: fixture.status, isFinished: fixture.isFinished }) === "upcoming")
+    .sort((a, b) => getFixtureTime(a) - getFixtureTime(b))
+  const eventFixture = liveFixtures[0] || visibleFixtures.find((fixture) => normalizeTimelineMatchEvents(fixture.events).length) || visibleFixtures[0] || null
+  const matchEvents = eventFixture ? normalizeTimelineMatchEvents(eventFixture.events).slice().sort((a, b) => Number(b.minute ?? 0) - Number(a.minute ?? 0)) : []
+  const threads = data?.threads || []
+  const followedFixtures = fixtures.filter((fixture) => data?.roomStats?.[fixture.id]?.isFollowing || data?.roomStats?.[fixture.id]?.isRecent)
+  const favoriteTeamItems = buildFavoriteTeamItems(fixtures, data?.roomStats)
+  const communityTotals = buildDirectoryCommunityTotals(fixtures, data?.roomStats)
+  const popularTags = data?.fanReaction?.topTopics || []
+
+  useEffect(() => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(urlDate) && urlDate !== activeDate) {
+      setActiveDate(urlDate)
+      const nextMonth = parseDateKey(urlDate)
+      if (nextMonth) setCalendarMonth(nextMonth)
+      return
+    }
+    if (!urlDate && !activeDate && fallbackDate) {
+      setActiveDate(fallbackDate)
+      const nextMonth = parseDateKey(fallbackDate)
+      if (nextMonth) setCalendarMonth(nextMonth)
+    }
+  }, [activeDate, fallbackDate, urlDate])
+
+  function updateSelectedDate(nextDate: string, mode: "push" | "replace" = "push") {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDate)) return
+    setActiveDate(nextDate)
+    const nextMonth = parseDateKey(nextDate)
+    if (nextMonth) setCalendarMonth(nextMonth)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("date", nextDate)
+    const nextUrl = `${pathname}?${params.toString()}`
+    if (mode === "replace") router.replace(nextUrl, { scroll: false })
+    else router.push(nextUrl, { scroll: false })
+  }
+
+  async function markNotificationsAsRead() {
+    if (!authToken || !notifications?.unreadActivity) return
+    try {
+      await fetchJson("/community/notifications", {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${authToken}` },
+      })
+      await mutateNotifications()
+    } catch {}
+  }
+
+  async function handleOpenNotificationsDialog() {
+    setShowNotificationsDialog(true)
+    await markNotificationsAsRead()
+  }
 
   async function handleToggleFollow(fixture: CommunityMatchRoomFixture, nextFollow: boolean) {
     setFollowingBusyId(fixture.id)
@@ -1107,93 +1623,363 @@ export function MatchRoomsDirectory() {
   }
 
   return (
-    <div className="min-h-screen bg-background px-3 py-5 text-foreground sm:px-5 lg:px-6">
-      <main className="mx-auto max-w-7xl overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,#1e1e20_0%,#151517_100%)] shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
-        <header className="flex flex-wrap items-center gap-4 border-b border-white/10 px-5 py-4 lg:px-7">
-          <Button asChild variant="outline" className="rounded-full border-white/10 bg-background/50">
-            <Link href="/community">← กลับคอมมูนิตี้</Link>
-          </Button>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-primary">FootballAI Community</p>
-            <h1 className="text-3xl font-display font-semibold tracking-tight">Match Rooms</h1>
+    <div className="min-h-screen bg-[#05090b] text-foreground">
+      <div className="mx-auto grid max-w-[1600px] gap-3 px-3 py-3 lg:grid-cols-[72px_minmax(0,1fr)] xl:grid-cols-[72px_minmax(0,1fr)_255px]">
+        <aside className="group/sidebar relative z-30 hidden lg:row-span-2 lg:block">
+          <div className="sticky top-3 w-[64px] overflow-hidden rounded-xl border border-white/10 bg-[#091116]/95 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.22)] transition-[width,box-shadow] duration-200 hover:w-56 hover:shadow-[0_22px_80px_rgba(0,0,0,0.42)] focus-within:w-56 motion-reduce:transition-none">
+            <Link href="/community/matches" className="flex h-11 items-center gap-3 rounded-lg px-1.5" aria-label="Match Hub" title="Match Hub">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-primary/50 bg-primary/10">
+                <Trophy className="h-5 w-5 text-primary" />
+              </div>
+              <div className="min-w-0 opacity-0 transition-opacity duration-150 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100 motion-reduce:transition-none">
+                <p className="font-black leading-tight">MATCH HUB</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Premier League</p>
+              </div>
+            </Link>
+            <nav className="mt-6 space-y-1 text-sm" aria-label="Match Hub navigation">
+              {[
+                { label: "หน้าหลัก", href: "/", icon: Home },
+                { label: "Match Hub", href: "/community/matches", icon: CalendarClock, active: true },
+                { label: "โพล", href: "/community/matches", icon: Hash },
+                { label: "ตารางคะแนน", href: "/standings", icon: BarChart3 },
+                { label: "นักเตะและทีม", href: "/players", icon: Users },
+              ].map((item) => {
+                const Icon = item.icon
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    aria-label={item.label}
+                    title={item.label}
+                    className={cn(
+                      "flex h-11 items-center gap-3 rounded-lg px-2 text-muted-foreground transition hover:bg-white/10 hover:text-foreground",
+                      item.active && "bg-primary/15 text-primary",
+                    )}
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0 truncate opacity-0 transition-opacity duration-150 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100 motion-reduce:transition-none">{item.label}</span>
+                  </Link>
+                )
+              })}
+            </nav>
           </div>
-          <Button asChild className="rounded-full">
-            <Link href="/community/messages">Messages</Link>
-          </Button>
+        </aside>
+
+        <header className="grid gap-3 lg:col-start-2 lg:grid-cols-[minmax(260px,360px)_minmax(320px,1fr)_auto] lg:items-center xl:col-span-2">
+          <div className="flex min-w-0 items-center gap-3">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button type="button" variant="outline" size="icon" className="rounded-xl border-white/10 bg-white/5 lg:hidden" aria-label="เปิดเมนู Match Hub">
+                  <Menu className="h-4 w-4" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-72 border-white/10 bg-[#091116] text-foreground">
+                <SheetHeader>
+                  <SheetTitle>Match Hub</SheetTitle>
+                  <SheetDescription>เมนูหลักของพรีเมียร์ลีก Match Hub</SheetDescription>
+                </SheetHeader>
+                <nav className="mt-6 space-y-1" aria-label="Mobile Match Hub navigation">
+                  {[
+                    { label: "หน้าหลัก", href: "/", icon: Home },
+                    { label: "Match Hub", href: "/community/matches", icon: CalendarClock, active: true },
+                    { label: "โพล", href: "/community/matches", icon: Hash },
+                    { label: "ตารางคะแนน", href: "/standings", icon: BarChart3 },
+                    { label: "นักเตะและทีม", href: "/players", icon: Users },
+                  ].map((item) => {
+                    const Icon = item.icon
+                    return (
+                      <Link
+                        key={item.label}
+                        href={item.href}
+                        className={cn(
+                          "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition hover:bg-white/10 hover:text-foreground",
+                          item.active && "bg-primary/15 text-primary",
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span>{item.label}</span>
+                      </Link>
+                    )
+                  })}
+                </nav>
+              </SheetContent>
+            </Sheet>
+            <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 sm:flex">
+              <Trophy className="h-7 w-7 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold leading-5">Premier League</p>
+              <h1 className="whitespace-nowrap font-display text-[30px] font-black leading-none tracking-tight">MATCH HUB</h1>
+              <p className="mt-0.5 text-sm text-muted-foreground">รวมทุกแมตช์ เหตุการณ์สำคัญ และกระทู้ยอดฮิต</p>
+            </div>
+          </div>
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="ค้นหาทีม, ห้อง, ผู้ใช้..."
+              className="h-11 rounded-xl border-white/10 bg-[#0b151b] pl-11"
+            />
+          </div>
+          <div className="flex items-center justify-end gap-2 lg:justify-self-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => void handleOpenNotificationsDialog()}
+              className="relative rounded-full border-white/10 bg-white/5"
+              aria-label="เปิดการแจ้งเตือน"
+            >
+              <Bell className="h-4 w-4" />
+              {notifications?.total ? <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary" /> : null}
+            </Button>
+            <Button asChild className="h-11 rounded-full px-5">
+              <Link href="/community/messages">Messages</Link>
+            </Button>
+          </div>
         </header>
 
-        <section className="space-y-5 p-5 lg:p-7">
-          <div className="grid gap-3 rounded-[26px] border border-white/10 bg-background/40 p-4 md:grid-cols-[1fr_220px]">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ค้นหาชื่อทีม สนาม หรือแมตช์..." className="h-11 rounded-full border-white/10 bg-background/70 pl-11" />
+        <main className="min-w-0 space-y-3 lg:col-start-2 xl:col-start-2">
+          {followError ? <p className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{followError}</p> : null}
+
+          <section className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+              {dateTabs.length ? dateTabs.slice(0, 5).map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => updateSelectedDate(tab.key)}
+                  className={cn(
+                    "min-w-0 rounded-xl border border-white/10 bg-[#0b151b] px-3 py-2.5 text-sm font-semibold transition hover:border-primary/35 hover:bg-primary/8",
+                    selectedDate === tab.key && "border-primary/50 bg-primary/10 text-primary",
+                  )}
+                >
+                  {tab.label}
+                </button>
+              )) : (
+                <div className="rounded-xl border border-white/10 bg-[#0b151b] px-4 py-3 text-sm text-muted-foreground">ยังไม่มีวันที่แข่งขัน</div>
+              )}
             </div>
-            <select value={status} onChange={(event) => setStatus(event.target.value)} className="h-11 rounded-full border border-white/10 bg-background/70 px-4 text-sm outline-none">
-              <option value="all">ทุกสถานะ</option>
-              <option value="ถ่ายทอดสด">ถ่ายทอดสด</option>
-              <option value="กำลังจะเริ่ม">กำลังจะเริ่ม</option>
-              <option value="จบการแข่งขัน">จบการแข่งขัน</option>
-              <option value="เลื่อนการแข่งขัน">เลื่อนการแข่งขัน</option>
-              <option value="ยกเลิก">ยกเลิก</option>
-            </select>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {[
-              ["all", "ทั้งหมด"],
-              ["following", "ห้องที่ติดตาม"],
-              ["recent", "เคยเข้า"],
-              ["favorite", "ทีมโปรด"],
-            ].map(([id, label]) => (
-              <Button key={id} type="button" variant={view === id ? "default" : "outline"} onClick={() => setView(id as typeof view)} className="rounded-full">
-                {label}
+            <div className="flex shrink-0 gap-2">
+              <div className="relative">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowCalendar((open) => !open)}
+                  className="h-10 rounded-xl border-white/10 bg-[#0b151b] px-3"
+                  aria-haspopup="dialog"
+                  aria-expanded={showCalendar}
+                >
+                  <CalendarClock className="mr-2 h-4 w-4" />
+                  เลือกวันที่
+                </Button>
+                {showCalendar ? (
+                  <MatchHubCalendarPopover
+                    selectedDate={selectedDate}
+                    visibleMonth={calendarMonth}
+                    fixtureDateKeys={fixtureDateKeys}
+                    onChangeMonth={setCalendarMonth}
+                    onClose={() => setShowCalendar(false)}
+                    onSelectDate={(dateKey) => {
+                      updateSelectedDate(dateKey)
+                      setShowCalendar(false)
+                    }}
+                  />
+                ) : null}
+              </div>
+              <Button variant="outline" onClick={() => void mutate()} className="h-10 rounded-xl border-white/10 bg-[#0b151b] px-3">
+                <RefreshCw className="mr-2 h-4 w-4" />
+                รีเฟรช
               </Button>
-            ))}
-          </div>
-          {followError ? <p className="rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{followError}</p> : null}
-
-          {isLoading ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {[0, 1, 2, 3, 4, 5].map((item) => (
-                <div key={item} className="h-40 animate-pulse rounded-[24px] border border-white/10 bg-background/50 motion-reduce:animate-none" />
-              ))}
             </div>
-          ) : null}
+          </section>
 
+          {isLoading ? <MatchHubDirectorySkeleton /> : null}
           {error ? (
-            <Card className="rounded-[26px] border-destructive/30 bg-destructive/10">
-              <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
-                <p className="text-sm text-destructive">โหลด Match Room ไม่สำเร็จ กรุณาลองใหม่</p>
+            <section className="rounded-xl border border-destructive/30 bg-destructive/10 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-destructive">โหลด Match Hub ไม่สำเร็จ กรุณาลองใหม่</p>
                 <Button variant="outline" onClick={() => void mutate()} className="rounded-full border-white/10">
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Retry
                 </Button>
-              </CardContent>
-            </Card>
+              </div>
+            </section>
           ) : null}
 
-          {!isLoading && !error && !visibleFixtures.length ? (
-            <Card className="rounded-[26px] border-dashed border-white/10 bg-card/70">
-              <CardContent className="py-16 text-center text-muted-foreground">
-                <Trophy className="mx-auto mb-4 h-12 w-12 text-primary/50" />
-                {view === "following" ? "คุณยังไม่ได้ติดตาม Match Room" : view === "recent" ? "ยังไม่มีห้องที่เคยเข้า" : view === "favorite" ? "ยังไม่มี Match Room ของทีมโปรด" : "ยังไม่มีการแข่งขันในช่วงนี้"}
-              </CardContent>
-            </Card>
-          ) : null}
+          {!isLoading && !error ? (
+            !visibleFixtures.length ? (
+              <CompactEmptyState
+                message="ไม่มีการแข่งขันพรีเมียร์ลีกในวันที่เลือก"
+                description="เลือกวันอื่นจากปฏิทิน หรือกดวันนี้เพื่อกลับไปดูแมตช์ล่าสุด"
+                icon={<CalendarClock className="h-4 w-4" />}
+              />
+            ) : (
+              <>
+              <section className="space-y-2.5">
+                {liveFixtures.length ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-lg font-bold">แมตช์ถ่ายทอดสด</h2>
+                      <Badge className="rounded-full bg-red-500 px-2 py-0.5 text-[11px] text-white hover:bg-red-500">LIVE</Badge>
+                    </div>
+                    <div className="flex gap-3 overflow-x-auto pb-1">
+                      {liveFixtures.slice(0, 4).map((fixture) => (
+                        <PremierMatchCard
+                          key={fixture.id}
+                          fixture={fixture}
+                          stats={data?.roomStats?.[fixture.id]}
+                          onToggleFollow={handleToggleFollow}
+                          followingBusy={followingBusyId === fixture.id}
+                        />
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <LiveEmptyBanner />
+                )}
+              </section>
 
-          {sections.map((section) =>
-            section.items.length ? (
-              <section key={section.title} className="space-y-3">
-                <h2 className="text-lg font-semibold text-foreground">{section.title}</h2>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {section.items.map((fixture) => (
-                    <MatchRoomMiniCard key={fixture.id} fixture={fixture} stats={data?.roomStats?.[fixture.id]} onToggleFollow={handleToggleFollow} followingBusy={followingBusyId === fixture.id} />
+              <section className="grid items-start gap-3 lg:grid-cols-[minmax(220px,0.72fr)_minmax(380px,1.12fr)_minmax(280px,0.9fr)]">
+                <UpcomingMatchesPanel fixtures={upcomingFixtures.slice(0, 3)} stats={data?.roomStats} onToggleFollow={handleToggleFollow} followingBusyId={followingBusyId} />
+                <MatchEventsPanel fixture={eventFixture} events={matchEvents} />
+                <ThreadsDiscoveryPanel fixture={eventFixture} threads={threads} />
+              </section>
+              </>
+            )
+          ) : null}
+        </main>
+
+        <aside className="space-y-3 lg:col-start-2 xl:col-start-3 xl:row-start-2">
+          <RightRailSection title="ติดตามของคุณ">
+            {favoriteTeamItems.length ? favoriteTeamItems.slice(0, 5).map((team) => (
+              <div key={team.name} className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <TeamLogo src={team.logo} name={team.name} size="sm" />
+                  <span className="truncate text-sm">{team.name}</span>
+                </div>
+                <span className="h-2 w-2 rounded-full bg-primary" />
+              </div>
+            )) : <CompactEmptyState message="ยังไม่มีทีมโปรด" description="ติดตามทีมโปรดเพื่อไม่พลาดทุกความเคลื่อนไหว" />}
+          </RightRailSection>
+
+          <RightRailSection title="ห้องที่คุณเข้าเป็นประจำ">
+            {followedFixtures.length ? followedFixtures.slice(0, 5).map((fixture) => {
+              const stats = data?.roomStats?.[fixture.id]
+              return (
+                <Link key={fixture.id} href={`/community/matches/${fixture.id}`} className="flex items-center gap-3 rounded-xl p-1 transition hover:bg-white/5">
+                  <TeamLogo src={fixture.homeLogo} name={fixture.homeTeam} size="sm" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm">{getMatchTitle(fixture)}</p>
+                    <p className="text-xs text-muted-foreground">{stats?.newRoomMessageCount || stats?.discussions || 0} messages</p>
+                  </div>
+                </Link>
+              )
+            }) : <CompactEmptyState message="ยังไม่มีห้องที่ติดตามหรือเคยเข้า" />}
+          </RightRailSection>
+
+          <RightRailSection title="สถิติคอมมูนิตี้วันนี้">
+            <div className="grid grid-cols-4 gap-1.5">
+              {[
+                ["Rooms", communityTotals.rooms],
+                ["Followers", communityTotals.followers],
+                ["Messages", communityTotals.messages],
+                ["Polls", communityTotals.polls],
+              ].map(([label, value]) => (
+                <div key={String(label)} className="rounded-lg bg-black/20 px-1.5 py-2 text-center">
+                  <p className="text-sm font-black text-primary">{value}</p>
+                  <p className="mt-0.5 text-[9px] leading-none text-muted-foreground">{label}</p>
+                </div>
+              ))}
+            </div>
+          </RightRailSection>
+
+          {popularTags.length ? (
+            <RightRailSection title="แท็กยอดนิยม">
+              <div className="flex flex-wrap gap-1.5">
+                {popularTags.slice(0, 6).map((tag) => (
+                  <Badge key={tag.label} variant="outline" className="rounded-full border-white/10 bg-white/5 px-2 py-1 text-[11px] text-muted-foreground">#{tag.label}</Badge>
+                ))}
+              </div>
+            </RightRailSection>
+          ) : null}
+        </aside>
+
+        <Dialog open={showNotificationsDialog} onOpenChange={setShowNotificationsDialog}>
+          <DialogContent className="max-w-xl rounded-[24px] border-white/10 bg-[#101518] text-foreground">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Bell className="h-5 w-5 text-primary" />
+                การแจ้งเตือน Match Hub
+              </DialogTitle>
+              <DialogDescription>ใช้ระบบแจ้งเตือน Community เดิม อัปเดตจากเพื่อน โพสต์ กระทู้ และ moderation</DialogDescription>
+            </DialogHeader>
+            {!authToken ? (
+              <div className="rounded-xl border border-white/10 bg-white/[0.035] p-4 text-sm text-muted-foreground">
+                กรุณาเข้าสู่ระบบเพื่อดูการแจ้งเตือน
+              </div>
+            ) : (
+              <div className="max-h-[60vh] space-y-3 overflow-y-auto">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  {[
+                    ["ทั้งหมด", notifications?.total || 0],
+                    ["กิจกรรม", notifications?.unreadActivity || 0],
+                    ["ข้อความ", notifications?.unreadMessages || 0],
+                  ].map(([label, value]) => (
+                    <div key={String(label)} className="rounded-xl bg-white/[0.035] px-3 py-2">
+                      <p className="text-lg font-black text-primary">{value}</p>
+                      <p className="text-[11px] text-muted-foreground">{label}</p>
+                    </div>
                   ))}
                 </div>
-              </section>
-            ) : null,
-          )}
-        </section>
-      </main>
+                {notifications?.activity?.length ? (
+                  notifications.activity.map((item) => (
+                    <Link
+                      key={item.id}
+                      href={getMatchHubNotificationHref(item)}
+                      onClick={() => setShowNotificationsDialog(false)}
+                      className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.035] p-3 transition hover:border-primary/25 hover:bg-white/[0.055]"
+                    >
+                      <Avatar className="h-10 w-10 border border-white/10">
+                        <AvatarImage src={item.actor?.avatar || "/placeholder-user.jpg"} />
+                        <AvatarFallback>{getInitials(item.actor?.name || "F")}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-muted-foreground">
+                          <span className="font-semibold text-foreground">{item.actor?.name || "FootballAI"}</span> {item.text || "มีการแจ้งเตือนใหม่"}
+                        </p>
+                        {item.post?.title ? <p className="truncate text-xs text-muted-foreground">{item.post.title}</p> : null}
+                        {item.commentPreview ? <p className="truncate text-xs text-primary/80">"{item.commentPreview}"</p> : null}
+                        {item.story?.caption ? <p className="truncate text-xs text-primary/80">{item.story.caption}</p> : null}
+                        {item.media?.originalName ? <p className="truncate text-xs text-primary/80">{item.media.originalName}</p> : null}
+                        <p className="mt-1 text-[11px] text-muted-foreground">{item.timeAgo || ""}</p>
+                      </div>
+                      {!item.isRead ? <span className="mt-2 h-2.5 w-2.5 rounded-full bg-primary" /> : null}
+                    </Link>
+                  ))
+                ) : (
+                  <div className="rounded-xl bg-white/[0.035] px-4 py-8 text-center">
+                    <Bell className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+                    <p className="text-sm font-medium">ยังไม่มีการแจ้งเตือนใหม่</p>
+                    <p className="mt-1 text-xs text-muted-foreground">เมื่อมีคนโต้ตอบหรือมีสถานะ moderation จะขึ้นที่นี่</p>
+                  </div>
+                )}
+              </div>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowNotificationsDialog(false)} className="rounded-full border-white/10">
+                ปิด
+              </Button>
+              <Button asChild className="rounded-full">
+                <Link href="/community/messages" onClick={() => setShowNotificationsDialog(false)}>เปิด Messages</Link>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   )
 }

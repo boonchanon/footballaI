@@ -2,6 +2,8 @@ import { CommunityMatchSummary, CommunityMatchSummaryHistory } from "./models"
 
 export type MatchRoomFixture = {
   id: string
+  leagueId?: string
+  leagueName?: string
   homeTeam: string
   awayTeam: string
   homeLogo: string
@@ -169,6 +171,8 @@ export function normalizeMatchRoomFixture(fixture: any): MatchRoomFixture {
 
   return {
     id: normalizeMatchRoomId(fixture?.id || fixture?.fixture?.id || fixture?._id),
+    leagueId: safeString(fixture?.league?.id || fixture?.leagueId || fixture?.competition?.id),
+    leagueName: safeString(fixture?.league?.name || fixture?.leagueName || fixture?.competition?.name),
     homeTeam: safeString(home.nameEn || home.name || fixture?.homeTeam || fixture?.homeTeamThai) || "Home Team",
     awayTeam: safeString(away.nameEn || away.name || fixture?.awayTeam || fixture?.awayTeamThai) || "Away Team",
     homeLogo: safeString(home.logo || fixture?.homeLogo),

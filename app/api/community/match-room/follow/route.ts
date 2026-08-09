@@ -3,6 +3,7 @@ import { NextRequest } from "next/server"
 import { requireAuthUser } from "@/lib/server/auth"
 import { normalizeMatchId, setMatchRoomFollow } from "@/lib/server/community-match-follow"
 import { getMatchRoomFixture } from "@/lib/server/community-match-room"
+import { assertCommunityInteractionAllowed } from "@/lib/server/content-moderation"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, ok } from "@/lib/server/http"
 
@@ -10,6 +11,7 @@ export async function POST(request: NextRequest) {
   try {
     await connectDatabase()
     const user = await requireAuthUser(request)
+    await assertCommunityInteractionAllowed(user._id.toString(), "follow_match_room")
     const body = await request.json().catch(() => ({}))
     const matchId = normalizeMatchId(body.matchId)
     if (!matchId) return errorResponse("Match not found", 404)
