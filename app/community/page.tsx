@@ -27,11 +27,9 @@ import {
   Send,
   Sparkles,
   Trash2,
-  Trophy,
   Type,
   Share2,
   Upload,
-  UserPlus,
   Users,
   X,
 } from "lucide-react"
@@ -56,7 +54,7 @@ import { useToast } from "@/hooks/use-toast"
 import { fetchJson } from "@/lib/api-client"
 import { useAuthSession } from "@/hooks/use-auth-session"
 import { cn } from "@/lib/utils"
-import { CommunityMatchCardsSection } from "@/components/community-match-rooms"
+import { COMMUNITY_FEED_UI_TEXT, COMMUNITY_FEED_UI_TOKENS, deriveCommunityTrendingTopics } from "@/lib/community-feed-ui"
 
 type CommunityPostMedia = {
   id: string
@@ -210,34 +208,6 @@ type CommunityPreferencesResponse = {
     favoriteTeams: number
     favoritePlayers: number
   }
-}
-
-type MatchRoomFixture = {
-  id: string
-  homeTeam: string
-  awayTeam: string
-  homeLogo: string
-  awayLogo: string
-  homeScore: number | null
-  awayScore: number | null
-  status: string
-  kickoff: string
-  dateThai: string
-  venue: string
-  isFinished: boolean
-}
-
-type MatchRoomResponse = {
-  fixtures: MatchRoomFixture[]
-  fixture: MatchRoomFixture | null
-  roomStats?: Record<string, { discussions: number; polls: number }>
-  summary: { source: string; text: string }
-  pollTemplate: {
-    question: string
-    options: Array<{ id: string; text: string }>
-  }
-  prompts: string[]
-  posts: CommunityPost[]
 }
 
 type ComposerTool = "general" | "image" | "video" | "poll"
@@ -424,9 +394,9 @@ const categoryGroups = [
 
 const feedTabs = [
   { id: "for-you", label: "สำหรับคุณ", description: "จัดเรียงจากทีม นักเตะ และประเภทโพสต์ที่คุณชอบ" },
-  { id: "latest", label: "ล่าสุด", description: "โพสต์ใหม่ล่าสุดในคอมมูนิตี้" },
   { id: "favorites", label: "ทีมโปรด", description: "โพสต์ที่เกี่ยวข้องกับทีมโปรดของคุณ" },
-  { id: "trending", label: "กำลังเป็นที่นิยม", description: "โพสต์ที่มี engagement สูงในช่วงนี้" },
+  { id: "trending", label: "ยอดนิยม", description: "โพสต์ที่มี engagement สูงในช่วงนี้" },
+  { id: "latest", label: "ล่าสุด", description: "โพสต์ใหม่ล่าสุดในคอมมูนิตี้" },
 ] as const
 
 type FeedTab = (typeof feedTabs)[number]["id"]
@@ -682,21 +652,6 @@ export default function CommunityPage() {
       }),
     { shouldRetryOnError: false },
   )
-  const matchRoomQuery = selectedMatchId ? `/community/match-room?matchId=${encodeURIComponent(selectedMatchId)}` : "/community/match-room"
-  const { data: matchRoomData, mutate: mutateMatchRoom } = useSWR<MatchRoomResponse>(
-    token ? [matchRoomQuery, token] : matchRoomQuery,
-    (key: string | [string, string]) => {
-      if (Array.isArray(key)) {
-        const [url, authToken] = key
-        return socialFetcher<MatchRoomResponse>(url, authToken).catch((error) => {
-          handleAuthError(error)
-          throw error
-        })
-      }
-      return liveFetcher<MatchRoomResponse>(key)
-    },
-    { refreshInterval: 10000, shouldRetryOnError: false },
-  )
   const { data: favoritesData, mutate: mutateFavorites } = useSWR(
     token ? ["/favorites", token] : null,
     ([url, authToken]) =>
@@ -756,10 +711,6 @@ export default function CommunityPage() {
   )
 
   const posts = data?.items || []
-  const matchRoomFixture = matchRoomData?.fixture || null
-  const matchRoomFixtures = matchRoomData?.fixtures || []
-  const matchRoomPosts = matchRoomData?.posts || []
-  const canCreateMatchRoomPoll = Boolean(matchRoomFixture?.isFinished)
   const storyGroups = storiesData?.items || []
   const activeStoryGroup = storyGroups[activeStoryGroupIndex] || null
   const stats = data?.stats || { total: 0 }
@@ -769,7 +720,9 @@ export default function CommunityPage() {
   const friendCount = socialData?.friends?.length || 0
   const incomingRequests = socialData?.requests?.incoming || []
   const suggestedPeople = socialData?.suggestions || []
-  const topConversations = socialData?.conversations?.slice(0, 4) || []
+  const trendingTopics = useMemo(() => deriveCommunityTrendingTopics(posts, 8), [posts])
+  const feedCommentCount = posts.reduce((total, post) => total + Number(post.comments || 0), 0)
+  const feedPollCount = posts.filter((post) => post.poll?.question).length
   const preferenceOptions = preferencesData?.options
   const hasPreferences = Boolean(
     preferencesData?.preferences.favoriteTeamIds.length ||
@@ -1215,32 +1168,6 @@ export default function CommunityPage() {
     }
   }
 
-  function startMatchRoomPost(prompt?: string) {
-    if (!matchRoomFixture) return
-    setShowCreatePost(true)
-    setComposerTool("general")
-    setCategory("match-discussion")
-    setSelectedMatchId(matchRoomFixture.id)
-    setTitle(`${matchRoomFixture.homeTeam} vs ${matchRoomFixture.awayTeam}`)
-    setContent(prompt || "")
-  }
-
-  function applyPostMatchPollTemplate() {
-    if (!matchRoomData?.pollTemplate) return
-    if (!canCreateMatchRoomPoll) {
-      toast({ title: "Poll หลังเกมยังไม่เปิด", description: "ระบบจะเปิดให้สร้าง Poll เมื่อแมตช์จบแล้ว" })
-      return
-    }
-    setShowCreatePost(true)
-    setComposerTool("poll")
-    setCategory("match-discussion")
-    if (matchRoomFixture?.id) setSelectedMatchId(matchRoomFixture.id)
-    setTitle(matchRoomFixture ? `โหวตหลังเกม: ${matchRoomFixture.homeTeam} vs ${matchRoomFixture.awayTeam}` : "โหวตหลังเกม")
-    setContent("ชวนแฟนบอลมาโหวตและคุยหลังเกมกันครับ")
-    setPollQuestion(matchRoomData.pollTemplate.question)
-    setPollOptions(matchRoomData.pollTemplate.options.map((option) => option.text).slice(0, 4))
-  }
-
   async function votePoll(post: CommunityPost, optionId: string) {
     if (!requireLogin("กรุณาเข้าสู่ระบบเพื่อโหวตโพล")) return
     if (post.poll?.viewerVote) {
@@ -1265,7 +1192,6 @@ export default function CommunityPage() {
             : current,
         false,
       )
-      void mutateMatchRoom()
       toast({ title: "โหวตสำเร็จ", description: "บันทึกคำตอบในโพลแล้ว" })
     } catch (error) {
       if (handleAuthError(error, "กรุณาเข้าสู่ระบบบนหน้านี้ก่อนโหวต")) return
@@ -1927,7 +1853,6 @@ export default function CommunityPage() {
       setComposerTool("general")
       setShowCreatePost(false)
       await mutate()
-      void mutateMatchRoom()
       toast(
         response.moderationStatus === "approved"
           ? { title: "โพสต์สำเร็จ", description: "เพิ่มโพสต์ใหม่เข้า community แล้ว" }
@@ -2137,7 +2062,7 @@ export default function CommunityPage() {
               </Badge>
               <p className="line-clamp-2 text-sm font-semibold text-foreground">{pollQuestion}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {savedOptions.length} ตัวเลือก{selectedMatchId && matchRoomFixture ? ` • ${matchRoomFixture.homeTeam} vs ${matchRoomFixture.awayTeam}` : ""}
+                {savedOptions.length} ตัวเลือก
               </p>
             </div>
             <div className="flex shrink-0 gap-2">
@@ -2180,11 +2105,6 @@ export default function CommunityPage() {
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
             <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
               <div className="space-y-4">
-                {selectedMatchId && matchRoomFixture ? (
-                  <div className="rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary">
-                    Match context: {matchRoomFixture.homeTeam} vs {matchRoomFixture.awayTeam}
-                  </div>
-                ) : null}
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-foreground">คำถาม</label>
                   <Input
@@ -2249,9 +2169,6 @@ export default function CommunityPage() {
                     </div>
                   ))}
                 </div>
-                {selectedMatchId && matchRoomFixture ? (
-                  <p className="mt-3 text-xs text-muted-foreground">จะผูกกับ Match Room นี้อัตโนมัติ และ server จะตรวจ matchId อีกครั้งก่อนสร้างโพสต์</p>
-                ) : null}
               </aside>
             </div>
             {pollBuilderError ? (
@@ -2626,57 +2543,12 @@ export default function CommunityPage() {
     await markNotificationsAsRead()
   }
 
-  const communityPanelClass = "rounded-[12px] border border-white/[0.07] bg-[#0b1012]/92 shadow-[0_10px_28px_rgba(0,0,0,0.22)]"
-  const communitySoftPanelClass = "rounded-[12px] border border-white/[0.07] bg-[#0b1012]/88 shadow-[0_10px_28px_rgba(0,0,0,0.18)]"
-  const communityInsetClass = "rounded-[12px] border border-white/[0.06] bg-white/[0.045]"
-  const communityAccentPanelClass = "rounded-[12px] border border-primary/20 bg-primary/10 shadow-[0_10px_28px_rgba(0,0,0,0.18)]"
+  const communityPanelClass = "rounded-[12px] border border-white/[0.07] bg-[#0b1012]/92 py-0 shadow-[0_8px_22px_rgba(0,0,0,0.2)]"
+  const communitySoftPanelClass = "rounded-[12px] border border-white/[0.07] bg-[#0b1012]/88 py-0 shadow-[0_8px_22px_rgba(0,0,0,0.16)]"
+  const communityAccentPanelClass = "rounded-[12px] border border-primary/20 bg-primary/10 py-0 shadow-[0_8px_22px_rgba(0,0,0,0.16)]"
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="px-3 pb-8 pt-4 sm:px-4 sm:pt-5 lg:px-6">
-        <div className="mx-auto max-w-[1440px] overflow-hidden rounded-[18px] border border-white/[0.07] bg-[linear-gradient(180deg,#121517_0%,#0b1012_100%)] shadow-[0_18px_48px_rgba(0,0,0,0.26)]">
-          <div className="flex flex-wrap items-center gap-4 border-b border-white/10 px-5 py-4 lg:px-7">
-            <div className="text-[30px] font-display font-semibold tracking-tight text-foreground">Community</div>
-
-            <div className="relative min-w-[220px] flex-1">
-              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search community..."
-                className="h-11 rounded-[12px] border-white/[0.06] bg-white/[0.045] pl-11 text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-primary/40"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-              />
-            </div>
-
-            <div className="hidden items-center gap-2 lg:flex">
-              <Link href="/community" className="inline-flex h-10 items-center gap-2 rounded-[12px] bg-primary/15 px-4 text-sm font-medium text-primary">
-                <Users className="h-4 w-4" />
-                Feed
-              </Link>
-              <Link href="/community/matches" className="inline-flex h-10 items-center gap-2 rounded-[12px] px-4 text-sm font-medium text-muted-foreground transition hover:bg-primary/10 hover:text-primary">
-                <Trophy className="h-4 w-4" />
-                Match Rooms
-              </Link>
-              <Link href="/community/messages" className="inline-flex h-10 w-10 items-center justify-center rounded-[12px] text-muted-foreground transition hover:bg-primary/10 hover:text-primary">
-                <MessageSquare className="h-4 w-4" />
-              </Link>
-              <Link href="/community/my-posts" className="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-medium text-muted-foreground transition hover:bg-primary/10 hover:text-primary">
-                <Clock className="h-4 w-4" />
-                โพสต์ของฉัน
-              </Link>
-              <button
-                type="button"
-                onClick={() => void handleOpenNotificationsDialog()}
-                className="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition hover:bg-primary/10 hover:text-primary"
-                aria-label="Open notifications"
-              >
-                <Bell className="h-4 w-4" />
-                {notifications?.total ? (
-                  <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary" />
-                ) : null}
-              </button>
-            </div>
-          </div>
+    <div className={cn(COMMUNITY_FEED_UI_TOKENS.page, "min-h-screen text-foreground")}>
 
           <Dialog open={showNotificationsDialog} onOpenChange={setShowNotificationsDialog}>
             <DialogContent className="max-w-xl rounded-[28px] border-border/60 bg-[#101214] p-0 text-foreground">
@@ -3611,100 +3483,57 @@ export default function CommunityPage() {
             </DialogContent>
           </Dialog>
 
-          <div className="grid gap-6 bg-[radial-gradient(circle_at_top_left,rgba(184,255,0,0.06),transparent_28%),linear-gradient(180deg,#101416_0%,#0b1012_100%)] p-4 lg:p-5 xl:grid-cols-[270px_minmax(0,1fr)_320px]">
-          <aside className="hidden space-y-5 xl:block">
-            <Card className={cn("overflow-hidden", communityPanelClass)}>
-              <div className="relative h-24 bg-[linear-gradient(135deg,rgba(184,255,0,0.22)_0%,rgba(184,255,0,0.08)_45%,rgba(255,255,255,0.06)_100%)]" />
-              <CardContent className="px-5 pb-5">
-                <div className="-mt-10 flex flex-col items-center text-center">
-                  <Avatar className="h-20 w-20 border-4 border-card shadow-md">
-                    <AvatarImage src={getSafeAvatarSrc(user?.avatar)} />
-                    <AvatarFallback>{user?.name?.charAt(0) || "F"}</AvatarFallback>
-                  </Avatar>
-                  <p className="mt-3 text-lg font-semibold text-foreground">{user?.name || "Football Fan"}</p>
-                  <p className="text-sm text-muted-foreground">@{(user?.name || "footballfan").replace(/\s+/g, "_").toLowerCase()}</p>
-                  {user?.fanProfile?.badges?.length ? (
-                    <div className="mt-3 flex flex-wrap justify-center gap-1.5">
-                      {user.fanProfile.badges.slice(0, 3).map((badge) =>
-                        badge ? (
-                          <Badge key={badge.id} className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary hover:bg-primary/10">
-                            {badge.label}
-                          </Badge>
-                        ) : null,
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="mt-5 grid grid-cols-3 gap-3 rounded-[12px] border border-white/[0.06] bg-white/[0.04] p-3 text-center">
-                  <div>
-                    <p className="text-lg font-semibold text-foreground">{stats.total || 0}</p>
-                    <p className="text-xs text-muted-foreground">Posts</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-semibold text-foreground">{friendCount}</p>
-                    <p className="text-xs text-muted-foreground">Friends</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-semibold text-foreground">{notifications?.pendingFriendRequests || 0}</p>
-                    <p className="text-xs text-muted-foreground">Requests</p>
-                  </div>
-                </div>
-
-                <Link href="/profile" className="mt-5 block">
-                  <Button className="h-11 w-full rounded-[12px]">My Profile</Button>
+          <div className="mx-auto grid min-h-screen w-full max-w-[1400px] gap-4 bg-[#030708] p-3 sm:p-4 lg:p-5 xl:grid-cols-[minmax(0,1fr)_310px]">
+          <main className="min-w-0 space-y-3.5">
+            <header className="grid gap-3 lg:grid-cols-[minmax(240px,1fr)_minmax(280px,460px)_auto] lg:items-center">
+              <div className="min-w-0 flex-1">
+                <h1 className="whitespace-nowrap text-2xl font-black tracking-tight text-white sm:text-[28px]">COMMUNITY FEED</h1>
+                <p className="mt-1 truncate text-sm text-white/50">ดูว่าคนฟุตบอลกำลังพูดอะไร แชร์มุมมอง และคุยกับแฟนบอลด้วยกัน</p>
+              </div>
+              <div className="relative w-full">
+                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/45" />
+                <Input
+                  placeholder={COMMUNITY_FEED_UI_TEXT.searchPlaceholder}
+                  className="h-11 rounded-full border-white/[0.08] bg-white/[0.055] pl-11 text-sm shadow-none placeholder:text-white/42 focus-visible:ring-primary/40"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                />
+              </div>
+              <div className="flex shrink-0 items-center gap-2 lg:justify-end">
+                <button type="button" onClick={() => void handleOpenNotificationsDialog()} className="relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.045] text-white/82 transition hover:bg-white/[0.07] hover:text-white" aria-label="Open notifications">
+                  <Bell className="h-5 w-5" />
+                  {notifications?.total ? <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-primary" /> : null}
+                </button>
+                <Link href="/community/messages" className="relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.045] text-white/82 transition hover:bg-white/[0.07] hover:text-white" aria-label="Open messages">
+                  <MessageSquare className="h-5 w-5" />
+                  {totalUnreadMessages ? <span className="absolute -right-1 -top-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-black">{totalUnreadMessages > 9 ? "9+" : totalUnreadMessages}</span> : null}
                 </Link>
-              </CardContent>
-            </Card>
+                <Button onClick={() => setShowCreatePost(true)} className="h-11 rounded-full px-5 font-semibold text-black">
+                  <Plus className="mr-2 h-4 w-4" />
+                  สร้างโพสต์
+                </Button>
+              </div>
+            </header>
 
-            <Card id="community-activity" className={communityPanelClass}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base text-foreground">Your shortcuts</CardTitle>
-                  <button type="button" className="text-xs font-medium text-muted-foreground">See all</button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {communityShortcuts.map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() => setSelectedCategory(item.value)}
-                    className={cn(
-                      "flex w-full items-center gap-3 rounded-[12px] px-3 py-2 text-left transition",
-                      selectedCategory === item.value ? "bg-primary/15 text-primary" : "hover:bg-background/70 text-foreground",
-                    )}
-                  >
-                    <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-white/[0.045] text-sm font-semibold text-muted-foreground">
-                      {item.label.slice(0, 1)}
-                    </span>
-                    <span className="text-sm font-medium">{item.label}</span>
-                  </button>
-                ))}
-              </CardContent>
-            </Card>
-          </aside>
-
-          <main className="space-y-5">
             <Card className={communityPanelClass}>
-              <CardContent className="space-y-5 p-4 sm:p-5">
+              <CardContent className="p-3 sm:p-4">
                 <div className="flex gap-3 overflow-x-auto pb-1">
                   <button
                     type="button"
                     onClick={() => setShowStoryComposer(true)}
-                    className="flex min-w-[76px] flex-col items-center gap-2"
+                    className="flex min-w-[68px] flex-col items-center gap-2"
                   >
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed border-primary/50 bg-primary/10 text-primary">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-dashed border-primary/50 bg-primary/10 text-primary">
                       <Plus className="h-5 w-5" />
                     </div>
-                    <span className="max-w-[76px] truncate text-[11px] font-medium text-muted-foreground">สตอรี่ของคุณ</span>
+                    <span className="max-w-[68px] truncate text-[11px] font-medium text-muted-foreground">สตอรี่ของคุณ</span>
                   </button>
 
                   {storyGroups.map((group, index) => (
-                    <button key={group.id} type="button" onClick={() => openStoryViewer(index)} className="flex min-w-[76px] flex-col items-center gap-2">
+                    <button key={group.id} type="button" onClick={() => openStoryViewer(index)} className="flex min-w-[68px] flex-col items-center gap-2">
                       <div
                         className={cn(
-                          "relative h-16 w-16 overflow-hidden rounded-full border-2 p-0.5 transition-colors",
+                          "relative h-14 w-14 overflow-hidden rounded-full border-2 p-0.5 transition-colors",
                           group.hasUnviewed ? "border-primary" : "border-white/10",
                         )}
                         >
@@ -3738,71 +3567,81 @@ export default function CommunityPage() {
                           )}
                         </div>
                       </div>
-                      <span className={cn("max-w-[76px] truncate text-[11px] font-medium", group.hasUnviewed ? "text-foreground" : "text-muted-foreground")}>
+                      <span className={cn("max-w-[68px] truncate text-[11px] font-medium", group.hasUnviewed ? "text-foreground" : "text-muted-foreground")}>
                         {group.isOwn ? "ฉันเอง" : group.author.name}
                       </span>
                     </button>
                   ))}
                 </div>
-
-                <div className={cn(communityInsetClass, "p-4")}>
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-11 w-11 border border-white/10">
-                      <AvatarImage src={getSafeAvatarSrc(user?.avatar)} />
-                      <AvatarFallback>{user?.name?.charAt(0) || "F"}</AvatarFallback>
-                    </Avatar>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCreatePost((value) => !value)
-                        setComposerTool("general")
-                      }}
-                      className="flex h-11 flex-1 items-center rounded-[12px] bg-white/[0.045] px-4 text-left text-sm text-muted-foreground transition hover:bg-white/[0.06]"
-                    >
-                      Share something...
-                    </button>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-white/10 pt-4 text-sm text-muted-foreground">
-                    <button type="button" onClick={() => openComposer("image")} className="inline-flex items-center gap-2 rounded-[12px] px-2 py-1 transition hover:bg-white/[0.05]">
-                      <ImagePlus className="h-4 w-4 text-primary" />
-                      Image
-                    </button>
-                    <button type="button" onClick={() => openComposer("video")} className="inline-flex items-center gap-2 rounded-[12px] px-2 py-1 transition hover:bg-white/[0.05]">
-                      <Upload className="h-4 w-4 text-primary" />
-                      Video
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCreatePost(true)
-                        openPollBuilder()
-                      }}
-                      className="inline-flex items-center gap-2 rounded-[12px] px-2 py-1 transition hover:bg-white/[0.05]"
-                    >
-                      <Bell className="h-4 w-4 text-primary" />
-                      Poll
-                    </button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button type="button" className="ml-auto inline-flex items-center gap-2 rounded-[12px] px-2 py-1 text-sm text-muted-foreground transition hover:bg-white/[0.05]">
-                          <Users className="h-4 w-4" />
-                          {visibility === "friends" ? "Friends" : "Public"}
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuRadioGroup value={visibility} onValueChange={(value) => setVisibility(value === "friends" ? "friends" : "public")}>
-                          <DropdownMenuRadioItem value="public">Public</DropdownMenuRadioItem>
-                          <DropdownMenuRadioItem value="friends">Friends</DropdownMenuRadioItem>
-                        </DropdownMenuRadioGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
               </CardContent>
             </Card>
 
-            <CommunityMatchCardsSection data={matchRoomData} isLoading={!matchRoomData} />
+            <Card className={communityPanelClass}>
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10 border border-white/10">
+                    <AvatarImage src={getSafeAvatarSrc(user?.avatar)} />
+                    <AvatarFallback>{user?.name?.charAt(0) || "F"}</AvatarFallback>
+                  </Avatar>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreatePost((value) => !value)
+                      setComposerTool("general")
+                    }}
+                    className="flex h-10 flex-1 items-center rounded-[12px] bg-white/[0.045] px-4 text-left text-sm text-muted-foreground transition hover:bg-white/[0.06]"
+                  >
+                    {COMMUNITY_FEED_UI_TEXT.createPostPlaceholder}
+                  </button>
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/10 pt-3 text-sm text-muted-foreground">
+                  <button type="button" onClick={() => openComposer("image")} className="inline-flex items-center gap-2 rounded-[12px] px-2 py-1 transition hover:bg-white/[0.05]">
+                    <ImagePlus className="h-4 w-4 text-primary" />
+                    รูปภาพ
+                  </button>
+                  <button type="button" onClick={() => openComposer("video")} className="inline-flex items-center gap-2 rounded-[12px] px-2 py-1 transition hover:bg-white/[0.05]">
+                    <Upload className="h-4 w-4 text-primary" />
+                    วิดีโอ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreatePost(true)
+                      openPollBuilder()
+                    }}
+                    className="inline-flex items-center gap-2 rounded-[12px] px-2 py-1 transition hover:bg-white/[0.05]"
+                  >
+                    <Bell className="h-4 w-4 text-primary" />
+                    Poll
+                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button type="button" className="ml-auto inline-flex items-center gap-2 rounded-[12px] px-2 py-1 text-sm text-muted-foreground transition hover:bg-white/[0.05]">
+                        <Users className="h-4 w-4" />
+                        {visibility === "friends" ? "Friends" : "Public"}
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuRadioGroup value={visibility} onValueChange={(value) => setVisibility(value === "friends" ? "friends" : "public")}>
+                        <DropdownMenuRadioItem value="public">Public</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="friends">Friends</DropdownMenuRadioItem>
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setShowCreatePost(true)
+                      setComposerTool("general")
+                    }}
+                    className="h-9 rounded-full px-5 text-sm font-semibold text-black"
+                  >
+                    โพสต์
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
             {token && !hasPreferences && !preferenceDismissed ? (
               <Card className={communityAccentPanelClass}>
@@ -3868,14 +3707,6 @@ export default function CommunityPage() {
                       {visibility === "friends" ? "Friends" : "Public"}
                     </div>
                   </div>
-                  {selectedMatchId && matchRoomFixture ? (
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary">
-                      <span>ผูกกับ Match Room: {matchRoomFixture.homeTeam} vs {matchRoomFixture.awayTeam}</span>
-                      <Link href={`/community/matches/${selectedMatchId}`} className="rounded-full border border-primary/30 px-3 py-1 text-xs transition hover:bg-primary/15">
-                        เปิดห้อง
-                      </Link>
-                    </div>
-                  ) : null}
                   <Input placeholder="หัวข้อโพสต์" value={title} onChange={(event) => setTitle(event.target.value)} className="rounded-2xl border-white/10 bg-background/70 shadow-none" />
                   <Textarea
                     placeholder="อยากชวนคุยเรื่องอะไร..."
@@ -3941,32 +3772,34 @@ export default function CommunityPage() {
               </Card>
             ) : null}
 
-            <div className="rounded-[24px] border border-white/10 bg-card/80 p-3 shadow-[0_10px_28px_rgba(0,0,0,0.14)]">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="mr-1 text-xs font-semibold uppercase tracking-[0.18em] text-primary">Feed</span>
+            <div className="flex items-center gap-2 border-b border-white/10 px-1">
+              <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
                 {feedTabs.map((tab) => (
                   <button
                     key={tab.id}
                     type="button"
                     onClick={() => changeFeedTab(tab.id)}
                     className={cn(
-                      "rounded-full border px-3 py-1.5 text-sm transition",
+                      "shrink-0 border-b-2 px-3 py-3 text-sm font-medium transition",
                       feedTab === tab.id
-                        ? "border-primary/40 bg-primary/15 text-primary"
-                        : "border-white/10 bg-background/35 text-muted-foreground hover:bg-background/70 hover:text-foreground",
+                        ? "border-primary text-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground",
                     )}
                     aria-pressed={feedTab === tab.id}
                   >
                     {tab.label}
                   </button>
                 ))}
+              </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-background/35 px-3 py-1.5 text-sm text-muted-foreground transition hover:bg-background/70 hover:text-foreground"
+                      className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-white/10 bg-background/35 px-3 text-sm text-muted-foreground transition hover:bg-background/70 hover:text-foreground"
+                      aria-label="เลือกหมวดโพสต์"
                     >
-                      หมวด: {categories.find((item) => item.id === selectedCategory)?.label || "ทั้งหมด"}
+                      <Sparkles className="h-4 w-4" />
+                      {categories.find((item) => item.id === selectedCategory)?.label || "ทั้งหมด"}
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-64 rounded-2xl border-white/10 bg-[#121416] p-2 text-foreground shadow-2xl">
@@ -3991,15 +3824,20 @@ export default function CommunityPage() {
                   </DropdownMenuContent>
                 </DropdownMenu>
                 {token ? (
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setShowPreferenceDialog(true)} className="ml-auto rounded-full text-muted-foreground hover:text-foreground">
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    ตั้งค่า
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowPreferenceDialog(true)}
+                    className="h-9 w-9 shrink-0 rounded-full text-muted-foreground hover:bg-background/70 hover:text-foreground"
+                    aria-label="ตั้งค่า Feed"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 ) : null}
-              </div>
             </div>
 
-            <div className="space-y-5">
+            <div className="space-y-3.5">
               {isLoading ? (
                             <Card className={cn(communitySoftPanelClass, "p-8 text-center text-sm text-muted-foreground")}>
                   <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-primary" />
@@ -4032,10 +3870,10 @@ export default function CommunityPage() {
                 const canUseAdminActions = user?.role === "admin"
                 return (
                   <Card key={post.id} className={cn("overflow-hidden", communityPanelClass)}>
-                    <CardContent className="p-4 sm:p-5">
+                    <CardContent className="p-4">
                       <div className="flex items-start gap-3">
                         <Link href={`/community/friends/${post.author.id}`}>
-                          <Avatar className="h-11 w-11 border border-white/10">
+                          <Avatar className="h-10 w-10 border border-white/10">
                             <AvatarImage src={getSafeAvatarSrc(post.author.avatar)} />
                             <AvatarFallback>{post.author.name.charAt(0)}</AvatarFallback>
                           </Avatar>
@@ -4045,7 +3883,7 @@ export default function CommunityPage() {
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
-                                <Link href={`/community/friends/${post.author.id}`} className="text-sm font-semibold text-foreground">{post.author.name}</Link>
+                                <Link href={`/community/friends/${post.author.id}`} className="text-[15px] font-semibold text-foreground">{post.author.name}</Link>
                                 {(post.author.fanProfile?.badges || []).slice(0, 2).map((badge) =>
                                   badge ? (
                                     <Badge key={badge.id} className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary hover:bg-primary/10">
@@ -4122,7 +3960,7 @@ export default function CommunityPage() {
                           </div>
 
                           <Link href={`/community/${post.id}`} className="mt-3 block">
-                            <h3 className="text-lg font-semibold leading-snug text-foreground transition-colors hover:text-primary sm:text-[19px]">{post.title}</h3>
+                            <h3 className="text-[15px] font-semibold leading-snug text-foreground transition-colors hover:text-primary sm:text-base">{post.title}</h3>
                           </Link>
                           {(post.isEdited || post.hasPendingRevision) ? (
                             <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -4138,12 +3976,12 @@ export default function CommunityPage() {
                               ) : null}
                             </div>
                           ) : null}
-                          <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted-foreground">{post.excerpt}</p>
+                          <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted-foreground sm:text-[15px]">{post.excerpt}</p>
 
                           {post.matchId && post.matchContext ? (
                             <Link
                               href={`/community/matches/${post.matchId}`}
-                              className="mt-4 flex items-center justify-between gap-3 rounded-[22px] border border-primary/20 bg-primary/8 p-3 transition hover:border-primary/40 hover:bg-primary/12"
+                              className="mt-3 flex items-center justify-between gap-3 rounded-[12px] border border-primary/20 bg-primary/8 p-3 transition hover:border-primary/40 hover:bg-primary/12"
                             >
                               <div className="min-w-0">
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">Match Room</p>
@@ -4158,7 +3996,7 @@ export default function CommunityPage() {
                           ) : null}
 
                           {post.sharedItem?.title ? (
-                            <a href={post.sharedItem.url} target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center gap-3 rounded-[22px] border border-white/10 bg-background/40 p-3 transition hover:bg-background/70">
+                            <a href={post.sharedItem.url} target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center gap-3 rounded-[12px] border border-white/10 bg-background/40 p-3 transition hover:bg-background/70">
                               {post.sharedItem.image ? (
                                 <div className="relative h-14 w-20 overflow-hidden rounded-xl sm:h-16 sm:w-24">
                                   <Image src={post.sharedItem.image} alt={post.sharedItem.title} fill className="object-cover" unoptimized />
@@ -4175,7 +4013,7 @@ export default function CommunityPage() {
                           ) : null}
 
                           {cover ? (
-                            <div className="relative mt-4 h-64 overflow-hidden rounded-[24px] bg-background/70 sm:h-[360px]">
+                            <div className="relative mt-3 aspect-[16/9] overflow-hidden rounded-[12px] bg-background/70">
                               <Image src={cover} alt={post.title} fill className="object-cover" unoptimized />
                               <div className="absolute left-3 top-3">
                                 <Badge className="rounded-full bg-background/90 px-2 py-1 text-[11px] text-foreground shadow-sm hover:bg-background/90">
@@ -4187,8 +4025,8 @@ export default function CommunityPage() {
                           ) : null}
 
                           {video ? (
-                            <div className="mt-4 overflow-hidden rounded-[24px] border border-white/10 bg-background/70">
-                              <video src={video} controls className="h-64 w-full bg-black object-cover sm:h-[360px]" />
+                            <div className="mt-3 overflow-hidden rounded-[12px] border border-white/10 bg-background/70">
+                              <video src={video} controls className="aspect-[16/9] w-full bg-black object-cover" />
                               <div className="border-t border-white/10 px-4 py-3">
                                 <Badge className="rounded-full bg-background/90 px-2 py-1 text-[11px] text-foreground shadow-sm hover:bg-background/90">
                                   <Play className="mr-1 h-3 w-3" />
@@ -4199,7 +4037,7 @@ export default function CommunityPage() {
                           ) : null}
 
                           {post.poll?.question && post.poll.options.length ? (
-                            <div className="mt-4 rounded-[24px] border border-white/10 bg-background/50 p-4">
+                            <div className="mt-3 rounded-[12px] border border-white/10 bg-background/50 p-3">
                               <div className="flex items-center justify-between gap-3">
                                 <h4 className="text-sm font-semibold text-foreground">{post.poll.question}</h4>
                                 <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
@@ -4217,7 +4055,7 @@ export default function CommunityPage() {
                                       onClick={() => void votePoll(post, option.id)}
                                       disabled={pollVotingPostId === post.id || Boolean(post.poll?.viewerVote)}
                                       className={cn(
-                                        "w-full overflow-hidden rounded-2xl border bg-background/70 text-left transition hover:border-primary/40 disabled:cursor-default",
+                                        "w-full overflow-hidden rounded-[10px] border bg-background/70 text-left transition hover:border-primary/40 disabled:cursor-default",
                                         isViewerVote ? "border-primary/50 bg-primary/10" : "border-white/10",
                                       )}
                                     >
@@ -4301,19 +4139,19 @@ export default function CommunityPage() {
             </div>
           </main>
 
-          <aside className="space-y-5">
+          <aside className="hidden space-y-4 xl:block">
             <Card className={communityPanelClass}>
-              <CardHeader className="pb-2">
+              <CardHeader className="px-4 pb-2 pt-4">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base text-foreground">Activity</CardTitle>
-                  <button type="button" className="text-xs font-medium text-muted-foreground">See all</button>
+                  <CardTitle className="text-base text-foreground">กิจกรรมล่าสุด</CardTitle>
+                  <button type="button" onClick={() => void handleOpenNotificationsDialog()} className="text-xs font-medium text-primary">ดูทั้งหมด</button>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-2 px-4 pb-4">
                 {activityNotifications.length ? (
                   activityNotifications.slice(0, 5).map((item) => (
-                    <Link key={item.id} href={item.post.id ? `/community/${item.post.id}` : "/community"} className="flex items-start gap-3 rounded-[12px] px-2 py-2 transition hover:bg-white/[0.04]">
-                      <Avatar className="h-11 w-11 border border-white/10">
+                    <Link key={item.id} href={item.post.id ? `/community/${item.post.id}` : "/community"} className="flex min-h-[58px] items-start gap-3 rounded-[12px] px-2 py-2 transition hover:bg-white/[0.04]">
+                      <Avatar className="h-9 w-9 border border-white/10">
                         <AvatarImage src={getSafeAvatarSrc(item.actor.avatar)} />
                         <AvatarFallback>{item.actor.name.charAt(0)}</AvatarFallback>
                       </Avatar>
@@ -4330,8 +4168,8 @@ export default function CommunityPage() {
                   ))
                 ) : incomingRequests.length ? (
                   incomingRequests.slice(0, 4).map((request) => (
-                    <div key={request.id} className="flex items-center gap-3 rounded-[12px] px-2 py-2">
-                      <Avatar className="h-11 w-11 border border-white/10">
+                    <div key={request.id} className="flex min-h-[58px] items-center gap-3 rounded-[12px] px-2 py-2">
+                      <Avatar className="h-9 w-9 border border-white/10">
                         <AvatarImage src={getSafeAvatarSrc(request.user.avatar)} />
                         <AvatarFallback>{request.user.name.charAt(0)}</AvatarFallback>
                       </Avatar>
@@ -4355,18 +4193,17 @@ export default function CommunityPage() {
             </Card>
 
             <Card className={communityPanelClass}>
-              <CardHeader className="pb-2">
+              <CardHeader className="px-4 pb-2 pt-4">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base text-foreground">Suggested For You</CardTitle>
-                  <button type="button" className="text-xs font-medium text-muted-foreground">See all</button>
+                  <CardTitle className="text-base text-foreground">แนะนำให้ติดตาม</CardTitle>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 px-4 pb-4">
                 {suggestedPeople.length ? (
                   suggestedPeople.slice(0, 4).map((person) => (
                     <div key={person.id} className="flex items-center gap-3">
                       <Link href={`/community/friends/${person.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-                        <Avatar className="h-11 w-11 border border-white/10">
+                        <Avatar className="h-9 w-9 border border-white/10">
                           <AvatarImage src={getSafeAvatarSrc(person.avatar)} />
                           <AvatarFallback>{person.name.charAt(0)}</AvatarFallback>
                         </Avatar>
@@ -4392,64 +4229,46 @@ export default function CommunityPage() {
               </CardContent>
             </Card>
 
+            {trendingTopics.length ? (
+              <Card className={communityPanelClass}>
+                <CardHeader className="px-4 pb-2 pt-4">
+                  <CardTitle className="text-base text-foreground">แท็กยอดนิยม</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-wrap gap-2 px-4 pb-4">
+                  {trendingTopics.map((topic) => (
+                    <button
+                      key={topic.label}
+                      type="button"
+                      onClick={() => setSearchQuery(topic.label)}
+                      className="rounded-full border border-white/10 bg-white/[0.045] px-3 py-1.5 text-xs text-muted-foreground transition hover:border-primary/35 hover:text-primary"
+                    >
+                      #{topic.label}
+                    </button>
+                  ))}
+                </CardContent>
+              </Card>
+            ) : null}
+
             <Card className={communityPanelClass}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between gap-3">
-                  <CardTitle className="text-base text-foreground">Messages</CardTitle>
-                  {totalUnreadMessages ? (
-                    <Badge className="rounded-full bg-primary/15 px-3 py-1 text-[11px] font-semibold text-primary hover:bg-primary/15">
-                      {totalUnreadMessages > 99 ? "99+" : totalUnreadMessages} new
-                    </Badge>
-                  ) : null}
-                </div>
+              <CardHeader className="px-4 pb-2 pt-4">
+                <CardTitle className="text-base text-foreground">สถิติ Community</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {!token ? (
-                  <div className="rounded-[12px] border border-dashed border-white/[0.1] bg-white/[0.04] p-4 text-sm text-muted-foreground">
-                    เข้าสู่ระบบก่อนเพื่อดูห้องแชตและข้อความใหม่
+              <CardContent className="grid grid-cols-2 gap-2 px-4 pb-4">
+                {[
+                  { label: "Posts", value: stats.published ?? stats.total ?? 0 },
+                  { label: "Friends", value: friendCount },
+                  { label: "Comments", value: feedCommentCount },
+                  { label: "Polls", value: feedPollCount },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-[12px] border border-white/[0.06] bg-white/[0.035] p-3 text-center">
+                    <p className="text-xl font-black text-primary">{item.value}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{item.label}</p>
                   </div>
-                ) : null}
-
-                {token && socialData === undefined ? (
-                  <div className={cn(communityInsetClass, "p-4")}>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      กำลังโหลดห้องแชต...
-                    </div>
-                  </div>
-                ) : null}
-
-                {topConversations.map((conversation) => (
-                  <Link key={conversation.id} href={`/community/messages?conversation=${conversation.id}`} className="flex items-start gap-3 rounded-[12px] p-3 transition hover:bg-white/[0.045]">
-                    <Avatar className="h-10 w-10 border border-white/10">
-                      <AvatarImage src={getSafeAvatarSrc(conversation.user.avatar)} />
-                      <AvatarFallback>{conversation.user.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="truncate text-sm font-semibold text-foreground">{conversation.user.name}</p>
-                        <span className="text-[11px] text-muted-foreground">{conversation.timeAgo}</span>
-                      </div>
-                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{conversation.preview?.content || conversation.lastMessageText}</p>
-                    </div>
-                  </Link>
                 ))}
-
-                {token && socialData && !socialData.conversations.length ? (
-                  <div className="rounded-2xl border border-dashed border-white/10 bg-background/40 p-4 text-sm text-muted-foreground">
-                    ยังไม่มีห้องแชตตอนนี้
-                  </div>
-                ) : null}
-
-                <Link href="/community/messages">
-                  <Button variant="outline" className="h-11 w-full rounded-full border-white/10 text-foreground hover:bg-background/70">Open Messages</Button>
-                </Link>
               </CardContent>
             </Card>
           </aside>
         </div>
-      </div>
-      </div>
     </div>
   )
 }

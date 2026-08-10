@@ -1,13 +1,9 @@
 export const COMMUNITY_FEED_UI_TEXT = {
-  searchPlaceholder: "ค้นหาโพสต์, ผู้ใช้, ทีม, แฮชแท็ก...",
-  createPostPlaceholder: "คุณกำลังคิดอะไรอยู่?",
-  contextEyebrow: "COMMUNITY",
+  searchPlaceholder: "ค้นหาผู้ใช้, โพสต์, แฮชแท็ก...",
+  createPostPlaceholder: "คุณกำลังคิดอะไรเกี่ยวกับฟุตบอล?",
+  contextEyebrow: "SOCIAL COMMUNITY",
   contextTitle: "พื้นที่ของแฟนฟุตบอล",
-  contextDescription: "ติดตามประเด็นร้อน แชร์มุมมอง และต่อเข้าห้อง Match Hub จากข้อมูลจริงของคอมมูนิตี้",
-  matchHubEmptyTitle: "ยังไม่มี Match Hub ที่พร้อมแสดง",
-  matchHubEmptyDescription: "เมื่อ provider ส่ง fixture ที่เกี่ยวข้อง ระบบจะแสดง Match Hub จากข้อมูลจริงที่นี่",
-  matchHubErrorTitle: "โหลด Match Hub ไม่สำเร็จ",
-  matchHubErrorDescription: "Feed ยังใช้งานได้ตามปกติ ลองโหลดข้อมูลแมตช์อีกครั้งได้",
+  contextDescription: "ติดตามคนฟุตบอล แชร์มุมมอง และค้นพบประเด็นที่ชุมชนกำลังคุยกัน",
   feedErrorTitle: "โหลด Feed ไม่สำเร็จ",
   feedErrorDescription: "ส่วนอื่นของ Community ยังแสดงจากข้อมูลล่าสุดได้",
 } as const
@@ -25,12 +21,14 @@ export const COMMUNITY_FEED_UI_TOKENS = {
 } as const
 
 export const COMMUNITY_FEED_REFERENCE_ORDER = [
-  "community-context",
-  "match-hub-spotlight",
-  "feed-tabs",
   "stories-rail",
   "composer",
+  "feed-tabs",
   "feed-posts",
+  "activity",
+  "suggested-users",
+  "trending-tags",
+  "community-stats",
 ] as const
 
 export function assertCommunityFeedReferenceOrder(order: readonly string[]) {
