@@ -13,8 +13,6 @@ import {
   ExternalLink,
   Eye,
   Flag,
-  Hash,
-  Home,
   ImagePlus,
   Loader2,
   MessageCircle,
@@ -27,7 +25,6 @@ import {
   Repeat2,
   Search,
   Send,
-  SlidersHorizontal,
   Sparkles,
   Trash2,
   Trophy,
@@ -59,17 +56,7 @@ import { useToast } from "@/hooks/use-toast"
 import { fetchJson } from "@/lib/api-client"
 import { useAuthSession } from "@/hooks/use-auth-session"
 import { cn } from "@/lib/utils"
-import {
-  COMMUNITY_FEED_UI_TEXT,
-  COMMUNITY_FEED_UI_TOKENS,
-  buildCommunityHeroMetrics,
-  deriveCommunityTrendingTopics,
-  getCommunityFixturePhase,
-  getCommunityFixtureScoreLabel,
-  getCommunityFixtureStatusLabel,
-  selectCommunityHeroFixture,
-  shouldShowCommunityFixtureScore,
-} from "@/lib/community-feed-ui"
+import { CommunityMatchCardsSection } from "@/components/community-match-rooms"
 
 type CommunityPostMedia = {
   id: string
@@ -292,6 +279,8 @@ type Conversation = {
 type CommunityStory = {
   id: string
   image: string
+  video?: string
+  mediaType?: "image" | "video"
   caption: string
   style?: {
     theme: "neon" | "midnight" | "sunset" | "glass"
@@ -436,8 +425,8 @@ const categoryGroups = [
 const feedTabs = [
   { id: "for-you", label: "สำหรับคุณ", description: "จัดเรียงจากทีม นักเตะ และประเภทโพสต์ที่คุณชอบ" },
   { id: "latest", label: "ล่าสุด", description: "โพสต์ใหม่ล่าสุดในคอมมูนิตี้" },
-  { id: "favorites", label: "กำลังติดตาม", description: "โพสต์ที่เกี่ยวข้องกับทีมโปรดของคุณผ่าน feed=favorites เดิม" },
-  { id: "trending", label: "ยอดนิยม", description: "โพสต์ที่มี engagement สูงในช่วงนี้" },
+  { id: "favorites", label: "ทีมโปรด", description: "โพสต์ที่เกี่ยวข้องกับทีมโปรดของคุณ" },
+  { id: "trending", label: "กำลังเป็นที่นิยม", description: "โพสต์ที่มี engagement สูงในช่วงนี้" },
 ] as const
 
 type FeedTab = (typeof feedTabs)[number]["id"]
@@ -467,18 +456,18 @@ function isAuthenticationError(error: unknown) {
 function actionButtonClass(active = false, tone: "primary" | "danger" = "primary") {
   if (tone === "danger") {
     return cn(
-      "inline-flex items-center gap-1.5 rounded-[10px] px-2 py-1 text-[12px] font-medium text-muted-foreground transition-all disabled:pointer-events-none disabled:opacity-60",
+      "inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-background/70 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-all disabled:pointer-events-none disabled:opacity-60 sm:px-3 sm:py-1.5 sm:text-xs",
       active
         ? "border-destructive/40 bg-destructive/10 text-destructive"
-        : "hover:bg-destructive/10 hover:text-destructive",
+        : "hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive",
     )
   }
 
   return cn(
-    "inline-flex items-center gap-1.5 rounded-[10px] px-2 py-1 text-[12px] font-medium text-muted-foreground transition-all disabled:pointer-events-none disabled:opacity-60",
+    "inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-background/70 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-all disabled:pointer-events-none disabled:opacity-60 sm:px-3 sm:py-1.5 sm:text-xs",
     active
       ? "border-primary/40 bg-primary/10 text-primary"
-      : "hover:bg-primary/10 hover:text-primary",
+      : "hover:border-primary/40 hover:bg-primary/10 hover:text-primary",
   )
 }
 
@@ -518,6 +507,18 @@ function buildChatShareHref(post: CommunityPost) {
   })
 
   return `/community/messages?${params.toString()}`
+}
+
+function sanitizeCommunityAssetUrl(url: string | null | undefined) {
+  const value = String(url || "").trim()
+  if (!value) return ""
+  if (!value.startsWith("/uploads/community/")) return value
+  const relative = value.slice("/uploads/community/".length).split("?")[0].replace(/^\/+/, "")
+  return relative.includes("/") ? value : ""
+}
+
+function getSafeAvatarSrc(url: string | null | undefined) {
+  return sanitizeCommunityAssetUrl(url) || "/placeholder-user.jpg"
 }
 
 export default function CommunityPage() {
@@ -597,12 +598,15 @@ export default function CommunityPage() {
   const [activeStoryGroupIndex, setActiveStoryGroupIndex] = useState(0)
   const [activeStoryIndex, setActiveStoryIndex] = useState(0)
   const [storyProgress, setStoryProgress] = useState(0)
+  const [activeStoryDurationMs, setActiveStoryDurationMs] = useState(15000)
   const [storyPreviewUrls, setStoryPreviewUrls] = useState<Record<string, string>>({})
+  const activeStoryVideoRef = useRef<HTMLVideoElement | null>(null)
   const [postPreviewUrls, setPostPreviewUrls] = useState<Record<string, string>>({})
   const previousUnreadMessagesRef = useRef(0)
   const previousUnreadActivityRef = useRef(0)
   const authErrorNotifiedRef = useRef(false)
   const viewedStoryIdsRef = useRef<Set<string>>(new Set())
+  const failedStoryPreviewIdsRef = useRef<Set<string>>(new Set())
   const imageInputRef = useRef<HTMLInputElement | null>(null)
   const videoInputRef = useRef<HTMLInputElement | null>(null)
   const editImageInputRef = useRef<HTMLInputElement | null>(null)
@@ -654,7 +658,7 @@ export default function CommunityPage() {
     return `/community/posts?${params.toString()}`
   }, [feedTab, searchQuery, selectedCategory])
 
-  const { data, error: feedError, isLoading, mutate } = useSWR<{ items: CommunityPost[]; stats: Record<string, number> }>(
+  const { data, isLoading, mutate } = useSWR<{ items: CommunityPost[]; stats: Record<string, number> }>(
     token ? [query, token] : query,
     (key: string | [string, string]) => {
       if (Array.isArray(key)) {
@@ -679,7 +683,7 @@ export default function CommunityPage() {
     { shouldRetryOnError: false },
   )
   const matchRoomQuery = selectedMatchId ? `/community/match-room?matchId=${encodeURIComponent(selectedMatchId)}` : "/community/match-room"
-  const { data: matchRoomData, error: matchRoomError, mutate: mutateMatchRoom } = useSWR<MatchRoomResponse>(
+  const { data: matchRoomData, mutate: mutateMatchRoom } = useSWR<MatchRoomResponse>(
     token ? [matchRoomQuery, token] : matchRoomQuery,
     (key: string | [string, string]) => {
       if (Array.isArray(key)) {
@@ -731,7 +735,7 @@ export default function CommunityPage() {
       }),
     { refreshInterval: 4000, shouldRetryOnError: false },
   )
-  const { data: storiesData, error: storiesError, mutate: mutateStories } = useSWR(
+  const { data: storiesData, mutate: mutateStories } = useSWR(
     token ? ["/community/stories", token] : "/community/stories",
     (key: string | [string, string]) => {
       if (Array.isArray(key)) {
@@ -755,19 +759,17 @@ export default function CommunityPage() {
   const matchRoomFixture = matchRoomData?.fixture || null
   const matchRoomFixtures = matchRoomData?.fixtures || []
   const matchRoomPosts = matchRoomData?.posts || []
-  const heroFixture = selectCommunityHeroFixture(matchRoomFixtures, matchRoomFixture)
-  const heroPhase = getCommunityFixturePhase(heroFixture)
-  const heroMetrics = buildCommunityHeroMetrics({ roomStats: matchRoomData?.roomStats, posts: matchRoomPosts })
-  const trendingTopics = deriveCommunityTrendingTopics(posts)
-  const heroMediaUrl = posts.find((post) => (post.images || []).length)?.images?.[0] || matchRoomPosts.find((post) => (post.images || []).length)?.images?.[0] || ""
   const canCreateMatchRoomPoll = Boolean(matchRoomFixture?.isFinished)
   const storyGroups = storiesData?.items || []
   const activeStoryGroup = storyGroups[activeStoryGroupIndex] || null
   const stats = data?.stats || { total: 0 }
+  const totalUnreadMessages = notifications?.unreadMessages || 0
   const unreadActivityCount = notifications?.unreadActivity || 0
   const activityNotifications = notifications?.activity || []
+  const friendCount = socialData?.friends?.length || 0
   const incomingRequests = socialData?.requests?.incoming || []
   const suggestedPeople = socialData?.suggestions || []
+  const topConversations = socialData?.conversations?.slice(0, 4) || []
   const preferenceOptions = preferencesData?.options
   const hasPreferences = Boolean(
     preferencesData?.preferences.favoriteTeamIds.length ||
@@ -834,13 +836,43 @@ export default function CommunityPage() {
   useEffect(() => {
     if (!token || !storyGroups.length) return
     let cancelled = false
-    const pendingStories = storyGroups.flatMap((group) => group.stories).filter((story) => story.ownerPreviewUrl && !storyPreviewUrls[story.id])
+    const pendingStories = storyGroups
+      .flatMap((group) => group.stories)
+      .filter(
+        (story) =>
+          story.ownerPreviewUrl &&
+          !storyPreviewUrls[story.id] &&
+          !failedStoryPreviewIdsRef.current.has(story.id),
+      )
     if (!pendingStories.length) return
 
     Promise.all(
       pendingStories.map(async (story) => {
         const response = await fetch(story.ownerPreviewUrl as string, { headers: { Authorization: `Bearer ${token}` } })
-        if (!response.ok) return null
+        if (!response.ok) {
+          if (response.status === 404) {
+            failedStoryPreviewIdsRef.current.add(story.id)
+            void mutateStories((current) => {
+              if (!current?.items) return current
+              const nextGroups = current.items
+                .map((group) => {
+                  const nextStories = group.stories.filter((item) => item.id !== story.id)
+                  if (!nextStories.length) return null
+                  return {
+                    ...group,
+                    stories: nextStories,
+                    hasUnviewed: nextStories.some((item) => !item.isViewed),
+                    latestCreatedAt: nextStories[nextStories.length - 1]?.createdAt || group.latestCreatedAt,
+                    latestTimeAgo: nextStories[nextStories.length - 1]?.timeAgo || group.latestTimeAgo,
+                    latestImage: nextStories[nextStories.length - 1]?.image || "",
+                  }
+                })
+                .filter(Boolean)
+              return { ...current, items: nextGroups as CommunityStoryGroup[] }
+            }, false)
+          }
+          return null
+        }
         const blob = await response.blob()
         return [story.id, URL.createObjectURL(blob)] as const
       }),
@@ -854,15 +886,33 @@ export default function CommunityPage() {
     return () => {
       cancelled = true
     }
-  }, [storyGroups, storyPreviewUrls, token])
+  }, [mutateStories, storyGroups, storyPreviewUrls, token])
 
   function getStoryImage(story: CommunityStory) {
-    return storyPreviewUrls[story.id] || story.image
+    return sanitizeCommunityAssetUrl(storyPreviewUrls[story.id] || story.image || "")
+  }
+
+  function getStoryVideo(story: CommunityStory) {
+    return sanitizeCommunityAssetUrl(storyPreviewUrls[story.id] || story.video || "")
+  }
+
+  function storyNeedsProtectedPreview(story: CommunityStory | null | undefined) {
+    if (!story) return false
+    return Boolean(story.ownerPreviewUrl && !storyPreviewUrls[story.id] && !story.image && !story.video)
+  }
+
+  function storyIsVideo(story: CommunityStory | null | undefined) {
+    return Boolean(story && (story.mediaType === "video" || (!!story.video && !story.image)))
   }
 
   function getStoryGroupImage(group: CommunityStoryGroup) {
     const latest = group.stories[group.stories.length - 1]
-    return latest ? getStoryImage(latest) : group.latestImage
+    return latest ? getStoryImage(latest) : sanitizeCommunityAssetUrl(group.latestImage)
+  }
+
+  function getStoryGroupVideo(group: CommunityStoryGroup) {
+    const latest = group.stories[group.stories.length - 1]
+    return latest ? getStoryVideo(latest) : ""
   }
 
   function getPostImages(post: CommunityPost) {
@@ -872,7 +922,9 @@ export default function CommunityPage() {
   }
 
   function getMediaUrl(media: CommunityPostMedia | UploadedMedia) {
-    return media.publicUrl || media.url || media.ownerPreviewUrl || ("previewUrl" in media ? media.previewUrl : null) || ""
+    return sanitizeCommunityAssetUrl(
+      media.publicUrl || media.url || ("previewUrl" in media ? media.previewUrl : null) || media.ownerPreviewUrl || "",
+    )
   }
 
   function buildLegacyPostMedia(urls: string[] | undefined, mediaType: "image" | "video") {
@@ -1001,12 +1053,16 @@ export default function CommunityPage() {
   useEffect(() => {
     if (!activeStory) {
       setStoryProgress(0)
+      setActiveStoryDurationMs(15000)
       return
     }
 
     setStoryProgress(0)
+    if (!storyIsVideo(activeStory)) {
+      setActiveStoryDurationMs(15000)
+    }
 
-    const duration = 5000
+    const duration = Math.max(1000, activeStoryDurationMs)
     const startedAt = Date.now()
     const interval = window.setInterval(() => {
       const nextProgress = Math.min(((Date.now() - startedAt) / duration) * 100, 100)
@@ -1037,7 +1093,35 @@ export default function CommunityPage() {
       window.clearInterval(interval)
       window.clearTimeout(timer)
     }
-  }, [activeStory, activeStoryGroupIndex, storyGroups])
+  }, [activeStory, activeStoryDurationMs, activeStoryGroupIndex, storyGroups])
+
+  useEffect(() => {
+    if (!activeStory || !storyIsVideo(activeStory)) return
+
+    const element = activeStoryVideoRef.current
+    if (!element) return
+
+    const syncDurationFromMetadata = () => {
+      const rawDurationMs = Number.isFinite(element.duration) ? Math.round(element.duration * 1000) : 15000
+      const nextDurationMs = Math.min(Math.max(rawDurationMs, 1000), 15000)
+      setActiveStoryDurationMs(nextDurationMs)
+    }
+
+    setActiveStoryDurationMs(15000)
+    element.currentTime = 0
+    element.load()
+    element.addEventListener("loadedmetadata", syncDurationFromMetadata)
+    element.addEventListener("durationchange", syncDurationFromMetadata)
+    const playPromise = element.play()
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => undefined)
+    }
+
+    return () => {
+      element.removeEventListener("loadedmetadata", syncDurationFromMetadata)
+      element.removeEventListener("durationchange", syncDurationFromMetadata)
+    }
+  }, [activeStory, storyPreviewUrls])
 
   useEffect(() => {
     if (!activeStory?.id || viewedStoryIdsRef.current.has(activeStory.id)) return
@@ -1555,44 +1639,60 @@ export default function CommunityPage() {
         result,
       })
       if (!response.ok) throw new Error(result?.error || "Upload failed")
-      const nextStoryImage = normalizeUploadItems(result).find((item) => item.mediaType === "image") || null
-      setStoryImage(nextStoryImage ? { ...nextStoryImage, previewUrl: nextStoryImage.status === "pending_review" ? URL.createObjectURL(file) : null } : null)
-      setShowStoryEditor(Boolean(nextStoryImage))
+      const nextStoryImage = normalizeUploadItems(result)[0] || null
+      const preparedStoryImage = nextStoryImage
+        ? { ...nextStoryImage, previewUrl: nextStoryImage.status === "pending_review" ? URL.createObjectURL(file) : null }
+        : null
+      setStoryImage(preparedStoryImage)
+      setShowStoryComposer(true)
+      setShowStoryEditor(Boolean(preparedStoryImage))
       toast({
-        title: "Story image ready",
+        title: preparedStoryImage?.mediaType === "video" ? "Story video ready" : "Story image ready",
         description:
-          nextStoryImage?.status === "pending_review"
-            ? "รูปสตอรี่นี้กำลังรอการตรวจสอบจากผู้ดูแลระบบ"
-            : "Your story cover has been uploaded.",
+          preparedStoryImage?.status === "pending_review"
+            ? "อัปโหลดแล้ว กดโพสต์สตอรี่เพื่อส่งเข้าตรวจ"
+            : "อัปโหลดแล้ว กดโพสต์สตอรี่เพื่อเผยแพร่",
       })
     } catch (error) {
       if (handleAuthError(error, "กรุณาเข้าสู่ระบบบนหน้านี้ก่อนเพิ่มสตอรี่")) return
-      toast({
-        title: "Story upload failed",
-        description: error instanceof Error ? error.message : "Something went wrong",
-        variant: "destructive",
-      })
+      toast({ title: "Story upload failed", description: error instanceof Error ? error.message : "Something went wrong", variant: "destructive" })
     } finally {
       setStoryUploading(false)
       event.target.value = ""
     }
   }
 
-  async function handleCreateStory() {
+  async function createStoryFromMedia(media: UploadedMedia) {
     if (!requireLogin("กรุณาเข้าสู่ระบบเพื่อเพิ่มสตอรี่")) return
-    if (!storyImage?.id || (!storyImage.url && !storyImage.previewUrl && !storyImage.ownerPreviewUrl)) {
-      toast({ title: "Story image required", description: "Please upload an image before posting your story.", variant: "destructive" })
+    if (!media?.id || (!media.url && !media.previewUrl && !media.ownerPreviewUrl)) {
+      toast({ title: "Story media required", description: "Please upload an image or video before posting your story.", variant: "destructive" })
       return
     }
 
     try {
       setStorySubmitting(true)
-      await fetchJson("/community/stories", {
+      logCommunityDebug("story-create:request", {
+        mediaId: media.id,
+        mediaType: media.mediaType,
+        mediaStatus: media.status,
+        hasUrl: Boolean(media.url),
+        hasPreviewUrl: Boolean(media.previewUrl),
+        hasOwnerPreviewUrl: Boolean(media.ownerPreviewUrl),
+        captionLength: storyCaption.length,
+        style: {
+          theme: storyTheme,
+          captionAlign: storyCaptionAlign,
+          captionSize: storyCaptionSize,
+          sticker: storySticker,
+        },
+      })
+      const response = await fetchJson<{ item: CommunityStory }>("/community/stories", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          image: storyImage.url || "",
-          imageMediaId: storyImage.id,
+          image: media.mediaType === "image" ? media.url || "" : "",
+          video: media.mediaType === "video" ? media.url || "" : "",
+          mediaId: media.id,
           caption: storyCaption,
           style: {
             theme: storyTheme,
@@ -1602,6 +1702,53 @@ export default function CommunityPage() {
           },
         }),
       })
+      logCommunityDebug("story-create:response", {
+        ok: true,
+        item: response.item,
+      })
+      const nextItem = {
+        ...response.item,
+        image: response.item.image || (media.mediaType === "image" ? media.previewUrl || "" : ""),
+        video: response.item.video || (media.mediaType === "video" ? media.previewUrl || "" : ""),
+      }
+      if (media.previewUrl) {
+        setStoryPreviewUrls((current) => ({ ...current, [response.item.id]: media.previewUrl || "" }))
+      }
+      await mutateStories((current) => {
+        const currentItems = current?.items || []
+        const ownAuthorId = response.item.author.id
+        const existingIndex = currentItems.findIndex((group) => group.author.id === ownAuthorId)
+        if (existingIndex === -1) {
+          return {
+            ...(current || { items: [] }),
+            items: [
+              {
+                id: ownAuthorId,
+                isOwn: true,
+                latestCreatedAt: nextItem.createdAt || new Date().toISOString(),
+                latestTimeAgo: nextItem.timeAgo,
+                latestImage: nextItem.image || "",
+                hasUnviewed: false,
+                author: nextItem.author,
+                stories: [nextItem],
+              },
+              ...currentItems,
+            ],
+          }
+        }
+
+        const nextItems = [...currentItems]
+        const targetGroup = nextItems[existingIndex]
+        const nextStories = [...targetGroup.stories.filter((item) => item.id !== nextItem.id), nextItem]
+        nextItems[existingIndex] = {
+          ...targetGroup,
+          latestCreatedAt: nextItem.createdAt || new Date().toISOString(),
+          latestTimeAgo: nextItem.timeAgo,
+          latestImage: nextItem.image || targetGroup.latestImage,
+          stories: nextStories,
+        }
+        return { ...(current || { items: [] }), items: nextItems }
+      }, false)
       setShowStoryComposer(false)
       setStoryImage(null)
       setStoryCaption("")
@@ -1611,9 +1758,21 @@ export default function CommunityPage() {
       setStorySticker("")
       setShowStoryEditor(false)
       setStoryEditorTab("theme")
-      void mutateStories()
-      toast({ title: "Story posted", description: "Your story is now live for 24 hours." })
+      if (media.status !== "pending_review") {
+        void mutateStories()
+      } else {
+        window.setTimeout(() => {
+          void mutateStories()
+        }, 1500)
+      }
+      toast({
+        title: "Story posted",
+        description: media.status === "pending_review" ? "สตอรี่ถูกส่งแล้ว และกำลังรอการตรวจสอบ" : "Your story has been submitted successfully.",
+      })
     } catch (error) {
+      logCommunityDebug("story-create:error", {
+        message: error instanceof Error ? error.message : "unknown",
+      })
       if (handleAuthError(error, "กรุณาเข้าสู่ระบบบนหน้านี้ก่อนโพสต์สตอรี่")) return
       toast({
         title: "Story post failed",
@@ -1623,6 +1782,19 @@ export default function CommunityPage() {
     } finally {
       setStorySubmitting(false)
     }
+  }
+
+  async function handleCreateStory() {
+    if (!storyImage) {
+      logCommunityDebug("story-create:skipped", { reason: "missing-story-image" })
+      return
+    }
+    logCommunityDebug("story-create:clicked", {
+      mediaId: storyImage.id,
+      mediaType: storyImage.mediaType,
+      mediaStatus: storyImage.status,
+    })
+    await createStoryFromMedia(storyImage)
   }
 
   function closeStoryViewer() {
@@ -1710,11 +1882,9 @@ export default function CommunityPage() {
     try {
       const imageMediaIds = uploadedImages.map((item) => item.id)
       const videoMediaIds = uploadedVideos.map((item) => item.id)
-      const postMatchId = selectedMatchId && matchRoomFixture?.id === selectedMatchId ? selectedMatchId : ""
       logCommunityDebug("post-create:payload", {
         title,
         category,
-        matchId: postMatchId,
         imageMediaIds,
         videoMediaIds,
         teamIds: selectedPostTeamIds,
@@ -1729,7 +1899,7 @@ export default function CommunityPage() {
           title,
           content,
           category,
-          matchId: postMatchId,
+          matchId: selectedMatchId,
           imageMediaIds,
           videoMediaIds,
           teamIds: selectedPostTeamIds,
@@ -2457,47 +2627,43 @@ export default function CommunityPage() {
   }
 
   return (
-    <div className={cn("min-h-screen text-foreground", COMMUNITY_FEED_UI_TOKENS.page)}>
-      <div className="pb-8">
-        <div className={cn("mx-auto min-h-screen max-w-[1480px] overflow-hidden bg-[#05090b] shadow-[0_24px_90px_rgba(0,0,0,0.48)]", COMMUNITY_FEED_UI_TOKENS.shell)}>
-          <div className="sticky top-0 z-30 flex min-h-[72px] flex-wrap items-center gap-4 border-b border-white/[0.07] bg-[#05090b]/96 px-5 py-3 backdrop-blur lg:px-7">
-            <Link href="/" className="inline-flex items-center gap-2 rounded-full text-xl font-display font-semibold tracking-tight text-foreground transition hover:text-primary" aria-label="กลับหน้าแรก FootballAI">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/5">
-                <Trophy className="h-4 w-4 text-primary" />
-              </span>
-              Football<span className="text-primary">AI</span>
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="px-3 pb-8 pt-4 sm:px-4 sm:pt-5 lg:px-6">
+        <div className="mx-auto max-w-[1440px] overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,#1e1e20_0%,#151517_100%)] shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
+          <div className="flex flex-wrap items-center gap-4 border-b border-white/10 px-5 py-4 lg:px-7">
+            <Link href="/" className="inline-flex h-10 items-center gap-2 rounded-full border border-white/10 bg-background/60 px-4 text-sm font-medium text-muted-foreground transition hover:border-primary/40 hover:bg-primary/10 hover:text-primary">
+              <span aria-hidden="true">←</span>
+              กลับหน้าแรก
             </Link>
-            <div className="relative min-w-[220px] flex-1 lg:max-w-[430px]">
+
+            <div className="text-[30px] font-display font-semibold tracking-tight text-foreground">FootballAI</div>
+
+            <div className="relative min-w-[220px] flex-1">
               <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder={COMMUNITY_FEED_UI_TEXT.searchPlaceholder}
-                className="h-11 rounded-[18px] border-white/10 bg-[#0b1114] pl-11 pr-12 text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-primary/40"
+                placeholder="Search community..."
+                className="h-11 rounded-full border-white/10 bg-background/70 pl-11 text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-primary/40"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                aria-label="ค้นหาใน Community Feed"
               />
             </div>
 
-            <div className="ml-auto hidden shrink-0 items-center justify-end gap-2 lg:flex">
-              <Link
-                href="/worldcup-2026/predictions/payment"
-                className="inline-flex h-11 items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 text-sm font-semibold text-primary transition hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                aria-label="ซื้อ Plus และเติมเงิน"
-              >
-                <Sparkles className="h-4 w-4" />
-                ซื้อ Plus
+            <div className="hidden items-center gap-2 lg:flex">
+              <Link href="/community" className="inline-flex h-10 items-center gap-2 rounded-full bg-primary/15 px-4 text-sm font-medium text-primary">
+                <Users className="h-4 w-4" />
+                Feed
               </Link>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCreatePost(true)
-                  setComposerTool("general")
-                }}
-                className="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-6 text-sm font-semibold text-primary-foreground shadow-[0_10px_28px_rgba(34,197,94,0.28)] transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-              >
-                <Plus className="h-4 w-4" />
-                สร้าง
-              </button>
+              <Link href="/community/matches" className="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-medium text-muted-foreground transition hover:bg-primary/10 hover:text-primary">
+                <Trophy className="h-4 w-4" />
+                Match Rooms
+              </Link>
+              <Link href="/community/messages" className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition hover:bg-primary/10 hover:text-primary">
+                <MessageSquare className="h-4 w-4" />
+              </Link>
+              <Link href="/community/my-posts" className="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-medium text-muted-foreground transition hover:bg-primary/10 hover:text-primary">
+                <Clock className="h-4 w-4" />
+                โพสต์ของฉัน
+              </Link>
               <button
                 type="button"
                 onClick={() => void handleOpenNotificationsDialog()}
@@ -2509,15 +2675,6 @@ export default function CommunityPage() {
                   <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary" />
                 ) : null}
               </button>
-              <Link href="/community/messages" className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition hover:bg-primary/10 hover:text-primary" aria-label="เปิดข้อความ">
-                <MessageSquare className="h-4 w-4" />
-              </Link>
-              <Link href="/profile" className="inline-flex items-center gap-2 rounded-full pl-1 pr-2 text-muted-foreground transition hover:bg-primary/10 hover:text-primary" aria-label="เปิดโปรไฟล์">
-                <Avatar className="h-10 w-10 border border-white/10">
-                  <AvatarImage src={user?.avatar || "/placeholder-user.jpg"} />
-                  <AvatarFallback>{user?.name?.charAt(0) || "F"}</AvatarFallback>
-                </Avatar>
-              </Link>
             </div>
           </div>
 
@@ -2543,7 +2700,7 @@ export default function CommunityPage() {
                       {incomingRequests.slice(0, 3).map((request) => (
                         <div key={request.id} className="flex items-center gap-3">
                           <Avatar className="h-10 w-10 border border-white/10">
-                            <AvatarImage src={request.user.avatar || "/placeholder-user.jpg"} />
+                            <AvatarImage src={getSafeAvatarSrc(request.user.avatar)} />
                             <AvatarFallback>{request.user.name.charAt(0)}</AvatarFallback>
                           </Avatar>
                           <div className="min-w-0 flex-1">
@@ -2573,7 +2730,7 @@ export default function CommunityPage() {
                       className="flex items-start gap-3 rounded-2xl border border-white/10 bg-background/35 p-4 transition hover:border-primary/25 hover:bg-background/55"
                     >
                       <Avatar className="h-11 w-11 border border-white/10">
-                        <AvatarImage src={item.actor.avatar || "/placeholder-user.jpg"} />
+                        <AvatarImage src={getSafeAvatarSrc(item.actor.avatar)} />
                         <AvatarFallback>{item.actor.name.charAt(0) || "F"}</AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">
@@ -2920,19 +3077,19 @@ export default function CommunityPage() {
             <DialogContent className="max-w-lg rounded-[28px] border-border/60 bg-[#101214] p-0 text-foreground">
               <DialogHeader className="border-b border-border/60 px-6 py-5">
                 <DialogTitle>สร้างสตอรี่</DialogTitle>
-                <DialogDescription>แชร์อัปเดตรูปภาพที่จะอยู่บนหน้าโปรไฟล์ 24 ชั่วโมง</DialogDescription>
+                <DialogDescription>แชร์รูปหรือวิดีโอที่จะอยู่บนหน้าโปรไฟล์ 24 ชั่วโมง</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 px-6 py-5">
                 <label className="flex cursor-pointer items-center justify-between rounded-2xl border border-dashed border-border/60 bg-muted/20 p-4">
                   <div>
-                    <p className="text-sm font-medium">อัปโหลดรูปสตอรี่</p>
-                    <p className="text-xs text-muted-foreground">1 รูป ขนาดไม่เกิน 5MB</p>
+                    <p className="text-sm font-medium">อัปโหลดสตอรี่</p>
+                    <p className="text-xs text-muted-foreground">รองรับ 1 ไฟล์ รูปหรือวิดีโอ</p>
                   </div>
                   <div className="inline-flex items-center gap-2 rounded-full border border-border/60 px-4 py-2 text-sm">
                     {storyUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                    เลือกรูป
+                    เลือกไฟล์
                   </div>
-                  <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleStoryImageUpload} />
+                  <input type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,video/quicktime,video/x-m4v" className="hidden" onChange={handleStoryImageUpload} />
                 </label>
 
                 {storyImage?.url || storyImage?.previewUrl || storyImage?.ownerPreviewUrl ? (
@@ -2941,7 +3098,27 @@ export default function CommunityPage() {
                     onClick={() => setShowStoryEditor(true)}
                     className="group relative block h-80 w-full overflow-hidden rounded-[24px] border border-border/60 text-left transition hover:border-primary/40"
                   >
-                    <Image src={storyImage.url || storyImage.previewUrl || storyImage.ownerPreviewUrl || ""} alt="Story preview" fill className="object-cover transition duration-300 group-hover:scale-[1.015]" unoptimized />
+                    {(() => {
+                      const storyPreviewSrc = getMediaUrl(storyImage)
+                      if (!storyPreviewSrc) return <div className="h-full w-full bg-black/30" />
+                      return storyImage.mediaType === "video" ? (
+                        <video
+                          src={storyPreviewSrc}
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.015]"
+                          muted
+                          playsInline
+                          autoPlay
+                          loop
+                          preload="metadata"
+                        />
+                      ) : (
+                        <img
+                          src={storyPreviewSrc}
+                          alt="Story preview"
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.015]"
+                        />
+                      )
+                    })()}
                     <div className="absolute inset-0" style={{ backgroundImage: getStoryThemeStyle(storyTheme).overlay.replaceAll("_", " ") }} />
                     <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4">
                       <span className="rounded-full border border-white/15 bg-black/35 px-3 py-1 text-[11px] font-medium text-white/80 backdrop-blur">
@@ -3017,7 +3194,27 @@ export default function CommunityPage() {
                   <div className="relative mx-auto h-[42vh] min-h-[320px] max-h-[540px] w-auto max-w-full aspect-[9/16] overflow-hidden rounded-[30px] border border-white/10 bg-black shadow-[0_24px_60px_rgba(0,0,0,0.35)]">
                     {storyImage?.url || storyImage?.previewUrl || storyImage?.ownerPreviewUrl ? (
                       <>
-                        <Image src={storyImage.url || storyImage.previewUrl || storyImage.ownerPreviewUrl || ""} alt="Story editor preview" fill className="object-cover" unoptimized />
+                        {(() => {
+                          const storyPreviewSrc = getMediaUrl(storyImage)
+                          if (!storyPreviewSrc) return <div className="h-full w-full bg-black/30" />
+                          return storyImage.mediaType === "video" ? (
+                            <video
+                              src={storyPreviewSrc}
+                              className="h-full w-full object-cover"
+                              muted
+                              playsInline
+                              autoPlay
+                              loop
+                              preload="metadata"
+                            />
+                          ) : (
+                            <img
+                              src={storyPreviewSrc}
+                              alt="Story editor preview"
+                              className="h-full w-full object-cover"
+                            />
+                          )
+                        })()}
                         <div className="absolute inset-0" style={{ backgroundImage: getStoryThemeStyle(storyTheme).overlay.replaceAll("_", " ") }} />
                         <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/45 via-black/10 to-transparent" />
                         <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
@@ -3227,10 +3424,42 @@ export default function CommunityPage() {
 
           <Dialog open={Boolean(activeStory)} onOpenChange={(open) => (!open ? closeStoryViewer() : undefined)}>
             <DialogContent className="max-w-md rounded-[28px] border-border/60 bg-[#101214] p-0 text-foreground">
+              <DialogHeader className="sr-only">
+                <DialogTitle>ตัวดูสตอรี่</DialogTitle>
+                <DialogDescription>แสดงสตอรี่ของผู้ใช้ พร้อมปุ่มเลื่อนไปสตอรี่ก่อนหน้าและถัดไป</DialogDescription>
+              </DialogHeader>
               {activeStory ? (
                 <div className="overflow-hidden rounded-[28px]">
                   <div className="relative h-[560px]">
-                    <Image src={getStoryImage(activeStory)} alt={activeStory.author.name} fill className="object-cover" unoptimized />
+                    {storyNeedsProtectedPreview(activeStory) ? (
+                      <div className="flex h-full w-full items-center justify-center bg-black/30 text-sm text-white/70">
+                        กำลังโหลดสตอรี่...
+                      </div>
+                    ) : storyIsVideo(activeStory) ? (
+                      <video
+                        key={`${activeStory.id}:${getStoryVideo(activeStory)}`}
+                        ref={activeStoryVideoRef}
+                        src={getStoryVideo(activeStory)}
+                        className="h-full w-full object-cover"
+                        autoPlay
+                        playsInline
+                        muted
+                        loop
+                        controls
+                        preload="auto"
+                      />
+                    ) : getStoryImage(activeStory) ? (
+                      <img
+                        key={`${activeStory.id}:${getStoryImage(activeStory)}`}
+                        src={getStoryImage(activeStory)}
+                        alt={activeStory.author.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-black/30 text-sm text-white/70">
+                        กำลังโหลดสตอรี่...
+                      </div>
+                    )}
                     <div
                       className="absolute inset-0"
                       style={{
@@ -3257,7 +3486,7 @@ export default function CommunityPage() {
                       </div>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-11 w-11 border border-white/30">
-                          <AvatarImage src={activeStory.author.avatar || "/placeholder-user.jpg"} />
+                          <AvatarImage src={getSafeAvatarSrc(activeStory.author.avatar)} />
                           <AvatarFallback>{activeStory.author.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
@@ -3323,7 +3552,7 @@ export default function CommunityPage() {
                 <div className="space-y-4 px-6 py-5">
                   <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-muted/20 p-3">
                     <Avatar className="h-11 w-11">
-                      <AvatarImage src={repostTarget.author.avatar || "/placeholder-user.jpg"} />
+                      <AvatarImage src={getSafeAvatarSrc(repostTarget.author.avatar)} />
                       <AvatarFallback>{repostTarget.author.name.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
@@ -3349,7 +3578,7 @@ export default function CommunityPage() {
                     <div className="space-y-3 p-4">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-9 w-9">
-                          <AvatarImage src={repostTarget.author.avatar || "/placeholder-user.jpg"} />
+                          <AvatarImage src={getSafeAvatarSrc(repostTarget.author.avatar)} />
                           <AvatarFallback>{repostTarget.author.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
@@ -3382,313 +3611,144 @@ export default function CommunityPage() {
             </DialogContent>
           </Dialog>
 
-          <div className="grid gap-4 bg-[#060a0c] p-3 lg:grid-cols-[88px_minmax(0,1fr)] lg:p-4 xl:grid-cols-[240px_minmax(0,780px)_290px]">
-          <aside className="hidden lg:block">
-            <div className="sticky top-[88px] space-y-5">
-              <nav aria-label="Community navigation" className="rounded-[10px] border border-white/[0.06] bg-[#071312] p-2 shadow-[0_12px_40px_rgba(0,0,0,0.26)] xl:p-3">
-                {[
-                  { label: "ฟีดคอมมูนิตี้", href: "/community", icon: Home, active: true },
-                  { label: "Match Hub", href: "/community/matches", icon: Trophy },
-                  { label: "กระทู้", href: "/community/matches", icon: MessageSquare },
-                  { label: "โพสต์", href: "/community/my-posts", icon: Clock },
-                  { label: "สตอรี่", action: () => setShowStoryComposer(true), icon: Play },
-                  { label: "แจ้งเตือน", action: () => void handleOpenNotificationsDialog(), icon: Bell, count: notifications?.total || 0 },
-                  { label: "โปรไฟล์", href: "/profile", icon: Users },
-                ].map((item) => {
-                  const Icon = item.icon
-                  const content = (
-                    <>
-                      <span className={cn("inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl", item.active ? "bg-primary/15 text-primary" : "text-muted-foreground")}>
-                        <Icon className="h-5 w-5" />
-                      </span>
-                      <span className="hidden min-w-0 flex-1 truncate text-sm font-medium xl:inline">{item.label}</span>
-                      {item.count ? <span className="hidden rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground xl:inline">{item.count > 99 ? "99+" : item.count}</span> : null}
-                    </>
-                  )
-                  const className = cn(
-                    "relative flex w-full items-center gap-3 rounded-[9px] px-2 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-                    item.active ? "bg-primary/20 text-white" : "text-foreground hover:bg-white/[0.055] hover:text-primary",
-                  )
-                  return item.href ? (
-                    <Link key={item.label} href={item.href} className={className} aria-current={item.active ? "page" : undefined}>
-                      {content}
-                    </Link>
-                  ) : (
-                    <button key={item.label} type="button" onClick={item.action} className={className}>
-                      {content}
-                    </button>
-                  )
-                })}
-              </nav>
-
-              <Card className="hidden rounded-[10px] border-white/[0.06] bg-[#071012] shadow-[0_12px_40px_rgba(0,0,0,0.24)] xl:block">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <CardTitle className="text-sm text-foreground">ทีมที่คุณเชียร์</CardTitle>
-                    {token ? (
-                      <button type="button" onClick={() => setShowPreferenceDialog(true)} className="text-xs font-medium text-primary">
-                        แก้ไข
-                      </button>
-                    ) : null}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {(preferencesData?.preferences.favoriteTeams || []).length ? (
-                    preferencesData?.preferences.favoriteTeams.slice(0, 5).map((team) => (
-                      <button
-                        key={team.id}
-                        type="button"
-                        onClick={() => changeFeedTab("favorites")}
-                        className="flex w-full items-center gap-3 rounded-2xl px-2 py-2 text-left text-sm text-foreground transition hover:bg-white/[0.055]"
-                      >
-                        {team.logo ? <Image src={team.logo} alt="" width={28} height={28} className="h-7 w-7 rounded-full" unoptimized /> : <span className="h-7 w-7 rounded-full bg-primary/15" />}
-                        <span className="min-w-0 flex-1 truncate">{team.name}</span>
-                      </button>
-                    ))
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setShowPreferenceDialog(true)}
-                      className="w-full rounded-2xl border border-dashed border-white/10 px-3 py-4 text-left text-sm text-muted-foreground transition hover:border-primary/30 hover:text-primary"
-                    >
-                      ตั้งค่าทีมโปรดเพื่อเปิด Feed ทีมโปรด
-                    </button>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="hidden rounded-[10px] border-white/[0.06] bg-[#071012] shadow-[0_12px_40px_rgba(0,0,0,0.24)] xl:block">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-foreground">แนะนำสำหรับคุณ</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {(preferenceOptions?.contentTypes || []).slice(0, 5).map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setSelectedCategory(item.id)}
-                      className={cn(
-                        "flex w-full items-center gap-2 rounded-2xl px-2 py-2 text-left text-sm transition",
-                        selectedCategory === item.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-white/[0.055] hover:text-foreground",
+          <div className="grid gap-6 bg-[radial-gradient(circle_at_top_left,rgba(184,255,0,0.08),transparent_30%),linear-gradient(180deg,#1b1b1d_0%,#151517_100%)] p-4 lg:p-5 xl:grid-cols-[270px_minmax(0,1fr)_320px]">
+          <aside className="hidden space-y-5 xl:block">
+            <Card className="overflow-hidden rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+              <div className="relative h-24 bg-[linear-gradient(135deg,rgba(184,255,0,0.22)_0%,rgba(184,255,0,0.08)_45%,rgba(255,255,255,0.06)_100%)]" />
+              <CardContent className="px-5 pb-5">
+                <div className="-mt-10 flex flex-col items-center text-center">
+                  <Avatar className="h-20 w-20 border-4 border-card shadow-md">
+                    <AvatarImage src={getSafeAvatarSrc(user?.avatar)} />
+                    <AvatarFallback>{user?.name?.charAt(0) || "F"}</AvatarFallback>
+                  </Avatar>
+                  <p className="mt-3 text-lg font-semibold text-foreground">{user?.name || "Football Fan"}</p>
+                  <p className="text-sm text-muted-foreground">@{(user?.name || "footballfan").replace(/\s+/g, "_").toLowerCase()}</p>
+                  {user?.fanProfile?.badges?.length ? (
+                    <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+                      {user.fanProfile.badges.slice(0, 3).map((badge) =>
+                        badge ? (
+                          <Badge key={badge.id} className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary hover:bg-primary/10">
+                            {badge.label}
+                          </Badge>
+                        ) : null,
                       )}
-                    >
-                      <Hash className="h-4 w-4" />
-                      <span className="truncate">{item.label}</span>
-                    </button>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
-          </aside>
-
-          <main className="min-w-0 space-y-4">
-            <section aria-label="Community context" className="rounded-[12px] border border-white/[0.07] bg-[#091012] px-5 py-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">{COMMUNITY_FEED_UI_TEXT.contextEyebrow}</p>
-                  <h1 className="mt-1 text-[22px] font-semibold leading-tight text-foreground">{COMMUNITY_FEED_UI_TEXT.contextTitle}</h1>
-                  <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">{COMMUNITY_FEED_UI_TEXT.contextDescription}</p>
-                </div>
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <span>{stats.total?.toLocaleString?.() || stats.total || 0} โพสต์</span>
-                  {heroMetrics.activity ? <span>{heroMetrics.activity.toLocaleString()} match activity</span> : null}
-                </div>
-              </div>
-            </section>
-
-            <section aria-label="Match Hub Spotlight">
-              <Card className="overflow-hidden rounded-[14px] border-white/[0.08] bg-[#091012] shadow-[0_14px_42px_rgba(0,0,0,0.28)]">
-                {matchRoomError && !heroFixture ? (
-                  <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-base font-semibold text-foreground">{COMMUNITY_FEED_UI_TEXT.matchHubErrorTitle}</p>
-                      <p className="mt-1 text-sm text-muted-foreground">{COMMUNITY_FEED_UI_TEXT.matchHubErrorDescription}</p>
-                    </div>
-                    <Button type="button" variant="outline" onClick={() => void mutateMatchRoom()} className="rounded-full border-white/10">
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      Retry
-                    </Button>
-                  </CardContent>
-                ) : !heroFixture ? (
-                  <CardContent className="p-5">
-                    <div className="rounded-[24px] border border-dashed border-white/10 bg-white/[0.03] px-5 py-8 text-center">
-                      <Trophy className="mx-auto mb-3 h-10 w-10 text-primary/70" />
-                      <p className="text-base font-semibold text-foreground">{COMMUNITY_FEED_UI_TEXT.matchHubEmptyTitle}</p>
-                      <p className="mx-auto mt-1 max-w-xl text-sm text-muted-foreground">{COMMUNITY_FEED_UI_TEXT.matchHubEmptyDescription}</p>
-                    </div>
-                  </CardContent>
-                ) : (
-                  <CardContent className="relative overflow-hidden p-0">
-                    <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(34,197,94,0.10),transparent_34%),linear-gradient(180deg,rgba(3,7,8,0.12)_0%,rgba(3,7,8,0.88)_100%)]" />
-                    {heroMediaUrl ? (
-                      <div className="absolute inset-0 overflow-hidden">
-                        <Image src={heroMediaUrl} alt="" fill className="object-cover opacity-22" unoptimized />
-                        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(3,7,8,0.94)_0%,rgba(3,7,8,0.70)_55%,rgba(3,7,8,0.88)_100%)]" />
-                      </div>
-                    ) : null}
-                    <div className="relative grid gap-4 px-5 py-4 sm:grid-cols-[1fr_auto] sm:items-center sm:px-6">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge className={cn("rounded-full px-3 py-1 text-[11px] font-semibold", heroPhase === "live" ? "bg-red-500 text-white hover:bg-red-500" : "bg-primary/15 text-primary hover:bg-primary/15")}>
-                            {getCommunityFixtureStatusLabel(heroFixture)}
-                          </Badge>
-                          <Badge variant="outline" className="rounded-full border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-muted-foreground">
-                            {heroFixture.status}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">Match Hub</span>
-                        </div>
-
-                        <h2 className="mt-3 truncate text-xl font-semibold leading-tight tracking-normal text-foreground sm:text-2xl">
-                          {heroFixture.homeTeam} vs {heroFixture.awayTeam}
-                        </h2>
-                        <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-                          {heroFixture.venue || "Match Hub"} {heroFixture.dateThai || heroFixture.kickoff ? <span> • {heroFixture.dateThai || heroFixture.kickoff}</span> : null}
-                        </p>
-                        <div className="mt-4 flex flex-wrap items-center gap-3">
-                          <Link href={`/community/matches/${heroFixture.id}`} className="inline-flex h-10 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
-                            เข้าสู่ Match Hub
-                            <ExternalLink className="h-4 w-4" />
-                          </Link>
-                          <p className="text-xs text-muted-foreground">
-                            {heroMetrics.activity ? `${heroMetrics.activity.toLocaleString()} activity` : "พร้อมสำหรับคอมมูนิตี้ของแมตช์นี้"}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-[12px] border border-white/10 bg-black/25 px-4 py-3 text-center">
-                        <div className="min-w-0">
-                          {heroFixture.homeLogo ? <Image src={heroFixture.homeLogo} alt={`${heroFixture.homeTeam} logo`} width={42} height={42} className="mx-auto h-[42px] w-[42px] rounded-full object-contain" unoptimized /> : <span className="mx-auto block h-[42px] w-[42px] rounded-full bg-primary/15" />}
-                          <p className="mt-1 max-w-[86px] truncate text-xs font-medium text-foreground">{heroFixture.homeTeam}</p>
-                        </div>
-                        <div className="min-w-[96px]">
-                          <p className={cn("font-display text-2xl font-semibold leading-none tracking-normal", shouldShowCommunityFixtureScore(heroFixture) ? "text-foreground" : "text-primary")}>
-                            {getCommunityFixtureScoreLabel(heroFixture)}
-                          </p>
-                          <p className="mt-1 text-[11px] font-medium text-muted-foreground">
-                            {heroPhase === "upcoming" ? "Kickoff" : heroPhase === "live" ? "Live" : "Full Time"}
-                          </p>
-                        </div>
-                        <div className="min-w-0">
-                          {heroFixture.awayLogo ? <Image src={heroFixture.awayLogo} alt={`${heroFixture.awayTeam} logo`} width={42} height={42} className="mx-auto h-[42px] w-[42px] rounded-full object-contain" unoptimized /> : <span className="mx-auto block h-[42px] w-[42px] rounded-full bg-primary/15" />}
-                          <p className="mt-1 max-w-[86px] truncate text-xs font-medium text-foreground">{heroFixture.awayTeam}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                )}
-              </Card>
-              {matchRoomError && heroFixture ? (
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-                  <span>Match Hub ใช้ข้อมูลล่าสุดที่โหลดสำเร็จอยู่ แต่ revalidate รอบล่าสุดล้มเหลว</span>
-                  <button type="button" onClick={() => void mutateMatchRoom()} className="font-semibold text-amber-50 underline-offset-4 hover:underline">
-                    Retry
-                  </button>
-                </div>
-              ) : null}
-            </section>
-
-            <div className="flex items-center gap-2 border-b border-white/[0.07]">
-              <div className="flex min-w-0 flex-1 items-center gap-5 overflow-x-auto">
-                {feedTabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => changeFeedTab(tab.id)}
-                    className={cn(
-                      "shrink-0 border-b-2 px-1 py-3 text-sm transition",
-                      feedTab === tab.id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
-                    )}
-                    aria-pressed={feedTab === tab.id}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex h-9 shrink-0 items-center gap-2 rounded-[10px] border border-white/10 bg-white/[0.045] px-3 text-sm text-muted-foreground transition hover:bg-white/[0.065] hover:text-foreground"
-                    aria-label="ตัวกรอง Feed"
-                  >
-                    <SlidersHorizontal className="h-3.5 w-3.5" />
-                    ตัวกรอง
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64 rounded-2xl border-white/10 bg-[#121416] p-2 text-foreground shadow-2xl">
-                  <DropdownMenuItem onSelect={() => setSelectedCategory("all")} className="rounded-xl">
-                    ทั้งหมด
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-white/10" />
-                  {categoryGroups.map((group) => (
-                    <div key={group.title} className="py-1">
-                      <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">{group.title}</p>
-                      {group.ids.map((categoryId) => {
-                        const item = categories.find((categoryItem) => categoryItem.id === categoryId)
-                        if (!item) return null
-                        return (
-                          <DropdownMenuItem key={item.id} onSelect={() => setSelectedCategory(item.id)} className="rounded-xl">
-                            {item.label}
-                          </DropdownMenuItem>
-                        )
-                      })}
-                    </div>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            <Card className="rounded-[14px] border-white/[0.08] bg-transparent shadow-none">
-              <CardContent className="space-y-4 p-0">
-                {storiesError ? (
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                    <span>โหลด Stories ไม่สำเร็จ</span>
-                    <button type="button" onClick={() => void mutateStories()} className="font-semibold underline-offset-4 hover:underline">
-                      Retry
-                    </button>
-                  </div>
-                ) : null}
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  <button
-                    type="button"
-                    onClick={() => setShowStoryComposer(true)}
-                    className="flex min-h-[104px] min-w-[92px] flex-col items-center justify-center gap-2 rounded-[10px] border border-white/[0.07] bg-white/[0.04] p-3 transition hover:bg-white/[0.065] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                    aria-label="สร้างสตอรี่"
-                  >
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-primary">
-                      <Plus className="h-5 w-5" />
-                    </div>
-                    <span className="max-w-[80px] truncate text-xs font-medium text-foreground">สร้างสตอรี่</span>
-                  </button>
-
-                  {storyGroups.map((group, index) => (
-                    <button key={group.id} type="button" onClick={() => openStoryViewer(index)} className="flex min-h-[104px] min-w-[92px] flex-col items-center justify-center gap-2 rounded-[10px] border border-white/[0.07] bg-white/[0.04] p-3 transition hover:bg-white/[0.065] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
-                      <div
-                        className={cn(
-                          "relative h-12 w-12 overflow-hidden rounded-full border-2 p-0.5 transition-colors",
-                          group.hasUnviewed ? "border-primary" : "border-white/10",
-                        )}
-                      >
-                        <div className="relative h-full w-full overflow-hidden rounded-full">
-                          <Image src={getStoryGroupImage(group)} alt={group.author.name} fill className="object-cover" unoptimized />
-                        </div>
-                      </div>
-                      <span className={cn("max-w-[80px] truncate text-xs font-medium", group.hasUnviewed ? "text-foreground" : "text-muted-foreground")}>
-                        {group.isOwn ? "ฉันเอง" : group.author.name}
-                      </span>
-                    </button>
-                  ))}
-                  {!storyGroups.length && !storiesError ? (
-                    <div className="flex min-h-[104px] min-w-[92px] items-center justify-center rounded-[10px] border border-dashed border-white/10 px-3 text-center text-xs text-muted-foreground">
-                      ว่าง
                     </div>
                   ) : null}
                 </div>
 
-                <div className="rounded-[14px] border border-white/[0.08] bg-white/[0.035] p-4">
+                <div className="mt-5 grid grid-cols-3 gap-3 rounded-3xl bg-background/70 p-3 text-center">
+                  <div>
+                    <p className="text-lg font-semibold text-foreground">{stats.total || 0}</p>
+                    <p className="text-xs text-muted-foreground">Posts</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-semibold text-foreground">{friendCount}</p>
+                    <p className="text-xs text-muted-foreground">Friends</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-semibold text-foreground">{notifications?.pendingFriendRequests || 0}</p>
+                    <p className="text-xs text-muted-foreground">Requests</p>
+                  </div>
+                </div>
+
+                <Link href="/profile" className="mt-5 block">
+                  <Button className="h-11 w-full rounded-full">My Profile</Button>
+                </Link>
+              </CardContent>
+            </Card>
+
+            <Card id="community-activity" className="rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base text-foreground">Your shortcuts</CardTitle>
+                  <button type="button" className="text-xs font-medium text-muted-foreground">See all</button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {communityShortcuts.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => setSelectedCategory(item.value)}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left transition",
+                      selectedCategory === item.value ? "bg-primary/15 text-primary" : "hover:bg-background/70 text-foreground",
+                    )}
+                  >
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-background/70 text-sm font-semibold text-muted-foreground">
+                      {item.label.slice(0, 1)}
+                    </span>
+                    <span className="text-sm font-medium">{item.label}</span>
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
+          </aside>
+
+          <main className="space-y-5">
+            <Card className="rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+              <CardContent className="space-y-5 p-4 sm:p-5">
+                <div className="flex gap-3 overflow-x-auto pb-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowStoryComposer(true)}
+                    className="flex min-w-[76px] flex-col items-center gap-2"
+                  >
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed border-primary/50 bg-primary/10 text-primary">
+                      <Plus className="h-5 w-5" />
+                    </div>
+                    <span className="max-w-[76px] truncate text-[11px] font-medium text-muted-foreground">สตอรี่ของคุณ</span>
+                  </button>
+
+                  {storyGroups.map((group, index) => (
+                    <button key={group.id} type="button" onClick={() => openStoryViewer(index)} className="flex min-w-[76px] flex-col items-center gap-2">
+                      <div
+                        className={cn(
+                          "relative h-16 w-16 overflow-hidden rounded-full border-2 p-0.5 transition-colors",
+                          group.hasUnviewed ? "border-primary" : "border-white/10",
+                        )}
+                        >
+                        <div className="relative h-full w-full overflow-hidden rounded-full">
+                          {storyIsVideo(group.stories[group.stories.length - 1]) ? (
+                            storyNeedsProtectedPreview(group.stories[group.stories.length - 1]) ? (
+                              <div className="flex h-full w-full items-center justify-center bg-black/30 text-[10px] text-white/60">
+                                Loading
+                              </div>
+                            ) : (
+                              getStoryGroupVideo(group) ? (
+                                <video
+                                  src={getStoryGroupVideo(group)}
+                                  className="h-full w-full object-cover"
+                                  muted
+                                  playsInline
+                                  autoPlay
+                                  loop
+                                  preload="metadata"
+                                />
+                              ) : (
+                                <div className="h-full w-full bg-black/30" />
+                              )
+                            )
+                          ) : (
+                            getStoryGroupImage(group) ? (
+                              <img src={getStoryGroupImage(group)} alt={group.author.name} className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="h-full w-full bg-black/30" />
+                            )
+                          )}
+                        </div>
+                      </div>
+                      <span className={cn("max-w-[76px] truncate text-[11px] font-medium", group.hasUnviewed ? "text-foreground" : "text-muted-foreground")}>
+                        {group.isOwn ? "ฉันเอง" : group.author.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="rounded-[26px] border border-white/10 bg-background/40 p-4">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-11 w-11 border border-white/10">
-                      <AvatarImage src={user?.avatar || "/placeholder-user.jpg"} />
+                      <AvatarImage src={getSafeAvatarSrc(user?.avatar)} />
                       <AvatarFallback>{user?.name?.charAt(0) || "F"}</AvatarFallback>
                     </Avatar>
                     <button
@@ -3697,20 +3757,20 @@ export default function CommunityPage() {
                         setShowCreatePost((value) => !value)
                         setComposerTool("general")
                       }}
-                      className="flex h-11 flex-1 items-center rounded-full bg-white/[0.055] px-4 text-left text-sm text-muted-foreground transition hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                      className="flex h-11 flex-1 items-center rounded-full bg-background/70 px-4 text-left text-sm text-muted-foreground transition hover:bg-background"
                     >
-                      {COMMUNITY_FEED_UI_TEXT.createPostPlaceholder}
+                      Share something...
                     </button>
                   </div>
 
                   <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-white/10 pt-4 text-sm text-muted-foreground">
-                    <button type="button" onClick={() => openComposer("image")} className="inline-flex items-center gap-2 rounded-full px-2 py-1 transition hover:bg-white/[0.055] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+                    <button type="button" onClick={() => openComposer("image")} className="inline-flex items-center gap-2 rounded-full px-2 py-1 transition hover:bg-background/70">
                       <ImagePlus className="h-4 w-4 text-primary" />
-                      รูปภาพ
+                      Image
                     </button>
-                    <button type="button" onClick={() => openComposer("video")} className="inline-flex items-center gap-2 rounded-full px-2 py-1 transition hover:bg-white/[0.055] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+                    <button type="button" onClick={() => openComposer("video")} className="inline-flex items-center gap-2 rounded-full px-2 py-1 transition hover:bg-background/70">
                       <Upload className="h-4 w-4 text-primary" />
-                      วิดีโอ
+                      Video
                     </button>
                     <button
                       type="button"
@@ -3718,14 +3778,14 @@ export default function CommunityPage() {
                         setShowCreatePost(true)
                         openPollBuilder()
                       }}
-                      className="inline-flex items-center gap-2 rounded-full px-2 py-1 transition hover:bg-white/[0.055] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                      className="inline-flex items-center gap-2 rounded-full px-2 py-1 transition hover:bg-background/70"
                     >
                       <Bell className="h-4 w-4 text-primary" />
                       Poll
                     </button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button type="button" className="inline-flex items-center gap-2 rounded-full px-2 py-1 text-sm text-muted-foreground transition hover:bg-background/70">
+                        <button type="button" className="ml-auto inline-flex items-center gap-2 rounded-full px-2 py-1 text-sm text-muted-foreground transition hover:bg-background/70">
                           <Users className="h-4 w-4" />
                           {visibility === "friends" ? "Friends" : "Public"}
                         </button>
@@ -3737,24 +3797,15 @@ export default function CommunityPage() {
                         </DropdownMenuRadioGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCreatePost(true)
-                        setComposerTool("general")
-                      }}
-                      className="ml-auto inline-flex h-9 items-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                    >
-                      <Send className="h-4 w-4" />
-                      โพสต์
-                    </button>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
+            <CommunityMatchCardsSection data={matchRoomData} isLoading={!matchRoomData} />
+
             {token && !hasPreferences && !preferenceDismissed ? (
-              <Card className="rounded-[14px] border-primary/20 bg-primary/10 shadow-[0_12px_40px_rgba(0,0,0,0.18)]">
+              <Card className="rounded-[28px] border-primary/20 bg-primary/10 shadow-[0_12px_40px_rgba(0,0,0,0.18)]">
                 <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-base font-semibold text-foreground">เลือกทีมและนักเตะที่คุณชอบ</p>
@@ -3773,7 +3824,7 @@ export default function CommunityPage() {
             ) : null}
 
             {showCreatePost ? (
-              <Card className="rounded-[14px] border-white/[0.08] bg-white/[0.045] shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+              <Card className="rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-foreground">สร้างโพสต์ใหม่</CardTitle>
                 </CardHeader>
@@ -3890,26 +3941,72 @@ export default function CommunityPage() {
               </Card>
             ) : null}
 
-            {feedError ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                <div>
-                  <p className="font-semibold">{COMMUNITY_FEED_UI_TEXT.feedErrorTitle}</p>
-                  <p className="text-xs text-destructive/80">{COMMUNITY_FEED_UI_TEXT.feedErrorDescription}</p>
-                </div>
-                <button type="button" onClick={() => void mutate()} className="font-semibold underline-offset-4 hover:underline">
-                  Retry
-                </button>
+            <div className="rounded-[24px] border border-white/10 bg-card/80 p-3 shadow-[0_10px_28px_rgba(0,0,0,0.14)]">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="mr-1 text-xs font-semibold uppercase tracking-[0.18em] text-primary">Feed</span>
+                {feedTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => changeFeedTab(tab.id)}
+                    className={cn(
+                      "rounded-full border px-3 py-1.5 text-sm transition",
+                      feedTab === tab.id
+                        ? "border-primary/40 bg-primary/15 text-primary"
+                        : "border-white/10 bg-background/35 text-muted-foreground hover:bg-background/70 hover:text-foreground",
+                    )}
+                    aria-pressed={feedTab === tab.id}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-background/35 px-3 py-1.5 text-sm text-muted-foreground transition hover:bg-background/70 hover:text-foreground"
+                    >
+                      หมวด: {categories.find((item) => item.id === selectedCategory)?.label || "ทั้งหมด"}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64 rounded-2xl border-white/10 bg-[#121416] p-2 text-foreground shadow-2xl">
+                    <DropdownMenuItem onSelect={() => setSelectedCategory("all")} className="rounded-xl">
+                      ทั้งหมด
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-white/10" />
+                    {categoryGroups.map((group) => (
+                      <div key={group.title} className="py-1">
+                        <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">{group.title}</p>
+                        {group.ids.map((categoryId) => {
+                          const item = categories.find((categoryItem) => categoryItem.id === categoryId)
+                          if (!item) return null
+                          return (
+                            <DropdownMenuItem key={item.id} onSelect={() => setSelectedCategory(item.id)} className="rounded-xl">
+                              {item.label}
+                            </DropdownMenuItem>
+                          )
+                        })}
+                      </div>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                {token ? (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setShowPreferenceDialog(true)} className="ml-auto rounded-full text-muted-foreground hover:text-foreground">
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    ตั้งค่า
+                  </Button>
+                ) : null}
               </div>
-            ) : null}
+            </div>
 
             <div className="space-y-5">
               {isLoading ? (
-                <Card className="rounded-[14px] border-white/[0.08] bg-white/[0.045] p-8 text-center text-sm text-muted-foreground">
+                <Card className="rounded-[28px] border-white/10 bg-card/80 p-8 text-center text-sm text-muted-foreground">
                   <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-primary" />
                   กำลังโหลด Feed...
                 </Card>
               ) : !posts.length ? (
-                <Card className="rounded-[14px] border-dashed border-white/[0.08] bg-white/[0.045] p-8 text-center">
+                <Card className="rounded-[28px] border-dashed border-white/10 bg-card/80 p-8 text-center">
                   <p className="font-semibold text-foreground">
                     {feedTab === "favorites"
                       ? "เลือกทีมโปรดเพื่อดูโพสต์จากทีมที่คุณสนใจ"
@@ -3934,12 +4031,12 @@ export default function CommunityPage() {
                 const isOwner = Boolean(user?.id && post.author.id === user.id)
                 const canUseAdminActions = user?.role === "admin"
                 return (
-                  <Card key={post.id} className="overflow-hidden rounded-[14px] border-white/[0.08] bg-[#091012] shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
+                  <Card key={post.id} className="overflow-hidden rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
                     <CardContent className="p-4 sm:p-5">
                       <div className="flex items-start gap-3">
                         <Link href={`/community/friends/${post.author.id}`}>
                           <Avatar className="h-11 w-11 border border-white/10">
-                            <AvatarImage src={post.author.avatar || "/placeholder-user.jpg"} />
+                            <AvatarImage src={getSafeAvatarSrc(post.author.avatar)} />
                             <AvatarFallback>{post.author.name.charAt(0)}</AvatarFallback>
                           </Avatar>
                         </Link>
@@ -4078,7 +4175,7 @@ export default function CommunityPage() {
                           ) : null}
 
                           {cover ? (
-                            <div className="relative mt-4 aspect-[16/9] max-h-[420px] overflow-hidden rounded-[10px] bg-background/70">
+                            <div className="relative mt-4 h-64 overflow-hidden rounded-[24px] bg-background/70 sm:h-[360px]">
                               <Image src={cover} alt={post.title} fill className="object-cover" unoptimized />
                               <div className="absolute left-3 top-3">
                                 <Badge className="rounded-full bg-background/90 px-2 py-1 text-[11px] text-foreground shadow-sm hover:bg-background/90">
@@ -4090,8 +4187,8 @@ export default function CommunityPage() {
                           ) : null}
 
                           {video ? (
-                            <div className="mt-4 overflow-hidden rounded-[10px] border border-white/10 bg-background/70">
-                              <video src={video} controls className="aspect-video w-full bg-black object-cover" />
+                            <div className="mt-4 overflow-hidden rounded-[24px] border border-white/10 bg-background/70">
+                              <video src={video} controls className="h-64 w-full bg-black object-cover sm:h-[360px]" />
                               <div className="border-t border-white/10 px-4 py-3">
                                 <Badge className="rounded-full bg-background/90 px-2 py-1 text-[11px] text-foreground shadow-sm hover:bg-background/90">
                                   <Play className="mr-1 h-3 w-3" />
@@ -4102,7 +4199,7 @@ export default function CommunityPage() {
                           ) : null}
 
                           {post.poll?.question && post.poll.options.length ? (
-                            <div className="mt-4 rounded-[10px] border border-white/10 bg-background/50 p-4">
+                            <div className="mt-4 rounded-[24px] border border-white/10 bg-background/50 p-4">
                               <div className="flex items-center justify-between gap-3">
                                 <h4 className="text-sm font-semibold text-foreground">{post.poll.question}</h4>
                                 <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
@@ -4184,7 +4281,7 @@ export default function CommunityPage() {
 
                           <div className="mt-4 flex items-center gap-3 rounded-full bg-background/70 px-3 py-2">
                             <Avatar className="h-8 w-8 border border-white/10">
-                              <AvatarImage src={user?.avatar || "/placeholder-user.jpg"} />
+                              <AvatarImage src={getSafeAvatarSrc(user?.avatar)} />
                               <AvatarFallback>{user?.name?.charAt(0) || "F"}</AvatarFallback>
                             </Avatar>
                             <Link href={`/community/${post.id}`} className="text-sm text-muted-foreground transition hover:text-foreground">
@@ -4204,110 +4301,8 @@ export default function CommunityPage() {
             </div>
           </main>
 
-          <aside className="hidden space-y-5 xl:block">
-            {(matchRoomFixtures.length || matchRoomError) ? (
-            <Card className="rounded-[10px] border-white/[0.08] bg-[#091012] shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base text-foreground">แมตช์น่าสนใจ</CardTitle>
-                  <Link href="/community/matches" className="text-xs font-medium text-primary">
-                    ดูทั้งหมด
-                  </Link>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {matchRoomError && !matchRoomFixtures.length ? (
-                  <div className="rounded-2xl border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive">
-                    โหลดแมตช์ไม่สำเร็จ
-                  </div>
-                ) : null}
-                {matchRoomFixtures.slice(0, 3).map((fixture) => (
-                  <Link key={fixture.id} href={`/community/matches/${fixture.id}`} className="block rounded-[10px] border border-white/10 bg-black/20 p-3 transition hover:border-primary/30 hover:bg-white/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
-                    <div className="flex items-center justify-between gap-3">
-                      <Badge className={cn("rounded-full px-2 py-0.5 text-[10px]", getCommunityFixturePhase(fixture) === "live" ? "bg-red-500 text-white hover:bg-red-500" : "bg-primary/15 text-primary hover:bg-primary/15")}>
-                        {getCommunityFixtureStatusLabel(fixture)}
-                      </Badge>
-                      <span className="text-[11px] text-muted-foreground">{fixture.dateThai || fixture.kickoff}</span>
-                    </div>
-                    <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-center">
-                      <div className="min-w-0">
-                        {fixture.homeLogo ? <Image src={fixture.homeLogo} alt="" width={34} height={34} className="mx-auto h-8 w-8 rounded-full object-contain" unoptimized /> : <span className="mx-auto block h-8 w-8 rounded-full bg-primary/15" />}
-                        <p className="mt-1 truncate text-xs text-foreground">{fixture.homeTeam}</p>
-                      </div>
-                      <p className="rounded-xl bg-white/[0.055] px-2 py-1 text-sm font-semibold text-foreground">{getCommunityFixtureScoreLabel(fixture)}</p>
-                      <div className="min-w-0">
-                        {fixture.awayLogo ? <Image src={fixture.awayLogo} alt="" width={34} height={34} className="mx-auto h-8 w-8 rounded-full object-contain" unoptimized /> : <span className="mx-auto block h-8 w-8 rounded-full bg-primary/15" />}
-                        <p className="mt-1 truncate text-xs text-foreground">{fixture.awayTeam}</p>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </CardContent>
-            </Card>
-            ) : null}
-
-            {trendingTopics.length ? (
-            <Card className="rounded-[10px] border-white/[0.08] bg-[#091012] shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base text-foreground">เทรนด์วันนี้</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {trendingTopics.map((topic, index) => (
-                    <button
-                      key={topic.label}
-                      type="button"
-                      onClick={() => setSearchQuery(topic.label)}
-                      className="grid w-full grid-cols-[24px_1fr] gap-3 rounded-2xl px-2 py-2 text-left transition hover:bg-white/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                    >
-                      <span className="text-sm font-semibold text-primary">{index + 1}</span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold text-foreground">#{topic.label}</span>
-                        <span className="text-xs text-muted-foreground">{topic.count} โพสต์</span>
-                      </span>
-                    </button>
-                  ))}
-              </CardContent>
-            </Card>
-            ) : null}
-
-            {suggestedPeople.length ? (
-              <Card className="rounded-[10px] border-white/[0.08] bg-[#091012] shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base text-foreground">แนะนำคนที่น่าสนใจ</CardTitle>
-                    <span className="text-xs font-medium text-primary">ดูทั้งหมด</span>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {suggestedPeople.slice(0, 4).map((person) => (
-                    <div key={person.id} className="flex items-center gap-3">
-                      <Link href={`/community/friends/${person.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-                        <Avatar className="h-10 w-10 border border-white/10">
-                          <AvatarImage src={person.avatar || "/placeholder-user.jpg"} />
-                          <AvatarFallback>{person.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-foreground">{person.name}</p>
-                          <p className="truncate text-xs text-muted-foreground">{person.favoriteTeam || person.bio || "Suggested for you"}</p>
-                        </div>
-                      </Link>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => sendFriendRequest(person.id)}
-                        disabled={sendingFriendId === person.id}
-                        className="h-8 rounded-full border-primary/30 px-3 text-xs text-primary hover:bg-primary/10 hover:text-primary"
-                      >
-                        {sendingFriendId === person.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "ติดตาม"}
-                      </Button>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            ) : null}
-
-            {(activityNotifications.length || incomingRequests.length) ? (
-            <Card className="rounded-[10px] border-white/[0.08] bg-[#091012] shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+          <aside className="space-y-5">
+            <Card className="rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base text-foreground">Activity</CardTitle>
@@ -4319,7 +4314,7 @@ export default function CommunityPage() {
                   activityNotifications.slice(0, 5).map((item) => (
                     <Link key={item.id} href={item.post.id ? `/community/${item.post.id}` : "/community"} className="flex items-start gap-3 rounded-2xl px-1 py-1 transition hover:bg-background/40">
                       <Avatar className="h-11 w-11 border border-white/10">
-                        <AvatarImage src={item.actor.avatar || "/placeholder-user.jpg"} />
+                        <AvatarImage src={getSafeAvatarSrc(item.actor.avatar)} />
                         <AvatarFallback>{item.actor.name.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">
@@ -4337,7 +4332,7 @@ export default function CommunityPage() {
                   incomingRequests.slice(0, 4).map((request) => (
                     <div key={request.id} className="flex items-center gap-3 rounded-2xl px-1 py-1">
                       <Avatar className="h-11 w-11 border border-white/10">
-                        <AvatarImage src={request.user.avatar || "/placeholder-user.jpg"} />
+                        <AvatarImage src={getSafeAvatarSrc(request.user.avatar)} />
                         <AvatarFallback>{request.user.name.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">
@@ -4353,42 +4348,106 @@ export default function CommunityPage() {
                       </div>
                     </div>
                   ))
-                ) : null}
+                ) : (
+                  <p className="text-sm text-muted-foreground">วันนี้ยังไม่มี activity ใหม่</p>
+                )}
               </CardContent>
             </Card>
-            ) : null}
+
+            <Card className="rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base text-foreground">Suggested For You</CardTitle>
+                  <button type="button" className="text-xs font-medium text-muted-foreground">See all</button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {suggestedPeople.length ? (
+                  suggestedPeople.slice(0, 4).map((person) => (
+                    <div key={person.id} className="flex items-center gap-3">
+                      <Link href={`/community/friends/${person.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+                        <Avatar className="h-11 w-11 border border-white/10">
+                          <AvatarImage src={getSafeAvatarSrc(person.avatar)} />
+                          <AvatarFallback>{person.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-foreground">{person.name}</p>
+                          <p className="truncate text-xs text-muted-foreground">{person.favoriteTeam || person.bio || "Suggested for you"}</p>
+                        </div>
+                      </Link>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => sendFriendRequest(person.id)}
+                        disabled={sendingFriendId === person.id}
+                        className="rounded-full px-3 text-primary hover:bg-primary/10 hover:text-primary"
+                      >
+                        {sendingFriendId === person.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Follow"}
+                      </Button>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">ยังไม่มีคนแนะนำเพิ่ม</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between gap-3">
+                  <CardTitle className="text-base text-foreground">Messages</CardTitle>
+                  {totalUnreadMessages ? (
+                    <Badge className="rounded-full bg-primary/15 px-3 py-1 text-[11px] font-semibold text-primary hover:bg-primary/15">
+                      {totalUnreadMessages > 99 ? "99+" : totalUnreadMessages} new
+                    </Badge>
+                  ) : null}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {!token ? (
+                  <div className="rounded-2xl border border-dashed border-white/10 bg-background/40 p-4 text-sm text-muted-foreground">
+                    เข้าสู่ระบบก่อนเพื่อดูห้องแชตและข้อความใหม่
+                  </div>
+                ) : null}
+
+                {token && socialData === undefined ? (
+                  <div className="rounded-2xl border border-white/10 bg-background/40 p-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      กำลังโหลดห้องแชต...
+                    </div>
+                  </div>
+                ) : null}
+
+                {topConversations.map((conversation) => (
+                  <Link key={conversation.id} href={`/community/messages?conversation=${conversation.id}`} className="flex items-start gap-3 rounded-2xl p-3 transition hover:bg-background/70">
+                    <Avatar className="h-10 w-10 border border-white/10">
+                      <AvatarImage src={getSafeAvatarSrc(conversation.user.avatar)} />
+                      <AvatarFallback>{conversation.user.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-sm font-semibold text-foreground">{conversation.user.name}</p>
+                        <span className="text-[11px] text-muted-foreground">{conversation.timeAgo}</span>
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{conversation.preview?.content || conversation.lastMessageText}</p>
+                    </div>
+                  </Link>
+                ))}
+
+                {token && socialData && !socialData.conversations.length ? (
+                  <div className="rounded-2xl border border-dashed border-white/10 bg-background/40 p-4 text-sm text-muted-foreground">
+                    ยังไม่มีห้องแชตตอนนี้
+                  </div>
+                ) : null}
+
+                <Link href="/community/messages">
+                  <Button variant="outline" className="h-11 w-full rounded-full border-white/10 text-foreground hover:bg-background/70">Open Messages</Button>
+                </Link>
+              </CardContent>
+            </Card>
           </aside>
         </div>
-        <nav className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-5 rounded-[24px] border border-white/10 bg-[#071012]/95 p-2 shadow-[0_18px_50px_rgba(0,0,0,0.38)] backdrop-blur lg:hidden" aria-label="Community mobile navigation">
-          {[
-            { label: "ฟีด", href: "/community", icon: Home, active: true },
-            { label: "Match", href: "/community/matches", icon: Trophy },
-            { label: "Plus", href: "/worldcup-2026/predictions/payment", icon: Sparkles },
-            { label: "แจ้งเตือน", action: () => void handleOpenNotificationsDialog(), icon: Bell },
-            { label: "โปรไฟล์", href: "/profile", icon: Users },
-          ].map((item) => {
-            const Icon = item.icon
-            const className = cn(
-              "flex flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-              item.active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-white/[0.055] hover:text-primary",
-            )
-            const content = (
-              <>
-                <Icon className="h-4 w-4" />
-                <span>{item.label}</span>
-              </>
-            )
-            return item.href ? (
-              <Link key={item.label} href={item.href} className={className} aria-current={item.active ? "page" : undefined}>
-                {content}
-              </Link>
-            ) : (
-              <button key={item.label} type="button" onClick={item.action} className={className}>
-                {content}
-              </button>
-            )
-          })}
-        </nav>
       </div>
       </div>
     </div>

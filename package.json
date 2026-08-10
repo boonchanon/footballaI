@@ -10,6 +10,7 @@
     "moderation:audit-media": "node scripts/audit-community-media.js",
     "moderation:check-provider": "node scripts/moderation-check-provider.js",
     "moderation:cleanup-media": "node scripts/cleanup-community-pending-media.js",
+    "moderation:cleanup-legacy-assets": "node scripts/cleanup-community-legacy-assets.js",
     "moderation:repair": "node scripts/audit-community-moderation.js --apply",
     "moderation:test-image": "node scripts/moderation-test-image.js",
     "moderation:test-retry": "node scripts/moderation-test-retry.js",

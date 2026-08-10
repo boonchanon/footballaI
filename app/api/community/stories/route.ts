@@ -2,6 +2,8 @@ import { NextRequest } from "next/server"
 
 import { getAuthUser, requireAuthUser } from "@/lib/server/auth"
 import { canViewerSeeModeratedContent } from "@/lib/server/community"
+import { cleanupBrokenStories } from "@/lib/server/community-media-cleanup"
+import { fileExists } from "@/lib/server/community-upload"
 import {
   assertCommunityPostingAllowed,
   createModerationLog,
@@ -46,10 +48,12 @@ export async function GET(request: NextRequest) {
       .populate("author", "name avatar favoriteTeam bio")
       .sort({ createdAt: -1 })
       .limit(40)
+    const cleanedStoryIds = await cleanupBrokenStories(stories as any[])
 
     const grouped = new Map<string, any>()
 
     for (const story of stories) {
+      if (cleanedStoryIds.has(String(story._id))) continue
       const author = mapSocialUser(story.author)
       const authorId = toPlainId(story.author?._id)
       const viewerId = viewer ? toPlainId(viewer._id) : ""
@@ -58,13 +62,38 @@ export async function GET(request: NextRequest) {
       const moderationStatus = story.moderation?.status || "approved"
       const canSee = canViewerSeeModeratedContent(story, viewer)
       if (!canSee) continue
-      const ownerPreviewUrl =
-        itemIsOwn(story, viewer) && story.mediaId && moderationStatus === "pending_review"
-          ? `/api/community/media/${story.mediaId.toString()}/preview`
-          : ""
+      let ownerPreviewUrl = ""
+      const mediaType = String(story.mediaType || (story.video ? "video" : "image")) === "video" ? "video" : "image"
+      let imageSource = story.image || ""
+      let videoSource = story.video || ""
+      let linkedMedia: any = null
+
+      if (story.mediaId) {
+        linkedMedia = await CommunityMedia.findById(story.mediaId).select("mediaType status publicUrl pendingKey")
+      }
+
+      if (!imageSource && !videoSource && linkedMedia?.status === "approved" && linkedMedia.publicUrl) {
+        if (String(linkedMedia.mediaType || "") === "video") videoSource = String(linkedMedia.publicUrl || "")
+        else imageSource = String(linkedMedia.publicUrl || "")
+      }
+
+      if (
+        itemIsOwn(story, viewer) &&
+        moderationStatus === "pending_review" &&
+        linkedMedia?.pendingKey &&
+        await fileExists("pending", String(linkedMedia.pendingKey))
+      ) {
+        ownerPreviewUrl = `/api/community/media/${story.mediaId.toString()}/preview`
+      }
+
+      if (!imageSource && !videoSource && !ownerPreviewUrl) {
+        continue
+      }
       const item = {
         id: toPlainId(story._id),
-        image: story.image || ownerPreviewUrl,
+        mediaType,
+        image: imageSource,
+        video: videoSource,
         caption: story.caption || "",
         style: getStoryStyle(story.style),
         moderationStatus,
@@ -126,24 +155,42 @@ export async function POST(request: NextRequest) {
     await assertCommunityPostingAllowed(user._id.toString())
     const body = await request.json()
     const image = String(body.image || "").trim()
+    const video = String(body.video || "").trim()
     const imageMediaId = String(body.imageMediaId || "").trim()
+    const videoMediaId = String(body.videoMediaId || "").trim()
+    const mediaId = String(body.mediaId || "").trim()
     const caption = String(body.caption || "").trim()
     const style = getStoryStyle(body.style)
 
     let media: any = null
     let storyImage = image
-    if (imageMediaId) {
-      media = await CommunityMedia.findOne({ _id: imageMediaId, owner: user._id, mediaType: "image", contentType: { $in: ["upload", "story"] } })
+    let storyVideo = video
+    const selectedMediaId = mediaId || imageMediaId || videoMediaId
+    if (selectedMediaId) {
+      media = await CommunityMedia.findOne({
+        _id: selectedMediaId,
+        owner: user._id,
+        mediaType: { $in: ["image", "video"] },
+        contentType: { $in: ["upload", "story"] },
+      })
       if (!media) return errorResponse("Story media not found", 404)
       if (["rejected", "failed"].includes(String(media.status || ""))) return errorResponse("Story media is not available", 422)
-      storyImage = media.status === "approved" ? String(media.publicUrl || "") : ""
+      if (media.mediaType === "image") {
+        storyImage = media.status === "approved" ? String(media.publicUrl || "") : ""
+        storyVideo = ""
+      } else {
+        storyVideo = media.status === "approved" ? String(media.publicUrl || "") : ""
+        storyImage = ""
+      }
     }
-    if (!storyImage && !media) return errorResponse("Story image is required", 422)
+    if (!storyImage && !storyVideo && !media) return errorResponse("Story media is required", 422)
     if (caption.length > 180) return errorResponse("Story caption is too long", 422)
 
-    const captionModeration = media
+    const captionModeration = media?.mediaType === "image"
       ? await moderateCommunityStory({ caption })
-      : await moderateCommunityStory({ caption, imageUrl: image })
+      : storyImage
+        ? await moderateCommunityStory({ caption, imageUrl: image })
+        : await moderateCommunityStory({ caption })
     const moderation =
       media?.status === "pending_review" && captionModeration.status !== "rejected"
         ? {
@@ -177,7 +224,9 @@ export async function POST(request: NextRequest) {
     const expiresAt = moderation.status === "approved" ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null
     const story = await CommunityStory.create({
       author: user._id,
+      mediaType: media?.mediaType === "video" || storyVideo ? "video" : "image",
       image: storyImage,
+      video: storyVideo,
       mediaId: media?._id || null,
       caption,
       style,
@@ -219,7 +268,9 @@ export async function POST(request: NextRequest) {
       {
         item: {
           id: toPlainId(populated?._id),
-          image: populated?.image || (media?.status === "pending_review" ? `/api/community/media/${media._id.toString()}/preview` : ""),
+          mediaType: String(populated?.mediaType || (populated?.video ? "video" : "image")) === "video" ? "video" : "image",
+          image: populated?.image || "",
+          video: populated?.video || "",
           caption: populated?.caption || "",
           style: getStoryStyle(populated?.style),
           moderationStatus: moderation.status,

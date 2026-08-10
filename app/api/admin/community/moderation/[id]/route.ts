@@ -178,7 +178,15 @@ async function syncLinkedMediaEntity(media: any, action: "approve" | "reject" | 
     const story = await CommunityStory.findOne({ mediaId: media._id })
     if (!story) return
     if (action === "approve" && media.publicUrl) {
-      story.image = media.publicUrl
+      if (media.mediaType === "video") {
+        story.mediaType = "video"
+        story.video = media.publicUrl
+        story.image = ""
+      } else {
+        story.mediaType = "image"
+        story.image = media.publicUrl
+        story.video = ""
+      }
       story.status = "published"
       story.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
       story.moderation = {
@@ -198,6 +206,50 @@ async function syncLinkedMediaEntity(media: any, action: "approve" | "reject" | 
     }
     await story.save()
   }
+}
+
+async function markMissingStoryMedia(params: { story: any; media: any; adminId: any; reviewedAt: Date }) {
+  const { story, media, adminId, reviewedAt } = params
+
+  media.status = "failed"
+  media.pendingKey = ""
+  media.moderation = {
+    ...(media.moderation?.toObject?.() || media.moderation || {}),
+    status: "rejected",
+    provider: "manual",
+    reviewedBy: adminId,
+    reviewedAt,
+    reasons: Array.from(new Set([...(Array.isArray(media.moderation?.reasons) ? media.moderation.reasons : []), "media:pending-file-missing"])),
+  }
+  await media.save()
+
+  story.status = "hidden"
+  story.image = ""
+  story.video = ""
+  story.moderation = {
+    ...(story.moderation?.toObject?.() || story.moderation || {}),
+    status: "rejected",
+    provider: "manual",
+    reviewedBy: adminId,
+    reviewedAt,
+    reasons: Array.from(new Set([...(Array.isArray(story.moderation?.reasons) ? story.moderation.reasons : []), "story:linked-media-missing"])),
+  }
+  await story.save()
+}
+
+async function markMissingStandaloneMedia(params: { media: any; adminId: any; reviewedAt: Date }) {
+  const { media, adminId, reviewedAt } = params
+  media.status = "failed"
+  media.pendingKey = ""
+  media.moderation = {
+    ...(media.moderation?.toObject?.() || media.moderation || {}),
+    status: "rejected",
+    provider: "manual",
+    reviewedBy: adminId,
+    reviewedAt,
+    reasons: Array.from(new Set([...(Array.isArray(media.moderation?.reasons) ? media.moderation.reasons : []), "media:pending-file-missing"])),
+  }
+  await media.save()
 }
 
 async function resolveRevisionMediaUrls(revision: any, mediaType: "image" | "video") {
@@ -376,12 +428,62 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       target.status = action === "hide" ? "hidden" : getPublicationStatusForModeration(moderationStatus)
       if (action === "approve") {
         target.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
+        if (target.mediaId) {
+          const linkedMedia = await CommunityMedia.findById(target.mediaId)
+          if (linkedMedia) {
+            if (linkedMedia.mediaType === "image" && linkedMedia.pendingKey) {
+              const pendingExists = await fileExists("pending", linkedMedia.pendingKey)
+              if (!pendingExists) {
+                await markMissingStoryMedia({ story: target, media: linkedMedia, adminId: admin._id, reviewedAt })
+                return errorResponse("Linked story media file is missing. Re-upload is required.", 409)
+              }
+              const approved = await movePendingFileToApproved({
+                pendingKey: linkedMedia.pendingKey,
+                storedName: linkedMedia.storedName,
+                approvedDirectory: "images",
+              })
+              linkedMedia.publicUrl = approved.publicUrl
+              linkedMedia.approvedKey = approved.relativeKey
+              linkedMedia.pendingKey = ""
+            }
+
+            if (linkedMedia.mediaType === "video" && linkedMedia.pendingKey) {
+              const pendingExists = await fileExists("pending", linkedMedia.pendingKey)
+              if (!pendingExists) {
+                await markMissingStoryMedia({ story: target, media: linkedMedia, adminId: admin._id, reviewedAt })
+                return errorResponse("Linked story media file is missing. Re-upload is required.", 409)
+              }
+              const approved = await movePendingFileToApproved({
+                pendingKey: linkedMedia.pendingKey,
+                storedName: linkedMedia.storedName,
+                approvedDirectory: "videos",
+              })
+              linkedMedia.publicUrl = approved.publicUrl
+              linkedMedia.approvedKey = approved.relativeKey
+              linkedMedia.pendingKey = ""
+            }
+
+            linkedMedia.status = "approved"
+            linkedMedia.moderation = {
+              ...(linkedMedia.moderation?.toObject?.() || linkedMedia.moderation || {}),
+              status: "approved",
+              provider: "manual",
+              reviewedBy: admin._id,
+              reviewedAt,
+            }
+            await linkedMedia.save()
+            await syncLinkedMediaEntity(linkedMedia, "approve")
+          }
+        }
       }
     }
     if (contentType === "image") {
       if (action === "approve" && target.pendingKey) {
         const pendingExists = await fileExists("pending", target.pendingKey)
-        if (!pendingExists) return errorResponse("Pending media file not found", 404)
+        if (!pendingExists) {
+          await markMissingStandaloneMedia({ media: target, adminId: admin._id, reviewedAt })
+          return errorResponse("Pending media file is missing. Re-upload is required.", 409)
+        }
         const approved = await movePendingFileToApproved({
           pendingKey: target.pendingKey,
           storedName: target.storedName,
@@ -397,6 +499,25 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
     }
     if (contentType === "video") {
+      if (action === "approve" && target.pendingKey) {
+        const pendingExists = await fileExists("pending", target.pendingKey)
+        if (!pendingExists) {
+          await markMissingStandaloneMedia({ media: target, adminId: admin._id, reviewedAt })
+          return errorResponse("Pending media file is missing. Re-upload is required.", 409)
+        }
+        const approved = await movePendingFileToApproved({
+          pendingKey: target.pendingKey,
+          storedName: target.storedName,
+          approvedDirectory: "videos",
+        })
+        target.publicUrl = approved.publicUrl
+        target.approvedKey = approved.relativeKey
+        target.pendingKey = ""
+      }
+      if ((action === "reject" || action === "hide") && target.pendingKey) {
+        await deletePendingFile(target.pendingKey)
+        target.pendingKey = ""
+      }
       if ((action === "reject" || action === "hide") && target.processingKey) {
         await deleteProcessingFile(target.processingKey)
         target.processingKey = ""

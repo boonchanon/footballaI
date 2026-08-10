@@ -7,7 +7,6 @@ import {
   readCommunityUploadBuffer,
   saveApprovedFileFromBuffer,
   savePendingFileFromBuffer,
-  saveProcessingFileFromBuffer,
 } from "@/lib/server/community-upload"
 import {
   assertCommunityPostingAllowed,
@@ -75,8 +74,6 @@ export async function POST(request: NextRequest) {
     if (files.length === 0) return errorResponse("ยังไม่ได้เลือกไฟล์", 422)
     if (files.length > 4) return errorResponse("อัปโหลดได้สูงสุด 4 ไฟล์ต่อครั้ง", 422)
 
-
-
     logUploadDebug("request", {
       requestId: uploadRequestId,
       userId: user._id.toString(),
@@ -110,39 +107,44 @@ export async function POST(request: NextRequest) {
     for (const file of files) {
       if (file.type.startsWith("video/")) {
         const bytes = await readCommunityUploadBuffer(file)
-        const processingFile = await saveProcessingFileFromBuffer({ file, bytes, directory: "videos" })
+        const pendingFile = await savePendingFileFromBuffer({ file, bytes, directory: "videos" })
+        const ttlHours = Math.max(1, Number(process.env.COMMUNITY_PENDING_IMAGE_TTL_HOURS || "24"))
         const media = await CommunityMedia.create({
           owner: user._id,
-          contentType: "upload",
+          contentType: profileTarget || "upload",
           mediaType: "video",
           originalName: file.name,
-          storedName: processingFile.storedName,
+          storedName: pendingFile.storedName,
           mimeType: file.type,
           size: file.size,
-          status: "processing",
-          processingKey: processingFile.relativeKey,
-          reasons: ["video:pipeline-processing"],
+          status: "pending_review",
+          pendingKey: pendingFile.relativeKey,
+          reasons: ["video:pending-review"],
+          provider: "local",
           moderation: {
             status: "pending_review",
-            reasons: ["video:pipeline-processing"],
+            reasons: ["video:pending-review"],
             provider: "local",
             metadata: {
-              technicalStatus: "queued_for_processing",
+              technicalStatus: "owner_preview_ready",
             },
           },
-          technicalStatus: "queued_for_processing",
+          expiresAt: new Date(Date.now() + ttlHours * 60 * 60 * 1000),
+          technicalStatus: "owner_preview_ready",
           metadata: {
             extension: getFileExtension(file.name),
             moderationStage: "foundation",
-            userMessage: "วิดีโอกำลังอยู่ระหว่างการตรวจสอบก่อนเผยแพร่",
+            ...(profileTarget ? { profileTarget } : {}),
+            userMessage: "วิดีโอนี้กำลังรอการตรวจสอบจากผู้ดูแลระบบ",
           },
         })
-        items.push({
+        pendingItems.push({
           id: media._id.toString(),
           mediaType: "video",
-          status: "processing",
+          status: "pending_review",
           url: null,
-          userMessage: "วิดีโอกำลังอยู่ระหว่างการตรวจสอบก่อนเผยแพร่",
+          userMessage: "วิดีโอนี้กำลังรอการตรวจสอบจากผู้ดูแลระบบ",
+          ownerPreviewUrl: `/api/community/media/${media._id.toString()}/preview`,
         })
         continue
       }
@@ -311,11 +313,11 @@ export async function POST(request: NextRequest) {
           metadata: moderation.metadata || {},
         },
         reviewedAt: new Date(),
-          metadata: {
-            extension: getFileExtension(file.name),
-            ...(moderation.metadata || {}),
-            ...(profileTarget ? { profileTarget } : {}),
-          },
+        metadata: {
+          extension: getFileExtension(file.name),
+          ...(moderation.metadata || {}),
+          ...(profileTarget ? { profileTarget } : {}),
+        },
       })
       urls.push(approved.publicUrl)
       items.push({

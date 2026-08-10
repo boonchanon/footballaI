@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 
 import { requireAdminRoles } from "@/lib/server/auth"
+import { cleanupBrokenMediaItems, cleanupBrokenStories } from "@/lib/server/community-media-cleanup"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, getTimeAgoThai, ok } from "@/lib/server/http-utils"
 import { Comment, CommunityMedia, CommunityPost, CommunityStory, ModerationLog } from "@/lib/server/models"
@@ -41,6 +42,13 @@ function buildItem(base: Omit<QueueItem, "repeatOffenses" | "timeAgo">): QueueIt
     timeAgo: getTimeAgoThai(base.createdAt),
     repeatOffenses: 0,
   }
+}
+
+function getStoryModerationImageUrl(story: any, linkedStoryMediaById: Map<string, any>) {
+  if (story.image) return story.image
+  const linkedMedia = linkedStoryMediaById.get(String(story.mediaId || ""))
+  if (!linkedMedia || linkedMedia.mediaType !== "image") return ""
+  return linkedMedia.publicUrl || (linkedMedia.pendingKey ? `/api/admin/community/moderation/media/${linkedMedia._id.toString()}/preview` : "")
 }
 
 export async function GET(request: NextRequest) {
@@ -105,6 +113,7 @@ export async function GET(request: NextRequest) {
         : Promise.resolve([]),
       contentType === "all" || contentType === "image" || contentType === "video"
         ? CommunityMedia.find({
+            contentType: { $ne: "story" },
             ...(status === "pending_review"
               ? { status: { $in: ["pending_review", "processing", "failed"] } }
               : status !== "all"
@@ -118,6 +127,15 @@ export async function GET(request: NextRequest) {
             .limit(limit)
         : Promise.resolve([]),
     ])
+
+    const [cleanedStoryIds, cleanedMediaIds] = await Promise.all([cleanupBrokenStories(stories as any[]), cleanupBrokenMediaItems(mediaItems as any[])])
+    const healthyStories = stories.filter((story: any) => !cleanedStoryIds.has(String(story._id)))
+    const healthyMediaItems = mediaItems.filter((media: any) => !cleanedMediaIds.has(String(media._id)))
+    const linkedStoryMediaIds = healthyStories.map((story: any) => String(story.mediaId || "")).filter(Boolean)
+    const linkedStoryMedia = linkedStoryMediaIds.length
+      ? await CommunityMedia.find({ _id: { $in: linkedStoryMediaIds } }).select("_id mediaType status publicUrl pendingKey")
+      : []
+    const linkedStoryMediaById = new Map(linkedStoryMedia.map((media: any) => [String(media._id), media]))
 
     const items = [
       ...posts.map((post: any) => {
@@ -169,7 +187,7 @@ export async function GET(request: NextRequest) {
           },
         }),
       ),
-      ...stories.map((story: any) =>
+      ...healthyStories.map((story: any) =>
         buildItem({
           id: `story_${story._id.toString()}`,
           sourceId: story._id.toString(),
@@ -179,7 +197,7 @@ export async function GET(request: NextRequest) {
           reasons: Array.isArray(story.moderation?.reasons) ? story.moderation.reasons : [],
           provider: story.moderation?.provider || "local",
           preview: String(story.caption || "Story image").slice(0, 260),
-          imageUrl: story.image || "",
+          imageUrl: getStoryModerationImageUrl(story, linkedStoryMediaById),
           mediaNotes: Array.isArray(story.moderation?.reasons) ? story.moderation.reasons.filter((reason: string) => reason.startsWith("image:")) : [],
           ocrTextPreview: String(story.moderation?.metadata?.imageMetadata?.extractedTextPreview || "").trim(),
           qrPreview: Array.isArray(story.moderation?.metadata?.imageMetadata?.qrUrls) ? story.moderation.metadata.imageMetadata.qrUrls.slice(0, 3) : [],
@@ -191,7 +209,7 @@ export async function GET(request: NextRequest) {
           },
         }),
       ),
-      ...mediaItems.map((media: any) =>
+      ...healthyMediaItems.map((media: any) =>
         buildItem({
           id: `${media.mediaType}_${media._id.toString()}`,
           sourceId: media._id.toString(),
