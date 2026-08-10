@@ -56,25 +56,41 @@ function PanelNavLink({
   label,
   active,
   closeOnClick = true,
+  collapsedRail = false,
 }: {
   href: string
   icon: React.ElementType
   label: string
   active: boolean
   closeOnClick?: boolean
+  collapsedRail?: boolean
 }) {
   const content = (
     <Link
       href={href}
+      title={collapsedRail ? label : undefined}
+      aria-label={collapsedRail ? label : undefined}
       className={cn(
         "flex items-center gap-2 rounded-[10px] border px-2.5 py-2.5 text-[12px] font-medium transition-all",
+        collapsedRail &&
+          "h-11 justify-center overflow-hidden whitespace-nowrap px-0 group-hover/sidebar:justify-start group-hover/sidebar:px-2.5 group-focus-within/sidebar:justify-start group-focus-within/sidebar:px-2.5",
         active
           ? "border-primary/25 bg-primary/16 text-primary shadow-[0_8px_18px_rgba(184,255,0,0.1)]"
           : "border-white/[0.06] bg-white/[0.035] text-foreground/82 hover:border-white/[0.1] hover:bg-white/[0.05] hover:text-foreground",
       )}
     >
-      <Icon className={cn("h-[13px] w-[13px]", active ? "text-primary" : "text-muted-foreground")} />
-      <span className="flex-1">{label}</span>
+      <span className={cn("flex shrink-0 items-center justify-center", collapsedRail && "h-5 w-5")}>
+        <Icon className={cn("h-4 w-4", active ? "text-primary" : "text-muted-foreground")} />
+      </span>
+      <span
+        className={cn(
+          "flex-1 truncate",
+          collapsedRail &&
+            "w-0 opacity-0 transition-[width,opacity] duration-200 group-hover/sidebar:w-auto group-hover/sidebar:opacity-100 group-focus-within/sidebar:w-auto group-focus-within/sidebar:opacity-100 motion-reduce:transition-none",
+        )}
+      >
+        {label}
+      </span>
     </Link>
   )
 
@@ -83,10 +99,17 @@ function PanelNavLink({
   return <SheetClose asChild>{content}</SheetClose>
 }
 
-function PanelSection({ title, children }: { title: string; children: React.ReactNode }) {
+function PanelSection({ title, children, collapsedRail = false }: { title: string; children: React.ReactNode; collapsedRail?: boolean }) {
   return (
     <section className="space-y-2">
-      <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/65">{title}</p>
+      <p
+        className={cn(
+          "px-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/65 transition-opacity duration-200",
+          collapsedRail && "hidden group-hover/sidebar:block group-focus-within/sidebar:block",
+        )}
+      >
+        {title}
+      </p>
       <div className="space-y-2">{children}</div>
     </section>
   )
@@ -147,21 +170,21 @@ export function Navigation({ isLoggedIn = false, userName, variant = "page" }: N
 
   return (
     <>
-      <aside className="fixed bottom-0 left-0 top-0 z-50 hidden w-[232px] border-r border-white/[0.06] bg-[#091014]/96 xl:flex xl:flex-col">
-        <div className="border-b border-white/[0.06] px-3 py-3.5">
-          <Link href="/" className="flex min-w-0 items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-[9px] border border-primary/20 bg-primary/10 text-primary">
+      <aside className="group/sidebar fixed bottom-0 left-0 top-0 z-50 hidden w-[72px] overflow-hidden border-r border-white/[0.06] bg-[#091014]/96 transition-[width,box-shadow] duration-200 hover:w-[232px] hover:shadow-[18px_0_42px_rgba(0,0,0,0.26)] focus-within:w-[232px] focus-within:shadow-[18px_0_42px_rgba(0,0,0,0.26)] motion-reduce:transition-none xl:flex xl:flex-col">
+        <div className="border-b border-white/[0.06] px-3 py-4">
+          <Link href="/" className="flex min-w-0 items-center justify-center gap-2 group-hover/sidebar:justify-start group-focus-within/sidebar:justify-start">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border border-primary/25 bg-primary/10 text-primary shadow-[0_10px_24px_rgba(184,255,0,0.08)]">
               <span className="font-display text-sm leading-none">FA</span>
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 opacity-0 transition-opacity duration-200 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100 motion-reduce:transition-none">
               <div className="truncate font-display text-[0.95rem] leading-none text-foreground">FootballAI</div>
               <p className="text-[8px] tracking-[0.1em] text-muted-foreground">MATCH INSIGHT PLATFORM</p>
             </div>
           </Link>
         </div>
 
-        <div className="flex-1 space-y-3.5 overflow-y-auto px-3 py-3">
-          <PanelSection title="Main Menu">
+        <div className="flex-1 space-y-2.5 overflow-y-auto px-3 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <PanelSection title="Main Menu" collapsedRail>
             {primaryItems.map((item) => (
               <PanelNavLink
                 key={item.label}
@@ -170,11 +193,12 @@ export function Navigation({ isLoggedIn = false, userName, variant = "page" }: N
                 label={item.label}
                 active={item.isActive(pathname, currentPathWithQuery)}
                 closeOnClick={false}
+                collapsedRail
               />
             ))}
           </PanelSection>
 
-          <PanelSection title="Explore">
+          <PanelSection title="Explore" collapsedRail>
             {secondaryItems.map((item) => (
               <PanelNavLink
                 key={item.label}
@@ -183,42 +207,65 @@ export function Navigation({ isLoggedIn = false, userName, variant = "page" }: N
                 label={item.label}
                 active={item.isActive(pathname, currentPathWithQuery)}
                 closeOnClick={false}
+                collapsedRail
               />
             ))}
           </PanelSection>
 
-          <PanelSection title="Your Space">
+          <PanelSection title="Your Space" collapsedRail>
             <PanelNavLink
               href={profileItem.href}
               icon={profileItem.icon}
               label={profileItem.label}
               active={profileItem.isActive(pathname, currentPathWithQuery)}
               closeOnClick={false}
+              collapsedRail
             />
           </PanelSection>
         </div>
 
         <div className="border-t border-white/[0.06] p-3">
-          <div className="rounded-[14px] border border-white/[0.07] bg-[#0b1012]/92 p-2.5 shadow-[0_10px_24px_rgba(0,0,0,0.2)]">
+          <div className="flex flex-col items-center gap-2 group-hover/sidebar:hidden group-focus-within/sidebar:hidden">
+            <ThemeToggle compact />
+            {stableIsLoggedIn ? (
+              <Link href="/profile" title="Profile" aria-label="Profile" className="block rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+                <Avatar className="h-11 w-11 border border-primary/35">
+                  <AvatarImage src={stableAvatar || "/placeholder-user.jpg"} />
+                  <AvatarFallback>{userInitial}</AvatarFallback>
+                </Avatar>
+              </Link>
+            ) : (
+              <Link
+                href="/login"
+                title="เข้าสู่ระบบ"
+                aria-label="เข้าสู่ระบบ"
+                className="flex h-11 w-11 items-center justify-center rounded-[14px] border border-white/[0.07] bg-white/[0.035] text-muted-foreground transition hover:bg-white/[0.05] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              >
+                <User className="h-4 w-4" />
+              </Link>
+            )}
+          </div>
+
+          <div className="hidden overflow-hidden rounded-[14px] border border-white/[0.07] bg-[#0b1012]/92 p-2.5 shadow-[0_10px_24px_rgba(0,0,0,0.2)] group-hover/sidebar:block group-focus-within/sidebar:block">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Your Profile</p>
+              <p className="whitespace-nowrap text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground opacity-0 transition-opacity duration-200 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100 motion-reduce:transition-none">Your Profile</p>
               <ThemeToggle compact />
             </div>
 
             {stableIsLoggedIn ? (
               <>
                 <div className="flex items-center gap-2">
-                  <Avatar className="h-9 w-9 border border-primary/25">
+                  <Avatar className="h-9 w-9 shrink-0 border border-primary/25">
                     <AvatarImage src={stableAvatar || "/placeholder-user.jpg"} />
                     <AvatarFallback>{userInitial}</AvatarFallback>
                   </Avatar>
-                  <div className="min-w-0">
+                  <div className="min-w-0 opacity-0 transition-opacity duration-200 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100 motion-reduce:transition-none">
                     <p className="truncate text-[13px] font-semibold text-foreground">{stableUserName || "Football Fan"}</p>
                     <p className="truncate text-[11px] text-muted-foreground">@{(stableUserName || "footballfan").replace(/\s+/g, "").toLowerCase()}</p>
                   </div>
                 </div>
 
-                <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="mt-2 grid grid-cols-2 gap-2 opacity-0 transition-opacity duration-200 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100 motion-reduce:transition-none">
                   <div className="rounded-[10px] border border-white/[0.06] bg-white/[0.04] px-2 py-1.5">
                     <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Team</p>
                     <p className="mt-1 truncate text-sm font-medium text-foreground">{stableFavoriteTeam || "ยังไม่ได้เลือก"}</p>
@@ -229,7 +276,7 @@ export function Navigation({ isLoggedIn = false, userName, variant = "page" }: N
                   </div>
                 </div>
 
-                <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="mt-2 grid grid-cols-2 gap-2 opacity-0 transition-opacity duration-200 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100 motion-reduce:transition-none">
                   <Link
                     href="/profile"
                     className="inline-flex items-center justify-center rounded-[10px] bg-primary px-2 py-2 text-[11.5px] font-semibold text-primary-foreground shadow-[0_8px_22px_rgba(184,255,0,0.18)] transition hover:bg-primary/90"
@@ -252,16 +299,16 @@ export function Navigation({ isLoggedIn = false, userName, variant = "page" }: N
             ) : (
               <>
                 <div className="flex items-center gap-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-[11px] border border-primary/20 bg-primary/10 text-primary">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] border border-primary/20 bg-primary/10 text-primary">
                     <User className="h-4 w-4" />
                   </div>
-                  <div>
+                  <div className="min-w-0 opacity-0 transition-opacity duration-200 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100 motion-reduce:transition-none">
                     <p className="text-base font-semibold text-foreground">บัญชีผู้ใช้</p>
                     <p className="text-sm text-muted-foreground">เข้าสู่ระบบเพื่อใช้งานคอมมูนิตี้และโปรไฟล์</p>
                   </div>
                 </div>
 
-                <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="mt-2 grid grid-cols-2 gap-2 opacity-0 transition-opacity duration-200 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100 motion-reduce:transition-none">
                   <Link
                     href="/login"
                     className="inline-flex items-center justify-center rounded-[10px] border border-white/[0.07] bg-white/[0.035] px-2 py-2 text-[11.5px] font-medium text-foreground transition hover:bg-white/[0.05]"
