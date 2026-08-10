@@ -2,6 +2,7 @@ import { NextRequest } from "next/server"
 
 import { requireAuthUser } from "@/lib/server/auth"
 import { createCommunityNotification } from "@/lib/server/community-notifications"
+import { assertCommunityInteractionAllowed } from "@/lib/server/content-moderation"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, ok } from "@/lib/server/http"
 import { CommunityPost, PostLike } from "@/lib/server/models"
@@ -10,6 +11,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     await connectDatabase()
     const user = await requireAuthUser(request)
+    await assertCommunityInteractionAllowed(user._id.toString(), "like")
     const { id } = await params
     const post = await CommunityPost.findById(id)
     if (!post) return errorResponse("Post not found", 404)

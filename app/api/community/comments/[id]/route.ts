@@ -3,6 +3,7 @@ import { NextRequest } from "next/server"
 import { requireAuthUser } from "@/lib/server/auth"
 import {
   assertCommunityPostingAllowed,
+  assertCommunityInteractionAllowed,
   createModerationLog,
   moderateCommunityText,
 } from "@/lib/server/content-moderation"
@@ -116,6 +117,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     if (!canModerate && comment.user.toString() !== user._id.toString()) {
       return errorResponse("Not allowed to delete this comment", 403)
     }
+    if (!canModerate) await assertCommunityInteractionAllowed(user._id.toString(), "comment")
 
     const wasPubliclyVisible = comment.isApproved && (!comment.moderation?.status || comment.moderation?.status === "approved")
     comment.isDeleted = true

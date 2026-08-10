@@ -10,6 +10,7 @@ const communityMatchSummaryStatusEnum = ["not_generated", "generating", "generat
 const communityMatchSummaryModeEnum = ["ai", "template"] as const
 const communityMatchSummaryProviderStatusEnum = ["ready", "degraded", "unavailable", "template"] as const
 const matchRoomTypeEnum = ["main", "tactics", "preview", "post_match"] as const
+const communityPostRoomTypeEnum = ["", ...matchRoomTypeEnum] as const
 const communityPostContentTypeEnum = [
   "community_post",
   "room_message",
@@ -326,7 +327,7 @@ const communityPostSchema =
       teamIds: { type: [String], default: [], index: true },
       playerIds: { type: [String], default: [], index: true },
       matchId: { type: String, default: "", trim: true, index: true },
-      roomType: { type: String, enum: matchRoomTypeEnum, default: "main", index: true },
+      roomType: { type: String, enum: communityPostRoomTypeEnum, default: "", index: true },
       contentType: { type: String, enum: communityPostContentTypeEnum, default: "community_post", index: true },
       isRoomMessage: { type: Boolean, default: false, index: true },
       archivedAt: { type: Date, default: null, index: true },
@@ -471,7 +472,7 @@ if (models.CommunityPost && !models.CommunityPost.schema.path("matchId")) {
 
 if (models.CommunityPost && !models.CommunityPost.schema.path("roomType")) {
   models.CommunityPost.schema.add({
-    roomType: { type: String, enum: matchRoomTypeEnum, default: "main", index: true },
+    roomType: { type: String, enum: communityPostRoomTypeEnum, default: "", index: true },
     contentType: { type: String, enum: communityPostContentTypeEnum, default: "community_post", index: true },
     isRoomMessage: { type: Boolean, default: false, index: true },
     archivedAt: { type: Date, default: null, index: true },
@@ -479,6 +480,10 @@ if (models.CommunityPost && !models.CommunityPost.schema.path("roomType")) {
     roomExpiresAt: { type: Date, default: null, index: true },
     replyToPost: { type: Schema.Types.ObjectId, ref: "CommunityPost", default: null, index: true },
   })
+}
+
+if (models.CommunityPost?.schema.path("roomType")) {
+  extendStringEnumPath(models.CommunityPost.schema.path("roomType"), [""])
 }
 
 if (models.CommunityPost && !models.CommunityPost.schema.path("isThreadRoot")) {
@@ -749,8 +754,11 @@ const communityNotificationSchema =
           "community_content_hidden",
           "community_user_warned",
           "community_user_restricted",
+          "community_user_restriction_cleared",
           "community_user_suspended",
+          "community_user_unsuspended",
           "community_user_banned",
+          "community_user_unbanned",
           "community_moderation_strike_alert",
           ...matchRoomNotificationTypeEnum,
         ],
@@ -777,7 +785,16 @@ if (!models.CommunityNotification) {
 
 if (models.CommunityNotification?.schema.path("type")) {
   const typePath = models.CommunityNotification.schema.path("type") as any
-  for (const value of ["post_poll_vote", "community_match_room_posted", "community_fan_badge_unlocked", "thread_reply", "thread_pinned"]) {
+  for (const value of [
+    "post_poll_vote",
+    "community_match_room_posted",
+    "community_fan_badge_unlocked",
+    "thread_reply",
+    "thread_pinned",
+    "community_user_restriction_cleared",
+    "community_user_unsuspended",
+    "community_user_unbanned",
+  ]) {
     if (Array.isArray(typePath.enumValues) && !typePath.enumValues.includes(value)) {
       typePath.enumValues.push(value)
     }

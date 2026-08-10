@@ -63,6 +63,32 @@ function buildChatShareHref(article: NewsArticle) {
   return `/community/messages?${params.toString()}`
 }
 
+function truncateText(value: string, maxLength: number) {
+  const normalized = value.trim()
+  if (normalized.length <= maxLength) return normalized
+  return `${normalized.slice(0, Math.max(0, maxLength - 1)).trim()}…`
+}
+
+function buildCommunityNewsPostPayload(article: NewsArticle) {
+  const title = truncateText(`ชวนคุย: ${article.title || "ข่าวฟุตบอล"}`, 180)
+  const fallbackDescription = "มีความเห็นยังไงกับข่าวนี้บ้าง มาแชร์ข่าวกันได้เลย"
+  const content = truncateText(`${article.description || fallbackDescription}\n\nลิงก์อ้างอิง: ${article.url || ""}`, 5000)
+
+  return {
+    title,
+    content: content.length >= 8 ? content : fallbackDescription,
+    category: article.category === "transfer" ? "transfer-rumors" : "general",
+    sharedItem: {
+      type: "article",
+      title: truncateText(article.title || "ข่าวฟุตบอล", 180),
+      description: truncateText(article.description || "", 500),
+      url: String(article.url || "").trim(),
+      image: String(article.image || "").trim(),
+      source: truncateText(article.source || "FootballAI News", 120),
+    },
+  }
+}
+
 function NewsImage({ src, alt }: { src: string; alt: string }) {
   const [error, setError] = useState(false)
 
@@ -168,19 +194,7 @@ export default function NewsPage() {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          title: `ชวนคุย: ${article.title}`,
-          content: `มีใครเห็นต่างยังไงกับข่าวนี้บ้าง มาแชร์ข่าวกันได้เลย\n\nลิงก์อ้างอิง: ${article.url}`,
-          category: article.category === "transfer" ? "transfer-rumors" : "general",
-          images: article.image ? [article.image] : [],
-          sharedItem: {
-            type: "article",
-            title: article.title,
-            url: article.url,
-            image: article.image,
-            source: article.source,
-          },
-        }),
+        body: JSON.stringify(buildCommunityNewsPostPayload(article)),
       })
       toast({
         title: "แชร์เข้าคอมมูนิตี้แล้ว",
@@ -220,20 +234,7 @@ export default function NewsPage() {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          title: `ชวนคุย: ${article.title}`,
-          content: `${article.description || "มีความเห็นยังไงกับข่าวนี้บ้าง มาแชร์ข่าวกันได้เลย"}\n\nลิงก์อ้างอิง: ${article.url}`,
-          category: article.category === "transfer" ? "transfer-rumors" : "general",
-          images: article.image ? [article.image] : [],
-          sharedItem: {
-            type: "article",
-            title: article.title,
-            description: article.description || "",
-            url: article.url,
-            image: article.image,
-            source: article.source,
-          },
-        }),
+        body: JSON.stringify(buildCommunityNewsPostPayload(article)),
       })
       toast({
         title: "แชร์ข่าวเข้าคอมมูนิตี้แล้ว",
@@ -453,4 +454,3 @@ export default function NewsPage() {
     </div>
   )
 }
-

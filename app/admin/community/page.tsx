@@ -1,225 +1,157 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { CheckCircle, Eye, Flag, MessageSquare, Pin, Search, ThumbsUp, Trash2 } from "lucide-react"
+import Link from "next/link"
+import { AlertTriangle, Ban, FileText, Flag, MessageSquare, ShieldCheck, Users } from "lucide-react"
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  AdminEmptyState,
+  AdminPageHeader,
+  AdminRetryButton,
+  AdminSectionCard,
+  AdminStatCard,
+  AdminStatusBadge,
+  getCommunityStatusTone,
+} from "@/components/admin/community-admin-ui"
 import { fetchJson } from "@/lib/api-client"
-import { getAuthToken } from "@/lib/auth-client"
 
-type CommunityPostItem = {
-  id: string
-  title: string
-  categoryLabel: string
-  status: "published" | "flagged" | "hidden"
-  isPinned: boolean
-  likes: number
-  comments: number
-  views: number
-  reports: number
-  timeAgo: string
-  author: {
-    name: string
-    avatar: string
-  }
+type OverviewResponse = {
+  metrics: Record<string, number>
+  recentOperations: Array<{ id: string; action: string; contentType: string; status: string; admin: string; reason: string; timeAgo: string }>
+  recentReports: Array<{ id: string; reason: string; targetType: string; reporter: string; timeAgo: string }>
 }
 
-type CommunityResponse = {
-  items: CommunityPostItem[]
-  stats: {
-    total: number
-    published: number
-    flagged: number
-    hidden: number
-  }
-}
+const metricCards = [
+  ["totalUsers", "Users", Users, "active"],
+  ["totalPosts", "Posts", FileText, "info"],
+  ["pendingModeration", "Pending", AlertTriangle, "pending"],
+  ["openReports", "Reports", Flag, "pending"],
+  ["bannedUsers", "Banned", Ban, "banned"],
+] as const
 
-export default function AdminCommunityPage() {
-  const [posts, setPosts] = useState<CommunityPostItem[]>([])
-  const [stats, setStats] = useState<CommunityResponse["stats"] | null>(null)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
+export default function AdminCommunityOverviewPage() {
+  const [data, setData] = useState<OverviewResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
-  const loadPosts = async () => {
-    const token = getAuthToken()
-    if (!token) {
-      setError("ไม่พบสิทธิ์แอดมิน กรุณาเข้าสู่ระบบใหม่")
-      setLoading(false)
-      return
-    }
-
-    const params = new URLSearchParams()
-    if (searchQuery) params.set("q", searchQuery)
-    if (statusFilter !== "all") params.set("status", statusFilter)
-
+  async function load() {
     setLoading(true)
     try {
-      const response = await fetchJson<CommunityResponse>(`/admin/community?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      setPosts(response.items)
-      setStats(response.stats)
+      const response = await fetchJson<OverviewResponse>("/admin/community/overview")
+      setData(response)
       setError("")
-    } catch (fetchError) {
-      setError(fetchError instanceof Error ? fetchError.message : "โหลดโพสต์คอมมูนิตี้ไม่สำเร็จ")
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "โหลด dashboard ไม่สำเร็จ")
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    void loadPosts()
-  }, [searchQuery, statusFilter])
-
-  const updatePost = async (id: string, payload: Record<string, unknown>) => {
-    const token = getAuthToken()
-    if (!token) return
-
-    await fetchJson(`/admin/community/${id}`, {
-      method: "PATCH",
-      headers: { Authorization: `Bearer ${token}` },
-      body: JSON.stringify(payload),
-    })
-    await loadPosts()
-  }
-
-  const deletePost = async (id: string) => {
-    const token = getAuthToken()
-    if (!token) return
-
-    await fetchJson(`/admin/community/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    await loadPosts()
-  }
-
-  const getStatusBadge = (status: CommunityPostItem["status"]) => {
-    if (status === "published") return <Badge className="bg-emerald-500/10 text-emerald-400">เผยแพร่</Badge>
-    if (status === "flagged") return <Badge className="bg-amber-500/10 text-amber-400">ถูกรายงาน</Badge>
-    return <Badge className="bg-red-500/10 text-red-400">ซ่อน</Badge>
-  }
+    void load()
+  }, [])
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold md:text-3xl">จัดการคอมมูนิตี้</h1>
-        <p className="text-muted-foreground">ดึงโพสต์จริงจาก MongoDB และจัดการสถานะได้ทันที</p>
-      </div>
+      <AdminPageHeader
+        title="Community Operations"
+        description="ศูนย์ปฏิบัติการสำหรับ reports, moderation, user actions และ audit history จากข้อมูลจริง"
+        action={<AdminRetryButton onRetry={() => void load()} />}
+      />
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        {[
-          { label: "โพสต์ทั้งหมด", value: stats?.total ?? 0 },
-          { label: "เผยแพร่", value: stats?.published ?? 0 },
-          { label: "ถูกรายงาน", value: stats?.flagged ?? 0 },
-          { label: "ซ่อน", value: stats?.hidden ?? 0 },
-        ].map((stat) => (
-          <Card key={stat.label}>
-            <CardContent className="p-5">
-              <p className="text-2xl font-bold">{loading ? "..." : stat.value}</p>
-              <p className="text-sm text-muted-foreground">{stat.label}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {error ? <div className="rounded-lg bg-destructive/10 p-4 text-sm text-destructive">{error}</div> : null}
 
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col gap-4 md:flex-row">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="ค้นหาโพสต์..." className="pl-9" />
+      {loading ? (
+        <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-28 rounded-2xl" />)}
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
+          {metricCards.map(([key, label, Icon, tone]) => (
+            <AdminStatCard key={key} label={label} value={data?.metrics[key] ?? 0} icon={Icon} tone={tone} />
+          ))}
+        </div>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <AdminSectionCard title="Moderation Queue" description="รายการที่ต้องตัดสินใจจาก moderation pipeline">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between rounded-xl border border-border bg-muted/20 p-4">
+              <div>
+                <p className="text-2xl font-bold">{data?.metrics.pendingModeration ?? 0}</p>
+                <p className="text-sm text-muted-foreground">Pending items</p>
+              </div>
+              <ShieldCheck className="h-8 w-8 text-primary" />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-44">
-                <SelectValue placeholder="สถานะ" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">ทั้งหมด</SelectItem>
-                <SelectItem value="published">เผยแพร่</SelectItem>
-                <SelectItem value="flagged">ถูกรายงาน</SelectItem>
-                <SelectItem value="hidden">ซ่อน</SelectItem>
-              </SelectContent>
-            </Select>
+            <Button asChild className="w-full">
+              <Link href="/admin/community/moderation">Open Moderation Queue</Link>
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </AdminSectionCard>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>โพสต์ในระบบ</CardTitle>
-          <CardDescription>โพสต์จริงที่ผู้ใช้สร้างไว้ในคอมมูนิตี้</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {error ? <div className="rounded-lg bg-destructive/10 p-4 text-sm text-destructive">{error}</div> : null}
-          {loading
-            ? Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-36 w-full" />)
-            : posts.map((post) => (
-                <div key={post.id} className="rounded-2xl border border-border p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                      <Avatar>
-                        <AvatarImage src={post.author.avatar || "/placeholder.svg"} />
-                        <AvatarFallback>{post.author.name.slice(0, 1)}</AvatarFallback>
-                      </Avatar>
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-semibold">{post.title}</p>
-                          {post.isPinned ? (
-                            <Badge variant="secondary" className="gap-1">
-                              <Pin className="h-3 w-3" />
-                              ปักหมุด
-                            </Badge>
-                          ) : null}
-                          {getStatusBadge(post.status)}
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {post.author.name} • {post.categoryLabel} • {post.timeAgo}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1"><ThumbsUp className="h-4 w-4" />{post.likes}</span>
-                          <span className="flex items-center gap-1"><MessageSquare className="h-4 w-4" />{post.comments}</span>
-                          <span className="flex items-center gap-1"><Eye className="h-4 w-4" />{post.views}</span>
-                          <span className="flex items-center gap-1 text-amber-400"><Flag className="h-4 w-4" />{post.reports}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <Button variant="outline" size="sm" onClick={() => updatePost(post.id, { isPinned: !post.isPinned })}>
-                        {post.isPinned ? "เลิกปักหมุด" : "ปักหมุด"}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => updatePost(post.id, { status: post.status === "hidden" ? "published" : "hidden" })}
-                      >
-                        {post.status === "hidden" ? "เผยแพร่อีกครั้ง" : "ซ่อนโพสต์"}
-                      </Button>
-                      {post.status === "flagged" ? (
-                        <Button variant="outline" size="sm" onClick={() => updatePost(post.id, { status: "published" })}>
-                          <CheckCircle className="mr-2 h-4 w-4" />
-                          อนุมัติ
-                        </Button>
-                      ) : null}
-                      <Button variant="destructive" size="sm" onClick={() => deletePost(post.id)}>
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        ลบโพสต์
-                      </Button>
-                    </div>
-                  </div>
+        <AdminSectionCard title="Open Reports" description="รายงานจากผู้ใช้ที่ยังต้อง review">
+          <div className="space-y-3">
+            {data?.recentReports.map((item) => (
+              <div key={item.id} className="rounded-xl border border-border p-3 text-sm transition-colors hover:bg-muted/30">
+                <div className="flex flex-wrap items-center gap-2">
+                  <AdminStatusBadge tone="pending">{item.reason}</AdminStatusBadge>
+                  <Badge variant="outline">{item.targetType}</Badge>
                 </div>
-              ))}
-          {!loading && posts.length === 0 ? <p className="text-sm text-muted-foreground">ไม่พบโพสต์ตามเงื่อนไขที่เลือก</p> : null}
-        </CardContent>
-      </Card>
+                <p className="mt-2 text-muted-foreground">{item.reporter} • {item.timeAgo}</p>
+              </div>
+            ))}
+            {!data?.recentReports.length ? <AdminEmptyState title="No open reports" description="ยังไม่มี report ที่ต้องจัดการ" /> : null}
+            <Button asChild variant="outline" className="w-full">
+              <Link href="/admin/community/reports">Open Reports</Link>
+            </Button>
+          </div>
+        </AdminSectionCard>
+      </div>
+
+      <AdminSectionCard title="Recent Actions" description="ประวัติ moderation ล่าสุดเพื่อปิด loop report -> action -> audit">
+        <div className="space-y-3">
+          {data?.recentOperations.map((item) => (
+            <div key={item.id} className="grid gap-3 rounded-xl border border-border p-3 text-sm transition-colors hover:bg-muted/30 md:grid-cols-[180px_1fr_140px]">
+              <div className="flex flex-wrap items-center gap-2">
+                <AdminStatusBadge tone={getCommunityStatusTone(item.action)}>{item.action}</AdminStatusBadge>
+                <Badge variant="outline">{item.contentType}</Badge>
+              </div>
+              <div>
+                <p className="font-medium">{item.reason || "No reason recorded"}</p>
+                <p className="text-muted-foreground">{item.admin} • {item.timeAgo}</p>
+              </div>
+              <AdminStatusBadge tone={getCommunityStatusTone(item.status)}>{item.status}</AdminStatusBadge>
+            </div>
+          ))}
+          {!data?.recentOperations.length ? <AdminEmptyState title="No recent actions" description="Audit log จะเริ่มแสดงเมื่อมี admin action" /> : null}
+          <Button asChild variant="outline">
+            <Link href="/admin/community/audit">Open Audit Log</Link>
+          </Button>
+        </div>
+      </AdminSectionCard>
+
+      <AdminSectionCard title="Community Health / Content" description="ภาพรวมปริมาณ content หลักที่ระบบรองรับจริง">
+        <div className="grid gap-3 md:grid-cols-4">
+          {[
+            ["Posts today", data?.metrics.postsToday ?? 0],
+            ["Threads", data?.metrics.threads ?? 0],
+            ["Polls", data?.metrics.polls ?? 0],
+            ["Stories", data?.metrics.stories ?? 0],
+            ["Active match rooms", data?.metrics.activeMatchRooms ?? 0],
+            ["Restricted users", data?.metrics.restrictedUsers ?? 0],
+            ["Suspended users", data?.metrics.suspendedUsers ?? 0],
+            ["Active users", data?.metrics.activeCommunityUsers ?? 0],
+          ].map(([label, value]) => (
+            <div key={String(label)} className="rounded-xl border border-border bg-muted/20 p-4">
+              <p className="text-xl font-semibold">{value}</p>
+              <p className="text-sm text-muted-foreground">{label}</p>
+            </div>
+          ))}
+        </div>
+      </AdminSectionCard>
     </div>
   )
 }

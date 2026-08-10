@@ -4,6 +4,8 @@ export type MatchRoomFixture = {
   id: string
   weekNumber?: number | null
   isFeatured?: boolean
+  leagueId?: string
+  leagueName?: string
   homeTeam: string
   awayTeam: string
   homeLogo: string
@@ -16,6 +18,7 @@ export type MatchRoomFixture = {
   dateThai: string
   venue: string
   events?: unknown[]
+  lineups?: unknown[]
   isFinished: boolean
 }
 
@@ -89,6 +92,10 @@ const CLOSED_MATCH_STATUSES = new Set(["PST", "CANC", "ABD", "AWD", "WO", "postp
 
 function safeString(value: unknown) {
   return typeof value === "string" ? value.trim() : ""
+}
+
+export function normalizeMatchRoomId(value: unknown) {
+  return String(value ?? "").trim()
 }
 
 function normalizeArray(value: unknown, limit = 6) {
@@ -282,13 +289,15 @@ export function normalizeMatchRoomFixture(fixture: any): MatchRoomFixture {
   const goals = fixture?.goals || fixture?.score || {}
 
   return {
-    id: String(fixture?.id || fixture?.fixture?.id || fixture?._id || ""),
+    id: normalizeMatchRoomId(fixture?.id || fixture?.fixture?.id || fixture?._id),
     weekNumber:
       typeof fixture?.roundNumber === "number"
         ? fixture.roundNumber
         : typeof fixture?.weekNumber === "number"
           ? fixture.weekNumber
           : null,
+    leagueId: safeString(fixture?.league?.id || fixture?.leagueId || fixture?.competition?.id),
+    leagueName: safeString(fixture?.league?.name || fixture?.leagueName || fixture?.competition?.name),
     homeTeam: safeString(home.nameEn || home.name || fixture?.homeTeam || fixture?.homeTeamThai) || "Home Team",
     awayTeam: safeString(away.nameEn || away.name || fixture?.awayTeam || fixture?.awayTeamThai) || "Away Team",
     homeLogo: safeString(home.logo || fixture?.homeLogo),
@@ -301,6 +310,7 @@ export function normalizeMatchRoomFixture(fixture: any): MatchRoomFixture {
     dateThai: safeString(fixture?.dateThai),
     venue: safeString(fixture?.venue?.name || fixture?.venue),
     events: Array.isArray(fixture?.events) ? fixture.events : Array.isArray(fixture?.fixture?.events) ? fixture.fixture.events : [],
+    lineups: Array.isArray(fixture?.lineups) ? fixture.lineups : Array.isArray(fixture?.fixture?.lineups) ? fixture.fixture.lineups : [],
     isFinished: isFinishedMatchStatus(status),
   }
 }
@@ -323,9 +333,9 @@ export function canOpenPostMatchPoll(fixture: Pick<MatchRoomFixture, "status" | 
 }
 
 export function selectMatchRoomFixture(fixtures: MatchRoomFixture[], matchId?: string | null) {
-  const normalizedMatchId = safeString(matchId)
+  const normalizedMatchId = normalizeMatchRoomId(matchId)
   if (normalizedMatchId) {
-    return fixtures.find((fixture) => fixture.id === normalizedMatchId) || null
+    return fixtures.find((fixture) => normalizeMatchRoomId(fixture.id) === normalizedMatchId) || null
   }
 
   const availableFixtures = fixtures.filter((item) => !isClosedMatchStatus(item.status))
@@ -355,9 +365,12 @@ export async function getMatchRoomFixtures(options?: { favoriteTeamName?: string
   )
 }
 
-export async function getMatchRoomFixture(matchId: string) {
-  const fixtures = await getMatchRoomFixtures()
-  return fixtures.find((fixture) => fixture.id === matchId) || null
+export async function getMatchRoomFixture(matchId: string | number) {
+  const normalizedMatchId = normalizeMatchRoomId(matchId)
+  if (!normalizedMatchId) return null
+  const footballService = getFootballService()
+  const fixtures = await footballService.getFixtures({ type: "all" })
+  return fixtures.map(normalizeMatchRoomFixture).find((fixture) => normalizeMatchRoomId(fixture.id) === normalizedMatchId) || null
 }
 
 export function buildPostMatchPollTemplate(fixture: MatchRoomFixture | null) {

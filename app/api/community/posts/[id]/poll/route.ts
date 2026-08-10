@@ -3,6 +3,7 @@ import { NextRequest } from "next/server"
 import { requireAuthUser } from "@/lib/server/auth"
 import { awardCommunityFanBadges } from "@/lib/server/community-fan-profile"
 import { createCommunityNotification } from "@/lib/server/community-notifications"
+import { assertCommunityInteractionAllowed } from "@/lib/server/content-moderation"
 import { isFinishedMatchStatus } from "@/lib/server/community-match-room"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, ok } from "@/lib/server/http"
@@ -31,6 +32,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   try {
     await connectDatabase()
     const user = await requireAuthUser(request)
+    await assertCommunityInteractionAllowed(user._id.toString(), "vote_poll")
     const { id } = await context.params
     const body = await request.json()
     const optionId = String(body.optionId || "").trim()

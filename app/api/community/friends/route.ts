@@ -2,6 +2,7 @@ import { NextRequest } from "next/server"
 
 import { requireAuthUser } from "@/lib/server/auth"
 import { sortUserIds, toPlainId } from "@/lib/server/community-social"
+import { assertCommunityInteractionAllowed } from "@/lib/server/content-moderation"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, ok } from "@/lib/server/http"
 import { Conversation, FriendRequest, Friendship } from "@/lib/server/models"
@@ -10,6 +11,7 @@ export async function POST(request: NextRequest) {
   try {
     await connectDatabase()
     const user = await requireAuthUser(request)
+    await assertCommunityInteractionAllowed(user._id.toString(), "friend_action")
     const body = await request.json()
     const action = String(body.action || "request")
     const targetUserId = String(body.targetUserId || "")

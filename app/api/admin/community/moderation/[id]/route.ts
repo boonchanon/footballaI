@@ -10,8 +10,10 @@ import {
   getPublicationStatusForModeration,
   notifyContentModerationOutcome,
   notifyUserModerationAction,
+  normalizeRestrictionDuration,
   registerModerationStrike,
   type ModerationStatus,
+  type UserModerationAction,
 } from "@/lib/server/content-moderation"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, ok } from "@/lib/server/http-utils"
@@ -231,7 +233,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { id } = await params
     const body = await request.json().catch(() => ({}))
     const action = String(body.action || "").trim()
-    const userAction = String(body.userAction || "").trim() as "" | "warn" | "restrict" | "suspend" | "ban"
+    const userAction = String(body.userAction || "").trim() as "" | UserModerationAction
+    const userActionDuration = normalizeRestrictionDuration(body.userActionDuration)
     const { contentType, sourceId } = resolveTarget(id)
     const Model = getModel(contentType)
 
@@ -411,7 +414,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const targetAuthorId = getTargetAuthorId(target, contentType)
     if (userAction && targetAuthorId) {
-      await applyUserModerationAction({ userId: targetAuthorId, action: userAction })
+      if (!["warn", "restrict", "clear_restriction", "suspend", "unsuspend", "ban", "unban"].includes(userAction)) {
+        return errorResponse("Validation failed", 422)
+      }
+      await applyUserModerationAction({ userId: targetAuthorId, action: userAction, duration: userActionDuration })
       await notifyUserModerationAction({
         recipientId: targetAuthorId,
         action: userAction,

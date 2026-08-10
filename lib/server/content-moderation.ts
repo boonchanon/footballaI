@@ -837,25 +837,103 @@ export function isApprovedModeration(status?: string | null) {
   return !status || status === "approved"
 }
 
-export async function assertCommunityPostingAllowed(userId: string) {
+export const COMMUNITY_RESTRICTION_DURATIONS = {
+  "1h": 60 * 60 * 1000,
+  "24h": 24 * 60 * 60 * 1000,
+  "3d": 3 * 24 * 60 * 60 * 1000,
+  "7d": 7 * 24 * 60 * 60 * 1000,
+} as const
+
+export type CommunityRestrictionDuration = keyof typeof COMMUNITY_RESTRICTION_DURATIONS
+
+export type CommunityInteraction =
+  | "create_post"
+  | "edit_post"
+  | "delete_post"
+  | "repost"
+  | "comment"
+  | "reply"
+  | "create_thread"
+  | "reply_thread"
+  | "match_room_message"
+  | "create_story"
+  | "upload_media"
+  | "create_poll"
+  | "vote_poll"
+  | "like"
+  | "follow_match_room"
+  | "friend_action"
+  | "report"
+
+export type UserModerationAction =
+  | "warn"
+  | "restrict"
+  | "clear_restriction"
+  | "suspend"
+  | "unsuspend"
+  | "ban"
+  | "unban"
+
+const CONTENT_CREATION_INTERACTIONS = new Set<CommunityInteraction>([
+  "create_post",
+  "edit_post",
+  "delete_post",
+  "repost",
+  "comment",
+  "reply",
+  "create_thread",
+  "reply_thread",
+  "match_room_message",
+  "create_story",
+  "upload_media",
+  "create_poll",
+])
+
+export function getCommunityInteractionDenial(input: {
+  moderationState?: Record<string, any> | null
+  interaction: CommunityInteraction
+  now?: Date
+}) {
+  const state = input.moderationState || {}
+  const nowMs = (input.now || new Date()).getTime()
+  if (input.interaction === "report") return ""
+  if (state.bannedAt) return "Your account is banned from community interactions"
+  if (state.suspendedAt) return "Your account is suspended from community interactions"
+  if (
+    state.postingRestrictedUntil &&
+    new Date(state.postingRestrictedUntil).getTime() > nowMs &&
+    CONTENT_CREATION_INTERACTIONS.has(input.interaction)
+  ) {
+    return "Your account is temporarily restricted from community posting"
+  }
+  return ""
+}
+
+export function normalizeRestrictionDuration(value: unknown): CommunityRestrictionDuration {
+  const normalized = String(value || "7d").trim().toLowerCase()
+  return Object.prototype.hasOwnProperty.call(COMMUNITY_RESTRICTION_DURATIONS, normalized) ? (normalized as CommunityRestrictionDuration) : "7d"
+}
+
+export function calculateRestrictionUntil(duration: CommunityRestrictionDuration, now = new Date()) {
+  return new Date(now.getTime() + COMMUNITY_RESTRICTION_DURATIONS[duration])
+}
+
+export async function assertCommunityInteractionAllowed(userId: string, interaction: CommunityInteraction) {
   const user = await User.findById(userId).select("moderationState")
   if (!user) throw new Error("Authentication required")
 
-  const state = user.moderationState || {}
-  if (state.bannedAt) {
-    throw new Error("Your account is banned from community posting")
-  }
-  if (state.suspendedAt) {
-    throw new Error("Your account is suspended from community posting")
-  }
-  if (state.postingRestrictedUntil && new Date(state.postingRestrictedUntil).getTime() > Date.now()) {
-    throw new Error("Your account is temporarily restricted from community posting")
-  }
+  const denial = getCommunityInteractionDenial({ moderationState: user.moderationState || {}, interaction })
+  if (denial) throw new Error(denial)
+}
+
+export async function assertCommunityPostingAllowed(userId: string) {
+  return assertCommunityInteractionAllowed(userId, "create_post")
 }
 
 export async function applyUserModerationAction(input: {
   userId: string
-  action: "warn" | "restrict" | "suspend" | "ban"
+  action: UserModerationAction
+  duration?: CommunityRestrictionDuration
 }) {
   const update: Record<string, unknown> = {
     "moderationState.lastActionAt": new Date(),
@@ -866,15 +944,27 @@ export async function applyUserModerationAction(input: {
   }
 
   if (input.action === "restrict") {
-    update["moderationState.postingRestrictedUntil"] = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    update["moderationState.postingRestrictedUntil"] = calculateRestrictionUntil(input.duration || "7d")
+  }
+
+  if (input.action === "clear_restriction") {
+    update["moderationState.postingRestrictedUntil"] = null
   }
 
   if (input.action === "suspend") {
     update["moderationState.suspendedAt"] = new Date()
   }
 
+  if (input.action === "unsuspend") {
+    update["moderationState.suspendedAt"] = null
+  }
+
   if (input.action === "ban") {
     update["moderationState.bannedAt"] = new Date()
+  }
+
+  if (input.action === "unban") {
+    update["moderationState.bannedAt"] = null
   }
 
   await User.updateOne({ _id: input.userId }, update)
@@ -882,15 +972,18 @@ export async function applyUserModerationAction(input: {
 
 export async function notifyUserModerationAction(input: {
   recipientId: string
-  action: "warn" | "restrict" | "suspend" | "ban"
+  action: UserModerationAction
   referenceType?: string
   referenceId?: string
 }) {
   const typeMap = {
     warn: "community_user_warned",
     restrict: "community_user_restricted",
+    clear_restriction: "community_user_restriction_cleared",
     suspend: "community_user_suspended",
+    unsuspend: "community_user_unsuspended",
     ban: "community_user_banned",
+    unban: "community_user_unbanned",
   } as const
 
   return createCommunityNotification({

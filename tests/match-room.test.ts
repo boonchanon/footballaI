@@ -14,6 +14,7 @@ import {
   isFinishedMatchStatus,
   isLiveMatchStatus,
   normalizeMatchRoomFixture,
+  normalizeMatchRoomId,
   selectMatchRoomFixture,
   shouldEmitSummaryReady,
   validateStructuredMatchSummary,
@@ -32,8 +33,12 @@ import {
 } from "../lib/server/community-notifications"
 import {
   MATCH_HUB_EMPTY_STATES,
+  buildMatchHubCommunityPulse,
   getFavoriteTeamRecommendedRoom,
+  getMatchHubFanMomentumLabel,
+  getMatchHubMilestones,
   getMatchHubDisplayState,
+  getMatchHubErrorView,
   getMatchHubRoomBadge,
   getMatchHubScoreLabel,
   getMatchHubStatusLabel,
@@ -56,6 +61,17 @@ import {
   getTimelineRecommendedRoom,
   normalizeTimelineMatchEvents,
 } from "../lib/match-timeline-ui"
+import {
+  COMMUNITY_FEED_REFERENCE_ORDER,
+  assertCommunityFeedReferenceOrder,
+  buildCommunityHeroMetrics,
+  deriveCommunityTrendingTopics,
+  getCommunityFixturePhase,
+  getCommunityFixtureScoreLabel,
+  getCommunityFixtureStatusLabel,
+  selectCommunityHeroFixture,
+  shouldShowCommunityFixtureScore,
+} from "../lib/community-feed-ui"
 
 test("scheduled/live/postponed matches should not open post-match poll", () => {
   assert.equal(canOpenPostMatchPoll({ status: "NS", isFinished: false }), false)
@@ -150,6 +166,104 @@ test("selected matchId should not fallback to another fixture", () => {
   assert.equal(selectMatchRoomFixture(fixtures, "missing-match"), null)
   assert.equal(selectMatchRoomFixture(fixtures, "match-a")?.id, "match-a")
   assert.equal(selectMatchRoomFixture(fixtures, "")?.id, "match-b")
+})
+
+test("matchId normalization should resolve string and number ids consistently", () => {
+  const fixtures = [
+    normalizeMatchRoomFixture({
+      fixture: { id: 1208059, status: { short: "NS" } },
+      teams: { home: { name: "Tottenham" }, away: { name: "Arsenal" } },
+      goals: {},
+    }),
+  ]
+  assert.equal(normalizeMatchRoomId(1208059), "1208059")
+  assert.equal(normalizeMatchRoomId(" 1208059 "), "1208059")
+  assert.equal(selectMatchRoomFixture(fixtures, "1208059")?.id, "1208059")
+  assert.equal(selectMatchRoomFixture(fixtures, " 1208059 ")?.id, "1208059")
+})
+
+test("match hub error view should separate provider errors from confirmed not found", () => {
+  assert.equal(getMatchHubErrorView({ hasFixture: true, hasError: true, errorCode: "PROVIDER_ERROR" }), "transient_error")
+  assert.equal(getMatchHubErrorView({ hasFixture: true, hasError: true, errorCode: "MESSAGE_LOAD_ERROR" }), "transient_error")
+  assert.equal(getMatchHubErrorView({ hasFixture: false, hasError: true, errorCode: "PROVIDER_ERROR" }), "transient_error")
+  assert.equal(getMatchHubErrorView({ hasFixture: false, hasError: true, errorCode: "TIMEOUT" }), "transient_error")
+  assert.equal(getMatchHubErrorView({ hasFixture: false, hasError: true, errorCode: "MATCH_NOT_FOUND" }), "not_found")
+  assert.equal(getMatchHubErrorView({ hasFixture: false, hasError: false, isLoading: true }), "loading")
+})
+
+test("community feed match hero should use real fixture phases and hide upcoming score", () => {
+  const upcoming = {
+    id: "fixture-upcoming",
+    homeTeam: "Arsenal",
+    awayTeam: "Liverpool",
+    homeLogo: "",
+    awayLogo: "",
+    homeScore: 3,
+    awayScore: 2,
+    status: "NS",
+    kickoff: "2026-08-04T12:00:00Z",
+    isFinished: false,
+  }
+  const live = { ...upcoming, id: "fixture-live", status: "1H", homeScore: 1, awayScore: 1 }
+  const finished = { ...upcoming, id: "fixture-finished", status: "FT", homeScore: 2, awayScore: 0, isFinished: true }
+
+  assert.equal(getCommunityFixturePhase(upcoming), "upcoming")
+  assert.equal(getCommunityFixtureStatusLabel(live), "กำลังแข่งขัน")
+  assert.equal(getCommunityFixtureStatusLabel(finished), "Full Time")
+  assert.equal(shouldShowCommunityFixtureScore(upcoming), false)
+  assert.equal(getCommunityFixtureScoreLabel(upcoming), "VS")
+  assert.equal(getCommunityFixtureScoreLabel(live), "1 - 1")
+  assert.equal(selectCommunityHeroFixture([upcoming, finished, live])?.id, "fixture-live")
+})
+
+test("community feed match hero metrics should only aggregate provided stats", () => {
+  const metrics = buildCommunityHeroMetrics({
+    roomStats: {
+      main: { discussions: 4, polls: 1 },
+      tactics: { discussions: 2, polls: 0 },
+    },
+    posts: [{}, {}, {}],
+  })
+
+  assert.equal(metrics.discussions, 6)
+  assert.equal(metrics.polls, 1)
+  assert.equal(metrics.activity, 7)
+})
+
+test("community feed trending topics should derive from real posts only", () => {
+  assert.deepEqual(deriveCommunityTrendingTopics([]), [])
+
+  const topics = deriveCommunityTrendingTopics([
+    { tags: ["MUFC", "Matchday"], categoryLabel: "วิเคราะห์แมตช์", likes: 10, comments: 2, reposts: 1, views: 100 },
+    { tags: ["MUFC"], categoryLabel: "ทายผล", likes: 3, comments: 0, reposts: 0, views: 10 },
+    { tags: ["Liverpool"], categoryLabel: "วิเคราะห์แมตช์", likes: 2, comments: 1, reposts: 0, views: 0 },
+  ])
+
+  assert.equal(topics[0].label, "MUFC")
+  assert.equal(topics[0].count, 2)
+  assert.ok(topics.every((topic) => topic.label !== "CHEMUN"))
+})
+
+test("community feed presentation order should keep context, match spotlight, tabs, stories, composer, and posts", () => {
+  assert.deepEqual(COMMUNITY_FEED_REFERENCE_ORDER, ["community-context", "match-hub-spotlight", "feed-tabs", "stories-rail", "composer", "feed-posts"])
+  assert.equal(assertCommunityFeedReferenceOrder(["community-context", "match-hub-spotlight", "feed-tabs", "stories-rail", "composer", "feed-posts"]), true)
+  assert.equal(assertCommunityFeedReferenceOrder(["stories-rail", "community-context", "match-hub-spotlight", "feed-tabs", "composer", "feed-posts"]), false)
+})
+
+test("match hub community pulse should use real counts and avoid fabricated momentum", () => {
+  const emptyPulse = buildMatchHubCommunityPulse({ messages: 0, threads: 0, polls: 0, fans: 0, highlights: 0, summaryStatus: "not_generated" })
+  assert.equal(getMatchHubFanMomentumLabel(emptyPulse), "Waiting for the first fan")
+  assert.deepEqual(getMatchHubMilestones(emptyPulse), [])
+
+  const activePulse = buildMatchHubCommunityPulse({ messages: 8, threads: 2, polls: 1, fans: 4, highlights: 2, summaryStatus: "generated" })
+  assert.equal(activePulse.messages, 8)
+  assert.equal(activePulse.threads, 2)
+  assert.equal(activePulse.polls, 1)
+  assert.equal(activePulse.fans, 4)
+  assert.equal(activePulse.highlights, 2)
+  assert.equal(activePulse.hasSummary, true)
+  assert.equal(getMatchHubFanMomentumLabel(activePulse), "Community is warming up")
+  assert.deepEqual(getMatchHubMilestones(activePulse), ["8 messages", "2 threads", "1 poll", "2 match highlights", "AI summary ready"])
 })
 
 test("fan reactions should use real poll aggregate and avoid sentiment below minimum content", () => {

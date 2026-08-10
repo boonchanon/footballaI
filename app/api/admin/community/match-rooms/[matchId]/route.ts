@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server"
 
+import { getMatchDemoRoomAvailabilityPhase } from "@/lib/match-demo-override"
 import {
   buildAdminPollFilter,
   buildAdminRoomMessageFilter,
@@ -10,6 +11,12 @@ import {
   validateAdminActionReason,
 } from "@/lib/server/admin-community-match-rooms"
 import { requireAdminRoles } from "@/lib/server/auth"
+import {
+  getMatchDemoOverrideState,
+  normalizeMatchDemoOverridePhase,
+  setMatchDemoOverride,
+  validateDemoOverrideReason,
+} from "@/lib/server/community-match-demo-override"
 import { createModerationLog } from "@/lib/server/content-moderation"
 import { getMatchRoomFixture } from "@/lib/server/community-match-room"
 import { getMatchRoomChannels, normalizeMatchRoomType } from "@/lib/server/community-room-conversation"
@@ -135,7 +142,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const roomType = normalizeMatchRoomType(searchParams.get("roomType") || (["main", "tactics", "preview", "post_match"].includes(tab) ? tab : "main"))
     const { page, limit, skip } = parsePagination(searchParams)
     const overview = await getOverview(matchId)
-    const channels = getMatchRoomChannels(fixture)
+    const demoOverride = await getMatchDemoOverrideState(matchId, fixture)
+    const channels = getMatchRoomChannels(fixture, new Date(), getMatchDemoRoomAvailabilityPhase(demoOverride))
 
     let items: any[] = []
     let total = 0
@@ -209,6 +217,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return ok({
       fixture,
       channels,
+      demoOverride,
       overview,
       tab,
       roomType,
@@ -230,6 +239,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (!fixture || fixture.id !== matchId) return errorResponse("Match not found", 404)
 
     const body = await request.json()
+    if (typeof body.requestedPhase === "string") {
+      const requestedPhase = normalizeMatchDemoOverridePhase(body.requestedPhase)
+      if (!requestedPhase) return errorResponse("Invalid demo phase", 422)
+      const reasonCheck = validateDemoOverrideReason(body.reason)
+      if (!reasonCheck.ok) return errorResponse(reasonCheck.error, 422)
+      const result = await setMatchDemoOverride({
+        admin,
+        matchId,
+        fixture,
+        requestedPhase,
+        reason: sanitizeReason(reasonCheck.reason),
+      })
+      return ok({ success: true, demoOverride: result.state, idempotent: result.idempotent })
+    }
+
     const action = normalizeAdminMatchRoomAction(body.action)
     if (!action) return errorResponse("Invalid action", 422)
     const roomType = normalizeMatchRoomType(body.roomType || "")

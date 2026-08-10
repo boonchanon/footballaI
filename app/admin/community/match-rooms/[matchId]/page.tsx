@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Archive, CheckCircle, EyeOff, Flag, Pin, RefreshCw, ShieldCheck } from "lucide-react"
+import { Archive, CheckCircle, EyeOff, Flag, Pin, RefreshCw, ShieldCheck, SlidersHorizontal } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -40,6 +40,15 @@ type AdminMatchRoomItem = {
 type AdminMatchRoomDetailResponse = {
   fixture: { id: string; homeTeam: string; awayTeam: string; status: string; kickoff: string; dateThai: string; venue: string }
   channels: Array<{ roomType: string; state: string; opensAt?: string | null; closesAt?: string | null; archiveAt?: string | null; isArchived: boolean }>
+  demoOverride?: {
+    providerPhase: "pre_match" | "live" | "full_time"
+    effectivePhase: "pre_match" | "live" | "full_time"
+    overridePhase: "auto" | "pre_match" | "live" | "full_time"
+    enabled: boolean
+    reason?: string
+    updatedBy?: string
+    updatedAt?: string | null
+  }
   overview: { roomMessages: number; threads: number; polls: number; reports: number; hidden: number; archivedMessages: number; latestActivityAt?: string | null }
   tab: string
   items: AdminMatchRoomItem[]
@@ -71,6 +80,9 @@ export default function AdminMatchRoomDetailPage({ params }: { params: Promise<{
   const [tab, setTab] = useState("overview")
   const [page, setPage] = useState(1)
   const [reason, setReason] = useState("")
+  const [demoPhase, setDemoPhase] = useState<"auto" | "pre_match" | "live" | "full_time">("auto")
+  const [demoReason, setDemoReason] = useState("")
+  const [demoFeedback, setDemoFeedback] = useState("")
   const [manualArchiveRoomType, setManualArchiveRoomType] = useState("")
   const [loading, setLoading] = useState(true)
   const [actingId, setActingId] = useState("")
@@ -95,6 +107,7 @@ export default function AdminMatchRoomDetailPage({ params }: { params: Promise<{
         headers: { Authorization: `Bearer ${token}` },
       })
       setData(response)
+      setDemoPhase(response.demoOverride?.overridePhase || "auto")
       setError("")
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "โหลดข้อมูล Match Room ไม่สำเร็จ กรุณาลองใหม่")
@@ -128,6 +141,34 @@ export default function AdminMatchRoomDetailPage({ params }: { params: Promise<{
       await load()
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : "ดำเนินการไม่สำเร็จ")
+    } finally {
+      setActingId("")
+    }
+  }
+
+  async function submitDemoOverride(nextPhase: "auto" | "pre_match" | "live" | "full_time") {
+    if (!matchId) return
+    const trimmedReason = demoReason.trim()
+    if (!trimmedReason) {
+      setError("Demo override ต้องกรอก reason")
+      return
+    }
+    const label = nextPhase === "auto" ? "Reset to Provider" : `Apply ${nextPhase}`
+    if (!window.confirm(`ยืนยัน ${label}?`)) return
+    const token = getAuthToken()
+    if (!token) return
+    setActingId(`demo:${nextPhase}`)
+    try {
+      const response = await fetchJson<Pick<AdminMatchRoomDetailResponse, "demoOverride"> & { idempotent?: boolean }>(`/admin/community/match-rooms/${matchId}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ requestedPhase: nextPhase, reason: trimmedReason }),
+      })
+      setDemoFeedback(response.idempotent ? "Demo override already matched this phase." : "Demo override updated.")
+      setDemoReason("")
+      await load()
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "อัปเดต Demo override ไม่สำเร็จ")
     } finally {
       setActingId("")
     }
@@ -229,6 +270,54 @@ export default function AdminMatchRoomDetailPage({ params }: { params: Promise<{
                       Archive {roomType}
                     </Button>
                   ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <SlidersHorizontal className="h-5 w-5 text-primary" />
+                Demo Controls
+                {data.demoOverride?.enabled ? <Badge className="bg-primary text-primary-foreground">DEMO OVERRIDE</Badge> : null}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 text-sm lg:grid-cols-[1fr_320px]">
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded-2xl border border-border p-3">
+                  <p className="text-muted-foreground">Provider phase</p>
+                  <p className="font-semibold">{data.demoOverride?.providerPhase || "-"}</p>
+                </div>
+                <div className="rounded-2xl border border-border p-3">
+                  <p className="text-muted-foreground">Effective phase</p>
+                  <p className="font-semibold">{data.demoOverride?.effectivePhase || "-"}</p>
+                </div>
+                <div className="rounded-2xl border border-border p-3">
+                  <p className="text-muted-foreground">Demo override</p>
+                  <p className="font-semibold">{data.demoOverride?.overridePhase || "auto"}</p>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <Select value={demoPhase} onValueChange={(value) => setDemoPhase(value as typeof demoPhase)}>
+                  <SelectTrigger aria-label="เลือก Demo override phase">
+                    <SelectValue placeholder="Demo phase" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto</SelectItem>
+                    <SelectItem value="pre_match">Pre Match</SelectItem>
+                    <SelectItem value="live">Live</SelectItem>
+                    <SelectItem value="full_time">Full Time</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input value={demoReason} onChange={(event) => setDemoReason(event.target.value)} placeholder="Reason required" aria-label="Demo override reason" />
+                {demoFeedback ? <p className="text-xs text-emerald-400">{demoFeedback}</p> : null}
+                <div className="flex flex-wrap gap-2">
+                  <Button disabled={Boolean(actingId)} onClick={() => void submitDemoOverride(demoPhase)}>
+                    Apply Demo Override
+                  </Button>
+                  <Button variant="outline" disabled={Boolean(actingId)} onClick={() => void submitDemoOverride("auto")}>
+                    Reset to Provider
+                  </Button>
                 </div>
               </div>
             </CardContent>

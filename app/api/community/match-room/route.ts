@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 
 import { canManageCommunityAdmin } from "@/lib/admin-access"
+import { getMatchDemoRoomAvailabilityPhase } from "@/lib/match-demo-override"
 import { getAuthUser } from "@/lib/server/auth"
 import { buildViewerVisibleModeratedContentFilter, mapCommunityPostWithMedia } from "@/lib/server/community"
 import {
@@ -16,9 +17,12 @@ import {
   buildPostMatchPollTemplate,
   buildSmartComposerPrompts,
   getCachedMatchRoomSummary,
+  getMatchRoomFixture,
   getMatchRoomFixtures,
+  normalizeMatchRoomId,
   selectMatchRoomFixture,
 } from "@/lib/server/community-match-room"
+import { getMatchDemoOverrideState } from "@/lib/server/community-match-demo-override"
 import { buildApprovedRoomActivityFilter, getRoomState, getTemporaryRoomActivityState, getVisibleMatchRoomChannels } from "@/lib/server/community-room-conversation"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, ok } from "@/lib/server/http"
@@ -49,15 +53,28 @@ function getFavoriteTeamSide(fixture: { homeTeam: string; awayTeam: string }, vi
   return null
 }
 
+function getMatchRoomTransientErrorCode(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || "")
+  const lower = message.toLowerCase()
+  if (lower.includes("timeout") || lower.includes("timed out")) return "TIMEOUT"
+  if (lower.includes("network") || lower.includes("fetch failed") || lower.includes("econn") || lower.includes("enotfound")) return "NETWORK_ERROR"
+  return "PROVIDER_ERROR"
+}
+
 export async function GET(request: NextRequest) {
+  const requestId = crypto.randomUUID()
   try {
     await connectDatabase()
     const viewer = await getAuthUser(request)
     const searchParams = request.nextUrl.searchParams
-    const matchId = String(searchParams.get("matchId") || "").trim()
-    const fixtures = await getMatchRoomFixtures({ favoriteTeamName: String(viewer?.favoriteTeam || "") })
-    const fixture = selectMatchRoomFixture(fixtures, matchId)
+    const matchId = normalizeMatchRoomId(searchParams.get("matchId"))
+    const directoryFixtures = await getMatchRoomFixtures({ favoriteTeamName: String(viewer?.favoriteTeam || "") })
+    const fixture = matchId ? await getMatchRoomFixture(matchId) : selectMatchRoomFixture(directoryFixtures, matchId)
+    if (matchId && !fixture) return errorResponse("Match not found", 404, { code: "MATCH_NOT_FOUND", requestId })
+    const fixtures = fixture && !directoryFixtures.some((item) => item.id === fixture.id) ? [fixture, ...directoryFixtures] : directoryFixtures
     const selectedMatchId = fixture?.id || matchId
+    const selectedDemoOverride = fixture?.id ? await getMatchDemoOverrideState(fixture.id, fixture) : null
+    const selectedRoomAvailabilityPhase = selectedDemoOverride ? getMatchDemoRoomAvailabilityPhase(selectedDemoOverride) : "auto"
     const fixtureIds = fixtures.map((item) => item.id).filter(Boolean)
     const roomStatsEntries = fixtureIds.length
       ? await CommunityPost.aggregate([
@@ -272,10 +289,10 @@ export async function GET(request: NextRequest) {
         isFinished: fixtureItem.isFinished,
       })
       roomStats[fixtureItem.id].activity.temporaryRoom =
-        getTemporaryRoomActivityState(fixtureItem, "preview") !== "none"
-          ? getTemporaryRoomActivityState(fixtureItem, "preview")
-          : getTemporaryRoomActivityState(fixtureItem, "post_match")
-      const postMatchRoom = getRoomState(fixtureItem, "post_match")
+        getTemporaryRoomActivityState(fixtureItem, "preview", new Date(), fixtureItem.id === fixture?.id ? selectedRoomAvailabilityPhase : "auto") !== "none"
+          ? getTemporaryRoomActivityState(fixtureItem, "preview", new Date(), fixtureItem.id === fixture?.id ? selectedRoomAvailabilityPhase : "auto")
+          : getTemporaryRoomActivityState(fixtureItem, "post_match", new Date(), fixtureItem.id === fixture?.id ? selectedRoomAvailabilityPhase : "auto")
+      const postMatchRoom = getRoomState(fixtureItem, "post_match", new Date(), fixtureItem.id === fixture?.id ? selectedRoomAvailabilityPhase : "auto")
       const favoriteSide = getFavoriteTeamSide(fixtureItem, viewer)
       for (const side of ["home", "away"] as const) {
         roomStats[fixtureItem.id].postMatchLounges[side] = {
@@ -358,7 +375,8 @@ export async function GET(request: NextRequest) {
     return ok({
       fixtures,
       fixture,
-      channels: getVisibleMatchRoomChannels(fixture, new Date(), viewer?.role),
+      channels: getVisibleMatchRoomChannels(fixture, new Date(), viewer?.role, selectedRoomAvailabilityPhase),
+      demoOverride: selectedDemoOverride,
       roomStats,
       summary: await getCachedMatchRoomSummary(fixture, fanReaction),
       fanReaction,
@@ -376,6 +394,13 @@ export async function GET(request: NextRequest) {
       threads: await Promise.all(threads.map((post: any) => mapCommunityPostWithMedia(post, viewer))),
     })
   } catch (error) {
-    return errorResponse(error instanceof Error ? error.message : "Failed to load match room", 500)
+    const message = error instanceof Error ? error.message : "Failed to load match room"
+    const code = getMatchRoomTransientErrorCode(error)
+    console.error("[match-room] load failed", {
+      requestId,
+      code,
+      message,
+    })
+    return errorResponse("โหลดข้อมูล Match Room ไม่สำเร็จ", 503, { code, requestId })
   }
 }

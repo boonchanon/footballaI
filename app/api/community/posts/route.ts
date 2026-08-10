@@ -28,6 +28,18 @@ type MediaAttachmentValidation = {
   hasProcessing: boolean
 }
 
+async function runPostCreateSideEffect(label: string, task: () => Promise<unknown>) {
+  try {
+    await task()
+  } catch (error) {
+    console.error("[community-posts:create] side effect failed", {
+      label,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+      errorMessage: error instanceof Error ? error.message : "Unknown error",
+    })
+  }
+}
+
 async function addOwnerPendingPreviews(mapped: any, post: any, viewer: any) {
   const authorId = post.author?._id?.toString?.() || post.author?.toString?.() || ""
   if (!viewer || authorId !== viewer._id.toString() || post.moderation?.status !== "pending_review") {
@@ -268,7 +280,19 @@ export async function POST(request: NextRequest) {
     const teamIds = parseMetadataIdList(body.teamIds, 6)
     const playerIds = parseMetadataIdList(body.playerIds, 12)
     const matchId = typeof body.matchId === "string" && /^[A-Za-z0-9_-]{1,80}$/.test(body.matchId.trim()) ? body.matchId.trim() : ""
-    const matchFixture = matchId ? await getMatchRoomFixture(matchId) : null
+    let matchFixture = null
+    if (matchId) {
+      try {
+        matchFixture = await getMatchRoomFixture(matchId)
+      } catch (error) {
+        console.error("[community-posts:create] match context lookup failed", {
+          matchId,
+          errorName: error instanceof Error ? error.name : "UnknownError",
+          errorMessage: error instanceof Error ? error.message : "Unknown error",
+        })
+        return errorResponse("Match context temporarily unavailable", 503, { code: "MATCH_CONTEXT_PROVIDER_ERROR" })
+      }
+    }
     const matchContext = matchFixture && matchFixture.id === matchId ? buildMatchContext(matchFixture) : null
     const visibility = body.visibility === "friends" ? "friends" : "public"
     const poll =
@@ -297,6 +321,7 @@ export async function POST(request: NextRequest) {
         ? {
             type: String(body.sharedItem.type || "").trim(),
             title: String(body.sharedItem.title || "").trim(),
+            description: String(body.sharedItem.description || "").trim(),
             url: String(body.sharedItem.url || "").trim(),
             image: String(body.sharedItem.image || "").trim(),
             source: String(body.sharedItem.source || "").trim(),
@@ -472,77 +497,91 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    await createModerationLog({
-      userId: user._id.toString(),
-      contentType: "post",
-      contentId: post._id.toString(),
-      status: finalModerationStatus,
-      action: "created",
-      reasons: finalReasons,
-      scores: moderation.scores,
-      provider: moderation.provider,
-      metadata: {
-        imageMediaIds,
-        videoMediaIds,
-        teamIds,
-        playerIds,
-        matchId,
-        matchContext,
-        hasPendingMedia,
-      },
-    })
-
-    if (finalModerationStatus === "pending_review") {
-      await notifyContentModerationOutcome({
-        recipientId: user._id.toString(),
-        outcome: "pending_review",
+    await runPostCreateSideEffect("moderation-log-created", () =>
+      createModerationLog({
+        userId: user._id.toString(),
         contentType: "post",
         contentId: post._id.toString(),
-      })
+        status: finalModerationStatus,
+        action: "created",
+        reasons: finalReasons,
+        scores: moderation.scores,
+        provider: moderation.provider,
+        metadata: {
+          imageMediaIds,
+          videoMediaIds,
+          teamIds,
+          playerIds,
+          matchId,
+          matchContext,
+          hasPendingMedia,
+        },
+      }),
+    )
+
+    if (finalModerationStatus === "pending_review") {
+      await runPostCreateSideEffect("pending-review-notification", () =>
+        notifyContentModerationOutcome({
+          recipientId: user._id.toString(),
+          outcome: "pending_review",
+          contentType: "post",
+          contentId: post._id.toString(),
+        }),
+      )
     }
 
     if (normalizedSharedItem?.type === "post" && normalizedSharedItem.postId) {
-      await CommunityPost.findByIdAndUpdate(normalizedSharedItem.postId, { $inc: { repostsCount: 1 } })
-      const originalPost = await CommunityPost.findById(normalizedSharedItem.postId).select("author")
-      if (originalPost?.author && finalModerationStatus === "approved") {
-        await createCommunityNotification({
-          recipientId: originalPost.author.toString(),
-          actorId: user._id.toString(),
-          postId: normalizedSharedItem.postId,
-          type: "post_repost",
-        })
-      }
+      await runPostCreateSideEffect("repost-count-and-notification", async () => {
+        await CommunityPost.findByIdAndUpdate(normalizedSharedItem.postId, { $inc: { repostsCount: 1 } })
+        const originalPost = await CommunityPost.findById(normalizedSharedItem.postId).select("author")
+        if (originalPost?.author && finalModerationStatus === "approved") {
+          await createCommunityNotification({
+            recipientId: originalPost.author.toString(),
+            actorId: user._id.toString(),
+            postId: normalizedSharedItem.postId,
+            type: "post_repost",
+          })
+        }
+      })
     }
 
     if (finalModerationStatus === "approved") {
-      await awardCommunityFanBadges({
-        userId: user._id.toString(),
-        action: matchId ? "match_room_post_created" : "post_created",
-        eventKey: `post:${post._id.toString()}:published`,
-        postId: post._id.toString(),
-        matchId,
-      })
-      await notifyFriendsAboutApprovedPost({
-        authorId: user._id.toString(),
-        actorId: user._id.toString(),
-        postId: post._id.toString(),
-      })
-      if (matchId) {
-        await notifyMatchRoomFollowers({
+      await runPostCreateSideEffect("fan-badge-award", () =>
+        awardCommunityFanBadges({
+          userId: user._id.toString(),
+          action: matchId ? "match_room_post_created" : "post_created",
+          eventKey: `post:${post._id.toString()}:published`,
+          postId: post._id.toString(),
           matchId,
+        }),
+      )
+      await runPostCreateSideEffect("friend-post-notifications", () =>
+        notifyFriendsAboutApprovedPost({
+          authorId: user._id.toString(),
           actorId: user._id.toString(),
           postId: post._id.toString(),
-          type: "community_match_room_posted",
-          message: `${user.name || "มีผู้ใช้"} โพสต์ใหม่ใน Match Room`,
-        })
-        await createCommunityNotification({
-          recipientId: user._id.toString(),
-          actorId: user._id.toString(),
-          postId: post._id.toString(),
-          type: "community_fan_badge_unlocked",
-          referenceType: "fan-badge",
-          message: "Match Room Voice",
-        })
+        }),
+      )
+      if (matchId) {
+        await runPostCreateSideEffect("match-room-follower-notifications", () =>
+          notifyMatchRoomFollowers({
+            matchId,
+            actorId: user._id.toString(),
+            postId: post._id.toString(),
+            type: "community_match_room_posted",
+            message: `${user.name || "มีผู้ใช้"} โพสต์ใหม่ใน Match Room`,
+          }),
+        )
+        await runPostCreateSideEffect("match-room-badge-notification", () =>
+          createCommunityNotification({
+            recipientId: user._id.toString(),
+            actorId: user._id.toString(),
+            postId: post._id.toString(),
+            type: "community_fan_badge_unlocked",
+            referenceType: "fan-badge",
+            message: "Match Room Voice",
+          }),
+        )
       }
     }
 
@@ -551,13 +590,29 @@ export async function POST(request: NextRequest) {
     return ok({ item: mapped, moderationStatus: finalModerationStatus }, { status: 201 })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to create post"
+    const errorName = error instanceof Error ? error.name : "UnknownError"
+    const isValidationError = errorName === "ValidationError" || message.toLowerCase().includes("validation failed")
+    console.error("[community-posts:create] failed", {
+      errorName,
+      errorMessage: message,
+    })
     return errorResponse(
       message,
       message === "Authentication required"
         ? 401
+        : isValidationError
+          ? 422
         : message.includes("attachments") || message.includes("own one of the selected") || message.includes("already linked")
           ? 422
           : 500,
+      {
+        code:
+          message === "Authentication required"
+            ? "AUTHENTICATION_REQUIRED"
+            : isValidationError
+              ? "POST_VALIDATION_ERROR"
+              : "COMMUNITY_POST_CREATE_FAILED",
+      },
     )
   }
 }

@@ -5,7 +5,7 @@ import { requireAuthUser } from "@/lib/server/auth"
 import { buildTeamPreviewLoungeTag, buildTeamReactionLoungeTag, normalizeTeamPreviewSide, normalizeTeamReactionSide } from "@/lib/match-preview-lounges"
 import { getMatchRoomFixture } from "@/lib/server/community-match-room"
 import { getRoomState, normalizeMatchRoomType } from "@/lib/server/community-room-conversation"
-import { createModerationLog, moderateCommunityText } from "@/lib/server/content-moderation"
+import { assertCommunityInteractionAllowed, createModerationLog, moderateCommunityText } from "@/lib/server/content-moderation"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, ok } from "@/lib/server/http"
 import { CommunityPost } from "@/lib/server/models"
@@ -63,6 +63,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     })
     if (!message) return errorResponse("Message not found", 404)
     if (!canMutateMessage(message, viewer)) return errorResponse("Not allowed to edit message", 403)
+    if (!canManageCommunityAdmin(viewer.role)) await assertCommunityInteractionAllowed(viewer._id.toString(), "match_room_message")
 
     const moderation = await moderateCommunityText({ content })
     if (moderation.status === "rejected") {
@@ -141,6 +142,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     })
     if (!message) return errorResponse("Message not found", 404)
     if (!canMutateMessage(message, viewer)) return errorResponse("Not allowed to delete message", 403)
+    if (!canManageCommunityAdmin(viewer.role)) await assertCommunityInteractionAllowed(viewer._id.toString(), "match_room_message")
 
     message.status = "hidden"
     message.isPinned = false

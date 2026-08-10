@@ -9,13 +9,26 @@ import {
   canReadRoom,
   getMatchRoomChannels,
   getRoomState,
+  getTemporaryRoomActivityState,
   normalizeMatchRoomContentType,
   normalizeMatchRoomType,
   shouldArchiveRoom,
 } from "../lib/server/community-room-conversation"
 import { normalizeMatchRoomFixture } from "../lib/server/community-match-room"
+import { getEffectiveMatchTimelinePhase, getMatchDemoOverrideNotice, getMatchDemoRoomAvailabilityPhase, isMatchDemoOverrideEnabled, normalizeMatchDemoOverridePhase } from "../lib/match-demo-override"
 import { buildTeamPreviewLoungeTag, buildTeamReactionLoungeTag } from "../lib/match-preview-lounges"
 import { MAIN_ROOM_COPY, getMainRoomDateDividerLabel, getRoomMessageBubbleLayout, getSystemMessageLayout, mergeMainRoomMessages, shouldGroupMainRoomMessage, shouldShowMainRoomDateDivider } from "../lib/match-main-room-ui"
+import {
+  TACTICAL_QUICK_TOPICS,
+  TACTICAL_ROOM_COPY,
+  buildTacticalTopicTag,
+  extractTacticalTopicFromTags,
+  getTacticalFixtureContext,
+  getTacticalPhaseFocus,
+  getTacticalQuickTopicLabel,
+  normalizeTacticalQuickTopic,
+} from "../lib/match-tactical-room-ui"
+import { COMMUNITY_THREAD_CATEGORY_LABELS } from "../lib/server/community-threads"
 
 function fixture(overrides: Record<string, unknown> = {}) {
   return normalizeMatchRoomFixture({
@@ -99,6 +112,72 @@ test("channel helper should return all supported room types", () => {
   assert.deepEqual(channels.map((channel) => channel.roomType), ["main", "tactics", "preview", "post_match"])
 })
 
+test("match demo override should normalize allowlisted phases and leave auto on provider phase", () => {
+  assert.equal(normalizeMatchDemoOverridePhase("auto"), "auto")
+  assert.equal(normalizeMatchDemoOverridePhase("Full_Time"), "full_time")
+  assert.equal(normalizeMatchDemoOverridePhase("change-score"), null)
+  assert.equal(isMatchDemoOverrideEnabled("live"), true)
+  assert.equal(isMatchDemoOverrideEnabled("auto"), false)
+  assert.equal(getEffectiveMatchTimelinePhase("pre_match", "auto"), "pre_match")
+  assert.equal(getEffectiveMatchTimelinePhase("pre_match", "full_time"), "full_time")
+  assert.equal(getMatchDemoRoomAvailabilityPhase({ enabled: false, effectivePhase: "full_time" }), "auto")
+  assert.equal(getMatchDemoRoomAvailabilityPhase({ enabled: true, effectivePhase: "pre_match" }), "pre_match")
+  assert.equal(getMatchDemoOverrideNotice("full_time"), "กำลังจำลองประสบการณ์หลังจบเกม")
+})
+
+test("auto room availability should keep provider lifecycle while demo phases use effective phase", () => {
+  const finished = fixture({
+    fixture: { id: "match-1", status: { short: "FT" }, date: "2026-07-31T12:00:00Z" },
+    goals: { home: 2, away: 1 },
+  })
+  const now = new Date("2026-07-31T14:46:00Z")
+  const autoPhase = getMatchDemoRoomAvailabilityPhase({ enabled: false, effectivePhase: "full_time" })
+  const preMatchPhase = getMatchDemoRoomAvailabilityPhase({ enabled: true, effectivePhase: "pre_match" })
+  const livePhase = getMatchDemoRoomAvailabilityPhase({ enabled: true, effectivePhase: "live" })
+  const fullTimePhase = getMatchDemoRoomAvailabilityPhase({ enabled: true, effectivePhase: "full_time" })
+
+  assert.equal(getRoomState(finished, "post_match", now, autoPhase).state, "archived")
+  assert.equal(getRoomState(finished, "preview", now, preMatchPhase).canPost, true)
+  assert.equal(getRoomState(finished, "post_match", now, preMatchPhase).canPost, false)
+  assert.equal(getRoomState(finished, "main", now, livePhase).canPost, true)
+  assert.equal(getRoomState(finished, "tactics", now, livePhase).canPost, true)
+  assert.equal(getRoomState(finished, "preview", now, livePhase).canPost, false)
+  assert.equal(getRoomState(finished, "post_match", now, fullTimePhase).canPost, true)
+  assert.equal(getRoomState(finished, "preview", now, fullTimePhase).canPost, false)
+})
+
+test("pre-match demo override should open preview lounges without opening reactions", () => {
+  const match = fixture({ fixture: { id: "match-1", status: { short: "FT" }, date: "2026-07-31T12:00:00Z" } })
+  const now = new Date("2026-07-31T14:30:00Z")
+  assert.equal(getRoomState(match, "main", now, "pre_match").state, "open")
+  assert.equal(getRoomState(match, "preview", now, "pre_match").state, "open")
+  assert.equal(canPostToRoom(match, "preview", now, "pre_match"), true)
+  assert.equal(getRoomState(match, "post_match", now, "pre_match").state, "unavailable")
+  assert.equal(canPostToRoom(match, "post_match", now, "pre_match"), false)
+})
+
+test("live demo override should prioritize main and tactics while closing temporary rooms", () => {
+  const match = fixture()
+  const now = new Date("2026-07-31T11:30:00Z")
+  assert.equal(getRoomState(match, "main", now, "live").state, "open")
+  assert.equal(getRoomState(match, "tactics", now, "live").state, "open")
+  assert.equal(getRoomState(match, "main", now, "live").isArchived, false)
+  assert.equal(getRoomState(match, "tactics", now, "full_time").isArchived, false)
+  assert.equal(getRoomState(match, "preview", now, "live").state, "closed")
+  assert.equal(getRoomState(match, "post_match", now, "live").state, "unavailable")
+  assert.equal(canPostToRoom(match, "preview", now, "live"), false)
+})
+
+test("full-time demo override should open reaction lounges and keep preview closed", () => {
+  const match = fixture()
+  const now = new Date("2026-07-31T11:30:00Z")
+  assert.equal(getRoomState(match, "main", now, "full_time").state, "open")
+  assert.equal(getRoomState(match, "post_match", now, "full_time").state, "open")
+  assert.equal(getTemporaryRoomActivityState(match, "post_match", now, "full_time"), "post_match_open")
+  assert.equal(getRoomState(match, "preview", now, "full_time").state, "closed")
+  assert.equal(canPostToRoom(match, "preview", now, "full_time"), false)
+})
+
 test("feed isolation should exclude room messages, match polls, and thread roots", () => {
   assert.equal(publishedVisible({ contentType: "community_post", isRoomMessage: false }), true)
   assert.equal(publishedVisible({ contentType: "room_message", isRoomMessage: true }), false)
@@ -161,6 +240,90 @@ test("team reaction lounge messages should remain isolated from feed, preview, m
   assert.equal(String(homeReaction.roomType) === "tactics", false)
   assert.equal(publishedVisible(homeReaction), false)
   assert.equal(publishedVisible(awayReaction), false)
+})
+
+test("tactical room identity and quick topics should stay centralized", () => {
+  assert.equal(TACTICAL_ROOM_COPY.title, "Tactical Room")
+  assert.match(TACTICAL_ROOM_COPY.description, /แผนการเล่น/)
+  assert.equal(TACTICAL_ROOM_COPY.missingProviderData, "ยังไม่มีข้อมูลแผนการเล่นจากผู้ให้บริการ")
+  assert.deepEqual(TACTICAL_QUICK_TOPICS.map((topic) => topic.id), [
+    "formation",
+    "pressing",
+    "build_up",
+    "counter_attack",
+    "substitution",
+    "manager",
+    "player",
+    "defence",
+    "attack",
+  ])
+})
+
+test("tactical quick topic validation and normalization should reject client injected values", () => {
+  assert.equal(normalizeTacticalQuickTopic("Formation"), "formation")
+  assert.equal(normalizeTacticalQuickTopic("Build-up"), "build_up")
+  assert.equal(normalizeTacticalQuickTopic("counter attack"), "counter_attack")
+  assert.equal(normalizeTacticalQuickTopic("client-injected"), null)
+  assert.equal(buildTacticalTopicTag("pressing"), "match-tactical:pressing")
+  assert.equal(buildTacticalTopicTag("bad-topic"), "")
+  assert.equal(extractTacticalTopicFromTags(["match-tactical:manager"]), "manager")
+  assert.equal(extractTacticalTopicFromTags(["match-preview:home"]), null)
+  assert.equal(getTacticalQuickTopicLabel("defence"), "Defence")
+})
+
+test("tactical context should render formation data only when provider supplies it", () => {
+  const withProviderData = getTacticalFixtureContext({
+    homeTeam: "Arsenal",
+    awayTeam: "Chelsea",
+    lineups: [
+      { team: { name: "Arsenal" }, formation: "4-3-3", coach: { name: "Mikel Arteta" } },
+      { teamName: "Chelsea", formation: "4-2-3-1", manager: "Enzo Maresca" },
+    ],
+    events: [],
+  })
+  assert.equal(withProviderData.hasProviderData, true)
+  assert.equal(withProviderData.lineups[0].formation, "4-3-3")
+  assert.equal(withProviderData.lineups[0].manager, "Mikel Arteta")
+
+  const missing = getTacticalFixtureContext({ homeTeam: "Arsenal", awayTeam: "Chelsea", events: [] })
+  assert.equal(missing.hasProviderData, false)
+  assert.deepEqual(missing.lineups, [])
+})
+
+test("tactical context should prioritize substitutions, cards, and formation changes from real events", () => {
+  const context = getTacticalFixtureContext({
+    events: [
+      { type: "Goal", minute: 10, player: "Saka" },
+      { type: "Substitution", minute: 60, player: "Martinelli", team: "Arsenal" },
+      { detail: "Red Card", minute: 72, player: "Caicedo", team: "Chelsea" },
+      { type: "Formation Change", minute: 75, detail: "Formation Change" },
+    ],
+  })
+  assert.equal(context.substitutions.length, 1)
+  assert.equal(context.cards.length, 1)
+  assert.equal(context.formationChanges.length, 1)
+  assert.deepEqual(getTacticalPhaseFocus("pre_match"), ["Formation", "Lineup"])
+  assert.deepEqual(getTacticalPhaseFocus("live"), ["Substitution", "แท็กติก"])
+  assert.deepEqual(getTacticalPhaseFocus("full_time"), ["Analysis Threads", "AI Overall Summary"])
+})
+
+test("tactical messages should stay isolated by room type and optional topic tag", () => {
+  const tactical = { ...buildRoomMessageMetadata({ matchId: "match-1", roomType: "tactics" }), tags: [buildTacticalTopicTag("formation")] }
+  const main = buildRoomMessageMetadata({ matchId: "match-1", roomType: "main" })
+  const preview = { ...buildRoomMessageMetadata({ matchId: "match-1", roomType: "preview" }), tags: [buildTeamPreviewLoungeTag("home")] }
+  const reaction = { ...buildRoomMessageMetadata({ matchId: "match-1", roomType: "post_match" }), tags: [buildTeamReactionLoungeTag("home")] }
+
+  assert.equal(tactical.roomType, "tactics")
+  assert.notEqual(tactical.roomType, main.roomType)
+  assert.notEqual(tactical.roomType, preview.roomType)
+  assert.notEqual(tactical.roomType, reaction.roomType)
+  assert.equal(extractTacticalTopicFromTags(tactical.tags), "formation")
+  assert.equal(publishedVisible(tactical), false)
+})
+
+test("tactical threads should reuse existing thread category", () => {
+  assert.equal(COMMUNITY_THREAD_CATEGORY_LABELS.tactics, "แท็กติก")
+  assert.equal(getTacticalQuickTopicLabel("player"), "Player")
 })
 
 test("main room copy, date divider, and deleted parent placeholder should stay centralized", () => {
