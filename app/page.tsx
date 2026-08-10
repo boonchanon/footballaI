@@ -28,7 +28,6 @@ import { NewsFeed } from "@/components/news-feed"
 import useSWR from "swr"
 import Image from "next/image"
 import { HeroBackground } from "@/components/hero-background"
-import { WorldCupBanner } from "@/components/worldcup-banner"
 import { WorldCupPopup } from "@/components/worldcup-popup"
 import { getPageSourcePolicy } from "@/lib/content-sources"
 import { PREMIER_LEAGUE_DATA_SEASON } from "@/lib/season"
@@ -154,7 +153,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background">
       <WorldCupPopup storageKey="footballai-worldcup-popup-home-seen" />
-      <WorldCupBanner />
       <Navigation />
 
       <section className="relative flex min-h-[78vh] items-center overflow-hidden">
@@ -628,4 +626,3 @@ export default function Home() {
     </div>
   )
 }
-

@@ -36,18 +36,18 @@ type FavoriteItem = {
 function actionButtonClass(active = false, tone: "primary" | "danger" = "primary") {
   if (tone === "danger") {
     return cn(
-      "gap-2 rounded-full border px-4 transition-all disabled:pointer-events-none disabled:opacity-60",
+      "gap-2 rounded-[12px] border px-4 transition-all disabled:pointer-events-none disabled:opacity-60",
       active
         ? "border-destructive/40 bg-destructive/10 text-destructive"
-        : "border-border/60 bg-background text-muted-foreground hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive",
+        : "border-white/[0.07] bg-white/[0.04] text-muted-foreground hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive",
     )
   }
 
   return cn(
-    "gap-2 rounded-full border px-4 transition-all disabled:pointer-events-none disabled:opacity-60",
+    "gap-2 rounded-[12px] border px-4 transition-all disabled:pointer-events-none disabled:opacity-60",
     active
       ? "border-primary/40 bg-primary/10 text-primary"
-      : "border-border/60 bg-background text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-primary",
+      : "border-white/[0.07] bg-white/[0.04] text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-primary",
   )
 }
 
@@ -104,6 +104,8 @@ export default function CommunityPostDetailPage() {
     () => (favoritesData?.items || []).some((item) => item.itemType === "post" && item.itemId === post?.id),
     [favoritesData?.items, post?.id],
   )
+  const panelClass = "rounded-[12px] border border-white/[0.07] bg-[#0b1012]/92 shadow-[0_10px_28px_rgba(0,0,0,0.22)]"
+  const softPanelClass = "rounded-[12px] border border-white/[0.07] bg-[#0b1012]/88 shadow-[0_10px_28px_rgba(0,0,0,0.18)]"
 
   function requireLogin(message: string) {
     if (token) return true
@@ -368,15 +370,15 @@ export default function CommunityPostDetailPage() {
       <Navigation />
       <main className="container mx-auto max-w-5xl px-4 py-20">
         <Dialog open={repostComposerOpen} onOpenChange={(open) => (!open ? closeRepostComposer() : undefined)}>
-          <DialogContent className="max-w-xl rounded-[28px] border-border/60 bg-[#101214] p-0 text-foreground">
-            <DialogHeader className="border-b border-border/60 px-6 py-5">
+          <DialogContent className="max-w-xl rounded-[18px] border-white/[0.07] bg-[#101214] p-0 text-foreground">
+            <DialogHeader className="border-b border-white/[0.07] px-6 py-5">
               <DialogTitle>Repost to your feed</DialogTitle>
               <DialogDescription>Add your take before sharing this post.</DialogDescription>
             </DialogHeader>
 
             {post ? (
               <div className="space-y-4 px-6 py-5">
-                <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-muted/20 p-3">
+                <div className="flex items-center gap-3 rounded-[12px] border border-white/[0.07] bg-white/[0.04] p-3">
                   <Avatar className="h-11 w-11">
                     <AvatarImage src={post.author.avatar || "/placeholder-user.jpg"} />
                     <AvatarFallback>{post.author.name.charAt(0)}</AvatarFallback>
@@ -391,12 +393,12 @@ export default function CommunityPostDetailPage() {
                   value={repostDraft}
                   onChange={(event) => setRepostDraft(event.target.value)}
                   placeholder="Add your thoughts about this post..."
-                  className="min-h-28 resize-none rounded-2xl border-border/60 bg-background/70"
+                  className="min-h-28 resize-none rounded-[12px] border-white/[0.07] bg-white/[0.045]"
                 />
 
-                <div className="overflow-hidden rounded-[24px] border border-border/60 bg-muted/20">
+                <div className="overflow-hidden rounded-[12px] border border-white/[0.07] bg-white/[0.04]">
                   {Array.isArray(post.images) && post.images[0] ? (
-                    <div className="relative h-52 border-b border-border/60">
+                    <div className="relative h-52 border-b border-white/[0.07]">
                       <Image src={post.images[0]} alt={post.title} fill className="object-cover" unoptimized />
                     </div>
                   ) : null}
@@ -420,11 +422,11 @@ export default function CommunityPostDetailPage() {
               </div>
             ) : null}
 
-            <DialogFooter className="border-t border-border/60 px-6 py-5 sm:justify-between">
-              <Button variant="outline" onClick={closeRepostComposer} disabled={sharingPost} className="rounded-full">
+            <DialogFooter className="border-t border-white/[0.07] px-6 py-5 sm:justify-between">
+              <Button variant="outline" onClick={closeRepostComposer} disabled={sharingPost} className="rounded-[12px]">
                 Cancel
               </Button>
-              <Button onClick={handleRepostNow} disabled={sharingPost || !post} className="rounded-full px-6">
+              <Button onClick={handleRepostNow} disabled={sharingPost || !post} className="rounded-[12px] px-6">
                 {sharingPost ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Repeat2 className="mr-2 h-4 w-4" />}
                 Repost now
               </Button>
@@ -432,7 +434,7 @@ export default function CommunityPostDetailPage() {
           </DialogContent>
         </Dialog>
 
-        <Link href="/community" className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+        <Link href="/community" className="mb-6 inline-flex h-10 items-center gap-2 rounded-[12px] border border-white/[0.06] bg-white/[0.045] px-4 text-sm text-muted-foreground transition hover:border-primary/40 hover:bg-primary/10 hover:text-primary">
           <ArrowLeft className="h-4 w-4" />
           กลับไปหน้าคอมมูนิตี้
         </Link>
@@ -443,11 +445,11 @@ export default function CommunityPostDetailPage() {
           </div>
         ) : post ? (
           <div className="space-y-6">
-            <Card className="overflow-hidden border-border/50">
+            <Card className={cn("overflow-hidden", panelClass)}>
               {Array.isArray(post.images) && post.images.length > 0 ? (
-                <div className={cn("grid gap-2 border-b border-border/60 p-2", post.images.length > 1 ? "md:grid-cols-2" : "grid-cols-1")}>
+                <div className={cn("grid gap-2 border-b border-white/[0.07] p-2", post.images.length > 1 ? "md:grid-cols-2" : "grid-cols-1")}>
                   {post.images.map((image: string, index: number) => (
-                    <div key={`${image}-${index}`} className="relative h-72 overflow-hidden rounded-2xl">
+                    <div key={`${image}-${index}`} className="relative h-72 overflow-hidden rounded-[12px]">
                       <Image src={image} alt={`${post.title}-${index + 1}`} fill className="object-cover" unoptimized />
                     </div>
                   ))}
@@ -520,10 +522,10 @@ export default function CommunityPostDetailPage() {
                     href={post.sharedItem.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-3 rounded-2xl border border-border/60 bg-muted/30 p-3 transition hover:bg-muted/50"
+                    className="flex items-center gap-3 rounded-[12px] border border-white/[0.07] bg-white/[0.04] p-3 transition hover:bg-white/[0.06]"
                   >
                     {post.sharedItem.image ? (
-                      <div className="relative h-20 w-28 overflow-hidden rounded-xl">
+                      <div className="relative h-20 w-28 overflow-hidden rounded-[12px]">
                         <Image src={post.sharedItem.image} alt={post.sharedItem.title} fill className="object-cover" unoptimized />
                       </div>
                     ) : null}
@@ -537,7 +539,7 @@ export default function CommunityPostDetailPage() {
                   </a>
                 ) : null}
 
-                <div className="flex flex-wrap gap-3 border-t border-border/50 pt-4">
+                <div className="flex flex-wrap gap-3 border-t border-white/[0.07] pt-4">
                   <Button variant="outline" onClick={handleLike} disabled={liking} className={actionButtonClass(post.isLiked)}>
                     {liking ? <Loader2 className="h-4 w-4 animate-spin" /> : <ThumbsUp className={cn("h-4 w-4", post.isLiked && "fill-current")} />}
                     {post.likes}
@@ -575,11 +577,11 @@ export default function CommunityPostDetailPage() {
 
                   {isPostOwner && !editingPost ? (
                     <>
-                      <Button variant="outline" onClick={startEditPost} className="gap-2">
+                      <Button variant="outline" onClick={startEditPost} className="gap-2 rounded-[12px]">
                         <Pencil className="h-4 w-4" />
                         แก้ไข
                       </Button>
-                      <Button variant="destructive" onClick={handleDeletePost} className="gap-2">
+                      <Button variant="destructive" onClick={handleDeletePost} className="gap-2 rounded-[12px]">
                         <Trash2 className="h-4 w-4" />
                         ลบโพสต์
                       </Button>
@@ -589,7 +591,7 @@ export default function CommunityPostDetailPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-border/50">
+            <Card className={softPanelClass}>
               <CardHeader>
                 <CardTitle className="text-lg">แสดงความคิดเห็น</CardTitle>
               </CardHeader>
@@ -604,14 +606,14 @@ export default function CommunityPostDetailPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-border/50">
+            <Card className={softPanelClass}>
               <CardHeader>
                 <CardTitle className="text-lg">ความคิดเห็นทั้งหมด</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {comments.length > 0 ? (
                   comments.map((item: any) => (
-                    <div key={item.id} className="flex gap-3 border-b border-border/30 pb-4 last:border-b-0">
+                    <div key={item.id} className="flex gap-3 rounded-[12px] border border-white/[0.06] bg-white/[0.03] p-4">
                       <Avatar className="h-9 w-9">
                         <AvatarImage src={item.user.avatar || "/placeholder-user.jpg"} />
                         <AvatarFallback>{item.user.name.charAt(0)}</AvatarFallback>
@@ -626,10 +628,10 @@ export default function CommunityPostDetailPage() {
                           <div className="space-y-2">
                             <Textarea value={commentForm} onChange={(event) => setCommentForm(event.target.value)} className="min-h-20" />
                             <div className="flex flex-wrap gap-2">
-                              <Button size="sm" variant="outline" onClick={() => setEditingCommentId(null)}>
+                              <Button size="sm" variant="outline" className="rounded-[12px]" onClick={() => setEditingCommentId(null)}>
                                 ยกเลิก
                               </Button>
-                              <Button size="sm" onClick={() => handleUpdateComment(item.id)}>
+                              <Button size="sm" className="rounded-[12px]" onClick={() => handleUpdateComment(item.id)}>
                                 บันทึก
                               </Button>
                             </div>
@@ -639,10 +641,10 @@ export default function CommunityPostDetailPage() {
                             <p className="text-sm leading-6 text-muted-foreground">{item.content}</p>
                             {user?.id === item.user.id ? (
                               <div className="mt-2 flex gap-2">
-                                <Button size="sm" variant="outline" onClick={() => startEditComment(item)}>
+                                <Button size="sm" variant="outline" className="rounded-[12px]" onClick={() => startEditComment(item)}>
                                   แก้ไข
                                 </Button>
-                                <Button size="sm" variant="destructive" onClick={() => handleDeleteComment(item.id)}>
+                                <Button size="sm" variant="destructive" className="rounded-[12px]" onClick={() => handleDeleteComment(item.id)}>
                                   ลบ
                                 </Button>
                               </div>
@@ -659,7 +661,7 @@ export default function CommunityPostDetailPage() {
             </Card>
           </div>
         ) : (
-          <Card className="border-border/50">
+          <Card className={softPanelClass}>
             <CardContent className="py-12 text-center text-muted-foreground">ไม่พบโพสต์นี้</CardContent>
           </Card>
         )}

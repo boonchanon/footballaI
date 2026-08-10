@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata, Viewport } from "next"
 import { Analytics } from "@vercel/analytics/next"
 
+import { SiteNavigationProvider } from "@/components/site-navigation-provider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
@@ -37,9 +38,11 @@ export default function RootLayout({
     <html lang="th" suppressHydrationWarning className="bg-background text-foreground">
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange storageKey="footballai-theme-v3">
-          <div className="min-h-screen bg-background text-foreground">
-            {children}
-          </div>
+          <SiteNavigationProvider>
+            <div className="min-h-screen bg-background text-foreground">
+              {children}
+            </div>
+          </SiteNavigationProvider>
           <Toaster />
         </ThemeProvider>
         <Analytics />

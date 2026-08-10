@@ -121,6 +121,12 @@
       color 180ms ease,
       border-color 180ms ease;
   }
+
+@media (min-width: 1280px) {
+  body.has-app-sidebar {
+    padding-left: 232px;
+  }
+}
 }
 
 @layer base {

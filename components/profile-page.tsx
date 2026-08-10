@@ -881,8 +881,8 @@ export function ProfilePage() {
           </div>
         </header>
 
-        <div className="grid gap-4 p-3 lg:grid-cols-[88px_minmax(0,1fr)] lg:p-4 xl:grid-cols-[232px_minmax(0,820px)_300px]">
-          <aside className="hidden xl:block">
+        <div className="grid gap-4 p-3 lg:p-4">
+          <aside className="hidden">
             <div className="sticky top-[88px] rounded-[14px] border border-white/[0.06] bg-[#0b1012]/90 p-3">
               <nav className="space-y-1" aria-label="Profile navigation">
                 {[
@@ -927,7 +927,7 @@ export function ProfilePage() {
             </div>
           </aside>
 
-          <main className="min-w-0 space-y-4 xl:col-span-2">
+          <main className="min-w-0 space-y-4">
             <section className="relative overflow-hidden rounded-[12px] border border-white/[0.07] bg-[#0b1012]" style={{ boxShadow: coverTheme.glow }}>
               <div className="relative min-h-[270px] sm:min-h-[292px]">
                 <Image

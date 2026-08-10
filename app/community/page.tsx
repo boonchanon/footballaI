@@ -2626,38 +2626,38 @@ export default function CommunityPage() {
     await markNotificationsAsRead()
   }
 
+  const communityPanelClass = "rounded-[12px] border border-white/[0.07] bg-[#0b1012]/92 shadow-[0_10px_28px_rgba(0,0,0,0.22)]"
+  const communitySoftPanelClass = "rounded-[12px] border border-white/[0.07] bg-[#0b1012]/88 shadow-[0_10px_28px_rgba(0,0,0,0.18)]"
+  const communityInsetClass = "rounded-[12px] border border-white/[0.06] bg-white/[0.045]"
+  const communityAccentPanelClass = "rounded-[12px] border border-primary/20 bg-primary/10 shadow-[0_10px_28px_rgba(0,0,0,0.18)]"
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="px-3 pb-8 pt-4 sm:px-4 sm:pt-5 lg:px-6">
-        <div className="mx-auto max-w-[1440px] overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,#1e1e20_0%,#151517_100%)] shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
+        <div className="mx-auto max-w-[1440px] overflow-hidden rounded-[18px] border border-white/[0.07] bg-[linear-gradient(180deg,#121517_0%,#0b1012_100%)] shadow-[0_18px_48px_rgba(0,0,0,0.26)]">
           <div className="flex flex-wrap items-center gap-4 border-b border-white/10 px-5 py-4 lg:px-7">
-            <Link href="/" className="inline-flex h-10 items-center gap-2 rounded-full border border-white/10 bg-background/60 px-4 text-sm font-medium text-muted-foreground transition hover:border-primary/40 hover:bg-primary/10 hover:text-primary">
-              <span aria-hidden="true">←</span>
-              กลับหน้าแรก
-            </Link>
-
-            <div className="text-[30px] font-display font-semibold tracking-tight text-foreground">FootballAI</div>
+            <div className="text-[30px] font-display font-semibold tracking-tight text-foreground">Community</div>
 
             <div className="relative min-w-[220px] flex-1">
               <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search community..."
-                className="h-11 rounded-full border-white/10 bg-background/70 pl-11 text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-primary/40"
+                className="h-11 rounded-[12px] border-white/[0.06] bg-white/[0.045] pl-11 text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-primary/40"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
               />
             </div>
 
             <div className="hidden items-center gap-2 lg:flex">
-              <Link href="/community" className="inline-flex h-10 items-center gap-2 rounded-full bg-primary/15 px-4 text-sm font-medium text-primary">
+              <Link href="/community" className="inline-flex h-10 items-center gap-2 rounded-[12px] bg-primary/15 px-4 text-sm font-medium text-primary">
                 <Users className="h-4 w-4" />
                 Feed
               </Link>
-              <Link href="/community/matches" className="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-medium text-muted-foreground transition hover:bg-primary/10 hover:text-primary">
+              <Link href="/community/matches" className="inline-flex h-10 items-center gap-2 rounded-[12px] px-4 text-sm font-medium text-muted-foreground transition hover:bg-primary/10 hover:text-primary">
                 <Trophy className="h-4 w-4" />
                 Match Rooms
               </Link>
-              <Link href="/community/messages" className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition hover:bg-primary/10 hover:text-primary">
+              <Link href="/community/messages" className="inline-flex h-10 w-10 items-center justify-center rounded-[12px] text-muted-foreground transition hover:bg-primary/10 hover:text-primary">
                 <MessageSquare className="h-4 w-4" />
               </Link>
               <Link href="/community/my-posts" className="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-medium text-muted-foreground transition hover:bg-primary/10 hover:text-primary">
@@ -3611,9 +3611,9 @@ export default function CommunityPage() {
             </DialogContent>
           </Dialog>
 
-          <div className="grid gap-6 bg-[radial-gradient(circle_at_top_left,rgba(184,255,0,0.08),transparent_30%),linear-gradient(180deg,#1b1b1d_0%,#151517_100%)] p-4 lg:p-5 xl:grid-cols-[270px_minmax(0,1fr)_320px]">
+          <div className="grid gap-6 bg-[radial-gradient(circle_at_top_left,rgba(184,255,0,0.06),transparent_28%),linear-gradient(180deg,#101416_0%,#0b1012_100%)] p-4 lg:p-5 xl:grid-cols-[270px_minmax(0,1fr)_320px]">
           <aside className="hidden space-y-5 xl:block">
-            <Card className="overflow-hidden rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+            <Card className={cn("overflow-hidden", communityPanelClass)}>
               <div className="relative h-24 bg-[linear-gradient(135deg,rgba(184,255,0,0.22)_0%,rgba(184,255,0,0.08)_45%,rgba(255,255,255,0.06)_100%)]" />
               <CardContent className="px-5 pb-5">
                 <div className="-mt-10 flex flex-col items-center text-center">
@@ -3636,7 +3636,7 @@ export default function CommunityPage() {
                   ) : null}
                 </div>
 
-                <div className="mt-5 grid grid-cols-3 gap-3 rounded-3xl bg-background/70 p-3 text-center">
+                <div className="mt-5 grid grid-cols-3 gap-3 rounded-[12px] border border-white/[0.06] bg-white/[0.04] p-3 text-center">
                   <div>
                     <p className="text-lg font-semibold text-foreground">{stats.total || 0}</p>
                     <p className="text-xs text-muted-foreground">Posts</p>
@@ -3652,12 +3652,12 @@ export default function CommunityPage() {
                 </div>
 
                 <Link href="/profile" className="mt-5 block">
-                  <Button className="h-11 w-full rounded-full">My Profile</Button>
+                  <Button className="h-11 w-full rounded-[12px]">My Profile</Button>
                 </Link>
               </CardContent>
             </Card>
 
-            <Card id="community-activity" className="rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+            <Card id="community-activity" className={communityPanelClass}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base text-foreground">Your shortcuts</CardTitle>
@@ -3671,11 +3671,11 @@ export default function CommunityPage() {
                     type="button"
                     onClick={() => setSelectedCategory(item.value)}
                     className={cn(
-                      "flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left transition",
+                      "flex w-full items-center gap-3 rounded-[12px] px-3 py-2 text-left transition",
                       selectedCategory === item.value ? "bg-primary/15 text-primary" : "hover:bg-background/70 text-foreground",
                     )}
                   >
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-background/70 text-sm font-semibold text-muted-foreground">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-white/[0.045] text-sm font-semibold text-muted-foreground">
                       {item.label.slice(0, 1)}
                     </span>
                     <span className="text-sm font-medium">{item.label}</span>
@@ -3686,7 +3686,7 @@ export default function CommunityPage() {
           </aside>
 
           <main className="space-y-5">
-            <Card className="rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+            <Card className={communityPanelClass}>
               <CardContent className="space-y-5 p-4 sm:p-5">
                 <div className="flex gap-3 overflow-x-auto pb-1">
                   <button
@@ -3745,7 +3745,7 @@ export default function CommunityPage() {
                   ))}
                 </div>
 
-                <div className="rounded-[26px] border border-white/10 bg-background/40 p-4">
+                <div className={cn(communityInsetClass, "p-4")}>
                   <div className="flex items-center gap-3">
                     <Avatar className="h-11 w-11 border border-white/10">
                       <AvatarImage src={getSafeAvatarSrc(user?.avatar)} />
@@ -3757,18 +3757,18 @@ export default function CommunityPage() {
                         setShowCreatePost((value) => !value)
                         setComposerTool("general")
                       }}
-                      className="flex h-11 flex-1 items-center rounded-full bg-background/70 px-4 text-left text-sm text-muted-foreground transition hover:bg-background"
+                      className="flex h-11 flex-1 items-center rounded-[12px] bg-white/[0.045] px-4 text-left text-sm text-muted-foreground transition hover:bg-white/[0.06]"
                     >
                       Share something...
                     </button>
                   </div>
 
                   <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-white/10 pt-4 text-sm text-muted-foreground">
-                    <button type="button" onClick={() => openComposer("image")} className="inline-flex items-center gap-2 rounded-full px-2 py-1 transition hover:bg-background/70">
+                    <button type="button" onClick={() => openComposer("image")} className="inline-flex items-center gap-2 rounded-[12px] px-2 py-1 transition hover:bg-white/[0.05]">
                       <ImagePlus className="h-4 w-4 text-primary" />
                       Image
                     </button>
-                    <button type="button" onClick={() => openComposer("video")} className="inline-flex items-center gap-2 rounded-full px-2 py-1 transition hover:bg-background/70">
+                    <button type="button" onClick={() => openComposer("video")} className="inline-flex items-center gap-2 rounded-[12px] px-2 py-1 transition hover:bg-white/[0.05]">
                       <Upload className="h-4 w-4 text-primary" />
                       Video
                     </button>
@@ -3778,14 +3778,14 @@ export default function CommunityPage() {
                         setShowCreatePost(true)
                         openPollBuilder()
                       }}
-                      className="inline-flex items-center gap-2 rounded-full px-2 py-1 transition hover:bg-background/70"
+                      className="inline-flex items-center gap-2 rounded-[12px] px-2 py-1 transition hover:bg-white/[0.05]"
                     >
                       <Bell className="h-4 w-4 text-primary" />
                       Poll
                     </button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button type="button" className="ml-auto inline-flex items-center gap-2 rounded-full px-2 py-1 text-sm text-muted-foreground transition hover:bg-background/70">
+                        <button type="button" className="ml-auto inline-flex items-center gap-2 rounded-[12px] px-2 py-1 text-sm text-muted-foreground transition hover:bg-white/[0.05]">
                           <Users className="h-4 w-4" />
                           {visibility === "friends" ? "Friends" : "Public"}
                         </button>
@@ -3805,7 +3805,7 @@ export default function CommunityPage() {
             <CommunityMatchCardsSection data={matchRoomData} isLoading={!matchRoomData} />
 
             {token && !hasPreferences && !preferenceDismissed ? (
-              <Card className="rounded-[28px] border-primary/20 bg-primary/10 shadow-[0_12px_40px_rgba(0,0,0,0.18)]">
+              <Card className={communityAccentPanelClass}>
                 <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-base font-semibold text-foreground">เลือกทีมและนักเตะที่คุณชอบ</p>
@@ -3824,7 +3824,7 @@ export default function CommunityPage() {
             ) : null}
 
             {showCreatePost ? (
-              <Card className="rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+              <Card className={communityPanelClass}>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-foreground">สร้างโพสต์ใหม่</CardTitle>
                 </CardHeader>
@@ -4001,12 +4001,12 @@ export default function CommunityPage() {
 
             <div className="space-y-5">
               {isLoading ? (
-                <Card className="rounded-[28px] border-white/10 bg-card/80 p-8 text-center text-sm text-muted-foreground">
+                            <Card className={cn(communitySoftPanelClass, "p-8 text-center text-sm text-muted-foreground")}>
                   <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-primary" />
                   กำลังโหลด Feed...
                 </Card>
               ) : !posts.length ? (
-                <Card className="rounded-[28px] border-dashed border-white/10 bg-card/80 p-8 text-center">
+                <Card className="rounded-[12px] border border-dashed border-white/[0.1] bg-[#0b1012]/88 p-8 text-center">
                   <p className="font-semibold text-foreground">
                     {feedTab === "favorites"
                       ? "เลือกทีมโปรดเพื่อดูโพสต์จากทีมที่คุณสนใจ"
@@ -4031,7 +4031,7 @@ export default function CommunityPage() {
                 const isOwner = Boolean(user?.id && post.author.id === user.id)
                 const canUseAdminActions = user?.role === "admin"
                 return (
-                  <Card key={post.id} className="overflow-hidden rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+                  <Card key={post.id} className={cn("overflow-hidden", communityPanelClass)}>
                     <CardContent className="p-4 sm:p-5">
                       <div className="flex items-start gap-3">
                         <Link href={`/community/friends/${post.author.id}`}>
@@ -4302,7 +4302,7 @@ export default function CommunityPage() {
           </main>
 
           <aside className="space-y-5">
-            <Card className="rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+            <Card className={communityPanelClass}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base text-foreground">Activity</CardTitle>
@@ -4312,7 +4312,7 @@ export default function CommunityPage() {
               <CardContent className="space-y-3">
                 {activityNotifications.length ? (
                   activityNotifications.slice(0, 5).map((item) => (
-                    <Link key={item.id} href={item.post.id ? `/community/${item.post.id}` : "/community"} className="flex items-start gap-3 rounded-2xl px-1 py-1 transition hover:bg-background/40">
+                    <Link key={item.id} href={item.post.id ? `/community/${item.post.id}` : "/community"} className="flex items-start gap-3 rounded-[12px] px-2 py-2 transition hover:bg-white/[0.04]">
                       <Avatar className="h-11 w-11 border border-white/10">
                         <AvatarImage src={getSafeAvatarSrc(item.actor.avatar)} />
                         <AvatarFallback>{item.actor.name.charAt(0)}</AvatarFallback>
@@ -4330,7 +4330,7 @@ export default function CommunityPage() {
                   ))
                 ) : incomingRequests.length ? (
                   incomingRequests.slice(0, 4).map((request) => (
-                    <div key={request.id} className="flex items-center gap-3 rounded-2xl px-1 py-1">
+                    <div key={request.id} className="flex items-center gap-3 rounded-[12px] px-2 py-2">
                       <Avatar className="h-11 w-11 border border-white/10">
                         <AvatarImage src={getSafeAvatarSrc(request.user.avatar)} />
                         <AvatarFallback>{request.user.name.charAt(0)}</AvatarFallback>
@@ -4354,7 +4354,7 @@ export default function CommunityPage() {
               </CardContent>
             </Card>
 
-            <Card className="rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+            <Card className={communityPanelClass}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base text-foreground">Suggested For You</CardTitle>
@@ -4392,7 +4392,7 @@ export default function CommunityPage() {
               </CardContent>
             </Card>
 
-            <Card className="rounded-[28px] border-white/10 bg-card/90 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+            <Card className={communityPanelClass}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between gap-3">
                   <CardTitle className="text-base text-foreground">Messages</CardTitle>
@@ -4405,13 +4405,13 @@ export default function CommunityPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {!token ? (
-                  <div className="rounded-2xl border border-dashed border-white/10 bg-background/40 p-4 text-sm text-muted-foreground">
+                  <div className="rounded-[12px] border border-dashed border-white/[0.1] bg-white/[0.04] p-4 text-sm text-muted-foreground">
                     เข้าสู่ระบบก่อนเพื่อดูห้องแชตและข้อความใหม่
                   </div>
                 ) : null}
 
                 {token && socialData === undefined ? (
-                  <div className="rounded-2xl border border-white/10 bg-background/40 p-4">
+                  <div className={cn(communityInsetClass, "p-4")}>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       กำลังโหลดห้องแชต...
@@ -4420,7 +4420,7 @@ export default function CommunityPage() {
                 ) : null}
 
                 {topConversations.map((conversation) => (
-                  <Link key={conversation.id} href={`/community/messages?conversation=${conversation.id}`} className="flex items-start gap-3 rounded-2xl p-3 transition hover:bg-background/70">
+                  <Link key={conversation.id} href={`/community/messages?conversation=${conversation.id}`} className="flex items-start gap-3 rounded-[12px] p-3 transition hover:bg-white/[0.045]">
                     <Avatar className="h-10 w-10 border border-white/10">
                       <AvatarImage src={getSafeAvatarSrc(conversation.user.avatar)} />
                       <AvatarFallback>{conversation.user.name.charAt(0)}</AvatarFallback>
