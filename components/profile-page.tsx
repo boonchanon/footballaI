@@ -353,8 +353,8 @@ export function ProfilePage() {
     [postsData?.items],
   )
   const profileFeed = postTab === "posts" ? ownPosts : ownReposts
-  const panelClass = "rounded-[12px] border border-white/[0.07] bg-[#0b1012]/92 shadow-[0_10px_28px_rgba(0,0,0,0.22)]"
-  const itemCardClass = "rounded-[12px] border border-white/[0.07] bg-[#0b1012]/88 p-4"
+  const panelClass = "rounded-[12px] border border-border bg-card/92 shadow-[0_10px_28px_rgba(0,0,0,0.12)]"
+  const itemCardClass = "rounded-[12px] border border-border bg-card/88 p-4"
   const username = displayName.replace(/\s+/g, "").toLowerCase()
   const coverTransform = `translate(${coverPositionX}%, ${coverPositionY}%) scale(${coverScale})`
   const heroCoverImage = displayCoverImage || "/premier-league-stadium-night.jpg"
@@ -853,15 +853,15 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050708] text-foreground">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.35 }} className="mx-auto min-h-screen max-w-[1520px] bg-[#050708]">
-        <header className="sticky top-0 z-30 flex min-h-[68px] items-center gap-4 border-b border-white/[0.06] bg-[#050708]/95 px-5 backdrop-blur lg:px-7">
-          <Link href="/" className="shrink-0 text-2xl font-display font-bold tracking-tight text-white" aria-label="FootballAI home">
+    <div className="min-h-screen bg-background text-foreground">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.35 }} className="mx-auto min-h-screen max-w-[1520px] bg-background">
+        <header className="theme-shell sticky top-0 z-30 flex min-h-[68px] items-center gap-4 border-b px-5 backdrop-blur lg:px-7">
+          <Link href="/" className="shrink-0 text-2xl font-display font-bold tracking-tight text-foreground" aria-label="FootballAI home">
             FOOTBALL<span className="text-primary">AI</span>
           </Link>
           <div className="relative ml-2 hidden flex-1 md:block lg:mx-10 lg:max-w-[590px]">
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search players, teams, matches..." className="h-11 rounded-[12px] border-white/[0.06] bg-white/[0.045] pl-11 text-sm shadow-none focus-visible:ring-primary/40" />
+            <Input placeholder="Search players, teams, matches..." className="h-11 rounded-[12px] border-border bg-input-background pl-11 text-sm shadow-none focus-visible:ring-primary/40" />
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <Link href="/community" className="hidden h-11 items-center gap-2 rounded-[12px] bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-[0_8px_22px_rgba(184,255,0,0.18)] transition hover:bg-primary/90 sm:inline-flex">
@@ -874,7 +874,7 @@ export function ProfilePage() {
             <Link href="/community/messages" className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition hover:bg-primary/10 hover:text-primary" aria-label="Messages">
               <MessageSquare className="h-5 w-5" />
             </Link>
-            <Avatar className="h-11 w-11 border border-white/10">
+            <Avatar className="h-11 w-11 border border-border">
               <AvatarImage src={displayAvatar} alt={displayName} />
               <AvatarFallback>{displayName.charAt(0)}</AvatarFallback>
             </Avatar>
@@ -883,7 +883,7 @@ export function ProfilePage() {
 
         <div className="grid gap-4 p-3 lg:p-4">
           <aside className="hidden">
-            <div className="sticky top-[88px] rounded-[14px] border border-white/[0.06] bg-[#0b1012]/90 p-3">
+            <div className="sticky top-[88px] rounded-[14px] border border-border bg-card/90 p-3">
               <nav className="space-y-1" aria-label="Profile navigation">
                 {[
                   { label: "Community Feed", href: "/community", icon: Users },
@@ -896,14 +896,14 @@ export function ProfilePage() {
                 ].map((item) => {
                   const Icon = item.icon
                   return (
-                    <Link key={item.label} href={item.href} className={`flex h-11 items-center gap-3 rounded-[10px] px-3 text-sm transition ${item.active ? "bg-primary/14 text-primary" : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"}`}>
+                    <Link key={item.label} href={item.href} className={`flex h-11 items-center gap-3 rounded-[10px] px-3 text-sm transition ${item.active ? "bg-primary/14 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
                       <Icon className="h-4 w-4" />
                       {item.label}
                     </Link>
                   )
                 })}
               </nav>
-              <div className="mt-6 border-t border-white/[0.07] pt-5">
+              <div className="mt-6 border-t border-border pt-5">
                 <div className="mb-3 flex items-center justify-between">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Favorite Teams</p>
                   <Link href="/community" className="text-xs font-medium text-primary">Edit</Link>
@@ -928,7 +928,7 @@ export function ProfilePage() {
           </aside>
 
           <main className="min-w-0 space-y-4">
-            <section className="relative overflow-hidden rounded-[12px] border border-white/[0.07] bg-[#0b1012]" style={{ boxShadow: coverTheme.glow }}>
+            <section className="relative overflow-hidden rounded-[12px] border border-border bg-card" style={{ boxShadow: coverTheme.glow }}>
               <div className="relative min-h-[270px] sm:min-h-[292px]">
                 <Image
                   key={heroCoverImage}
@@ -948,12 +948,12 @@ export function ProfilePage() {
                     <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end">
                       <button type="button" className="group relative w-fit rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60" onClick={() => (ownStoryGroup?.stories?.length ? openOwnStoryViewer() : setAvatarViewerOpen(true))}>
                         <div className={`rounded-full p-[3px] ${ownStoryHasUnviewed ? "bg-primary" : "bg-primary/70"}`}>
-                          <Avatar className="h-32 w-32 border-4 border-[#050708] bg-background shadow-[0_18px_42px_rgba(0,0,0,0.40)] sm:h-36 sm:w-36">
+                          <Avatar className="h-32 w-32 border-4 border-background bg-background shadow-[0_18px_42px_rgba(0,0,0,0.25)] sm:h-36 sm:w-36">
                             <AvatarImage src={displayAvatar} alt={displayName} />
                             <AvatarFallback className="bg-primary text-5xl font-display text-primary-foreground">{displayName.charAt(0)}</AvatarFallback>
                           </Avatar>
                         </div>
-                        <span className="absolute bottom-3 right-2 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#050708] bg-primary text-primary-foreground shadow-lg">
+                        <span className="absolute bottom-3 right-2 inline-flex h-9 w-9 items-center justify-center rounded-full border border-background bg-primary text-primary-foreground shadow-lg">
                           <Camera className="h-4 w-4" />
                         </span>
                       </button>
@@ -983,7 +983,7 @@ export function ProfilePage() {
               </div>
             </section>
 
-            <section className="grid grid-cols-2 divide-x divide-y divide-white/[0.06] overflow-hidden rounded-[12px] border border-white/[0.07] bg-[#0b1012]/90 sm:grid-cols-4 sm:divide-y-0">
+            <section className="grid grid-cols-2 divide-x divide-y divide-border overflow-hidden rounded-[12px] border border-border bg-card/90 sm:grid-cols-4 sm:divide-y-0">
               {profileStats.map((stat) => (
                 <div key={stat.label} className="px-5 py-3.5">
                   <p className="text-[22px] font-bold leading-none text-primary">{stat.value.toLocaleString()}</p>
@@ -992,7 +992,7 @@ export function ProfilePage() {
               ))}
             </section>
 
-            <div className="flex gap-8 overflow-x-auto border-b border-white/[0.08] px-1 text-[15px]">
+            <div className="flex gap-8 overflow-x-auto border-b border-border px-1 text-[15px]">
               {[
                 { key: "posts", label: "Overview" },
                 { key: "reposts", label: "Reposts" },
@@ -1034,7 +1034,7 @@ export function ProfilePage() {
                   <article key={`profile-feed-${post.id}`} className={`${panelClass} p-4`}>
                     <div className="mb-3 flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <Avatar className="h-11 w-11 border border-white/10">
+                        <Avatar className="h-11 w-11 border border-border">
                           <AvatarImage src={displayAvatar} alt={displayName} />
                           <AvatarFallback>{displayName.charAt(0)}</AvatarFallback>
                         </Avatar>
@@ -1046,7 +1046,7 @@ export function ProfilePage() {
                       <span className="text-muted-foreground">•••</span>
                     </div>
                     <div className="mb-2.5 flex flex-wrap gap-2">
-                      {post.categoryLabel ? <Badge variant="outline" className="border-white/10">{post.categoryLabel}</Badge> : null}
+                      {post.categoryLabel ? <Badge variant="outline" className="border-border">{post.categoryLabel}</Badge> : null}
                       {post.sharedItem?.type === "post" ? <Badge className="bg-primary/15 text-primary hover:bg-primary/15">Reposted</Badge> : null}
                     </div>
                     <p className="text-[15px] font-semibold text-foreground">{post.title}</p>
@@ -1056,7 +1056,7 @@ export function ProfilePage() {
                         <Image src={post.images[0]} alt={post.title} fill className="object-cover" unoptimized />
                       </div>
                     ) : null}
-                    <div className="mt-3.5 flex items-center justify-between border-t border-white/[0.06] pt-3 text-sm text-muted-foreground">
+                    <div className="mt-3.5 flex items-center justify-between border-t border-border pt-3 text-sm text-muted-foreground">
                       <span className="inline-flex items-center gap-2"><Heart className="h-4 w-4 text-primary" /> {post.likes || post.likesCount || 0}</span>
                       <span className="inline-flex items-center gap-2"><MessageSquare className="h-4 w-4" /> {post.comments || post.commentsCount || 0}</span>
                       <span className="inline-flex items-center gap-2"><Bookmark className="h-4 w-4" /> Save</span>
@@ -1104,7 +1104,7 @@ export function ProfilePage() {
               <section className={`${panelClass} p-4`}>
                 <h2 className="mb-2.5 flex items-center gap-2 text-sm font-semibold"><Shield className="h-4 w-4 text-primary" /> Account Actions</h2>
                 <div className="space-y-1.5">
-                  <Button variant="outline" className="h-9 w-full justify-start gap-2 rounded-[10px] border-white/10 bg-white/[0.03]" onClick={() => setPasswordOpen(true)}><KeyRound className="h-4 w-4" />เปลี่ยนรหัสผ่าน</Button>
+                  <Button variant="outline" className="h-9 w-full justify-start gap-2 rounded-[10px] border-border bg-card" onClick={() => setPasswordOpen(true)}><KeyRound className="h-4 w-4" />เปลี่ยนรหัสผ่าน</Button>
                   <Button variant="ghost" className="h-9 w-full justify-start gap-2" onClick={logout}><LogOut className="h-4 w-4" />ออกจากระบบ</Button>
                   <Button variant="ghost" className="h-9 w-full justify-start gap-2 text-destructive hover:text-destructive" onClick={() => setDeleteOpen(true)}><Trash2 className="h-4 w-4" />ลบบัญชี</Button>
                 </div>
@@ -1117,7 +1117,7 @@ export function ProfilePage() {
       </motion.div>
 
       <Dialog open={coverEditorOpen} onOpenChange={handleCloseCoverEditor}>
-        <DialogContent className="max-w-4xl border-white/10 bg-[#111214] text-foreground">
+        <DialogContent className="max-w-4xl border-border bg-popover text-popover-foreground">
           <DialogHeader><DialogTitle>จัดวางภาพพื้นหลัง</DialogTitle></DialogHeader>
           <div className="space-y-6">
             <div className="overflow-hidden rounded-[18px] border border-white/10 bg-black">
@@ -1136,14 +1136,14 @@ export function ProfilePage() {
               <div className="space-y-3"><div className="flex justify-between text-sm"><span className="text-muted-foreground">ซูมภาพ</span><span>{coverScale.toFixed(2)}x</span></div><Slider value={[coverScale]} min={1} max={1.8} step={0.01} onValueChange={(value) => setCoverScale(value[0] ?? 1)} /></div>
             </div>
           </div>
-          <DialogFooter><Button variant="outline" className="border-white/10 bg-background/40" onClick={() => handleCloseCoverEditor(false)}>ยกเลิก</Button><Button onClick={handleSaveCoverImage} disabled={uploadingCover || !coverDraftFile}>{uploadingCover ? "กำลังบันทึก..." : "บันทึกภาพพื้นหลัง"}</Button></DialogFooter>
+          <DialogFooter><Button variant="outline" className="border-border bg-background/40" onClick={() => handleCloseCoverEditor(false)}>ยกเลิก</Button><Button onClick={handleSaveCoverImage} disabled={uploadingCover || !coverDraftFile}>{uploadingCover ? "กำลังบันทึก..." : "บันทึกภาพพื้นหลัง"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={avatarViewerOpen} onOpenChange={handleAvatarDialogChange}>
-        <DialogContent className="max-w-xl border-white/10 bg-[#111214] text-foreground">
+        <DialogContent className="max-w-xl border-border bg-popover text-popover-foreground">
           <DialogHeader><DialogTitle>รูปโปรไฟล์</DialogTitle></DialogHeader>
-          <div className="flex flex-col items-center rounded-[18px] border border-white/10 bg-[#0b1012] p-6 text-center">
+          <div className="flex flex-col items-center rounded-[18px] border border-border bg-card p-6 text-center">
             <Avatar className="h-52 w-52 border-4 border-primary/40"><AvatarImage src={displayAvatar} alt={displayName} /><AvatarFallback className="bg-primary text-6xl">{displayName.charAt(0)}</AvatarFallback></Avatar>
             <p className="mt-5 font-semibold">{displayName}</p><p className="text-sm text-muted-foreground">@{username}</p>
           </div>

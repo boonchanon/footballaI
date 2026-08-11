@@ -82,8 +82,8 @@ function PanelNavLink({
             )
           : "items-center gap-2 rounded-[14px] px-2.5 py-2.5 text-[12px]",
         active
-          ? "border border-primary/25 bg-primary/16 text-primary shadow-[0_8px_18px_rgba(184,255,0,0.1)]"
-          : "border border-white/[0.06] bg-white/[0.035] text-foreground/82 hover:border-white/[0.1] hover:bg-white/[0.05] hover:text-foreground",
+          ? "border border-primary/40 bg-primary/16 text-foreground shadow-[0_8px_18px_rgba(184,255,0,0.1)]"
+          : "border border-border bg-sidebar-accent/60 text-sidebar-foreground hover:border-border-strong hover:bg-sidebar-hover hover:text-sidebar-foreground",
       )}
     >
       {compact ? (
@@ -92,10 +92,10 @@ function PanelNavLink({
             "flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px]",
             active
               ? "bg-primary/8"
-              : "bg-transparent group-hover/sidebar:bg-white/[0.02] group-focus-within/sidebar:bg-white/[0.02]",
+              : "bg-transparent group-hover/sidebar:bg-sidebar-hover group-focus-within/sidebar:bg-sidebar-hover",
           )}
         >
-          <Icon className={cn("h-5 w-5 shrink-0", active ? "text-primary" : "text-muted-foreground")} />
+          <Icon className={cn("h-5 w-5 shrink-0", active ? "text-primary" : "text-sidebar-foreground/75")} />
         </span>
       ) : (
         <Icon className={cn("h-[13px] w-[13px]", active ? "text-primary" : "text-muted-foreground")} />
@@ -188,8 +188,8 @@ export function Navigation({ isLoggedIn = false, userName, variant = "page" }: N
 
   return (
     <>
-      <aside className="group/sidebar fixed bottom-0 left-0 top-0 z-50 hidden w-[88px] overflow-hidden border-r border-white/[0.06] bg-[#091014]/96 transition-[width,box-shadow] duration-200 hover:w-[220px] hover:shadow-[0_20px_50px_rgba(0,0,0,0.35)] focus-within:w-[220px] xl:flex xl:flex-col">
-        <div className="border-b border-white/[0.06] px-3 py-4">
+      <aside className="theme-sidebar group/sidebar fixed bottom-0 left-0 top-0 z-50 hidden w-[88px] overflow-hidden border-r transition-[width,box-shadow] duration-200 hover:w-[220px] hover:shadow-[0_20px_50px_rgba(0,0,0,0.18)] focus-within:w-[220px] xl:flex xl:flex-col">
+        <div className="border-b border-sidebar-border px-3 py-4">
           <Link href="/" aria-label="FootballAI Home" title="FootballAI Home" className="flex min-w-0 items-center gap-3 overflow-hidden rounded-[16px]">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] border border-primary/20 bg-primary/10 text-primary shadow-[0_10px_24px_rgba(184,255,0,0.08)]">
               <span className="font-display text-[1.35rem] leading-none">FA</span>
@@ -245,8 +245,8 @@ export function Navigation({ isLoggedIn = false, userName, variant = "page" }: N
           </PanelSection>
         </div>
 
-        <div className="border-t border-white/[0.06] p-2.5">
-          <div className="rounded-[18px] border border-white/[0.07] bg-[#0b1012]/92 px-2 py-2.5 shadow-[0_10px_24px_rgba(0,0,0,0.2)]">
+        <div className="border-t border-sidebar-border p-2.5">
+          <div className="rounded-[18px] border border-sidebar-border bg-sidebar-accent/70 px-2 py-2.5 shadow-[0_10px_24px_rgba(0,0,0,0.12)]">
             <div className="flex items-center justify-center gap-3 overflow-hidden group-hover/sidebar:justify-between group-focus-within/sidebar:justify-between">
               <div className="opacity-0 transition-opacity duration-150 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Theme</p>
@@ -267,7 +267,7 @@ export function Navigation({ isLoggedIn = false, userName, variant = "page" }: N
                   href="/login"
                   aria-label="Login"
                   title="Login"
-                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] border border-white/[0.07] bg-white/[0.035] text-foreground transition hover:bg-white/[0.05]"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] border border-sidebar-border bg-sidebar-accent/70 text-sidebar-foreground transition hover:bg-sidebar-hover"
                 >
                   <User className="h-5 w-5" />
                 </Link>
@@ -300,7 +300,7 @@ export function Navigation({ isLoggedIn = false, userName, variant = "page" }: N
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-auto rounded-[10px] border-white/[0.07] bg-white/[0.035] px-2 py-2 text-[11px]"
+                    className="h-auto rounded-[10px] border-border bg-card/70 px-2 py-2 text-[11px]"
                     onClick={() => {
                       session.logout()
                       if (typeof window !== "undefined") window.location.href = "/"
@@ -313,7 +313,7 @@ export function Navigation({ isLoggedIn = false, userName, variant = "page" }: N
                 <>
                   <Link
                     href="/login"
-                    className="inline-flex items-center justify-center rounded-[10px] border border-white/[0.07] bg-white/[0.035] px-2 py-2 text-[11px] font-medium text-foreground transition hover:bg-white/[0.05]"
+                    className="inline-flex items-center justify-center rounded-[10px] border border-border bg-card/70 px-2 py-2 text-[11px] font-medium text-foreground transition hover:bg-accent hover:text-accent-foreground"
                   >
                     Login
                   </Link>
@@ -330,7 +330,7 @@ export function Navigation({ isLoggedIn = false, userName, variant = "page" }: N
         </div>
       </aside>
 
-      <nav className="sticky left-0 right-0 top-0 z-50 border-b border-white/[0.06] bg-[#0b1012]/94 backdrop-blur-xl xl:hidden">
+      <nav className="theme-shell sticky left-0 right-0 top-0 z-50 border-b backdrop-blur-xl xl:hidden">
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between gap-4">
             <Link href="/" className="flex min-w-0 items-center gap-3">
@@ -346,13 +346,13 @@ export function Navigation({ isLoggedIn = false, userName, variant = "page" }: N
             <div className="flex items-center gap-2">
               <Sheet>
                 <SheetTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-11 rounded-[12px] border border-white/[0.06] bg-white/[0.035] px-4 text-foreground hover:bg-white/[0.05]">
+                  <Button variant="ghost" size="sm" className="h-11 rounded-[12px] border border-border bg-card/70 px-4 text-foreground hover:bg-accent hover:text-accent-foreground">
                     <Menu className="mr-2 h-4 w-4 text-primary" />
                     Menu
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="left" className="w-[min(92vw,420px)] border-white/[0.08] bg-[#091014] p-0 text-foreground">
-                  <SheetHeader className="border-b border-white/[0.06] px-5 pb-4 pt-6 text-left">
+                <SheetContent side="left" className="w-[min(92vw,420px)] border-border bg-sidebar p-0 text-sidebar-foreground">
+                  <SheetHeader className="border-b border-sidebar-border px-5 pb-4 pt-6 text-left">
                     <SheetTitle className="font-display text-2xl text-foreground">FootballAI</SheetTitle>
                     <SheetDescription className="text-sm text-muted-foreground">Main navigation and profile in one panel.</SheetDescription>
                   </SheetHeader>
@@ -376,8 +376,8 @@ export function Navigation({ isLoggedIn = false, userName, variant = "page" }: N
                       </PanelSection>
                     </div>
 
-                    <div className="border-t border-white/[0.06] p-5">
-                      <div className="rounded-[18px] border border-white/[0.07] bg-[#0b1012]/92 p-4 shadow-[0_10px_28px_rgba(0,0,0,0.22)]">
+                    <div className="border-t border-sidebar-border p-5">
+                      <div className="rounded-[18px] border border-sidebar-border bg-sidebar-accent/70 p-4 shadow-[0_10px_28px_rgba(0,0,0,0.12)]">
                         {stableIsLoggedIn ? (
                           <>
                             <div className="flex items-center gap-3">
@@ -397,7 +397,7 @@ export function Navigation({ isLoggedIn = false, userName, variant = "page" }: N
                               <Button
                                 type="button"
                                 variant="outline"
-                                className="rounded-[12px] border-white/[0.07] bg-white/[0.035]"
+                                className="rounded-[12px] border-border bg-card/70"
                                 onClick={() => {
                                   session.logout()
                                   if (typeof window !== "undefined") window.location.href = "/"
@@ -410,7 +410,7 @@ export function Navigation({ isLoggedIn = false, userName, variant = "page" }: N
                         ) : (
                           <div className="grid grid-cols-2 gap-3">
                             <SheetClose asChild>
-                              <Link href="/login" className="inline-flex items-center justify-center rounded-[12px] border border-white/[0.07] bg-white/[0.035] px-4 py-3 text-sm font-medium text-foreground">Login</Link>
+                              <Link href="/login" className="inline-flex items-center justify-center rounded-[12px] border border-border bg-card/70 px-4 py-3 text-sm font-medium text-foreground">Login</Link>
                             </SheetClose>
                             <SheetClose asChild>
                               <Link href="/register" className="inline-flex items-center justify-center rounded-[12px] bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground">Register</Link>

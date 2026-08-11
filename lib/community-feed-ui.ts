@@ -9,11 +9,11 @@ export const COMMUNITY_FEED_UI_TEXT = {
 } as const
 
 export const COMMUNITY_FEED_UI_TOKENS = {
-  page: "bg-[#030708]",
-  shell: "bg-[#05090b]",
-  surface: "bg-[#091012]",
-  surfaceSoft: "bg-white/[0.045]",
-  border: "border-white/[0.08]",
+  page: "bg-background text-foreground",
+  shell: "bg-card text-card-foreground",
+  surface: "bg-surface text-foreground",
+  surfaceSoft: "bg-muted/55",
+  border: "border-border",
   radius: "rounded-[12px]",
   radiusSm: "rounded-[10px]",
   gap: "gap-4",

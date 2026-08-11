@@ -21,13 +21,13 @@ import { cn } from "@/lib/utils"
 type StatusTone = "active" | "pending" | "restricted" | "banned" | "muted" | "info" | "destructive"
 
 const toneClasses: Record<StatusTone, string> = {
-  active: "border-emerald-500/20 bg-emerald-500/10 text-emerald-300",
-  pending: "border-amber-500/20 bg-amber-500/10 text-amber-300",
-  restricted: "border-orange-500/20 bg-orange-500/10 text-orange-300",
-  banned: "border-red-500/20 bg-red-500/10 text-red-300",
-  muted: "border-zinc-500/20 bg-zinc-500/10 text-zinc-300",
-  info: "border-sky-500/20 bg-sky-500/10 text-sky-300",
-  destructive: "border-red-500/30 bg-red-500/15 text-red-200",
+  active: "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  pending: "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  restricted: "border-orange-500/25 bg-orange-500/10 text-orange-700 dark:text-orange-300",
+  banned: "border-red-500/25 bg-red-500/10 text-red-700 dark:text-red-300",
+  muted: "border-zinc-500/20 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300",
+  info: "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+  destructive: "border-red-500/30 bg-red-500/15 text-red-700 dark:text-red-200",
 }
 
 export function AdminPageHeader({

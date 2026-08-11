@@ -4,11 +4,13 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent, type ReactNode, type RefObject } from "react"
+import { th } from "date-fns/locale"
 import useSWR from "swr"
 import {
   Bell,
   BarChart3,
   CalendarClock,
+  ChevronLeft,
   ChevronRight,
   Copy,
   Edit3,
@@ -38,10 +40,12 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
@@ -687,10 +691,10 @@ function getStatusLabel(status: string, isFinished?: boolean) {
 
 function getStatusTone(status: string, isFinished?: boolean) {
   const state = getMatchHubDisplayState({ status, isFinished })
-  if (state === "finished") return "border-white/10 bg-white/8 text-muted-foreground"
+  if (state === "finished") return "border-border bg-muted text-muted-foreground"
   if (state === "live") return "border-primary/40 bg-primary/15 text-primary"
-  if (state === "postponed" || state === "cancelled" || state === "closed") return "border-amber-400/30 bg-amber-400/10 text-amber-200"
-  return "border-sky-300/20 bg-sky-300/10 text-sky-100"
+  if (state === "postponed" || state === "cancelled" || state === "closed") return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200"
+  return "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-100"
 }
 
 function getSummaryStatusLabel(summary?: CommunityMatchRoomResponse["summary"]) {
@@ -726,7 +730,7 @@ function SummaryListSection({ title, items }: { title: string; items?: string[] 
   const visibleItems = Array.isArray(items) ? items.filter(Boolean) : []
   if (!visibleItems.length) return null
   return (
-    <div className="rounded-[22px] border border-white/10 bg-background/45 p-4">
+    <div className="rounded-[22px] border border-border bg-surface-2/80 p-4">
       <h3 className="text-base font-semibold text-foreground">{title}</h3>
       <ul className="mt-3 space-y-2 text-sm leading-6 text-muted-foreground">
         {visibleItems.map((item, index) => (
@@ -743,7 +747,7 @@ function SummaryListSection({ title, items }: { title: string; items?: string[] 
 function FanReactionCard({ fanReaction, onOpenPolls, onOpenThreads }: { fanReaction?: MatchRoomFanReaction; onOpenPolls: () => void; onOpenThreads: () => void }) {
   const reaction = fanReaction || null
   return (
-    <Card className="rounded-[28px] border-primary/20 bg-[radial-gradient(circle_at_top_left,rgba(184,255,0,0.10),transparent_32%),rgba(18,20,18,0.9)]">
+    <Card className="rounded-[28px] border-primary/20 bg-[radial-gradient(circle_at_top_left,rgba(184,255,0,0.10),transparent_32%),var(--color-card)]">
       <CardContent className="space-y-4 p-5">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Fan Reactions</p>
@@ -751,15 +755,15 @@ function FanReactionCard({ fanReaction, onOpenPolls, onOpenThreads }: { fanReact
           <p className="mt-1 text-xs text-muted-foreground">สรุปจาก Poll และ Community content ที่ approved แล้วเท่านั้น</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-white/10 bg-background/45 p-4">
+          <div className="rounded-2xl border border-border bg-surface-2/80 p-4">
             <p className="text-xs text-muted-foreground">ผู้ร่วมโหวต</p>
             <p className="mt-1 text-2xl font-bold text-primary">{reaction?.participation || 0}</p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-background/45 p-4">
+          <div className="rounded-2xl border border-border bg-surface-2/80 p-4">
             <p className="text-xs text-muted-foreground">ตัวเลือกนำ</p>
             <p className="mt-1 line-clamp-2 text-sm font-semibold">{reaction?.topPollOption ? `${reaction.topPollOption.percent}% ${reaction.topPollOption.label}` : "ยังไม่มีผลโหวต"}</p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-background/45 p-4">
+          <div className="rounded-2xl border border-border bg-surface-2/80 p-4">
             <p className="text-xs text-muted-foreground">ภาพรวมความเห็น</p>
             <p className="mt-1 text-lg font-semibold text-foreground">{reaction?.overallReaction || "ยังไม่สรุป"}</p>
           </div>
@@ -776,10 +780,10 @@ function FanReactionCard({ fanReaction, onOpenPolls, onOpenThreads }: { fanReact
           <p className="text-sm text-muted-foreground">{reaction?.limitation || "ยังไม่มีข้อมูล Community เพียงพอสำหรับสรุป reaction"}</p>
         )}
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={onOpenPolls} className="rounded-full border-white/10">
+          <Button type="button" variant="outline" onClick={onOpenPolls} className="rounded-full border-border">
             ดู Poll ทั้งหมด
           </Button>
-          <Button type="button" variant="outline" onClick={onOpenThreads} className="rounded-full border-white/10">
+          <Button type="button" variant="outline" onClick={onOpenThreads} className="rounded-full border-border">
             ดูหัวข้อสนทนา
           </Button>
         </div>
@@ -799,7 +803,7 @@ function formatKickoff(fixture: CommunityMatchRoomFixture) {
 function TeamLogo({ src, name, size = "md" }: { src?: string; name: string; size?: "sm" | "md" | "lg" }) {
   const sizeClass = size === "lg" ? "h-20 w-20" : size === "sm" ? "h-10 w-10" : "h-14 w-14"
   return (
-    <div className={cn("relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-background/70", sizeClass)}>
+    <div className={cn("relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-card", sizeClass)}>
       {src ? <Image src={src} alt={`${name} logo`} fill className="object-contain p-2" unoptimized /> : <span className="text-xs font-bold text-primary">{name.slice(0, 2).toUpperCase()}</span>}
     </div>
   )
@@ -829,7 +833,7 @@ function MatchRoomMiniCard({
   return (
     <div
       className={cn(
-        "group rounded-[24px] border border-white/10 bg-background/45 p-4 transition hover:border-primary/40 hover:bg-primary/8 motion-reduce:transition-none",
+        "group rounded-[24px] border border-border bg-card p-4 transition hover:border-primary/40 hover:bg-accent-soft motion-reduce:transition-none",
         compact && "min-w-[260px]",
       )}
     >
@@ -855,7 +859,7 @@ function MatchRoomMiniCard({
             </div>
           </div>
           <div className="text-right">
-            <p className="rounded-2xl bg-black/45 px-3 py-1 text-xl font-black leading-none text-primary">{getScoreLabel(fixture)}</p>
+            <p className="rounded-2xl bg-muted px-3 py-1 text-xl font-black leading-none text-primary">{getScoreLabel(fixture)}</p>
             <Badge variant="outline" className={cn("mt-2 rounded-full px-2 py-0.5 text-[10px]", getStatusTone(fixture.status, fixture.isFinished))}>
               {getStatusLabel(fixture.status, fixture.isFinished)}
             </Badge>
@@ -893,7 +897,7 @@ function MatchRoomMiniCard({
       <div className="mt-3 flex flex-wrap gap-2">
         {stats?.activity?.hasNewActivity ? <Badge className="rounded-full bg-primary/15 text-primary hover:bg-primary/15">ใหม่</Badge> : null}
         {stats?.activity?.hasNewPoll ? <Badge variant="outline" className="rounded-full border-primary/25 text-primary">Poll ใหม่</Badge> : null}
-        {stats?.activity?.hasSummaryReady ? <Badge variant="outline" className="rounded-full border-white/10">AI Summary</Badge> : null}
+        {stats?.activity?.hasSummaryReady ? <Badge variant="outline" className="rounded-full border-border">AI Summary</Badge> : null}
       </div>
     </div>
   )
@@ -941,6 +945,10 @@ function getThailandTodayKey() {
   return getThailandDateKey(new Date())
 }
 
+function isMatchHubDateKey(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+}
+
 function parseDateKey(dateKey: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey)
   if (!match) return null
@@ -961,6 +969,16 @@ function formatMatchHubDateLabel(dateKey: string, options: Intl.DateTimeFormatOp
   return new Intl.DateTimeFormat("th-TH", { timeZone: "Asia/Bangkok", ...options }).format(date)
 }
 
+function formatMatchHubDateParts(dateKey: string) {
+  const date = parseDateKey(dateKey)
+  if (!date) return { weekday: dateKey, day: "", month: "" }
+  return {
+    weekday: new Intl.DateTimeFormat("th-TH", { timeZone: "Asia/Bangkok", weekday: "short" }).format(date),
+    day: new Intl.DateTimeFormat("th-TH", { timeZone: "Asia/Bangkok", day: "numeric" }).format(date),
+    month: new Intl.DateTimeFormat("th-TH", { timeZone: "Asia/Bangkok", month: "short" }).format(date),
+  }
+}
+
 function getFixtureDateKey(fixture: CommunityMatchRoomFixture) {
   const date = new Date(fixture.kickoff)
   if (Number.isNaN(date.getTime())) return fixture.dateThai || "unknown"
@@ -972,13 +990,15 @@ function getInitialMatchHubDate(fixtures: CommunityMatchRoomFixture[]) {
   return firstFixture ? getFixtureDateKey(firstFixture) : getThailandTodayKey()
 }
 
-function buildMatchHubDateTabs(selectedDate: string) {
-  const start = /^\d{4}-\d{2}-\d{2}$/.test(selectedDate) ? selectedDate : getThailandTodayKey()
-  return Array.from({ length: 5 }, (_, index) => {
+function buildMatchHubDateTabs(selectedDate: string, range = 7) {
+  const center = isMatchHubDateKey(selectedDate) ? selectedDate : getThailandTodayKey()
+  const start = addDaysToDateKey(center, -range)
+  return Array.from({ length: range * 2 + 1 }, (_, index) => {
     const key = addDaysToDateKey(start, index)
     return {
       key,
       label: formatMatchHubDateLabel(key),
+      parts: formatMatchHubDateParts(key),
     }
   })
 }
@@ -1028,8 +1048,8 @@ function getEventIcon(event: TimelineMatchEvent) {
 
 function CompactEmptyState({ message, description, icon }: { message: string; description?: string; icon?: ReactNode }) {
   return (
-    <div className="flex min-h-[62px] items-center gap-3 rounded-lg bg-white/[0.035] px-3.5 py-3 text-sm text-muted-foreground">
-      {icon ? <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-black/15 text-muted-foreground">{icon}</span> : null}
+    <div className="flex min-h-[62px] items-center gap-3 rounded-lg border border-border bg-surface-2 px-3.5 py-3 text-sm text-muted-foreground">
+      {icon ? <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground">{icon}</span> : null}
       <span className="min-w-0">
         <span className="block font-medium text-foreground/80">{message}</span>
         {description ? <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">{description}</span> : null}
@@ -1040,7 +1060,7 @@ function CompactEmptyState({ message, description, icon }: { message: string; de
 
 function LiveEmptyBanner() {
   return (
-    <div className="flex min-h-[72px] flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-[#0b151b] px-4 py-3">
+    <div className="theme-surface flex min-h-[72px] flex-wrap items-center gap-3 rounded-xl border px-4 py-3">
       <Badge className="rounded-full bg-red-500 px-2 py-0.5 text-[11px] text-white hover:bg-red-500">LIVE</Badge>
       <div className="min-w-0">
         <p className="text-sm font-semibold text-foreground">ไม่มีการแข่งขันสดในขณะนี้</p>
@@ -1054,10 +1074,10 @@ function MatchHubDirectorySkeleton() {
   return (
     <div className="space-y-4">
       <div className="flex gap-3 overflow-hidden">
-        {[0, 1, 2].map((item) => <div key={item} className="h-48 min-w-[240px] flex-1 animate-pulse rounded-xl border border-white/10 bg-white/5 motion-reduce:animate-none" />)}
+        {[0, 1, 2].map((item) => <div key={item} className="h-48 min-w-[240px] flex-1 animate-pulse rounded-xl border border-border bg-muted/45 motion-reduce:animate-none" />)}
       </div>
       <div className="grid items-start gap-3 lg:grid-cols-3">
-        {[0, 1, 2].map((item) => <div key={item} className="h-36 animate-pulse rounded-xl border border-white/10 bg-white/5 motion-reduce:animate-none" />)}
+        {[0, 1, 2].map((item) => <div key={item} className="h-36 animate-pulse rounded-xl border border-border bg-muted/45 motion-reduce:animate-none" />)}
       </div>
     </div>
   )
@@ -1077,7 +1097,7 @@ function PremierMatchCard({
   const displayState = getMatchHubDisplayState({ status: fixture.status, isFinished: fixture.isFinished })
   const activityCount = Number(stats?.newRoomMessageCount || stats?.discussions || stats?.followers || 0)
   return (
-    <div className="min-w-[240px] flex-1 rounded-xl border border-white/10 bg-[#0b151b] p-3.5 transition hover:border-primary/35 hover:bg-primary/10">
+    <div className="theme-surface min-w-[240px] flex-1 rounded-xl border p-3.5 transition hover:border-primary/35 hover:bg-primary/10">
       <div className="mb-3 flex items-center justify-between">
         <span className={cn("text-sm font-bold", displayState === "live" ? "text-primary" : "text-muted-foreground")}>{displayState === "live" ? getFixtureMinuteLabel(fixture) : formatKickoff(fixture)}</span>
         {displayState === "live" ? <Badge className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] text-white hover:bg-red-500">LIVE</Badge> : null}
@@ -1108,7 +1128,7 @@ function PremierMatchCard({
           variant={stats?.isFollowing ? "default" : "outline"}
           disabled={followingBusy}
           onClick={() => onToggleFollow(fixture, !stats?.isFollowing)}
-          className="rounded-lg border-white/10"
+          className="rounded-lg border-border"
         >
           {stats?.isFollowing ? "ติดตามแล้ว" : "ติดตาม"}
         </Button>
@@ -1129,7 +1149,7 @@ function UpcomingMatchesPanel({
   followingBusyId: string | null
 }) {
   return (
-    <section className="rounded-xl border border-white/10 bg-[#0b151b] p-3.5">
+    <section className="theme-surface rounded-xl border p-3.5">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold">กำลังจะเริ่ม</h2>
         <Link href="/community/matches" className="text-xs text-primary">ดูทั้งหมด ›</Link>
@@ -1137,7 +1157,7 @@ function UpcomingMatchesPanel({
       {fixtures.length ? (
         <div className="space-y-2.5">
           {fixtures.map((fixture) => (
-            <div key={fixture.id} className="rounded-lg bg-white/[0.025] p-2.5">
+            <div key={fixture.id} className="rounded-lg border border-border bg-surface-2 p-2.5">
               <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm">
                 <div className="min-w-0 text-center">
                   <TeamLogo src={fixture.homeLogo} name={fixture.homeTeam} size="sm" />
@@ -1157,7 +1177,7 @@ function UpcomingMatchesPanel({
                   variant="outline"
                   disabled={followingBusyId === fixture.id}
                   onClick={() => onToggleFollow(fixture, !stats?.[fixture.id]?.isFollowing)}
-                  className="h-8 shrink-0 rounded-lg border-white/10 px-2.5 text-xs"
+                  className="h-8 shrink-0 rounded-lg border-border px-2.5 text-xs"
                 >
                   เตือนฉัน
                 </Button>
@@ -1174,7 +1194,7 @@ function UpcomingMatchesPanel({
 function MatchEventsPanel({ fixture, events }: { fixture: CommunityMatchRoomFixture | null; events: TimelineMatchEvent[] }) {
   const isUpcoming = fixture ? getMatchHubDisplayState({ status: fixture.status, isFinished: fixture.isFinished }) === "upcoming" : false
   return (
-    <section className="rounded-xl border border-primary/15 bg-[#0b151b] p-3.5">
+    <section className="theme-surface rounded-xl border p-3.5">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -1185,7 +1205,7 @@ function MatchEventsPanel({ fixture, events }: { fixture: CommunityMatchRoomFixt
         </div>
       </div>
       {fixture ? (
-        <div className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-lg bg-black/25 p-3">
+        <div className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-lg border border-border bg-surface-2 p-3">
           <div className="min-w-0 text-center">
             <TeamLogo src={fixture.homeLogo} name={fixture.homeTeam} size="sm" />
             <span className="mt-1 block truncate text-xs">{fixture.homeTeam}</span>
@@ -1201,11 +1221,11 @@ function MatchEventsPanel({ fixture, events }: { fixture: CommunityMatchRoomFixt
         </div>
       ) : null}
       {events.length ? (
-        <div className="relative space-y-1 before:absolute before:left-[53px] before:top-3 before:h-[calc(100%-24px)] before:w-px before:bg-white/10">
+        <div className="relative space-y-1 before:absolute before:left-[53px] before:top-3 before:h-[calc(100%-24px)] before:w-px before:bg-border">
           {events.slice(0, 6).map((event) => (
             <div key={event.id} className="grid grid-cols-[42px_24px_1fr_auto] gap-3 py-2 text-sm">
               <span className="text-muted-foreground">{event.minute ? `${event.minute}'` : "-"}</span>
-              <span className={cn("relative z-10 flex h-6 w-6 items-center justify-center rounded-full bg-[#0b151b] text-center text-xs ring-1 ring-white/10", event.type === "yellow_card" && "text-yellow-300", event.type === "red_card" && "text-red-400")}>{getEventIcon(event)}</span>
+              <span className={cn("relative z-10 flex h-6 w-6 items-center justify-center rounded-full bg-card text-center text-xs ring-1 ring-border", event.type === "yellow_card" && "text-yellow-600 dark:text-yellow-300", event.type === "red_card" && "text-red-500 dark:text-red-400")}>{getEventIcon(event)}</span>
               <div className="min-w-0">
                 <p className="truncate font-medium">{event.player || event.team || event.type.replace("_", " ")}</p>
                 {event.assist ? <p className="truncate text-xs text-muted-foreground">Assist: {event.assist}</p> : event.detail ? <p className="truncate text-xs text-muted-foreground">{event.detail}</p> : null}
@@ -1216,7 +1236,7 @@ function MatchEventsPanel({ fixture, events }: { fixture: CommunityMatchRoomFixt
         </div>
       ) : <CompactEmptyState message={isUpcoming ? "Match Events จะปรากฏเมื่อการแข่งขันเริ่ม" : "ยังไม่มีเหตุการณ์สำคัญจากผู้ให้บริการ"} description={isUpcoming ? "ข้อมูลจะอัปเดตจากผู้ให้บริการเมื่อมีเหตุการณ์จริง" : "Panel นี้จะขยายเป็น timeline เมื่อ provider ส่งเหตุการณ์"} icon={<Info className="h-4 w-4" />} />}
       {events.length ? (
-        <Button asChild variant="outline" className="mt-4 w-full rounded-xl border-white/10">
+        <Button asChild variant="outline" className="mt-4 w-full rounded-xl border-border">
           <Link href={fixture ? `/community/matches/${fixture.id}` : "/community/matches"}>ดูเหตุการณ์ทั้งหมด ›</Link>
         </Button>
       ) : null}
@@ -1226,7 +1246,7 @@ function MatchEventsPanel({ fixture, events }: { fixture: CommunityMatchRoomFixt
 
 function ThreadsDiscoveryPanel({ fixture, threads }: { fixture: CommunityMatchRoomFixture | null; threads: CommunityMatchRoomPost[] }) {
   return (
-    <section className="rounded-xl border border-white/10 bg-[#0b151b] p-3.5">
+    <section className="theme-surface rounded-xl border p-3.5">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold">กระทู้กำลังคุย</h2>
         {fixture ? <Link href={`/community/matches/${fixture.id}?tab=threads`} className="text-xs text-primary">ดูทั้งหมด ›</Link> : null}
@@ -1234,7 +1254,7 @@ function ThreadsDiscoveryPanel({ fixture, threads }: { fixture: CommunityMatchRo
       {threads.length && fixture ? (
         <div className="space-y-2">
           {threads.slice(0, 5).map((thread) => (
-            <Link key={thread.id} href={`/community/matches/${fixture.id}/threads/${thread.id}`} className="flex gap-3 rounded-xl p-2 transition hover:bg-white/5">
+            <Link key={thread.id} href={`/community/matches/${fixture.id}/threads/${thread.id}`} className="flex gap-3 rounded-xl p-2 transition hover:bg-muted/55">
               <TeamLogo src={fixture.homeLogo} name={fixture.homeTeam} size="sm" />
               <div className="min-w-0 flex-1">
                 <p className="line-clamp-1 text-sm font-medium">{thread.title}</p>
@@ -1251,7 +1271,7 @@ function ThreadsDiscoveryPanel({ fixture, threads }: { fixture: CommunityMatchRo
 
 function RightRailSection({ title, actionLabel, children }: { title: string; actionLabel?: string; children: ReactNode }) {
   return (
-    <section className="rounded-xl border border-white/10 bg-[#0b151b] p-3.5">
+    <section className="theme-surface rounded-xl border p-3.5">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="font-bold">{title}</h2>
         {actionLabel ? <span className="text-xs text-primary">{actionLabel}</span> : null}
@@ -1276,66 +1296,181 @@ function MatchHubCalendarPopover({
   onChangeMonth: (date: Date) => void
   onClose: () => void
 }) {
-  const monthStart = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1, 12, 0, 0)
-  const calendarStart = new Date(monthStart)
-  const mondayOffset = (calendarStart.getDay() + 6) % 7
-  calendarStart.setDate(calendarStart.getDate() - mondayOffset)
-  const days = Array.from({ length: 42 }, (_, index) => {
-    const date = new Date(calendarStart)
-    date.setDate(calendarStart.getDate() + index)
-    return date
-  })
   const todayKey = getThailandTodayKey()
-  const monthLabel = new Intl.DateTimeFormat("th-TH", { month: "long", year: "numeric" }).format(monthStart)
-
-  function moveMonth(offset: number) {
-    onChangeMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + offset, 1, 12, 0, 0))
-  }
+  const selectedDateValue = parseDateKey(selectedDate) || parseDateKey(todayKey) || new Date()
+  const currentYear = new Date().getFullYear()
 
   return (
-    <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[320px] rounded-2xl border border-white/10 bg-[#0b151b] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.42)]">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <Button type="button" variant="ghost" size="icon" onClick={() => moveMonth(-1)} className="h-8 w-8 rounded-lg" aria-label="เดือนก่อนหน้า">‹</Button>
-        <p className="text-sm font-semibold">{monthLabel}</p>
-        <Button type="button" variant="ghost" size="icon" onClick={() => moveMonth(1)} className="h-8 w-8 rounded-lg" aria-label="เดือนถัดไป">›</Button>
-      </div>
-      <div className="grid grid-cols-7 gap-1 text-center text-[11px] text-muted-foreground">
-        {["จ", "อ", "พ", "พฤ", "ศ", "ส", "อา"].map((day) => <span key={day} className="py-1">{day}</span>)}
-      </div>
-      <div className="mt-1 grid grid-cols-7 gap-1">
-        {days.map((date) => {
-          const key = getThailandDateKey(date)
-          const inMonth = date.getMonth() === monthStart.getMonth()
-          const isSelected = key === selectedDate
-          const isToday = key === todayKey
-          const hasFixture = fixtureDateKeys.has(key)
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onSelectDate(key)}
-              className={cn(
-                "relative flex h-9 items-center justify-center rounded-lg text-sm transition hover:bg-primary/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
-                inMonth ? "text-foreground" : "text-muted-foreground/40",
-                isSelected && "bg-primary text-primary-foreground hover:bg-primary",
-                !isSelected && isToday && "ring-1 ring-primary/50",
-              )}
-            >
-              {date.getDate()}
-              {hasFixture ? <span className={cn("absolute bottom-1 h-1 w-1 rounded-full", isSelected ? "bg-primary-foreground" : "bg-primary")} /> : null}
-            </button>
-          )
-        })}
-      </div>
-      <div className="mt-3 flex items-center justify-between gap-2">
-        <Button type="button" variant="outline" onClick={() => onSelectDate(todayKey)} className="h-9 rounded-xl border-white/10 px-3 text-xs">
+    <div className="space-y-2">
+      <Calendar
+        mode="single"
+        selected={selectedDateValue}
+        month={visibleMonth}
+        onMonthChange={onChangeMonth}
+        onSelect={(date) => {
+          if (!date) return
+          onSelectDate(getThailandDateKey(date))
+        }}
+        locale={th}
+        captionLayout="dropdown"
+        startMonth={new Date(currentYear - 5, 0, 1)}
+        endMonth={new Date(currentYear + 5, 11, 31)}
+        showOutsideDays
+        modifiers={{ hasFixture: (date) => fixtureDateKeys.has(getThailandDateKey(date)) }}
+        modifiersClassNames={{ hasFixture: "after:absolute after:bottom-1 after:left-1/2 after:h-1 after:w-1 after:-translate-x-1/2 after:rounded-full after:bg-primary" }}
+        className="rounded-xl bg-transparent p-0 [--cell-size:2.25rem]"
+        classNames={{
+          root: "w-full",
+          month: "w-full gap-3",
+          months: "w-full",
+          caption_label: "text-sm font-semibold",
+          dropdowns: "h-9 text-sm",
+          weekday: "text-[11px] text-muted-foreground",
+          day: "relative",
+          today: "rounded-lg bg-primary/10 text-primary",
+        }}
+      />
+      <div className="flex items-center justify-between gap-2 border-t border-border pt-2">
+        <Button type="button" variant="outline" onClick={() => onSelectDate(todayKey)} className="h-9 rounded-xl border-border px-3 text-xs">
           วันนี้
         </Button>
         <Button type="button" variant="ghost" onClick={onClose} className="h-9 rounded-xl px-3 text-xs">
-          ปิด
+          ยกเลิก
         </Button>
       </div>
     </div>
+  )
+}
+
+function MatchHubDateNavigator({
+  selectedDate,
+  dateTabs,
+  fixtureDateKeys,
+  showCalendar,
+  calendarMonth,
+  onSelectDate,
+  onCalendarOpenChange,
+  onCalendarMonthChange,
+  onRefresh,
+}: {
+  selectedDate: string
+  dateTabs: Array<{ key: string; label: string; parts: { weekday: string; day: string; month: string } }>
+  fixtureDateKeys: Set<string>
+  showCalendar: boolean
+  calendarMonth: Date
+  onSelectDate: (dateKey: string) => void
+  onCalendarOpenChange: (open: boolean) => void
+  onCalendarMonthChange: (date: Date) => void
+  onRefresh: () => void
+}) {
+  const dateButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const todayKey = getThailandTodayKey()
+  const isToday = selectedDate === todayKey
+
+  useEffect(() => {
+    dateButtonRefs.current[selectedDate]?.scrollIntoView({
+      behavior: "smooth",
+      inline: "center",
+      block: "nearest",
+    })
+  }, [selectedDate, dateTabs])
+
+  function moveSelectedDate(offset: number) {
+    if (!isMatchHubDateKey(selectedDate)) return
+    onSelectDate(addDaysToDateKey(selectedDate, offset))
+  }
+
+  return (
+    <section className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center" aria-label="เลือกวันที่ Match Hub">
+      <div className="flex min-w-0 items-center gap-2 rounded-xl border border-border bg-card p-1.5 shadow-[0_10px_28px_rgba(15,23,42,0.05)] dark:shadow-none">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() => moveSelectedDate(-1)}
+          className="h-9 w-9 shrink-0 rounded-lg text-muted-foreground hover:bg-muted hover:text-primary"
+          aria-label="วันก่อนหน้า"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto scroll-smooth px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {dateTabs.map((tab) => {
+            const selected = selectedDate === tab.key
+            const hasFixture = fixtureDateKeys.has(tab.key)
+            return (
+              <button
+                key={tab.key}
+                ref={(node) => {
+                  dateButtonRefs.current[tab.key] = node
+                }}
+                type="button"
+                onClick={() => onSelectDate(tab.key)}
+                aria-current={selected ? "date" : undefined}
+                className={cn(
+                  "relative flex h-12 min-w-[112px] shrink-0 flex-col items-center justify-center rounded-lg border px-3 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+                  selected
+                    ? "border-primary/60 bg-primary/10 text-primary shadow-[0_0_0_1px_rgba(184,255,0,0.08)]"
+                    : "border-border bg-surface-2 text-foreground hover:border-primary/30 hover:bg-accent-soft",
+                )}
+              >
+                <span className="text-[11px] font-semibold leading-none">{tab.parts.weekday}</span>
+                <span className="mt-1 text-sm font-black leading-none">{tab.parts.day} {tab.parts.month}</span>
+                {tab.key === todayKey ? <span className="sr-only">วันนี้</span> : null}
+                {hasFixture ? <span className={cn("absolute bottom-1.5 h-1 w-1 rounded-full", selected ? "bg-primary" : "bg-muted-foreground/60")} /> : null}
+              </button>
+            )
+          })}
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() => moveSelectedDate(1)}
+          className="h-9 w-9 shrink-0 rounded-lg text-muted-foreground hover:bg-muted hover:text-primary"
+          aria-label="วันถัดไป"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="flex flex-wrap gap-2 xl:justify-self-end">
+        {isToday ? (
+          <span className="inline-flex h-10 items-center rounded-xl border border-primary/20 bg-primary/10 px-3 text-xs font-semibold text-primary">
+            วันนี้
+          </span>
+        ) : null}
+        <Popover open={showCalendar} onOpenChange={onCalendarOpenChange}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 rounded-xl border-border bg-card px-3"
+              aria-label="เลือกวันที่จากปฏิทิน"
+            >
+              <CalendarClock className="mr-2 h-4 w-4" />
+              เลือกวันที่
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-[min(340px,calc(100vw-2rem))] rounded-2xl border-border bg-popover p-3 shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
+            <MatchHubCalendarPopover
+              selectedDate={selectedDate}
+              visibleMonth={calendarMonth}
+              fixtureDateKeys={fixtureDateKeys}
+              onChangeMonth={onCalendarMonthChange}
+              onClose={() => onCalendarOpenChange(false)}
+              onSelectDate={(dateKey) => {
+                onSelectDate(dateKey)
+                onCalendarOpenChange(false)
+              }}
+            />
+          </PopoverContent>
+        </Popover>
+        <Button variant="outline" onClick={onRefresh} className="h-10 rounded-xl border-border bg-card px-3">
+          <RefreshCw className="mr-2 h-4 w-4" />
+          รีเฟรช
+        </Button>
+      </div>
+    </section>
   )
 }
 
@@ -1389,16 +1524,16 @@ function ThreadCard({
     await navigator.clipboard?.writeText(url)
   }
   return (
-    <div className="group rounded-[24px] border border-white/10 bg-background/45 p-4 transition hover:border-primary/35 hover:bg-background/60">
+    <div className="group rounded-[24px] border border-border bg-card p-4 transition hover:border-primary/35 hover:bg-accent-soft">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="rounded-full border-primary/25 bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
               {item.threadCategoryLabel || item.categoryLabel || "ทั่วไป"}
             </Badge>
-            {item.isOfficialThread ? <Badge className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[11px] text-sky-100 hover:bg-sky-500/15">Official</Badge> : null}
-            {item.isPinned ? <Badge className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] text-amber-100 hover:bg-amber-500/15">Pinned</Badge> : null}
-            {item.moderationStatus === "pending_review" ? <Badge className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-white/10">กำลังรอตรวจสอบ</Badge> : null}
+            {item.isOfficialThread ? <Badge className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[11px] text-sky-700 hover:bg-sky-500/15 dark:text-sky-100">Official</Badge> : null}
+            {item.isPinned ? <Badge className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] text-amber-700 hover:bg-amber-500/15 dark:text-amber-100">Pinned</Badge> : null}
+            {item.moderationStatus === "pending_review" ? <Badge className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted">กำลังรอตรวจสอบ</Badge> : null}
           </div>
           <Link href={`/community/matches/${matchId}/threads/${item.id}`} className="mt-3 block text-lg font-semibold transition hover:text-primary">
             {item.title}
@@ -1452,7 +1587,7 @@ function ThreadCard({
           </DropdownMenuContent>
         </DropdownMenu>
         {thumbnail ? (
-          <div className="relative hidden h-20 w-20 overflow-hidden rounded-2xl border border-white/10 bg-black/30 sm:block">
+          <div className="relative hidden h-20 w-20 overflow-hidden rounded-2xl border border-border bg-muted sm:block">
             <Image src={thumbnail.url || thumbnail.ownerPreviewUrl || ""} alt={item.title} fill className="object-cover" unoptimized />
           </div>
         ) : null}
@@ -1468,7 +1603,7 @@ function ThreadCard({
         <div className="flex flex-wrap items-center gap-3">
           <span>{item.likes || 0} likes</span>
           <span>{item.comments || 0} comments</span>
-          <Button asChild variant="outline" className="h-9 rounded-full border-white/10 bg-background/60 px-3">
+          <Button asChild variant="outline" className="h-9 rounded-full border-border bg-card px-3">
             <Link href={threadUrl}>เปิดหัวข้อ</Link>
           </Button>
           {showPinButton && onTogglePin ? (
@@ -1477,7 +1612,7 @@ function ThreadCard({
               variant="outline"
               onClick={() => onTogglePin(item)}
               disabled={pinningId === item.id}
-              className="h-9 rounded-full border-white/10 bg-background/60 px-3"
+              className="h-9 rounded-full border-border bg-card px-3"
             >
               {pinningId === item.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Pin className="mr-2 h-4 w-4" />}
               {item.isPinned ? "Unpin" : "Pin"}
@@ -1492,19 +1627,19 @@ function ThreadCard({
 export function CommunityMatchCardsSection({ data, isLoading }: { data?: CommunityMatchRoomResponse; isLoading?: boolean }) {
   const fixtures = data?.fixtures?.slice(0, 4) || []
   return (
-    <Card className="rounded-[28px] border-primary/20 bg-[radial-gradient(circle_at_left,rgba(184,255,0,0.11),transparent_34%),linear-gradient(135deg,rgba(27,29,22,0.95),rgba(15,16,18,0.94))]">
+    <Card className="rounded-[28px] border-primary/20 bg-[radial-gradient(circle_at_left,rgba(184,255,0,0.10),transparent_34%),var(--color-card)]">
       <CardContent className="p-4 sm:p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Match Rooms</p>
             <h2 className="text-xl font-bold text-foreground">ห้องแข่งขันที่กำลังน่าสนใจ</h2>
           </div>
-          <Button asChild variant="outline" className="rounded-full border-white/10 bg-background/50">
+          <Button asChild variant="outline" className="rounded-full border-border bg-card">
             <Link href="/community/matches">ดู Match Rooms ทั้งหมด</Link>
           </Button>
         </div>
         {isLoading ? (
-          <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-background/35 p-4 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 rounded-2xl border border-border bg-muted p-4 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin text-primary" />
             กำลังโหลด Match Rooms...
           </div>
@@ -1515,7 +1650,7 @@ export function CommunityMatchCardsSection({ data, isLoading }: { data?: Communi
             ))}
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-white/10 bg-background/35 p-5 text-sm text-muted-foreground">ยังไม่มีการแข่งขันในช่วงนี้</div>
+          <div className="rounded-2xl border border-dashed border-border bg-muted p-5 text-sm text-muted-foreground">ยังไม่มีการแข่งขันในช่วงนี้</div>
         )}
       </CardContent>
     </Card>
@@ -1544,7 +1679,7 @@ export function MatchRoomsDirectory() {
   const fixtures = filterPremierLeagueFixtures(data?.fixtures || [])
   const searchedFixtures = filterFixtures(fixtures, query, "all")
   const fallbackDate = getInitialMatchHubDate(searchedFixtures)
-  const selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(activeDate) ? activeDate : fallbackDate
+  const selectedDate = isMatchHubDateKey(activeDate) ? activeDate : fallbackDate
   const dateTabs = buildMatchHubDateTabs(selectedDate)
   const fixtureDateKeys = new Set(fixtures.map(getFixtureDateKey).filter((key) => /^\d{4}-\d{2}-\d{2}$/.test(key)))
   const visibleFixtures = selectedDate ? searchedFixtures.filter((fixture) => getFixtureDateKey(fixture) === selectedDate) : searchedFixtures
@@ -1555,13 +1690,14 @@ export function MatchRoomsDirectory() {
   const eventFixture = liveFixtures[0] || visibleFixtures.find((fixture) => normalizeTimelineMatchEvents(fixture.events).length) || visibleFixtures[0] || null
   const matchEvents = eventFixture ? normalizeTimelineMatchEvents(eventFixture.events).slice().sort((a, b) => Number(b.minute ?? 0) - Number(a.minute ?? 0)) : []
   const threads = data?.threads || []
+  const selectedThreads = eventFixture?.id && eventFixture.id === data?.fixture?.id ? threads : []
   const followedFixtures = fixtures.filter((fixture) => data?.roomStats?.[fixture.id]?.isFollowing || data?.roomStats?.[fixture.id]?.isRecent)
   const favoriteTeamItems = buildFavoriteTeamItems(fixtures, data?.roomStats)
   const communityTotals = buildDirectoryCommunityTotals(fixtures, data?.roomStats)
   const popularTags = data?.fanReaction?.topTopics || []
 
   useEffect(() => {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(urlDate) && urlDate !== activeDate) {
+    if (isMatchHubDateKey(urlDate) && urlDate !== activeDate) {
       setActiveDate(urlDate)
       const nextMonth = parseDateKey(urlDate)
       if (nextMonth) setCalendarMonth(nextMonth)
@@ -1575,7 +1711,7 @@ export function MatchRoomsDirectory() {
   }, [activeDate, fallbackDate, urlDate])
 
   function updateSelectedDate(nextDate: string, mode: "push" | "replace" = "push") {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDate)) return
+    if (!isMatchHubDateKey(nextDate)) return
     setActiveDate(nextDate)
     const nextMonth = parseDateKey(nextDate)
     if (nextMonth) setCalendarMonth(nextMonth)
@@ -1637,10 +1773,10 @@ export function MatchRoomsDirectory() {
   }
 
   return (
-    <div className="min-h-screen bg-[#05090b] text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto grid max-w-[1720px] gap-3 px-3 py-3 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
         <aside className="hidden">
-          <div className="sticky top-3 w-[64px] overflow-hidden rounded-xl border border-white/10 bg-[#091116]/95 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.22)] transition-[width,box-shadow] duration-200 hover:w-56 hover:shadow-[0_22px_80px_rgba(0,0,0,0.42)] focus-within:w-56 motion-reduce:transition-none">
+          <div className="sticky top-3 w-[64px] overflow-hidden rounded-xl border border-border bg-card/95 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.10)] transition-[width,box-shadow] duration-200 hover:w-56 hover:shadow-[0_22px_80px_rgba(0,0,0,0.16)] focus-within:w-56 motion-reduce:transition-none">
             <Link href="/community/matches" className="flex h-11 items-center gap-3 rounded-lg px-1.5" aria-label="Match Hub" title="Match Hub">
               <div className="flex h-10 w-10 items-center justify-center rounded-full border border-primary/50 bg-primary/10">
                 <Trophy className="h-5 w-5 text-primary" />
@@ -1666,7 +1802,7 @@ export function MatchRoomsDirectory() {
                     aria-label={item.label}
                     title={item.label}
                     className={cn(
-                      "flex h-11 items-center gap-3 rounded-lg px-2 text-muted-foreground transition hover:bg-white/10 hover:text-foreground",
+                      "flex h-11 items-center gap-3 rounded-lg px-2 text-muted-foreground transition hover:bg-accent-soft hover:text-foreground",
                       item.active && "bg-primary/15 text-primary",
                     )}
                   >
@@ -1686,11 +1822,11 @@ export function MatchRoomsDirectory() {
             <div className="hidden">
             <Sheet>
               <SheetTrigger asChild>
-                <Button type="button" variant="outline" size="icon" className="rounded-xl border-white/10 bg-white/5 lg:hidden" aria-label="เปิดเมนู Match Hub">
+                <Button type="button" variant="outline" size="icon" className="rounded-xl border-border bg-card lg:hidden" aria-label="เปิดเมนู Match Hub">
                   <Menu className="h-4 w-4" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-72 border-white/10 bg-[#091116] text-foreground">
+              <SheetContent side="left" className="w-72 border-border bg-popover text-popover-foreground">
                 <SheetHeader>
                   <SheetTitle>Match Hub</SheetTitle>
                   <SheetDescription>เมนูหลักของพรีเมียร์ลีก Match Hub</SheetDescription>
@@ -1709,7 +1845,7 @@ export function MatchRoomsDirectory() {
                         key={item.label}
                         href={item.href}
                         className={cn(
-                          "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition hover:bg-white/10 hover:text-foreground",
+                          "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition hover:bg-accent-soft hover:text-foreground",
                           item.active && "bg-primary/15 text-primary",
                         )}
                       >
@@ -1722,7 +1858,7 @@ export function MatchRoomsDirectory() {
               </SheetContent>
             </Sheet>
             </div>
-            <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 sm:flex">
+            <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border bg-card sm:flex">
               <Trophy className="h-7 w-7 text-primary" />
             </div>
             <div className="min-w-0">
@@ -1737,7 +1873,7 @@ export function MatchRoomsDirectory() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="ค้นหาทีม, ห้อง, ผู้ใช้..."
-              className="h-11 rounded-xl border-white/10 bg-[#0b151b] pl-11"
+              className="h-11 rounded-xl border-border bg-input-background pl-11"
             />
           </div>
           <div className="flex items-center justify-end gap-2 lg:justify-self-end">
@@ -1746,7 +1882,7 @@ export function MatchRoomsDirectory() {
               variant="outline"
               size="icon"
               onClick={() => void handleOpenNotificationsDialog()}
-              className="relative rounded-full border-white/10 bg-white/5"
+              className="relative rounded-full border-border bg-card/70"
               aria-label="เปิดการแจ้งเตือน"
             >
               <Bell className="h-4 w-4" />
@@ -1761,64 +1897,24 @@ export function MatchRoomsDirectory() {
         <main className="min-w-0 space-y-3 xl:col-start-1">
           {followError ? <p className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{followError}</p> : null}
 
-          <section className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
-            <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-              {dateTabs.length ? dateTabs.slice(0, 5).map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => updateSelectedDate(tab.key)}
-                  className={cn(
-                    "min-w-0 rounded-xl border border-white/10 bg-[#0b151b] px-3 py-2.5 text-sm font-semibold transition hover:border-primary/35 hover:bg-primary/8",
-                    selectedDate === tab.key && "border-primary/50 bg-primary/10 text-primary",
-                  )}
-                >
-                  {tab.label}
-                </button>
-              )) : (
-                <div className="rounded-xl border border-white/10 bg-[#0b151b] px-4 py-3 text-sm text-muted-foreground">ยังไม่มีวันที่แข่งขัน</div>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2 xl:justify-self-end">
-              <div className="relative">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowCalendar((open) => !open)}
-                  className="h-10 rounded-xl border-white/10 bg-[#0b151b] px-3"
-                  aria-haspopup="dialog"
-                  aria-expanded={showCalendar}
-                >
-                  <CalendarClock className="mr-2 h-4 w-4" />
-                  เลือกวันที่
-                </Button>
-                {showCalendar ? (
-                  <MatchHubCalendarPopover
-                    selectedDate={selectedDate}
-                    visibleMonth={calendarMonth}
-                    fixtureDateKeys={fixtureDateKeys}
-                    onChangeMonth={setCalendarMonth}
-                    onClose={() => setShowCalendar(false)}
-                    onSelectDate={(dateKey) => {
-                      updateSelectedDate(dateKey)
-                      setShowCalendar(false)
-                    }}
-                  />
-                ) : null}
-              </div>
-              <Button variant="outline" onClick={() => void mutate()} className="h-10 rounded-xl border-white/10 bg-[#0b151b] px-3">
-                <RefreshCw className="mr-2 h-4 w-4" />
-                รีเฟรช
-              </Button>
-            </div>
-          </section>
+          <MatchHubDateNavigator
+            selectedDate={selectedDate}
+            dateTabs={dateTabs}
+            fixtureDateKeys={fixtureDateKeys}
+            showCalendar={showCalendar}
+            calendarMonth={calendarMonth}
+            onSelectDate={updateSelectedDate}
+            onCalendarOpenChange={setShowCalendar}
+            onCalendarMonthChange={setCalendarMonth}
+            onRefresh={() => void mutate()}
+          />
 
           {isLoading ? <MatchHubDirectorySkeleton /> : null}
           {error ? (
             <section className="rounded-xl border border-destructive/30 bg-destructive/10 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-destructive">โหลด Match Hub ไม่สำเร็จ กรุณาลองใหม่</p>
-                <Button variant="outline" onClick={() => void mutate()} className="rounded-full border-white/10">
+            <Button variant="outline" onClick={() => void mutate()} className="rounded-full border-border">
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Retry
                 </Button>
@@ -1828,11 +1924,28 @@ export function MatchRoomsDirectory() {
 
           {!isLoading && !error ? (
             !visibleFixtures.length ? (
-              <CompactEmptyState
-                message="ไม่มีการแข่งขันพรีเมียร์ลีกในวันที่เลือก"
-                description="เลือกวันอื่นจากปฏิทิน หรือกดวันนี้เพื่อกลับไปดูแมตช์ล่าสุด"
-                icon={<CalendarClock className="h-4 w-4" />}
-              />
+              <div className="rounded-xl border border-dashed border-border bg-surface p-4">
+                <CompactEmptyState
+                  message="ไม่มีการแข่งขันพรีเมียร์ลีกในวันนี้"
+                  description={`${formatMatchHubDateLabel(selectedDate, { weekday: "long", day: "numeric", month: "long", year: "numeric" })} ไม่มี fixture จาก provider`}
+                  icon={<CalendarClock className="h-4 w-4" />}
+                />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" onClick={() => updateSelectedDate(addDaysToDateKey(selectedDate, -1))} className="h-9 rounded-xl border-border bg-card px-3">
+                    <ChevronLeft className="mr-2 h-4 w-4" />
+                    วันก่อนหน้า
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => updateSelectedDate(addDaysToDateKey(selectedDate, 1))} className="h-9 rounded-xl border-border bg-card px-3">
+                    วันถัดไป
+                    <ChevronRight className="ml-2 h-4 w-4" />
+                  </Button>
+                  {selectedDate !== getThailandTodayKey() ? (
+                    <Button type="button" variant="ghost" onClick={() => updateSelectedDate(getThailandTodayKey())} className="h-9 rounded-xl px-3 text-primary">
+                      วันนี้
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
             ) : (
               <>
               <section className="space-y-2.5">
@@ -1862,7 +1975,7 @@ export function MatchRoomsDirectory() {
               <section className="grid items-start gap-3 lg:grid-cols-[minmax(220px,0.72fr)_minmax(380px,1.12fr)_minmax(280px,0.9fr)]">
                 <UpcomingMatchesPanel fixtures={upcomingFixtures.slice(0, 3)} stats={data?.roomStats} onToggleFollow={handleToggleFollow} followingBusyId={followingBusyId} />
                 <MatchEventsPanel fixture={eventFixture} events={matchEvents} />
-                <ThreadsDiscoveryPanel fixture={eventFixture} threads={threads} />
+                <ThreadsDiscoveryPanel fixture={eventFixture} threads={selectedThreads} />
               </section>
               </>
             )
@@ -1886,7 +1999,7 @@ export function MatchRoomsDirectory() {
             {followedFixtures.length ? followedFixtures.slice(0, 5).map((fixture) => {
               const stats = data?.roomStats?.[fixture.id]
               return (
-                <Link key={fixture.id} href={`/community/matches/${fixture.id}`} className="flex items-center gap-3 rounded-xl p-1 transition hover:bg-white/5">
+                <Link key={fixture.id} href={`/community/matches/${fixture.id}`} className="flex items-center gap-3 rounded-xl p-1 transition hover:bg-accent-soft">
                   <TeamLogo src={fixture.homeLogo} name={fixture.homeTeam} size="sm" />
                   <div className="min-w-0">
                     <p className="truncate text-sm">{getMatchTitle(fixture)}</p>
@@ -1905,7 +2018,7 @@ export function MatchRoomsDirectory() {
                 ["Messages", communityTotals.messages],
                 ["Polls", communityTotals.polls],
               ].map(([label, value]) => (
-                <div key={String(label)} className="rounded-lg bg-black/20 px-2.5 py-3 text-center">
+                <div key={String(label)} className="rounded-lg border border-border bg-surface-2 px-2.5 py-3 text-center">
                   <p className="text-base font-black text-primary">{value}</p>
                   <p className="mt-1 text-[10px] leading-none text-muted-foreground">{label}</p>
                 </div>
@@ -1917,7 +2030,7 @@ export function MatchRoomsDirectory() {
             <RightRailSection title="แท็กยอดนิยม">
               <div className="flex flex-wrap gap-1.5">
                 {popularTags.slice(0, 6).map((tag) => (
-                  <Badge key={tag.label} variant="outline" className="rounded-full border-white/10 bg-white/5 px-2 py-1 text-[11px] text-muted-foreground">#{tag.label}</Badge>
+                  <Badge key={tag.label} variant="outline" className="rounded-full border-border bg-card/70 px-2 py-1 text-[11px] text-muted-foreground">#{tag.label}</Badge>
                 ))}
               </div>
             </RightRailSection>
@@ -1925,7 +2038,7 @@ export function MatchRoomsDirectory() {
         </aside>
 
         <Dialog open={showNotificationsDialog} onOpenChange={setShowNotificationsDialog}>
-          <DialogContent className="max-w-xl rounded-[24px] border-white/10 bg-[#101518] text-foreground">
+          <DialogContent className="max-w-xl rounded-[24px] border-border bg-popover text-popover-foreground">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Bell className="h-5 w-5 text-primary" />
@@ -1934,7 +2047,7 @@ export function MatchRoomsDirectory() {
               <DialogDescription>ใช้ระบบแจ้งเตือน Community เดิม อัปเดตจากเพื่อน โพสต์ กระทู้ และ moderation</DialogDescription>
             </DialogHeader>
             {!authToken ? (
-              <div className="rounded-xl border border-white/10 bg-white/[0.035] p-4 text-sm text-muted-foreground">
+              <div className="rounded-xl border border-border bg-muted p-4 text-sm text-muted-foreground">
                 กรุณาเข้าสู่ระบบเพื่อดูการแจ้งเตือน
               </div>
             ) : (
@@ -1945,7 +2058,7 @@ export function MatchRoomsDirectory() {
                     ["กิจกรรม", notifications?.unreadActivity || 0],
                     ["ข้อความ", notifications?.unreadMessages || 0],
                   ].map(([label, value]) => (
-                    <div key={String(label)} className="rounded-xl bg-white/[0.035] px-3 py-2">
+                    <div key={String(label)} className="rounded-xl bg-muted px-3 py-2">
                       <p className="text-lg font-black text-primary">{value}</p>
                       <p className="text-[11px] text-muted-foreground">{label}</p>
                     </div>
@@ -1957,9 +2070,9 @@ export function MatchRoomsDirectory() {
                       key={item.id}
                       href={getMatchHubNotificationHref(item)}
                       onClick={() => setShowNotificationsDialog(false)}
-                      className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.035] p-3 transition hover:border-primary/25 hover:bg-white/[0.055]"
+                      className="flex items-start gap-3 rounded-xl border border-border bg-muted p-3 transition hover:border-primary/25 hover:bg-accent-soft"
                     >
-                      <Avatar className="h-10 w-10 border border-white/10">
+                      <Avatar className="h-10 w-10 border border-border">
                         <AvatarImage src={item.actor?.avatar || "/placeholder-user.jpg"} />
                         <AvatarFallback>{getInitials(item.actor?.name || "F")}</AvatarFallback>
                       </Avatar>
@@ -1977,7 +2090,7 @@ export function MatchRoomsDirectory() {
                     </Link>
                   ))
                 ) : (
-                  <div className="rounded-xl bg-white/[0.035] px-4 py-8 text-center">
+                  <div className="rounded-xl bg-muted px-4 py-8 text-center">
                     <Bell className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
                     <p className="text-sm font-medium">ยังไม่มีการแจ้งเตือนใหม่</p>
                     <p className="mt-1 text-xs text-muted-foreground">เมื่อมีคนโต้ตอบหรือมีสถานะ moderation จะขึ้นที่นี่</p>
@@ -1986,7 +2099,7 @@ export function MatchRoomsDirectory() {
               </div>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowNotificationsDialog(false)} className="rounded-full border-white/10">
+              <Button type="button" variant="outline" onClick={() => setShowNotificationsDialog(false)} className="rounded-full border-border">
                 ปิด
               </Button>
               <Button asChild className="rounded-full">
@@ -2026,7 +2139,7 @@ function MatchHero({
   const threadCount = stats?.discussions || 0
   const latestActivity = stats?.latestRoomActivityAt || stats?.latestActivityAt
   return (
-    <section className="overflow-hidden rounded-[18px] border border-white/[0.07] bg-[radial-gradient(circle_at_top_left,rgba(184,255,0,0.12),transparent_30%),linear-gradient(135deg,rgba(16,20,22,0.98),rgba(11,16,18,0.98))] p-5 shadow-[0_18px_48px_rgba(0,0,0,0.26)] sm:p-7" aria-label="FootballAI Match Hub header">
+    <section className="overflow-hidden rounded-[18px] border border-border bg-[radial-gradient(circle_at_top_left,rgba(184,255,0,0.12),transparent_30%),var(--color-card)] p-5 shadow-[0_18px_48px_rgba(0,0,0,0.10)] sm:p-7" aria-label="FootballAI Match Hub header">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
           <Badge variant="outline" className={cn("rounded-full px-3 py-1", getStatusTone(fixture.status, fixture.isFinished))}>
@@ -2039,9 +2152,9 @@ function MatchHero({
           <div className="mt-3 flex flex-wrap gap-2">
             <Badge variant="outline" className="rounded-full border-primary/25 bg-primary/10 px-3 py-1 text-primary">{timelineLabel}</Badge>
             {kickoffCountdown ? <Badge className="rounded-full bg-primary px-3 py-1 text-primary-foreground">{kickoffCountdown}</Badge> : null}
-            {demoNotice ? <Badge variant="outline" className="rounded-full border-amber-400/40 bg-amber-400/10 px-3 py-1 text-amber-200">Demo Mode</Badge> : null}
+            {demoNotice ? <Badge variant="outline" className="rounded-full border-amber-500/40 bg-amber-500/10 px-3 py-1 text-amber-700 dark:text-amber-200">Demo Mode</Badge> : null}
           </div>
-          {demoNotice ? <p className="text-xs text-amber-100">{demoNotice}. Room availability is overridden for demo, while match facts still come from provider status {fixture.status || "unchanged"}.</p> : null}
+          {demoNotice ? <p className="text-xs text-amber-700 dark:text-amber-100">{demoNotice}. Room availability is overridden for demo, while match facts still come from provider status {fixture.status || "unchanged"}.</p> : null}
         </div>
         <div className="flex flex-wrap gap-2">
           {onToggleFollow ? (
@@ -2050,14 +2163,14 @@ function MatchHero({
               onClick={() => onToggleFollow(fixture, !stats?.isFollowing)}
               disabled={followingBusy}
               variant={stats?.isFollowing ? "default" : "outline"}
-              className="rounded-full border-white/10"
+              className="rounded-full border-border"
               aria-label={stats?.isFollowing ? `เลิกติดตาม ${getMatchTitle(fixture)}` : `ติดตาม ${getMatchTitle(fixture)}`}
             >
               <Bell className="mr-2 h-4 w-4" />
               {stats?.isFollowing ? "กำลังติดตาม" : "ติดตาม Match Room"}
             </Button>
           ) : null}
-          <Button variant="outline" className="rounded-full border-white/10 bg-background/50">
+          <Button variant="outline" className="rounded-full border-border bg-card">
             <Share2 className="mr-2 h-4 w-4" />
             Share
           </Button>
@@ -2084,12 +2197,12 @@ function MatchHero({
         </button>
       ) : null}
 
-      <div className="mt-7 grid items-center gap-4 rounded-[12px] border border-white/[0.07] bg-white/[0.04] p-4 sm:grid-cols-[1fr_auto_1fr]">
+      <div className="mt-7 grid items-center gap-4 rounded-[12px] border border-border bg-surface-2 p-4 sm:grid-cols-[1fr_auto_1fr]">
         <div className="flex items-center gap-4">
           <TeamLogo src={fixture.homeLogo} name={fixture.homeTeam} size="lg" />
           <p className="text-xl font-bold text-foreground sm:text-2xl">{fixture.homeTeam}</p>
         </div>
-        <div className="rounded-[12px] bg-[#0b1012]/92 px-7 py-4 text-center text-4xl font-black text-primary" aria-label={`Score ${getScoreLabel(fixture)}`}>
+        <div className="rounded-[12px] bg-card/92 px-7 py-4 text-center text-4xl font-black text-primary" aria-label={`Score ${getScoreLabel(fixture)}`}>
           {getScoreLabel(fixture)}
         </div>
         <div className="flex items-center justify-end gap-4 text-right">
@@ -2099,22 +2212,22 @@ function MatchHero({
       </div>
 
       <div className="mt-5 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-[12px] border border-white/[0.07] bg-white/[0.04] p-3">
+        <div className="rounded-[12px] border border-border bg-muted p-3">
           <CalendarClock className="mb-2 h-4 w-4 text-primary" />
           <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">Kickoff</span>
           <span className="mt-1 block font-semibold text-foreground">{formatKickoff(fixture)}</span>
         </div>
-        <div className="rounded-[12px] border border-white/[0.07] bg-white/[0.04] p-3">
+        <div className="rounded-[12px] border border-border bg-muted p-3">
           <MessageCircle className="mb-2 h-4 w-4 text-primary" />
           <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">Messages</span>
           <span className="mt-1 block font-semibold text-foreground">{messageCount}</span>
         </div>
-        <div className="rounded-[12px] border border-white/[0.07] bg-white/[0.04] p-3">
+        <div className="rounded-[12px] border border-border bg-muted p-3">
           <Users className="mb-2 h-4 w-4 text-primary" />
           <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">Followers</span>
           <span className="mt-1 block font-semibold text-foreground">{stats?.followers || 0}</span>
         </div>
-        <div className="rounded-[12px] border border-white/[0.07] bg-white/[0.04] p-3">
+        <div className="rounded-[12px] border border-border bg-muted p-3">
           <Trophy className="mb-2 h-4 w-4 text-primary" />
           <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">Polls / Summary</span>
           <span className="mt-1 block font-semibold text-foreground">{stats?.polls || 0} polls · {getSummaryStatusLabel(summary)}</span>
@@ -2122,19 +2235,19 @@ function MatchHero({
       </div>
 
       <div className="mt-3 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-[12px] border border-white/[0.07] bg-white/[0.03] p-3">
+        <div className="rounded-[12px] border border-border bg-muted p-3">
           <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">League</span>
           <span className="mt-1 block font-semibold text-foreground">พรีเมียร์ลีก</span>
         </div>
-        <div className="rounded-[12px] border border-white/[0.07] bg-white/[0.03] p-3">
+        <div className="rounded-[12px] border border-border bg-muted p-3">
           <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">Threads</span>
           <span className="mt-1 block font-semibold text-foreground">{threadCount}</span>
         </div>
-        <div className="rounded-[12px] border border-white/[0.07] bg-white/[0.03] p-3">
+        <div className="rounded-[12px] border border-border bg-muted p-3">
           <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">Venue</span>
           <span className="mt-1 block truncate font-semibold text-foreground">{fixture.venue || "-"}</span>
         </div>
-        <div className="rounded-[12px] border border-white/[0.07] bg-white/[0.03] p-3">
+        <div className="rounded-[12px] border border-border bg-muted p-3">
           <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">Latest Activity</span>
           <span className="mt-1 block font-semibold text-foreground">{latestActivity ? new Date(latestActivity).toLocaleString("th-TH") : "-"}</span>
         </div>
@@ -2177,7 +2290,7 @@ function MatchCommunityExperience({
   const safeRecommendedRoom = recommendedRoom === "preview" ? "preview_home" : recommendedRoom === "post_match" ? "post_match_home" : recommendedRoom
   return (
     <section className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]" aria-label="Match Hub community experience">
-      <Card className="rounded-[12px] border border-white/[0.07] bg-[#0b1012]/92 shadow-[0_10px_28px_rgba(0,0,0,0.22)]">
+      <Card className="rounded-[12px] border border-border bg-card/92 shadow-[0_10px_28px_rgba(0,0,0,0.12)]">
         <CardContent className="space-y-5 p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -2195,7 +2308,7 @@ function MatchCommunityExperience({
               ["Polls", pulse.polls],
               ["Fans", pulse.fans],
             ].map(([label, value]) => (
-              <div key={label} className="rounded-[12px] border border-white/[0.07] bg-white/[0.04] p-3">
+              <div key={label} className="rounded-[12px] border border-border bg-muted p-3">
                 <p className="text-xs text-muted-foreground">{label}</p>
                 <p className="mt-1 text-2xl font-black text-foreground">{value}</p>
               </div>
@@ -2203,7 +2316,7 @@ function MatchCommunityExperience({
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-[12px] border border-white/[0.07] bg-white/[0.04] p-4">
+            <div className="rounded-[12px] border border-border bg-muted p-4">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="font-bold">Smart Recommendation</h3>
                 <Badge variant="outline" className="rounded-full border-primary/25 text-primary">Non-forcing</Badge>
@@ -2213,7 +2326,7 @@ function MatchCommunityExperience({
                 เปิดห้องที่แนะนำ
               </Button>
             </div>
-            <div className="rounded-[12px] border border-white/[0.07] bg-white/[0.04] p-4">
+            <div className="rounded-[12px] border border-border bg-muted p-4">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="font-bold">Community Milestones</h3>
                 {pulse.hasSummary ? <Badge variant="outline" className="rounded-full border-primary/25 text-primary">Summary ready</Badge> : null}
@@ -2221,7 +2334,7 @@ function MatchCommunityExperience({
               {milestones.length ? (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {milestones.map((milestone) => (
-                    <Badge key={milestone} variant="outline" className="rounded-full border-white/[0.07] bg-white/[0.04] text-muted-foreground">{milestone}</Badge>
+                    <Badge key={milestone} variant="outline" className="rounded-full border-border bg-muted text-muted-foreground">{milestone}</Badge>
                   ))}
                 </div>
               ) : (
@@ -2233,16 +2346,16 @@ function MatchCommunityExperience({
       </Card>
 
       <div className="grid gap-4">
-        <Card className="rounded-[12px] border border-white/[0.07] bg-[#0b1012]/88 shadow-[0_10px_28px_rgba(0,0,0,0.18)]">
+        <Card className="rounded-[12px] border border-border bg-card/88 shadow-[0_10px_28px_rgba(0,0,0,0.10)]">
           <CardContent className="p-5">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-lg font-bold">Match Highlights</h2>
-              <Badge variant="outline" className="rounded-full border-white/10">{highlights.length}</Badge>
+              <Badge variant="outline" className="rounded-full border-border">{highlights.length}</Badge>
             </div>
             {highlights.length ? (
               <div className="mt-3 space-y-2">
                 {highlights.slice(0, 3).map((event) => (
-                  <div key={event.id} className="rounded-[12px] border border-white/[0.07] bg-white/[0.04] p-3 text-sm">
+                  <div key={event.id} className="rounded-[12px] border border-border bg-muted p-3 text-sm">
                     <p className="font-semibold">{event.minute ? `${event.minute}' ` : ""}{event.type.replace("_", " ")}</p>
                     <p className="text-muted-foreground">{[event.team, event.player, event.detail].filter(Boolean).join(" · ") || "Verified match event"}</p>
                   </div>
@@ -2254,7 +2367,7 @@ function MatchCommunityExperience({
           </CardContent>
         </Card>
 
-        <Card className="rounded-[12px] border border-white/[0.07] bg-[#0b1012]/88 shadow-[0_10px_28px_rgba(0,0,0,0.18)]">
+        <Card className="rounded-[12px] border border-border bg-card/88 shadow-[0_10px_28px_rgba(0,0,0,0.10)]">
           <CardContent className="p-5">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-lg font-bold">Trending Discussions</h2>
@@ -2263,7 +2376,7 @@ function MatchCommunityExperience({
             {threads.length ? (
               <div className="mt-3 space-y-2">
                 {threads.slice(0, 3).map((thread) => (
-                  <Link key={thread.id} href={`/community/matches/${fixture.id}/threads/${thread.id}`} className="block rounded-[12px] border border-white/[0.07] bg-white/[0.04] p-3 transition hover:border-primary/40">
+                  <Link key={thread.id} href={`/community/matches/${fixture.id}/threads/${thread.id}`} className="block rounded-[12px] border border-border bg-muted p-3 transition hover:border-primary/40">
                     <p className="line-clamp-1 font-semibold">{thread.title}</p>
                     <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{thread.latestActivityTimeAgo || thread.timeAgo || "activity -"}</p>
                   </Link>
@@ -2276,13 +2389,13 @@ function MatchCommunityExperience({
         </Card>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Button type="button" variant="outline" onClick={onOpenPolls} className="h-auto justify-start rounded-[12px] border-white/[0.07] p-4 text-left">
+          <Button type="button" variant="outline" onClick={onOpenPolls} className="h-auto justify-start rounded-[12px] border-border p-4 text-left">
             <span>
               <span className="block font-semibold">Community Poll</span>
               <span className="mt-1 block text-xs text-muted-foreground">{polls[0]?.poll?.question || MATCH_HUB_EMPTY_STATES.polls}</span>
             </span>
           </Button>
-          <Button type="button" variant="outline" onClick={onOpenSummary} className="h-auto justify-start rounded-[12px] border-white/[0.07] p-4 text-left">
+          <Button type="button" variant="outline" onClick={onOpenSummary} className="h-auto justify-start rounded-[12px] border-border p-4 text-left">
             <span>
               <span className="block font-semibold">AI Summary</span>
               <span className="mt-1 block text-xs text-muted-foreground">{summary?.headline || MATCH_HUB_EMPTY_STATES.summary}</span>
@@ -2910,7 +3023,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
     <div className="min-h-screen bg-background px-3 py-5 text-foreground sm:px-5 lg:px-6">
       <main className="mx-auto max-w-7xl space-y-5">
         <div className="flex flex-wrap items-center gap-3">
-          <Button asChild variant="outline" className="rounded-full border-white/10 bg-background/60">
+          <Button asChild variant="outline" className="rounded-full border-border bg-card">
             <Link href="/community/matches">← กลับ Match Rooms</Link>
           </Button>
           <Button asChild variant="ghost" className="rounded-full text-muted-foreground">
@@ -2922,7 +3035,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
         </div>
 
         {isLoading && !fixture ? (
-          <div className="flex min-h-[50vh] items-center justify-center rounded-[32px] border border-white/10 bg-card/80 text-muted-foreground">
+          <div className="flex min-h-[50vh] items-center justify-center rounded-[32px] border border-border bg-card text-muted-foreground">
             <Loader2 className="mr-3 h-5 w-5 animate-spin text-primary" />
             กำลังโหลด Match Room...
           </div>
@@ -2936,7 +3049,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                 {fixture ? <p className="mt-1 text-xs text-muted-foreground">ยังแสดงข้อมูลล่าสุดที่โหลดสำเร็จไว้ก่อน</p> : null}
                 {parentRequestId ? <p className="mt-1 text-xs text-muted-foreground">requestId: {parentRequestId}</p> : null}
               </div>
-              <Button variant="outline" onClick={() => void mutate()} className="rounded-full border-white/10">
+              <Button variant="outline" onClick={() => void mutate()} className="rounded-full border-border">
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Retry
               </Button>
@@ -2945,7 +3058,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
         ) : null}
 
         {(!isLoading && !error && !fixture) || parentNotFound ? (
-          <Card className="rounded-[28px] border-dashed border-white/10 bg-card/70">
+          <Card className="rounded-[28px] border-dashed border-border bg-card">
             <CardContent className="py-16 text-center">
               <h1 className="text-2xl font-semibold">ไม่พบ Match Room นี้</h1>
               <p className="mt-2 text-sm text-muted-foreground">ระบบจะไม่ fallback ไปแมตช์อื่น เพื่อป้องกันข้อมูลผิดห้อง</p>
@@ -2962,7 +3075,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
 
             <Tabs value={safeTab} onValueChange={changeTab} className="space-y-4">
               <div className="overflow-x-auto pb-1">
-                <TabsList className="h-12 rounded-full border border-white/10 bg-card/80 p-1">
+                <TabsList className="h-12 rounded-full border border-border bg-card p-1">
                   {roomTabs.map((tab) => (
                     <TabsTrigger key={tab.id} value={tab.id} className="rounded-full px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                       {tab.label}
@@ -2990,7 +3103,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                   />
                 <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
                   <div className="space-y-5">
-                    <Card className="rounded-[28px] border-white/10 bg-card/85">
+                    <Card className="rounded-[28px] border-border bg-card">
                       <CardContent className="space-y-3 p-5">
                         <div className="flex items-center gap-2 text-primary">
                           <Sparkles className="h-5 w-5" />
@@ -2998,26 +3111,26 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/10 text-primary">{getSummaryStatusLabel(data?.summary)}</Badge>
-                          {data?.summary?.isStale ? <Badge variant="outline" className="rounded-full border-amber-400/30 text-amber-200">ข้อมูลมีการอัปเดต</Badge> : null}
+                          {data?.summary?.isStale ? <Badge variant="outline" className="rounded-full border-amber-500/30 text-amber-700 dark:text-amber-200">ข้อมูลมีการอัปเดต</Badge> : null}
                         </div>
                         <h3 className="text-2xl font-semibold">{data?.summary?.headline || MATCH_HUB_EMPTY_STATES.summary}</h3>
                         <p className="leading-7 text-muted-foreground">{data?.summary?.shortSummary || data?.summary?.text || "The hub will show the fact-only AI summary when match data is ready."}</p>
-                        <Button type="button" variant="outline" onClick={() => changeTab("summary")} className="rounded-full border-white/10">ดูสรุปเต็ม</Button>
+                        <Button type="button" variant="outline" onClick={() => changeTab("summary")} className="rounded-full border-border">ดูสรุปเต็ม</Button>
                       </CardContent>
                     </Card>
 
-                    <Card className="rounded-[28px] border-white/10 bg-card/85">
+                    <Card className="rounded-[28px] border-border bg-card">
                       <CardContent className="p-5">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <h2 className="text-xl font-bold">Discussion ล่าสุด</h2>
-                          <Button asChild variant="outline" className="rounded-full border-white/10 bg-background/60">
+                          <Button asChild variant="outline" className="rounded-full border-border bg-card">
                             <Link href={`/community?matchId=${encodeURIComponent(fixture.id)}&compose=1`}>เริ่มโพสต์</Link>
                           </Button>
                         </div>
                         {posts.length ? (
                           <div className="mt-4 space-y-3">
                             {posts.slice(0, 3).map((post) => (
-                              <Link key={post.id} href={`/community/${post.id}`} className="block rounded-2xl border border-white/10 bg-background/45 p-4 transition hover:border-primary/40">
+                              <Link key={post.id} href={`/community/${post.id}`} className="block rounded-2xl border border-border bg-surface-2 p-4 transition hover:border-primary/40">
                                 <p className="font-semibold text-foreground">{post.title}</p>
                                 <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{post.excerpt}</p>
                               </Link>
@@ -3030,11 +3143,11 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                     </Card>
                   </div>
                   <aside className="space-y-5">
-                    <Card className="rounded-[28px] border-white/10 bg-card/85">
+                    <Card className="rounded-[28px] border-border bg-card">
                       <CardContent className="p-5">
                         <h2 className="text-lg font-bold">Thread preview</h2>
                         {threads[0] ? (
-                          <div className="mt-4 space-y-2 rounded-2xl border border-white/10 bg-background/45 p-4">
+                          <div className="mt-4 space-y-2 rounded-2xl border border-border bg-surface-2 p-4">
                             <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] text-primary">{(threads[0] as any).threadCategoryLabel || "ทั่วไป"}</Badge>
                             <p className="font-semibold">{threads[0].title}</p>
                             <p className="line-clamp-2 text-sm text-muted-foreground">{threads[0].excerpt}</p>
@@ -3044,11 +3157,11 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                         )}
                       </CardContent>
                     </Card>
-                    <Card className="rounded-[28px] border-white/10 bg-card/85">
+                    <Card className="rounded-[28px] border-border bg-card">
                       <CardContent className="p-5">
                         <h2 className="text-lg font-bold">Poll preview</h2>
                         {polls[0]?.poll ? <p className="mt-3 text-sm text-muted-foreground">{polls[0].poll.question}</p> : <p className="mt-3 text-sm text-muted-foreground">{MATCH_HUB_EMPTY_STATES.polls}</p>}
-                        <Button type="button" variant="outline" onClick={() => changeTab("polls")} className="mt-4 rounded-full border-white/10">ดู Poll</Button>
+                        <Button type="button" variant="outline" onClick={() => changeTab("polls")} className="mt-4 rounded-full border-border">ดู Poll</Button>
                       </CardContent>
                     </Card>
                   </aside>
@@ -3123,7 +3236,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
               </TabsContent>
 
               <TabsContent value="threads">
-                <Card className="rounded-[28px] border-white/10 bg-card/85">
+                <Card className="rounded-[28px] border-border bg-card">
                   <CardContent className="space-y-5 p-5">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
@@ -3136,7 +3249,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                       </Button>
                     </div>
 
-                    <div className="grid gap-3 rounded-[24px] border border-white/10 bg-background/40 p-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+                    <div className="grid gap-3 rounded-[24px] border border-border bg-surface-2 p-4 lg:grid-cols-[minmax(0,1fr)_auto]">
                       <div className="flex flex-wrap gap-2">
                         {threadSortOptions.map((option) => (
                           <Button
@@ -3170,14 +3283,14 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
 
                     {threadFormError ? <p className="text-sm text-destructive">{threadFormError}</p> : null}
                     {threadLoading ? (
-                      <div className="rounded-2xl border border-white/10 bg-background/45 p-5 text-sm text-muted-foreground">
+                      <div className="rounded-2xl border border-border bg-muted p-5 text-sm text-muted-foreground">
                         <Loader2 className="mr-2 inline h-4 w-4 animate-spin text-primary" />
                         กำลังโหลดหัวข้อสนทนา...
                       </div>
                     ) : threadError ? (
                       <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-5 text-sm text-destructive">
                         โหลดหัวข้อไม่สำเร็จ
-                        <Button type="button" variant="outline" onClick={() => void mutateThreads()} className="ml-3 rounded-full border-white/10">Retry</Button>
+                        <Button type="button" variant="outline" onClick={() => void mutateThreads()} className="ml-3 rounded-full border-border">Retry</Button>
                       </div>
                     ) : threads.length ? (
                       <div className="space-y-4">
@@ -3197,7 +3310,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                         ))}
                       </div>
                     ) : (
-                      <div className="rounded-2xl border border-dashed border-white/10 bg-background/35 p-8 text-center text-sm text-muted-foreground">
+                      <div className="rounded-2xl border border-dashed border-border bg-muted p-8 text-center text-sm text-muted-foreground">
                         ยังไม่มีหัวข้อสนทนา ลองสร้างหัวข้อที่คุณสนใจ
                       </div>
                     )}
@@ -3206,7 +3319,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
               </TabsContent>
 
               <TabsContent value="polls">
-                <Card className="rounded-[28px] border-white/10 bg-card/85">
+                <Card className="rounded-[28px] border-border bg-card">
                   <CardContent className="space-y-4 p-5">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <h2 className="text-xl font-bold">โหวต</h2>
@@ -3234,7 +3347,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                       </p>
                     </div>
                     {polls.length ? polls.map((post) => (
-                      <Link key={post.id} href={`/community/${post.id}`} className="block rounded-2xl border border-white/10 bg-background/45 p-4 transition hover:border-primary/40">
+                      <Link key={post.id} href={`/community/${post.id}`} className="block rounded-2xl border border-border bg-surface-2 p-4 transition hover:border-primary/40">
                         <Badge variant="outline" className="mb-2 rounded-full border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
                           Poll จาก Community
                         </Badge>
@@ -3248,14 +3361,14 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
 
               <TabsContent value="summary">
                 <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-                  <Card className="rounded-[28px] border-white/10 bg-card/85">
+                  <Card className="rounded-[28px] border-border bg-card">
                     <CardContent className="space-y-5 p-6">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
                             <Badge className="rounded-full bg-primary text-primary-foreground hover:bg-primary">AI</Badge>
-                            <Badge variant="outline" className="rounded-full border-white/10 text-muted-foreground">{getSummaryStatusLabel(data?.summary)}</Badge>
-                            {data?.summary?.isStale ? <Badge variant="outline" className="rounded-full border-amber-400/30 text-amber-200">ข้อมูลการแข่งขันมีการอัปเดต</Badge> : null}
+                            <Badge variant="outline" className="rounded-full border-border text-muted-foreground">{getSummaryStatusLabel(data?.summary)}</Badge>
+                            {data?.summary?.isStale ? <Badge variant="outline" className="rounded-full border-amber-500/30 text-amber-700 dark:text-amber-200">ข้อมูลการแข่งขันมีการอัปเดต</Badge> : null}
                           </div>
                           <h2 className="mt-3 text-3xl font-bold text-foreground">สรุปเกมโดย AI</h2>
                           <p className="mt-1 text-xs text-muted-foreground">
@@ -3264,7 +3377,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                         </div>
                         {data?.summaryPermissions?.canRegenerate ? (
                           <div className="flex flex-wrap gap-2">
-                            <Button type="button" variant="outline" onClick={() => void handleOpenSummaryHistory()} className="rounded-full border-white/10">
+                            <Button type="button" variant="outline" onClick={() => void handleOpenSummaryHistory()} className="rounded-full border-border">
                               <CalendarClock className="mr-2 h-4 w-4" />
                               ดูประวัติ
                             </Button>
@@ -3276,7 +3389,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                         ) : null}
                       </div>
 
-                      <div className="grid gap-3 rounded-[22px] border border-white/10 bg-background/35 p-4 text-xs text-muted-foreground sm:grid-cols-4">
+                      <div className="grid gap-3 rounded-[22px] border border-border bg-surface-2 p-4 text-xs text-muted-foreground sm:grid-cols-4">
                         <div>
                           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80">Version</p>
                           <p className="mt-1 font-semibold text-foreground">v{data?.summary?.summaryVersion || "0"}</p>
@@ -3296,7 +3409,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                       </div>
 
                       {data?.summary?.isStale ? (
-                        <div className="rounded-2xl border border-amber-400/25 bg-amber-400/10 p-4 text-sm text-amber-100">
+                        <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-100">
                           ข้อมูลการแข่งขันหรือ Community aggregate มีการอัปเดต สรุปเก่ายังอ่านได้ แต่แอดมินสามารถ Refresh เพื่อสร้างใหม่
                         </div>
                       ) : null}
@@ -3308,7 +3421,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                       </div>
 
                       {data?.summary?.matchStory ? (
-                        <div className="rounded-[22px] border border-white/10 bg-background/45 p-4">
+                        <div className="rounded-[22px] border border-border bg-surface-2 p-4">
                           <h3 className="text-base font-semibold text-foreground">เรื่องราวของเกม</h3>
                           <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-muted-foreground">{data.summary.matchStory}</p>
                         </div>
@@ -3316,7 +3429,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
 
                       <SummaryListSection title="Timeline จุดสำคัญ" items={data?.summary?.keyMoments} />
                       {data?.summary?.turningPoint ? (
-                        <div className="rounded-[22px] border border-white/10 bg-background/45 p-4">
+                        <div className="rounded-[22px] border border-border bg-surface-2 p-4">
                           <h3 className="text-base font-semibold text-foreground">จุดเปลี่ยนเกม</h3>
                           <p className="mt-3 text-sm leading-7 text-muted-foreground">{data.summary.turningPoint}</p>
                         </div>
@@ -3324,13 +3437,13 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                       <SummaryListSection title="สถิติเด่น" items={data?.summary?.statisticsHighlights} />
                       <SummaryListSection title="ผู้เล่นโดดเด่น" items={data?.summary?.topPlayers} />
                       {data?.summary?.tacticalSummary ? (
-                        <div className="rounded-[22px] border border-white/10 bg-background/45 p-4">
+                        <div className="rounded-[22px] border border-border bg-surface-2 p-4">
                           <h3 className="text-base font-semibold text-foreground">มุมแท็กติก</h3>
                           <p className="mt-3 text-sm leading-7 text-muted-foreground">{data.summary.tacticalSummary}</p>
                         </div>
                       ) : null}
                       <SummaryListSection title="ข้อจำกัดของข้อมูล" items={data?.summary?.limitations} />
-                      <p className="rounded-2xl border border-white/10 bg-background/35 p-4 text-xs leading-6 text-muted-foreground">
+                      <p className="rounded-2xl border border-border bg-muted p-4 text-xs leading-6 text-muted-foreground">
                         {data?.summary?.disclaimer || "Community reactions เป็นความคิดเห็นจากผู้ใช้ ไม่ใช่ข้อเท็จจริงของการแข่งขัน"}
                       </p>
                       {threadFormError ? <p className="text-sm text-destructive">{threadFormError}</p> : null}
@@ -3343,14 +3456,14 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                       onOpenPolls={() => changeTab("polls")}
                       onOpenThreads={() => changeTab("threads")}
                     />
-                    <Card className="rounded-[28px] border-white/10 bg-card/85">
+                    <Card className="rounded-[28px] border-border bg-card">
                       <CardContent className="space-y-3 p-5">
                         <h3 className="text-lg font-bold">แหล่งข้อมูลที่ใช้</h3>
                         <div className="flex flex-wrap gap-2 text-xs">
-                          <Badge variant="outline" className="rounded-full border-white/10">Server score</Badge>
-                          <Badge variant="outline" className="rounded-full border-white/10">Approved polls</Badge>
-                          <Badge variant="outline" className="rounded-full border-white/10">Approved threads</Badge>
-                          <Badge variant="outline" className="rounded-full border-white/10">Approved comments</Badge>
+                          <Badge variant="outline" className="rounded-full border-border">Server score</Badge>
+                          <Badge variant="outline" className="rounded-full border-border">Approved polls</Badge>
+                          <Badge variant="outline" className="rounded-full border-border">Approved threads</Badge>
+                          <Badge variant="outline" className="rounded-full border-border">Approved comments</Badge>
                         </div>
                         <p className="text-xs leading-6 text-muted-foreground">
                           สกอร์ ผู้เล่น และเหตุการณ์มาจาก server facts เท่านั้น Community comment ไม่สามารถเปลี่ยน facts ของเกมได้
@@ -3363,14 +3476,14 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
             </Tabs>
 
             <Dialog open={showSummaryHistory} onOpenChange={setShowSummaryHistory}>
-              <DialogContent className="max-h-[82vh] max-w-2xl overflow-hidden rounded-[28px] border-border/60 bg-[#101214] p-0 text-foreground">
+              <DialogContent className="max-h-[82vh] max-w-2xl overflow-hidden rounded-[28px] border-border/60 bg-popover p-0 text-popover-foreground">
                 <DialogHeader className="border-b border-border/60 px-6 py-5">
                   <DialogTitle>ประวัติ AI Summary</DialogTitle>
                   <DialogDescription>แสดงเฉพาะ metadata ของการสร้างสรุป ไม่เก็บ prompt, API payload หรือคอมเมนต์ดิบ</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 overflow-y-auto px-6 py-5">
                   {loadingSummaryHistory ? (
-                    <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-background/40 p-4 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2 rounded-2xl border border-border bg-muted p-4 text-sm text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin text-primary" />
                       กำลังโหลดประวัติ...
                     </div>
@@ -3399,13 +3512,13 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                   {summaryHistory?.history?.length ? (
                     <div className="space-y-3">
                       {summaryHistory.history.map((item) => (
-                        <div key={item.id} className="rounded-2xl border border-white/10 bg-background/45 p-4">
+                        <div key={item.id} className="rounded-2xl border border-border bg-surface-2 p-4">
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex flex-wrap items-center gap-2">
                               <Badge variant="outline" className="rounded-full border-primary/25 bg-primary/10 text-primary">
                                 {getSummaryHistoryActionLabel(item.action)}
                               </Badge>
-                              <Badge variant="outline" className="rounded-full border-white/10 text-muted-foreground">
+                              <Badge variant="outline" className="rounded-full border-border text-muted-foreground">
                                 {item.result}
                               </Badge>
                             </div>
@@ -3421,11 +3534,11 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                       ))}
                     </div>
                   ) : !loadingSummaryHistory ? (
-                    <p className="rounded-2xl border border-dashed border-white/10 bg-background/35 p-5 text-sm text-muted-foreground">ยังไม่มีประวัติการ regenerate</p>
+                    <p className="rounded-2xl border border-dashed border-border bg-muted p-5 text-sm text-muted-foreground">ยังไม่มีประวัติการ regenerate</p>
                   ) : null}
                 </div>
                 <DialogFooter className="border-t border-border/60 px-6 py-4">
-                  <Button type="button" variant="outline" onClick={() => setShowSummaryHistory(false)} className="rounded-full border-white/10">
+                  <Button type="button" variant="outline" onClick={() => setShowSummaryHistory(false)} className="rounded-full border-border">
                     ปิด
                   </Button>
                 </DialogFooter>
@@ -3433,7 +3546,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
             </Dialog>
 
             <Dialog open={showDraftMoveDialog} onOpenChange={setShowDraftMoveDialog}>
-              <DialogContent className="max-w-md rounded-[28px] border-border/60 bg-[#101214] text-foreground">
+              <DialogContent className="max-w-md rounded-[28px] border-border/60 bg-popover text-popover-foreground">
                 <DialogHeader>
                   <DialogTitle>ห้องนี้ปิดแล้ว</DialogTitle>
                   <DialogDescription>
@@ -3444,7 +3557,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                   <Button type="button" onClick={moveDraftToMainRoom} className="rounded-full">
                     ย้ายไปห้องหลัก
                   </Button>
-                  <Button type="button" variant="outline" onClick={copyDraftToClipboard} className="rounded-full border-white/10">
+                  <Button type="button" variant="outline" onClick={copyDraftToClipboard} className="rounded-full border-border">
                     คัดลอกข้อความ
                   </Button>
                   <Button type="button" variant="ghost" onClick={() => setShowDraftMoveDialog(false)} className="rounded-full">
@@ -3455,14 +3568,14 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
             </Dialog>
 
             <Dialog open={showCreateThread} onOpenChange={setShowCreateThread}>
-              <DialogContent className="max-h-[88vh] max-w-2xl overflow-hidden rounded-[28px] border-border/60 bg-[#101214] p-0 text-foreground">
+              <DialogContent className="max-h-[88vh] max-w-2xl overflow-hidden rounded-[28px] border-border/60 bg-popover p-0 text-popover-foreground">
                 <DialogHeader className="border-b border-border/60 px-6 py-5">
                   <DialogTitle>สร้างหัวข้อสนทนา</DialogTitle>
                   <DialogDescription>หัวข้อนี้จะถูกผูกกับ Match Room ปัจจุบันอัตโนมัติ และจะผ่าน moderation เดิมก่อนเผยแพร่</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 overflow-y-auto px-6 py-5">
-                  <Input value={threadTitle} onChange={(event) => setThreadTitle(event.target.value)} placeholder="หัวข้อสนทนา" className="h-12 rounded-2xl border-white/10 bg-background/60" />
-                  <Textarea value={threadContent} onChange={(event) => setThreadContent(event.target.value)} placeholder="อยากชวนคุยประเด็นไหนเกี่ยวกับเกมนี้..." className="min-h-32 rounded-2xl border-white/10 bg-background/60" />
+                  <Input value={threadTitle} onChange={(event) => setThreadTitle(event.target.value)} placeholder="หัวข้อสนทนา" className="h-12 rounded-2xl border-border bg-input-background" />
+                  <Textarea value={threadContent} onChange={(event) => setThreadContent(event.target.value)} placeholder="อยากชวนคุยประเด็นไหนเกี่ยวกับเกมนี้..." className="min-h-32 rounded-2xl border-border bg-input-background" />
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(COMMUNITY_THREAD_CATEGORY_LABELS).map(([id, label]) => (
                       <Button key={id} type="button" variant={threadFormCategory === id ? "default" : "outline"} onClick={() => setThreadFormCategory(id)} className="rounded-full">
@@ -3470,21 +3583,21 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                       </Button>
                     ))}
                   </div>
-                  <div className="rounded-2xl border border-dashed border-white/10 bg-background/40 p-4">
+                  <div className="rounded-2xl border border-dashed border-border bg-muted p-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <p className="font-semibold">รูปประกอบหัวข้อ</p>
                         <p className="text-sm text-muted-foreground">แนบได้ 1 รูป ระบบจะตรวจสื่อก่อนเหมือนโพสต์ปกติ</p>
                       </div>
-                      <label className="inline-flex cursor-pointer items-center rounded-full border border-white/10 bg-background/70 px-4 py-2 text-sm">
+                      <label className="inline-flex cursor-pointer items-center rounded-full border border-border bg-card px-4 py-2 text-sm">
                         <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleThreadImageSelected} />
                         {uploadingThreadImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         เลือกรูป
                       </label>
                     </div>
                     {threadImage ? (
-                      <div className="mt-4 flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 p-3">
-                        <div className="relative h-16 w-16 overflow-hidden rounded-2xl border border-white/10">
+                      <div className="mt-4 flex items-center gap-3 rounded-2xl border border-border bg-surface-2 p-3">
+                        <div className="relative h-16 w-16 overflow-hidden rounded-2xl border border-border">
                           <Image src={threadImage.url || threadImage.ownerPreviewUrl || ""} alt="thread upload" fill className="object-cover" unoptimized />
                         </div>
                         <div className="text-sm text-muted-foreground">
@@ -3499,7 +3612,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                   {threadFormError ? <p className="text-sm text-destructive">{threadFormError}</p> : null}
                 </div>
                 <DialogFooter className="border-t border-border/60 px-6 py-5 sm:justify-between">
-                  <Button type="button" variant="outline" onClick={() => setShowCreateThread(false)} className="rounded-full border-white/10">
+                  <Button type="button" variant="outline" onClick={() => setShowCreateThread(false)} className="rounded-full border-border">
                     ยกเลิก
                   </Button>
                   <Button type="button" onClick={() => void handleCreateThread()} disabled={creatingThread} className="rounded-full">
@@ -3510,13 +3623,13 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
               </DialogContent>
             </Dialog>
             <Dialog open={Boolean(editingThread)} onOpenChange={(open) => (!open ? setEditingThread(null) : null)}>
-              <DialogContent className="max-w-2xl rounded-[28px] border-white/10 bg-card">
+              <DialogContent className="max-w-2xl rounded-[28px] border-border bg-popover text-popover-foreground">
                 <DialogHeader>
                   <DialogTitle>แก้ไขหัวข้อสนทนา</DialogTitle>
                   <DialogDescription>แก้หัวข้อและเนื้อหาโดยยังผ่าน moderation เดิม หากมีความเสี่ยงจะรอตรวจ</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
-                  <Input value={editThreadTitle} onChange={(event) => setEditThreadTitle(event.target.value)} placeholder="หัวข้อสนทนา" className="h-12 rounded-2xl border-white/10 bg-background/60" />
+                  <Input value={editThreadTitle} onChange={(event) => setEditThreadTitle(event.target.value)} placeholder="หัวข้อสนทนา" className="h-12 rounded-2xl border-border bg-input-background" />
                   <div className="flex flex-wrap gap-2">
                     {threadCategories.filter((option) => option.id !== "all").map((option) => (
                       <Button key={option.id} type="button" variant={editThreadCategory === option.id ? "default" : "outline"} onClick={() => setEditThreadCategory(option.id)} className="rounded-full">
@@ -3524,11 +3637,11 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                       </Button>
                     ))}
                   </div>
-                  <Textarea value={editThreadContent} onChange={(event) => setEditThreadContent(event.target.value)} placeholder="เขียนรายละเอียดหัวข้อ..." className="min-h-36 rounded-2xl border-white/10 bg-background/60" />
+                  <Textarea value={editThreadContent} onChange={(event) => setEditThreadContent(event.target.value)} placeholder="เขียนรายละเอียดหัวข้อ..." className="min-h-36 rounded-2xl border-border bg-input-background" />
                   {threadFormError ? <p className="text-sm text-destructive">{threadFormError}</p> : null}
                 </div>
                 <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setEditingThread(null)} className="rounded-full border-white/10">
+                  <Button type="button" variant="outline" onClick={() => setEditingThread(null)} className="rounded-full border-border">
                     ยกเลิก
                   </Button>
                   <Button type="button" onClick={() => void handleSaveThreadEdit()} disabled={savingThreadEdit} className="rounded-full">
@@ -3574,7 +3687,7 @@ function ReactionTeamSummaryCard({
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <Badge variant="outline" className={cn("rounded-full border-white/10 text-[10px]", badge === "Stale" ? "border-amber-400/30 text-amber-200" : "text-primary")}>
+          <Badge variant="outline" className={cn("rounded-full border-border text-[10px]", badge === "Stale" ? "border-amber-500/30 text-amber-700 dark:text-amber-200" : "text-primary")}>
             {badge}
           </Badge>
           <Button type="button" variant="ghost" onClick={onOpenSummary} className="h-8 rounded-full px-3 text-xs">
@@ -3585,11 +3698,11 @@ function ReactionTeamSummaryCard({
 
       {teamSummary ? (
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-2xl border border-white/10 bg-background/45 p-3">
+          <div className="rounded-2xl border border-border bg-surface-2 p-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">Positive</p>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">{teamSummary.keyPositive}</p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-background/45 p-3">
+          <div className="rounded-2xl border border-border bg-surface-2 p-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">Problem</p>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">{teamSummary.keyProblem}</p>
           </div>
@@ -3649,7 +3762,7 @@ function TacticalRoomContextPanel({
       </div>
 
       <div className="mt-4 grid gap-3 md:grid-cols-2">
-        <div className="rounded-2xl border border-white/10 bg-background/45 p-3">
+        <div className="rounded-2xl border border-border bg-surface-2 p-3">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Formation / Lineup</p>
           {context.lineups.length ? (
             <div className="mt-2 space-y-2 text-sm text-muted-foreground">
@@ -3666,7 +3779,7 @@ function TacticalRoomContextPanel({
           )}
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-background/45 p-3">
+        <div className="rounded-2xl border border-border bg-surface-2 p-3">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Tactical Match Context</p>
           {context.hasProviderData ? (
             <div className="mt-2 space-y-2 text-sm text-muted-foreground">
@@ -3680,23 +3793,23 @@ function TacticalRoomContextPanel({
         </div>
       </div>
 
-      <div className="mt-4 rounded-2xl border border-white/10 bg-background/45 p-3">
+      <div className="mt-4 rounded-2xl border border-border bg-surface-2 p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="font-semibold text-foreground">Tactical Threads</p>
-          <Button type="button" variant="outline" onClick={onOpenThreads} className="rounded-full border-white/10">
+          <Button type="button" variant="outline" onClick={onOpenThreads} className="rounded-full border-border">
             สร้างหัวข้อวิเคราะห์
           </Button>
         </div>
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
-          <div className="rounded-xl bg-background/55 p-3 text-sm">
+          <div className="rounded-xl border border-border bg-card p-3 text-sm">
             <p className="text-xs text-muted-foreground">Pinned Tactical Thread</p>
             <p className="mt-1 line-clamp-1 font-semibold text-foreground">{pinnedThread?.title || "-"}</p>
           </div>
-          <div className="rounded-xl bg-background/55 p-3 text-sm">
+          <div className="rounded-xl border border-border bg-card p-3 text-sm">
             <p className="text-xs text-muted-foreground">Official Tactical Thread</p>
             <p className="mt-1 line-clamp-1 font-semibold text-foreground">{officialThread?.title || "-"}</p>
           </div>
-          <div className="rounded-xl bg-background/55 p-3 text-sm">
+          <div className="rounded-xl border border-border bg-card p-3 text-sm">
             <p className="text-xs text-muted-foreground">Community Tactical Threads</p>
             <p className="mt-1 font-semibold text-foreground">{threads.length}</p>
           </div>
@@ -3865,8 +3978,8 @@ function MatchRoomConversation({
   }, [clockNow, room.isTemporary, room.roomType, room.state, room.opensAt, room.closesAt, onRetry])
 
   return (
-    <section className="overflow-hidden rounded-[32px] border border-white/10 bg-card/85 shadow-2xl shadow-primary/5" aria-label={`ห้องพูดคุย ${roomTitle}`}>
-      <div className="border-b border-white/10 bg-background/50 px-4 py-3 lg:hidden">
+    <section className="overflow-hidden rounded-[32px] border border-border bg-card shadow-2xl shadow-primary/5" aria-label={`ห้องพูดคุย ${roomTitle}`}>
+      <div className="border-b border-border bg-card px-4 py-3 lg:hidden">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">Match Hub</p>
@@ -3874,12 +3987,12 @@ function MatchRoomConversation({
           </div>
           <Sheet>
             <SheetTrigger asChild>
-              <Button type="button" variant="outline" className="rounded-full border-white/10" aria-label="เปิดข้อมูลห้อง">
+              <Button type="button" variant="outline" className="rounded-full border-border" aria-label="เปิดข้อมูลห้อง">
                 <Info className="mr-2 h-4 w-4" />
                 ข้อมูลห้อง
               </Button>
             </SheetTrigger>
-            <SheetContent className="border-white/10 bg-card">
+            <SheetContent className="border-border bg-popover text-popover-foreground">
               <SheetHeader>
                 <SheetTitle>ข้อมูลห้อง</SheetTitle>
                 <SheetDescription>{getMatchTitle(fixture)}</SheetDescription>
@@ -3894,19 +4007,19 @@ function MatchRoomConversation({
       </div>
 
       <div className="grid min-h-[680px] lg:grid-cols-[300px_minmax(0,1fr)_320px]">
-        <aside className="hidden border-r border-white/10 bg-background/35 p-4 lg:block">
+        <aside className="hidden border-r border-border bg-surface-2 p-4 lg:block">
           <RoomSidebar fixture={fixture} activeRoomId={activeRoomId} channels={data?.channels || []} stats={stats} timelinePhase={timelinePhase} onChangeRoom={onChangeRoom} onOpenView={onOpenView} />
         </aside>
 
-          <div className="flex min-h-[680px] flex-col bg-[radial-gradient(circle_at_top_left,rgba(163,255,30,0.08),transparent_38%),linear-gradient(180deg,rgba(255,255,255,0.035),transparent)]">
-          <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-white/10 bg-card/95 px-4 py-3 backdrop-blur">
+          <div className="flex min-h-[680px] flex-col bg-[radial-gradient(circle_at_top_left,rgba(163,255,30,0.08),transparent_38%),var(--color-card)]">
+          <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-card/95 px-4 py-3 backdrop-blur">
             <div className="min-w-0">
               {isMainRoom ? <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">{MAIN_ROOM_COPY.eyebrow}</p> : null}
               {isTacticalRoom ? <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">Match Analysis</p> : null}
               <div className="flex items-center gap-2">
                 <Hash className="h-4 w-4 text-primary" />
                 <h2 className="truncate text-lg font-bold">{roomTitle}</h2>
-                <Badge variant="outline" className={cn("rounded-full border-white/10 text-[11px]", room.canPost ? "bg-primary/10 text-primary" : "text-muted-foreground")}>
+                <Badge variant="outline" className={cn("rounded-full border-border text-[11px]", room.canPost ? "bg-primary/10 text-primary" : "text-muted-foreground")}>
                   {getRoomStateLabel(room.state)}
                 </Badge>
               </div>
@@ -3923,7 +4036,7 @@ function MatchRoomConversation({
           <div ref={messageListRef} className="relative flex-1 overflow-y-auto px-3 py-4 sm:px-5" aria-live="polite" aria-busy={messagesLoading}>
             {messagesPage < messagesTotalPages ? (
               <div className="mb-4 text-center">
-                <Button type="button" variant="outline" onClick={onLoadOlder} disabled={loadingOlder} className="rounded-full border-white/10 bg-background/70">
+                <Button type="button" variant="outline" onClick={onLoadOlder} disabled={loadingOlder} className="rounded-full border-border bg-card">
                   {loadingOlder ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   โหลดข้อความเก่า
                 </Button>
@@ -3933,7 +4046,7 @@ function MatchRoomConversation({
             {messagesLoading && !messages.length ? <MessageSkeletonList /> : null}
 
             {legacyRoomNotice ? (
-              <div role="status" className="mb-4 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100">
+              <div role="status" className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-100">
                 {legacyRoomNotice}
               </div>
             ) : null}
@@ -3953,14 +4066,14 @@ function MatchRoomConversation({
             {messagesError ? (
               <div role="alert" className="mb-4 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
                 {messagesError}
-                <Button type="button" variant="outline" onClick={onRetry} className="ml-3 rounded-full border-white/10">
+                <Button type="button" variant="outline" onClick={onRetry} className="ml-3 rounded-full border-border">
                   Retry
                 </Button>
               </div>
             ) : null}
 
             {!messagesLoading && !messagesError && !messages.length ? (
-              <div className="mx-auto mt-16 max-w-md rounded-[28px] border border-dashed border-white/10 bg-background/45 p-8 text-center">
+              <div className="mx-auto mt-16 max-w-md rounded-[28px] border border-dashed border-border bg-muted p-8 text-center">
                 <MessageCircle className="mx-auto h-10 w-10 text-primary" />
                 <h3 className="mt-4 text-xl font-bold">{emptyStateText}</h3>
                 <p className="mt-2 text-sm text-muted-foreground">{isMainRoom ? MAIN_ROOM_COPY.emptyDescription : isTacticalRoom ? TACTICAL_ROOM_COPY.emptyDescription : "This room is waiting for the first match take from the community."}</p>
@@ -4029,7 +4142,7 @@ function MatchRoomConversation({
           />
         </div>
 
-        <aside className="hidden border-l border-white/10 bg-background/35 p-4 lg:block">
+        <aside className="hidden border-l border-border bg-surface-2 p-4 lg:block">
           <MatchRoomInfoPanel fixture={fixture} data={data} polls={polls} threads={threads} timelinePhase={timelinePhase} onOpenView={onOpenView} />
         </aside>
       </div>
@@ -4138,7 +4251,7 @@ function RoomSidebar({
           </div>
         ) : null,
       )}
-      {!navigableRooms.some((room) => room.group === "temporary") ? <p className="rounded-2xl border border-dashed border-white/10 p-3 text-xs text-muted-foreground">ยังไม่มีห้องชั่วคราวที่เปิดอยู่</p> : null}
+      {!navigableRooms.some((room) => room.group === "temporary") ? <p className="rounded-2xl border border-dashed border-border p-3 text-xs text-muted-foreground">ยังไม่มีห้องชั่วคราวที่เปิดอยู่</p> : null}
       <div>
         <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">📊 Polls & 🤖 AI Summary</p>
         <div className="mt-2 space-y-2">
@@ -4191,7 +4304,7 @@ function RoomMobileTabs({
             disabled={disabled}
             className={cn(
               "shrink-0 rounded-full border px-4 py-2 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
-              activeRoomId === roomId ? "border-primary bg-primary text-primary-foreground" : "border-white/10 bg-background/60 text-muted-foreground",
+              activeRoomId === roomId ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground",
               disabled && "cursor-not-allowed opacity-55",
             )}
           >
@@ -4232,11 +4345,11 @@ function RoomNavButton({
   const badgeClass =
     badge === "OPEN" || badge === "LIVE"
       ? active
-        ? "bg-black/20 text-primary-foreground"
+        ? "bg-primary-foreground/15 text-primary-foreground"
         : "bg-primary/15 text-primary"
       : badge === "ARCHIVED"
-        ? "bg-zinc-500/10 text-zinc-300"
-        : "bg-amber-500/10 text-amber-200"
+        ? "bg-zinc-500/10 text-zinc-700 dark:text-zinc-300"
+        : "bg-amber-500/10 text-amber-700 dark:text-amber-200"
   return (
     <button
       type="button"
@@ -4250,7 +4363,7 @@ function RoomNavButton({
           ? "border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/15"
           : emphasized
             ? "border-primary/45 bg-primary/10 text-foreground shadow-md shadow-primary/10 hover:border-primary/60 hover:bg-primary/14"
-            : "border-white/10 bg-background/45 text-muted-foreground hover:border-primary/35 hover:bg-white/5 hover:text-foreground",
+            : "border-border bg-card text-muted-foreground hover:border-primary/35 hover:bg-accent-soft hover:text-foreground",
         disabled && "cursor-not-allowed opacity-55 hover:bg-transparent hover:text-muted-foreground",
       )}
     >
@@ -4258,18 +4371,18 @@ function RoomNavButton({
         <span className="min-w-0">
           <span className="flex min-w-0 items-center gap-2">
             <span className="truncate text-sm font-semibold">{isTeamPreview || isTeamReaction ? `🔴 ${room.label}` : room.label}</span>
-            {recommended ? <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold", active ? "bg-black/20 text-primary-foreground" : "bg-primary/15 text-primary")}>⭐ Recommended</span> : null}
-            {emphasized && !recommended ? <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold", active ? "bg-black/20 text-primary-foreground" : "bg-primary/15 text-primary")}>Priority</span> : null}
+            {recommended ? <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold", active ? "bg-primary-foreground/15 text-primary-foreground" : "bg-primary/15 text-primary")}>⭐ Recommended</span> : null}
+            {emphasized && !recommended ? <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold", active ? "bg-primary-foreground/15 text-primary-foreground" : "bg-primary/15 text-primary")}>Priority</span> : null}
           </span>
           <span className={cn("mt-1 block text-xs leading-5", active ? "text-primary-foreground/75" : "text-muted-foreground")}>{room.description}</span>
         </span>
         <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold", badgeClass)}>{badge}</span>
       </span>
       <span className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
-        <span className={cn("rounded-full px-2 py-0.5", active ? "bg-black/15 text-primary-foreground/80" : "bg-muted text-muted-foreground")}>
+        <span className={cn("rounded-full px-2 py-0.5", active ? "bg-primary-foreground/15 text-primary-foreground/80" : "bg-muted text-muted-foreground")}>
           {isTeamReaction && channel?.state === "unavailable" ? "Available after full time" : getRoomAvailabilityText(channel)}
         </span>
-        <span className={cn("rounded-full px-2 py-0.5", active ? "bg-black/15 text-primary-foreground/80" : "bg-muted text-muted-foreground")}>
+        <span className={cn("rounded-full px-2 py-0.5", active ? "bg-primary-foreground/15 text-primary-foreground/80" : "bg-muted text-muted-foreground")}>
           {activityCount} messages
         </span>
         {hasActivity ? <span className={cn("h-2.5 w-2.5 rounded-full", active ? "bg-primary-foreground" : "bg-primary")} aria-label="new room activity" /> : null}
@@ -4286,7 +4399,7 @@ function HubUtilityButton({ label, description, badge, onClick }: { label: strin
     <button
       type="button"
       onClick={onClick}
-      className="group w-full rounded-2xl border border-white/10 bg-background/45 px-3 py-3 text-left text-muted-foreground transition hover:border-primary/35 hover:bg-white/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 motion-reduce:transition-none"
+      className="group w-full rounded-2xl border border-border bg-card px-3 py-3 text-left text-muted-foreground transition hover:border-primary/35 hover:bg-accent-soft hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 motion-reduce:transition-none"
     >
       <span className="flex items-start justify-between gap-3">
         <span>
@@ -4307,10 +4420,10 @@ function TemporaryRoomNotice({ notice, onGoMain }: { notice: NonNullable<ReturnT
         notice.tone === "danger"
           ? "border-destructive/30 bg-destructive/10 text-destructive"
           : notice.tone === "warning"
-            ? "border-amber-400/30 bg-amber-400/10 text-amber-100"
+            ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-100"
             : notice.tone === "active"
               ? "border-primary/25 bg-primary/10 text-primary"
-              : "border-white/10 bg-background/55 text-muted-foreground",
+              : "border-border bg-muted text-muted-foreground",
       )}
     >
       <div className="min-w-0">
@@ -4318,7 +4431,7 @@ function TemporaryRoomNotice({ notice, onGoMain }: { notice: NonNullable<ReturnT
         <p className="mt-1">{notice.detail}</p>
       </div>
       {notice.tone === "muted" ? (
-        <Button type="button" variant="outline" onClick={onGoMain} className="rounded-full border-white/10 bg-background/60">
+        <Button type="button" variant="outline" onClick={onGoMain} className="rounded-full border-border bg-card">
           ไปห้องหลัก
         </Button>
       ) : null}
@@ -4331,9 +4444,9 @@ function DateDivider({ label }: { label: string }) {
   const layout = getSystemMessageLayout("date_divider")
   return (
     <div className={cn("my-5 flex items-center gap-3", layout.className)} role="separator" aria-label={label}>
-      <span className="h-px flex-1 bg-white/10" />
-      <span className="rounded-full border border-white/10 bg-background/70 px-3 py-1 text-[11px] font-semibold text-muted-foreground">{label}</span>
-      <span className="h-px flex-1 bg-white/10" />
+      <span className="h-px flex-1 bg-border" />
+      <span className="rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold text-muted-foreground">{label}</span>
+      <span className="h-px flex-1 bg-border" />
     </div>
   )
 }
@@ -4349,14 +4462,14 @@ function SystemMatchEvents({ events }: { events: TimelineMatchEvent[] }) {
   if (!events.length) return null
   const layout = getSystemMessageLayout("match_event")
   return (
-    <div className={cn("mb-4 rounded-2xl border border-white/10 bg-background/45 p-4", layout.className)} aria-label={MATCH_TIMELINE_COPY.eventsTitle}>
+    <div className={cn("mb-4 rounded-2xl border border-border bg-surface-2 p-4", layout.className)} aria-label={MATCH_TIMELINE_COPY.eventsTitle}>
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-sm font-semibold text-foreground">{MATCH_TIMELINE_COPY.eventsTitle}</p>
-        <Badge variant="outline" className="rounded-full border-white/10 text-[10px] text-muted-foreground">Verified fixture data</Badge>
+        <Badge variant="outline" className="rounded-full border-border text-[10px] text-muted-foreground">Verified fixture data</Badge>
       </div>
       <div className="space-y-2">
         {events.map((event) => (
-          <div key={event.id} className="flex gap-3 rounded-xl border border-white/10 bg-card/55 px-3 py-2 text-sm">
+          <div key={event.id} className="flex gap-3 rounded-xl border border-border bg-card px-3 py-2 text-sm">
             <span className="w-12 shrink-0 font-semibold text-primary">{event.minute ? `${event.minute}'` : "-"}</span>
             <span className="min-w-0">
               <span className="font-semibold text-foreground">{getMatchEventLabel(event)}</span>
@@ -4406,7 +4519,7 @@ function RoomMessageRow({
     <article
       id={`message-${message.id}`}
       className={cn(
-        "group flex gap-3 rounded-2xl px-2 py-2 transition hover:bg-white/[0.035]",
+        "group flex gap-3 rounded-2xl px-2 py-2 transition hover:bg-accent-soft/60",
         layout.rowClass,
         grouped ? "pt-1" : "mt-1",
         highlighted && "bg-primary/12 ring-2 ring-primary/45",
@@ -4416,7 +4529,7 @@ function RoomMessageRow({
       {!message.isOwner ? (
         <div className="w-10 shrink-0">
           {layout.showAvatar ? (
-          <Avatar className="h-10 w-10 border border-white/10">
+          <Avatar className="h-10 w-10 border border-border">
             <AvatarImage src={message.author?.avatar || ""} alt={authorName} />
             <AvatarFallback>{getInitials(authorName)}</AvatarFallback>
           </Avatar>
@@ -4447,7 +4560,7 @@ function RoomMessageRow({
               className={cn(
                 "mb-2 block w-full rounded-xl border-l-2 px-3 py-2 text-left text-xs transition hover:bg-background/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
                 layout.replyClass,
-                !parent && "cursor-default border-white/10 opacity-75 hover:bg-background/55",
+                !parent && "cursor-default border-border opacity-75 hover:bg-muted",
               )}
               aria-label="ข้อความที่ตอบกลับ"
             >
@@ -4466,7 +4579,7 @@ function RoomMessageRow({
           {message.images?.length ? (
             <div className="mt-2 flex flex-wrap gap-2">
               {message.images.slice(0, 1).map((url) => (
-                <a key={url} href={url} target="_blank" rel="noreferrer" className="relative block h-36 w-56 overflow-hidden rounded-2xl border border-white/10 bg-background/60">
+                <a key={url} href={url} target="_blank" rel="noreferrer" className="relative block h-36 w-56 overflow-hidden rounded-2xl border border-border bg-muted">
                   <Image src={url} alt="รูปภาพในข้อความ" fill className="object-cover" unoptimized />
                 </a>
               ))}
@@ -4475,7 +4588,7 @@ function RoomMessageRow({
         </div>
         <div className={cn("mt-1 flex w-full flex-wrap items-center gap-2 text-xs text-muted-foreground", layout.metaClass)}>
           <time>{timestamp}</time>
-          {message.moderationStatus === "pending_review" && message.isOwner ? <Badge variant="outline" className="rounded-full border-amber-400/30 text-[10px] text-amber-200">รอตรวจ</Badge> : null}
+          {message.moderationStatus === "pending_review" && message.isOwner ? <Badge variant="outline" className="rounded-full border-amber-500/30 text-[10px] text-amber-700 dark:text-amber-200">รอตรวจ</Badge> : null}
           {message.isEdited ? <span className="text-[11px]">แก้ไขแล้ว</span> : null}
         </div>
       </div>
@@ -4485,7 +4598,7 @@ function RoomMessageRow({
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="rounded-2xl border-white/10 bg-card">
+        <DropdownMenuContent align="end" className="rounded-2xl border-border bg-popover text-popover-foreground">
           <DropdownMenuItem onClick={() => onReply(message)}>Reply</DropdownMenuItem>
           <DropdownMenuItem onClick={() => onCopy(message)}>Copy link</DropdownMenuItem>
           {message.isOwner ? <DropdownMenuItem onClick={() => onEdit(message)}>Edit</DropdownMenuItem> : null}
@@ -4564,8 +4677,8 @@ function RoomComposer({
             ? "ห้องนี้ยังไม่เปิดให้ส่งข้อความ"
             : "ยังอ่านย้อนหลังได้ แต่ส่งข้อความใหม่ไม่ได้ในสถานะนี้"
     return (
-      <div className="sticky bottom-0 border-t border-white/10 bg-card/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-background/55 p-4">
+      <div className="sticky bottom-0 border-t border-border bg-card/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-muted p-4">
           <div>
             <p className="font-semibold">ห้องนี้ปิดรับข้อความแล้ว</p>
             <p className="text-sm text-muted-foreground">{closedDescription}</p>
@@ -4577,7 +4690,7 @@ function RoomComposer({
   }
 
   return (
-    <div className="sticky bottom-0 border-t border-white/10 bg-card/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
+    <div className="sticky bottom-0 border-t border-border bg-card/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
       {editingMessage ? (
         <div className="rounded-[24px] border border-primary/25 bg-primary/8 p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
@@ -4586,9 +4699,9 @@ function RoomComposer({
               <X className="h-4 w-4" />
             </Button>
           </div>
-          <Textarea value={editDraft} onChange={(event) => onEditDraftChange(event.target.value)} className="min-h-20 rounded-2xl border-white/10 bg-background/70" />
+          <Textarea value={editDraft} onChange={(event) => onEditDraftChange(event.target.value)} className="min-h-20 rounded-2xl border-border bg-input-background" />
           <div className="mt-2 flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onCancelEdit} className="rounded-full border-white/10">ยกเลิก</Button>
+            <Button type="button" variant="outline" onClick={onCancelEdit} className="rounded-full border-border">ยกเลิก</Button>
             <Button type="button" onClick={onSaveEdit} disabled={sending || !editDraft.trim()} className="rounded-full">
               {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               บันทึก
@@ -4596,7 +4709,7 @@ function RoomComposer({
           </div>
         </div>
       ) : (
-        <div className="rounded-[24px] border border-white/10 bg-background/65 p-3">
+        <div className="rounded-[24px] border border-border bg-card p-3">
           {room.roomType === "tactics" && onSelectTacticalTopic ? (
             <div className="mb-2 flex flex-wrap gap-2" aria-label="Tactical quick topics">
               {TACTICAL_QUICK_TOPICS.map((topic) => (
@@ -4605,7 +4718,7 @@ function RoomComposer({
                   type="button"
                   variant={selectedTacticalTopic === topic.id ? "default" : "outline"}
                   onClick={() => onSelectTacticalTopic(selectedTacticalTopic === topic.id ? "" : topic.id)}
-                  className="h-8 rounded-full border-white/10 px-3 text-xs"
+                  className="h-8 rounded-full border-border px-3 text-xs"
                 >
                   {topic.label}
                 </Button>
@@ -4624,8 +4737,8 @@ function RoomComposer({
             </div>
           ) : null}
           {image ? (
-            <div className="mb-2 flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 p-2">
-              <div className="relative h-14 w-14 overflow-hidden rounded-xl border border-white/10">
+            <div className="mb-2 flex items-center gap-3 rounded-2xl border border-border bg-surface-2 p-2">
+              <div className="relative h-14 w-14 overflow-hidden rounded-xl border border-border">
                 <Image src={image.url || image.ownerPreviewUrl || ""} alt="แนบรูปข้อความ" fill className="object-cover" unoptimized />
               </div>
               <div className="min-w-0 flex-1 text-xs text-muted-foreground">
@@ -4638,7 +4751,7 @@ function RoomComposer({
             </div>
           ) : null}
           <div className="flex items-end gap-2">
-            <label className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-white/10 bg-background/70 text-muted-foreground transition hover:text-primary">
+            <label className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-border bg-card text-muted-foreground transition hover:text-primary">
               <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={onImageSelected} disabled={uploadingImage || Boolean(image)} />
               {uploadingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-5 w-5" />}
               <span className="sr-only">แนบรูป</span>
@@ -4648,7 +4761,7 @@ function RoomComposer({
               onChange={(event) => onDraftChange(event.target.value)}
               onKeyDown={onDraftKeyDown}
               placeholder={placeholder || `พิมพ์ข้อความใน #${roomTitle}...`}
-              className="max-h-36 min-h-11 resize-none rounded-2xl border-white/10 bg-background/70 px-4 py-3"
+              className="max-h-36 min-h-11 resize-none rounded-2xl border-border bg-input-background px-4 py-3"
               aria-label={`พิมพ์ข้อความใน ${roomTitle}`}
             />
             <Button type="button" onClick={onSend} disabled={sending || !draft.trim()} className="h-11 shrink-0 rounded-2xl px-4">
@@ -4690,10 +4803,10 @@ function MatchRoomInfoPanel({
   })
   return (
     <div className="space-y-4">
-      <div className="rounded-[24px] border border-white/10 bg-background/45 p-4">
+      <div className="rounded-[24px] border border-border bg-card p-4">
         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">Match</p>
         <h3 className="mt-2 text-lg font-bold">{getMatchTitle(fixture)}</h3>
-        <div className="mt-4 flex items-center justify-between rounded-2xl bg-black/20 p-3">
+        <div className="mt-4 flex items-center justify-between rounded-2xl border border-border bg-surface-2 p-3">
           <span className="text-sm text-muted-foreground">{getStatusLabel(fixture.status, fixture.isFinished)}</span>
           <span className="rounded-xl bg-primary px-3 py-1 text-lg font-black text-primary-foreground">{getScoreLabel(fixture)}</span>
         </div>
@@ -4712,24 +4825,24 @@ function MatchRoomInfoPanel({
         {timelineSignals.length ? (
           <div className="mt-3 flex flex-wrap gap-2">
             {timelineSignals.map((label) => (
-              <Badge key={label} variant="outline" className="rounded-full border-white/10 bg-background/45 text-[10px] text-muted-foreground">{label}</Badge>
+              <Badge key={label} variant="outline" className="rounded-full border-border bg-card text-[10px] text-muted-foreground">{label}</Badge>
             ))}
           </div>
         ) : null}
         <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-          <div className="rounded-2xl border border-white/10 bg-background/45 p-3">
+          <div className="rounded-2xl border border-border bg-card p-3">
             <p className="text-xs text-muted-foreground">Messages</p>
             <p className="mt-1 text-lg font-bold">{stats?.newRoomMessageCount || stats?.discussions || 0}</p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-background/45 p-3">
+          <div className="rounded-2xl border border-border bg-card p-3">
             <p className="text-xs text-muted-foreground">Threads</p>
             <p className="mt-1 text-lg font-bold">{stats?.discussions || 0}</p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-background/45 p-3">
+          <div className="rounded-2xl border border-border bg-card p-3">
             <p className="text-xs text-muted-foreground">Polls</p>
             <p className="mt-1 text-lg font-bold">{stats?.polls || 0}</p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-background/45 p-3">
+          <div className="rounded-2xl border border-border bg-card p-3">
             <p className="text-xs text-muted-foreground">Active Fans</p>
             <p className="mt-1 text-lg font-bold">{stats?.followers || 0}</p>
           </div>
@@ -4739,7 +4852,7 @@ function MatchRoomInfoPanel({
         </p>
       </div>
 
-      <div className="rounded-[24px] border border-white/10 bg-background/45 p-4">
+      <div className="rounded-[24px] border border-border bg-card p-4">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-bold">Poll</h3>
           {effectivePhase === "pre_match" || effectivePhase === "full_time" ? <Badge variant="outline" className="rounded-full border-primary/25 text-primary">{effectivePhase === "full_time" ? "Results" : "Pre-match"}</Badge> : null}
@@ -4748,7 +4861,7 @@ function MatchRoomInfoPanel({
         <p className="mt-2 text-sm text-muted-foreground">{polls[0]?.poll?.question || MATCH_HUB_EMPTY_STATES.polls}</p>
       </div>
 
-      <div className="rounded-[24px] border border-white/10 bg-background/45 p-4">
+      <div className="rounded-[24px] border border-border bg-card p-4">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-bold">AI Summary</h3>
           {effectivePhase === "full_time" ? <Badge variant="outline" className="rounded-full border-primary/25 text-primary">Priority</Badge> : null}
@@ -4757,7 +4870,7 @@ function MatchRoomInfoPanel({
         <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">{data?.summary?.headline || data?.summary?.shortSummary || MATCH_HUB_EMPTY_STATES.summary}</p>
       </div>
 
-      <div className="rounded-[24px] border border-white/10 bg-background/45 p-4">
+      <div className="rounded-[24px] border border-border bg-card p-4">
         <h3 className="font-bold">Pinned tactical thread</h3>
         {pinnedThread ? (
           <Link href={`/community/matches/${fixture.id}/threads/${pinnedThread.id}`} className="mt-2 block text-sm text-muted-foreground transition hover:text-primary">
@@ -5014,12 +5127,12 @@ export function MatchRoomThreadDetail({ matchId, threadId }: { matchId: string; 
           <span className="text-foreground">Thread</span>
         </div>
 
-        <Button asChild variant="outline" className="rounded-full border-white/10 bg-background/60">
+        <Button asChild variant="outline" className="rounded-full border-border bg-card">
           <Link href={`/community/matches/${matchId}?tab=threads`}>← กลับหัวข้อสนทนา</Link>
         </Button>
 
         {isLoading ? (
-          <Card className="rounded-[28px] border-white/10 bg-card/85">
+          <Card className="rounded-[28px] border-border bg-card">
             <CardContent className="py-20 text-center text-muted-foreground">
               <Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin text-primary" />
               กำลังโหลดหัวข้อสนทนา...
@@ -5035,15 +5148,15 @@ export function MatchRoomThreadDetail({ matchId, threadId }: { matchId: string; 
           ) : null
         ) : (
           <>
-            <Card className="rounded-[28px] border-white/10 bg-card/85">
+            <Card className="rounded-[28px] border-border bg-card">
               <CardContent className="space-y-5 p-6">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/10 text-primary">{data.item.threadCategoryLabel || "ทั่วไป"}</Badge>
-                      {data.item.isOfficialThread ? <Badge className="rounded-full bg-sky-500/15 text-sky-100 hover:bg-sky-500/15">Official</Badge> : null}
-                      {data.item.isPinned ? <Badge className="rounded-full bg-amber-500/15 text-amber-100 hover:bg-amber-500/15">Pinned</Badge> : null}
-                      {data.item.isEdited ? <Badge variant="outline" className="rounded-full border-white/10">Edited</Badge> : null}
+                      {data.item.isOfficialThread ? <Badge className="rounded-full bg-sky-500/15 text-sky-700 hover:bg-sky-500/15 dark:text-sky-100">Official</Badge> : null}
+                      {data.item.isPinned ? <Badge className="rounded-full bg-amber-500/15 text-amber-700 hover:bg-amber-500/15 dark:text-amber-100">Pinned</Badge> : null}
+                      {data.item.isEdited ? <Badge variant="outline" className="rounded-full border-border">Edited</Badge> : null}
                     </div>
                     <h1 className="mt-3 text-3xl font-semibold">{data.item.title}</h1>
                     <p className="mt-2 text-sm text-muted-foreground">
@@ -5052,14 +5165,14 @@ export function MatchRoomThreadDetail({ matchId, threadId }: { matchId: string; 
                   </div>
                   <div className="flex items-center gap-2">
                     {data.permissions?.canPin ? (
-                      <Button type="button" variant="outline" onClick={() => void togglePin()} disabled={pinning} className="rounded-full border-white/10">
+                      <Button type="button" variant="outline" onClick={() => void togglePin()} disabled={pinning} className="rounded-full border-border">
                         {pinning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Pin className="mr-2 h-4 w-4" />}
                         {data.item.isPinned ? "Unpin" : "Pin"}
                       </Button>
                     ) : null}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button type="button" variant="outline" size="icon" aria-label="เมนูหัวข้อสนทนา" className="rounded-full border-white/10">
+                        <Button type="button" variant="outline" size="icon" aria-label="เมนูหัวข้อสนทนา" className="rounded-full border-border">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -5100,7 +5213,7 @@ export function MatchRoomThreadDetail({ matchId, threadId }: { matchId: string; 
                   <div className="grid gap-3 sm:grid-cols-2">
                     {data.item.media.map((media) => (
                       media.url || media.ownerPreviewUrl ? (
-                        <div key={media.id} className="relative aspect-[16/10] overflow-hidden rounded-[22px] border border-white/10 bg-black/30">
+                        <div key={media.id} className="relative aspect-[16/10] overflow-hidden rounded-[22px] border border-border bg-muted">
                           <Image src={media.url || media.ownerPreviewUrl || ""} alt={data.item.title} fill className="object-cover" unoptimized />
                         </div>
                       ) : null
@@ -5111,7 +5224,7 @@ export function MatchRoomThreadDetail({ matchId, threadId }: { matchId: string; 
                 <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                   <span>{data.item.likes || 0} likes</span>
                   <span>{data.item.comments || 0} comments</span>
-                  <Button asChild variant="outline" className="rounded-full border-white/10 bg-background/60">
+                  <Button asChild variant="outline" className="rounded-full border-border bg-card">
                     <Link href={`/community/${data.item.id}`}>ดูโพสต์ต้นทาง</Link>
                   </Button>
                 </div>
@@ -5120,10 +5233,10 @@ export function MatchRoomThreadDetail({ matchId, threadId }: { matchId: string; 
 
             <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
               <div className="space-y-5">
-                <Card className="rounded-[28px] border-white/10 bg-card/85">
+                <Card className="rounded-[28px] border-border bg-card">
                   <CardContent className="space-y-4 p-6">
                     <h2 className="text-xl font-bold">แสดงความคิดเห็น</h2>
-                    <Textarea value={comment} onChange={(event) => setComment(event.target.value)} placeholder="คอมเมนต์เกี่ยวกับหัวข้อนี้..." className="min-h-28 rounded-2xl border-white/10 bg-background/60" />
+                    <Textarea value={comment} onChange={(event) => setComment(event.target.value)} placeholder="คอมเมนต์เกี่ยวกับหัวข้อนี้..." className="min-h-28 rounded-2xl border-border bg-input-background" />
                     <div className="flex justify-end">
                       <Button type="button" onClick={() => void submitComment()} disabled={submitting} className="rounded-full">
                         {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -5134,26 +5247,26 @@ export function MatchRoomThreadDetail({ matchId, threadId }: { matchId: string; 
                   </CardContent>
                 </Card>
 
-                <Card className="rounded-[28px] border-white/10 bg-card/85">
+                <Card className="rounded-[28px] border-border bg-card">
                   <CardContent className="space-y-4 p-6">
                     <h2 className="text-xl font-bold">Comments</h2>
                     {data.comments.length ? data.comments.map((item) => (
-                      <div key={item.id} id={`comment-${item.id}`} className={cn("rounded-[22px] border border-white/10 bg-background/45 p-4", item.isDeleted ? "border-dashed opacity-75" : "")}>
+                      <div key={item.id} id={`comment-${item.id}`} className={cn("rounded-[22px] border border-border bg-surface-2 p-4", item.isDeleted ? "border-dashed opacity-75" : "")}>
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <span className="font-medium text-foreground">{item.user.name}</span>
                             <span>•</span>
                             <span>{item.timeAgo}</span>
-                            {item.isEdited ? <Badge variant="outline" className="rounded-full border-white/10 text-[10px]">Edited</Badge> : null}
-                            {item.moderationStatus === "pending_review" ? <Badge variant="outline" className="rounded-full border-amber-400/30 text-[10px] text-amber-200">รอตรวจ</Badge> : null}
+                            {item.isEdited ? <Badge variant="outline" className="rounded-full border-border text-[10px]">Edited</Badge> : null}
+                            {item.moderationStatus === "pending_review" ? <Badge variant="outline" className="rounded-full border-amber-500/30 text-[10px] text-amber-700 dark:text-amber-200">รอตรวจ</Badge> : null}
                           </div>
                           {renderCommentActions(item, item.id)}
                         </div>
                         {editingCommentId === item.id ? (
-                          <div className="mt-3 rounded-2xl border border-white/10 bg-background/50 p-3">
-                            <Textarea value={editingCommentContent} onChange={(event) => setEditingCommentContent(event.target.value)} className="min-h-24 rounded-2xl border-white/10 bg-background/60" />
+                          <div className="mt-3 rounded-2xl border border-border bg-card p-3">
+                            <Textarea value={editingCommentContent} onChange={(event) => setEditingCommentContent(event.target.value)} className="min-h-24 rounded-2xl border-border bg-input-background" />
                             <div className="mt-3 flex justify-end gap-2">
-                              <Button type="button" variant="outline" onClick={() => setEditingCommentId(null)} className="rounded-full border-white/10">ยกเลิก</Button>
+                              <Button type="button" variant="outline" onClick={() => setEditingCommentId(null)} className="rounded-full border-border">ยกเลิก</Button>
                               <Button type="button" onClick={() => void updateComment(item.id)} disabled={submitting} className="rounded-full">บันทึก</Button>
                             </div>
                           </div>
@@ -5162,21 +5275,21 @@ export function MatchRoomThreadDetail({ matchId, threadId }: { matchId: string; 
                         )}
                         <div className="mt-4 space-y-3">
                           {item.replies.map((reply) => (
-                            <div key={reply.id} id={`comment-${reply.id}`} className={cn("rounded-2xl border border-white/10 bg-black/15 px-4 py-3", reply.isDeleted ? "border-dashed opacity-75" : "")}>
+                            <div key={reply.id} id={`comment-${reply.id}`} className={cn("rounded-2xl border border-border bg-card px-4 py-3", reply.isDeleted ? "border-dashed opacity-75" : "")}>
                               <div className="flex items-start justify-between gap-3">
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                   <span className="font-medium text-foreground">{reply.user.name}</span>
                                   <span>•</span>
                                   <span>{reply.timeAgo}</span>
-                                  {reply.isEdited ? <Badge variant="outline" className="rounded-full border-white/10 text-[10px]">Edited</Badge> : null}
+                                  {reply.isEdited ? <Badge variant="outline" className="rounded-full border-border text-[10px]">Edited</Badge> : null}
                                 </div>
                                 {renderCommentActions(reply, item.id)}
                               </div>
                               {editingCommentId === reply.id ? (
                                 <div className="mt-3">
-                                  <Textarea value={editingCommentContent} onChange={(event) => setEditingCommentContent(event.target.value)} className="min-h-20 rounded-2xl border-white/10 bg-background/60" />
+                                  <Textarea value={editingCommentContent} onChange={(event) => setEditingCommentContent(event.target.value)} className="min-h-20 rounded-2xl border-border bg-input-background" />
                                   <div className="mt-3 flex justify-end gap-2">
-                                    <Button type="button" variant="outline" onClick={() => setEditingCommentId(null)} className="rounded-full border-white/10">ยกเลิก</Button>
+                                    <Button type="button" variant="outline" onClick={() => setEditingCommentId(null)} className="rounded-full border-border">ยกเลิก</Button>
                                     <Button type="button" onClick={() => void updateComment(reply.id)} disabled={submitting} className="rounded-full">บันทึก</Button>
                                   </div>
                                 </div>
@@ -5186,18 +5299,18 @@ export function MatchRoomThreadDetail({ matchId, threadId }: { matchId: string; 
                             </div>
                           ))}
                           {activeReplyId === item.id ? (
-                          <div className="rounded-2xl border border-dashed border-primary/25 bg-background/35 p-3">
+                          <div className="rounded-2xl border border-dashed border-primary/25 bg-card p-3">
                             <Textarea
                               value={replyDrafts[item.id] || ""}
                               onChange={(event) => setReplyDrafts((current) => ({ ...current, [item.id]: event.target.value }))}
                               placeholder={`ตอบกลับ @${item.user.name}...`}
-                              className="min-h-20 rounded-2xl border-white/10 bg-background/60"
+                              className="min-h-20 rounded-2xl border-border bg-input-background"
                             />
                             <div className="mt-3 flex justify-end gap-2">
                               <Button type="button" variant="ghost" onClick={() => setActiveReplyId(null)} className="rounded-full">
                                 ยกเลิก
                               </Button>
-                              <Button type="button" variant="outline" onClick={() => void submitComment(item.id)} disabled={submitting} className="rounded-full border-white/10">
+                              <Button type="button" variant="outline" onClick={() => void submitComment(item.id)} disabled={submitting} className="rounded-full border-border">
                                 ตอบกลับ
                               </Button>
                             </div>
@@ -5213,7 +5326,7 @@ export function MatchRoomThreadDetail({ matchId, threadId }: { matchId: string; 
                     )) : <p className="text-sm text-muted-foreground">ยังไม่มีความคิดเห็นในหัวข้อนี้</p>}
                     {data.commentsPagination?.hasMore ? (
                       <div className="flex justify-center pt-2">
-                        <Button type="button" variant="outline" onClick={() => setCommentsLimit((value) => value + 10)} className="rounded-full border-white/10">
+                        <Button type="button" variant="outline" onClick={() => setCommentsLimit((value) => value + 10)} className="rounded-full border-border">
                           โหลดความคิดเห็นเพิ่ม
                         </Button>
                       </div>
@@ -5223,7 +5336,7 @@ export function MatchRoomThreadDetail({ matchId, threadId }: { matchId: string; 
               </div>
 
               <aside className="space-y-5">
-                <Card className="rounded-[28px] border-white/10 bg-card/85">
+                <Card className="rounded-[28px] border-border bg-card">
                   <CardContent className="space-y-3 p-5">
                     <h2 className="text-lg font-bold">Match context</h2>
                     <p className="text-sm text-muted-foreground">{data.fixture.homeTeam} vs {data.fixture.awayTeam}</p>
@@ -5231,11 +5344,11 @@ export function MatchRoomThreadDetail({ matchId, threadId }: { matchId: string; 
                     <p className="text-sm text-muted-foreground">{data.fixture.venue || "ยังไม่ระบุสนาม"}</p>
                   </CardContent>
                 </Card>
-                <Card className="rounded-[28px] border-white/10 bg-card/85">
+                <Card className="rounded-[28px] border-border bg-card">
                   <CardContent className="space-y-4 p-5">
                     <h2 className="text-lg font-bold">Related threads</h2>
                     {data.relatedThreads.length ? data.relatedThreads.map((thread) => (
-                      <Link key={thread.id} href={`/community/matches/${matchId}/threads/${thread.id}`} className="block rounded-2xl border border-white/10 bg-background/45 p-4 transition hover:border-primary/40">
+                      <Link key={thread.id} href={`/community/matches/${matchId}/threads/${thread.id}`} className="block rounded-2xl border border-border bg-surface-2 p-4 transition hover:border-primary/40">
                         <p className="font-semibold">{thread.title}</p>
                         <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{thread.excerpt}</p>
                       </Link>

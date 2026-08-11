@@ -426,7 +426,7 @@ function isAuthenticationError(error: unknown) {
 function actionButtonClass(active = false, tone: "primary" | "danger" = "primary") {
   if (tone === "danger") {
     return cn(
-      "inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-background/70 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-all disabled:pointer-events-none disabled:opacity-60 sm:px-3 sm:py-1.5 sm:text-xs",
+      "inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-all disabled:pointer-events-none disabled:opacity-60 sm:px-3 sm:py-1.5 sm:text-xs",
       active
         ? "border-destructive/40 bg-destructive/10 text-destructive"
         : "hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive",
@@ -434,7 +434,7 @@ function actionButtonClass(active = false, tone: "primary" | "danger" = "primary
   }
 
   return cn(
-    "inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-background/70 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-all disabled:pointer-events-none disabled:opacity-60 sm:px-3 sm:py-1.5 sm:text-xs",
+    "inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-all disabled:pointer-events-none disabled:opacity-60 sm:px-3 sm:py-1.5 sm:text-xs",
     active
       ? "border-primary/40 bg-primary/10 text-primary"
       : "hover:border-primary/40 hover:bg-primary/10 hover:text-primary",
@@ -2093,7 +2093,7 @@ export default function CommunityPage() {
     const filledOptions = pollOptions.filter((item) => item.trim()).length
     return (
       <Dialog open={showPollBuilder} onOpenChange={setShowPollBuilder}>
-        <DialogContent className="flex h-[min(92vh,760px)] max-w-3xl flex-col overflow-hidden rounded-[28px] border-border/60 bg-[#101214] p-0 text-foreground sm:h-auto">
+        <DialogContent className="flex h-[min(92vh,760px)] max-w-3xl flex-col overflow-hidden rounded-[28px] border-border/60 bg-popover p-0 text-popover-foreground sm:h-auto">
           <DialogHeader className="border-b border-border/60 px-5 py-4 sm:px-6">
             <DialogTitle className="flex items-center gap-2">
               <Bell className="h-5 w-5 text-primary" />
@@ -2178,7 +2178,7 @@ export default function CommunityPage() {
             ) : null}
           </div>
 
-          <DialogFooter className="sticky bottom-0 border-t border-border/60 bg-[#101214] px-5 py-4 sm:px-6 sm:justify-between">
+          <DialogFooter className="sticky bottom-0 border-t border-border/60 bg-popover px-5 py-4 sm:px-6 sm:justify-between">
             <Button variant="outline" onClick={() => setShowPollBuilder(false)} className="rounded-full border-white/10">
               ยกเลิก
             </Button>
@@ -2543,15 +2543,15 @@ export default function CommunityPage() {
     await markNotificationsAsRead()
   }
 
-  const communityPanelClass = "rounded-[12px] border border-white/[0.07] bg-[#0b1012]/92 py-0 shadow-[0_8px_22px_rgba(0,0,0,0.2)]"
-  const communitySoftPanelClass = "rounded-[12px] border border-white/[0.07] bg-[#0b1012]/88 py-0 shadow-[0_8px_22px_rgba(0,0,0,0.16)]"
-  const communityAccentPanelClass = "rounded-[12px] border border-primary/20 bg-primary/10 py-0 shadow-[0_8px_22px_rgba(0,0,0,0.16)]"
+  const communityPanelClass = "rounded-[12px] border border-border bg-card/92 py-0 shadow-[0_8px_22px_rgba(0,0,0,0.12)]"
+  const communitySoftPanelClass = "rounded-[12px] border border-border bg-card/88 py-0 shadow-[0_8px_22px_rgba(0,0,0,0.10)]"
+  const communityAccentPanelClass = "rounded-[12px] border border-primary/20 bg-primary/10 py-0 shadow-[0_8px_22px_rgba(0,0,0,0.10)]"
 
   return (
     <div className={cn(COMMUNITY_FEED_UI_TOKENS.page, "min-h-screen text-foreground")}>
 
           <Dialog open={showNotificationsDialog} onOpenChange={setShowNotificationsDialog}>
-            <DialogContent className="max-w-xl rounded-[28px] border-border/60 bg-[#101214] p-0 text-foreground">
+            <DialogContent className="max-w-xl rounded-[28px] border-border/60 bg-popover p-0 text-popover-foreground">
               <DialogHeader className="border-b border-border/60 px-6 py-5">
                 <DialogTitle className="flex items-center gap-2">
                   <Bell className="h-5 w-5 text-primary" />
@@ -2640,7 +2640,7 @@ export default function CommunityPage() {
           {renderPollBuilderDialog()}
 
           <Dialog open={Boolean(editingPost)} onOpenChange={(open) => (!open ? closeEditPost() : undefined)}>
-            <DialogContent className="max-h-[88vh] max-w-2xl overflow-hidden rounded-[28px] border-border/60 bg-[#101214] p-0 text-foreground">
+            <DialogContent className="max-h-[88vh] max-w-2xl overflow-hidden rounded-[28px] border-border/60 bg-popover p-0 text-popover-foreground">
               <DialogHeader className="border-b border-border/60 px-6 py-5">
                 <DialogTitle className="flex items-center gap-2">
                   <Edit3 className="h-5 w-5 text-primary" />
@@ -2866,7 +2866,7 @@ export default function CommunityPage() {
           </Dialog>
 
           <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => (!open ? setDeleteTarget(null) : undefined)}>
-            <DialogContent className="max-w-md rounded-[28px] border-border/60 bg-[#101214] text-foreground">
+            <DialogContent className="max-w-md rounded-[28px] border-border/60 bg-popover text-popover-foreground">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-destructive">
                   <Trash2 className="h-5 w-5" />
@@ -2892,7 +2892,7 @@ export default function CommunityPage() {
           </Dialog>
 
           <Dialog open={showPreferenceDialog} onOpenChange={setShowPreferenceDialog}>
-            <DialogContent className="max-h-[88vh] max-w-3xl overflow-hidden rounded-[28px] border-border/60 bg-[#101214] p-0 text-foreground">
+            <DialogContent className="max-h-[88vh] max-w-3xl overflow-hidden rounded-[28px] border-border/60 bg-popover p-0 text-popover-foreground">
               <DialogHeader className="border-b border-border/60 px-6 py-5">
                 <DialogTitle className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-primary" />
@@ -2946,7 +2946,7 @@ export default function CommunityPage() {
           </Dialog>
 
           <Dialog open={showStoryComposer} onOpenChange={setShowStoryComposer}>
-            <DialogContent className="max-w-lg rounded-[28px] border-border/60 bg-[#101214] p-0 text-foreground">
+            <DialogContent className="max-w-lg rounded-[28px] border-border/60 bg-popover p-0 text-popover-foreground">
               <DialogHeader className="border-b border-border/60 px-6 py-5">
                 <DialogTitle>สร้างสตอรี่</DialogTitle>
                 <DialogDescription>แชร์รูปหรือวิดีโอที่จะอยู่บนหน้าโปรไฟล์ 24 ชั่วโมง</DialogDescription>
@@ -3041,7 +3041,7 @@ export default function CommunityPage() {
           </Dialog>
 
           <Dialog open={showStoryEditor} onOpenChange={setShowStoryEditor}>
-            <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col overflow-hidden rounded-[32px] border-border/60 bg-[#0f1113] p-0 text-foreground">
+            <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col overflow-hidden rounded-[32px] border-border/60 bg-popover p-0 text-popover-foreground">
               <DialogHeader className="shrink-0 border-b border-border/60 px-6 py-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -3282,7 +3282,7 @@ export default function CommunityPage() {
                 </div>
               </div>
 
-              <DialogFooter className="shrink-0 border-t border-border/60 bg-[#0f1113] px-6 py-5 sm:justify-between">
+              <DialogFooter className="shrink-0 border-t border-border/60 bg-popover px-6 py-5 sm:justify-between">
                 <Button variant="outline" onClick={() => setShowStoryEditor(false)} className="rounded-full">
                   เสร็จแล้ว
                 </Button>
@@ -3295,7 +3295,7 @@ export default function CommunityPage() {
           </Dialog>
 
           <Dialog open={Boolean(activeStory)} onOpenChange={(open) => (!open ? closeStoryViewer() : undefined)}>
-            <DialogContent className="max-w-md rounded-[28px] border-border/60 bg-[#101214] p-0 text-foreground">
+            <DialogContent className="max-w-md rounded-[28px] border-border/60 bg-popover p-0 text-popover-foreground">
               <DialogHeader className="sr-only">
                 <DialogTitle>ตัวดูสตอรี่</DialogTitle>
                 <DialogDescription>แสดงสตอรี่ของผู้ใช้ พร้อมปุ่มเลื่อนไปสตอรี่ก่อนหน้าและถัดไป</DialogDescription>
@@ -3414,7 +3414,7 @@ export default function CommunityPage() {
           </Dialog>
 
           <Dialog open={Boolean(repostTarget)} onOpenChange={(open) => (!open ? closeRepostComposer() : undefined)}>
-            <DialogContent className="max-w-xl rounded-[28px] border-border/60 bg-[#101214] p-0 text-foreground">
+            <DialogContent className="max-w-xl rounded-[28px] border-border/60 bg-popover p-0 text-popover-foreground">
               <DialogHeader className="border-b border-border/60 px-6 py-5">
                 <DialogTitle>Repost ลงฟีดของคุณ</DialogTitle>
                 <DialogDescription>เพิ่มความเห็นของคุณก่อนแชร์โพสต์นี้</DialogDescription>
@@ -3483,28 +3483,28 @@ export default function CommunityPage() {
             </DialogContent>
           </Dialog>
 
-          <div className="mx-auto grid min-h-screen w-full max-w-[1400px] gap-4 bg-[#030708] p-3 sm:p-4 lg:p-5 xl:grid-cols-[minmax(0,1fr)_310px]">
+          <div className="mx-auto grid min-h-screen w-full max-w-[1400px] gap-4 bg-background p-3 sm:p-4 lg:p-5 xl:grid-cols-[minmax(0,1fr)_310px]">
           <main className="min-w-0 space-y-3.5">
             <header className="grid gap-3 lg:grid-cols-[minmax(240px,1fr)_minmax(280px,460px)_auto] lg:items-center">
               <div className="min-w-0 flex-1">
-                <h1 className="whitespace-nowrap text-2xl font-black tracking-tight text-white sm:text-[28px]">COMMUNITY FEED</h1>
-                <p className="mt-1 truncate text-sm text-white/50">ดูว่าคนฟุตบอลกำลังพูดอะไร แชร์มุมมอง และคุยกับแฟนบอลด้วยกัน</p>
+                <h1 className="whitespace-nowrap text-2xl font-black tracking-tight text-foreground sm:text-[28px]">COMMUNITY FEED</h1>
+                <p className="mt-1 truncate text-sm text-muted-foreground">ดูว่าคนฟุตบอลกำลังพูดอะไร แชร์มุมมอง และคุยกับแฟนบอลด้วยกัน</p>
               </div>
               <div className="relative w-full">
-                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/45" />
+                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder={COMMUNITY_FEED_UI_TEXT.searchPlaceholder}
-                  className="h-11 rounded-full border-white/[0.08] bg-white/[0.055] pl-11 text-sm shadow-none placeholder:text-white/42 focus-visible:ring-primary/40"
+                  className="h-11 rounded-full border-border bg-input-background pl-11 text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-primary/40"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                 />
               </div>
               <div className="flex shrink-0 items-center gap-2 lg:justify-end">
-                <button type="button" onClick={() => void handleOpenNotificationsDialog()} className="relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.045] text-white/82 transition hover:bg-white/[0.07] hover:text-white" aria-label="Open notifications">
+                <button type="button" onClick={() => void handleOpenNotificationsDialog()} className="relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-foreground transition hover:bg-accent-soft" aria-label="Open notifications">
                   <Bell className="h-5 w-5" />
                   {notifications?.total ? <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-primary" /> : null}
                 </button>
-                <Link href="/community/messages" className="relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.045] text-white/82 transition hover:bg-white/[0.07] hover:text-white" aria-label="Open messages">
+                <Link href="/community/messages" className="relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-foreground transition hover:bg-accent-soft" aria-label="Open messages">
                   <MessageSquare className="h-5 w-5" />
                   {totalUnreadMessages ? <span className="absolute -right-1 -top-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-black">{totalUnreadMessages > 9 ? "9+" : totalUnreadMessages}</span> : null}
                 </Link>
@@ -3534,7 +3534,7 @@ export default function CommunityPage() {
                       <div
                         className={cn(
                           "relative h-14 w-14 overflow-hidden rounded-full border-2 p-0.5 transition-colors",
-                          group.hasUnviewed ? "border-primary" : "border-white/10",
+                          group.hasUnviewed ? "border-primary" : "border-border",
                         )}
                         >
                         <div className="relative h-full w-full overflow-hidden rounded-full">
@@ -3579,7 +3579,7 @@ export default function CommunityPage() {
             <Card className={communityPanelClass}>
               <CardContent className="p-3 sm:p-4">
                 <div className="flex items-center gap-3">
-                  <Avatar className="h-10 w-10 border border-white/10">
+                  <Avatar className="h-10 w-10 border border-border">
                     <AvatarImage src={getSafeAvatarSrc(user?.avatar)} />
                     <AvatarFallback>{user?.name?.charAt(0) || "F"}</AvatarFallback>
                   </Avatar>
@@ -3589,18 +3589,18 @@ export default function CommunityPage() {
                       setShowCreatePost((value) => !value)
                       setComposerTool("general")
                     }}
-                    className="flex h-10 flex-1 items-center rounded-[12px] bg-white/[0.045] px-4 text-left text-sm text-muted-foreground transition hover:bg-white/[0.06]"
+                    className="flex h-10 flex-1 items-center rounded-[12px] bg-muted px-4 text-left text-sm text-muted-foreground transition hover:bg-surface-2"
                   >
                     {COMMUNITY_FEED_UI_TEXT.createPostPlaceholder}
                   </button>
                 </div>
 
-                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/10 pt-3 text-sm text-muted-foreground">
-                  <button type="button" onClick={() => openComposer("image")} className="inline-flex items-center gap-2 rounded-[12px] px-2 py-1 transition hover:bg-white/[0.05]">
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3 text-sm text-muted-foreground">
+                  <button type="button" onClick={() => openComposer("image")} className="inline-flex items-center gap-2 rounded-[12px] px-2 py-1 transition hover:bg-accent-soft">
                     <ImagePlus className="h-4 w-4 text-primary" />
                     รูปภาพ
                   </button>
-                  <button type="button" onClick={() => openComposer("video")} className="inline-flex items-center gap-2 rounded-[12px] px-2 py-1 transition hover:bg-white/[0.05]">
+                  <button type="button" onClick={() => openComposer("video")} className="inline-flex items-center gap-2 rounded-[12px] px-2 py-1 transition hover:bg-accent-soft">
                     <Upload className="h-4 w-4 text-primary" />
                     วิดีโอ
                   </button>
@@ -3610,14 +3610,14 @@ export default function CommunityPage() {
                       setShowCreatePost(true)
                       openPollBuilder()
                     }}
-                    className="inline-flex items-center gap-2 rounded-[12px] px-2 py-1 transition hover:bg-white/[0.05]"
+                    className="inline-flex items-center gap-2 rounded-[12px] px-2 py-1 transition hover:bg-accent-soft"
                   >
                     <Bell className="h-4 w-4 text-primary" />
                     Poll
                   </button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button type="button" className="ml-auto inline-flex items-center gap-2 rounded-[12px] px-2 py-1 text-sm text-muted-foreground transition hover:bg-white/[0.05]">
+                      <button type="button" className="ml-auto inline-flex items-center gap-2 rounded-[12px] px-2 py-1 text-sm text-muted-foreground transition hover:bg-accent-soft">
                         <Users className="h-4 w-4" />
                         {visibility === "friends" ? "Friends" : "Public"}
                       </button>
@@ -3654,7 +3654,7 @@ export default function CommunityPage() {
                     <Button type="button" onClick={() => setShowPreferenceDialog(true)} className="rounded-full">
                       เลือกทีมโปรด
                     </Button>
-                    <Button type="button" variant="outline" onClick={dismissPreferenceBanner} className="rounded-full border-white/10">
+                    <Button type="button" variant="outline" onClick={dismissPreferenceBanner} className="rounded-full border-border">
                       ไว้ภายหลัง
                     </Button>
                   </div>
@@ -3674,7 +3674,7 @@ export default function CommunityPage() {
                       onClick={() => setComposerTool("image")}
                       className={cn(
                         "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition",
-                        composerTool === "image" ? "border-primary/40 bg-primary/10 text-primary" : "border-white/10 text-muted-foreground hover:bg-background/70",
+                        composerTool === "image" ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-accent-soft",
                       )}
                     >
                       <ImagePlus className="h-4 w-4" />
@@ -3685,7 +3685,7 @@ export default function CommunityPage() {
                       onClick={() => setComposerTool("video")}
                       className={cn(
                         "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition",
-                        composerTool === "video" ? "border-primary/40 bg-primary/10 text-primary" : "border-white/10 text-muted-foreground hover:bg-background/70",
+                        composerTool === "video" ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-accent-soft",
                       )}
                     >
                       <Upload className="h-4 w-4" />
@@ -3696,21 +3696,21 @@ export default function CommunityPage() {
                       onClick={openPollBuilder}
                       className={cn(
                         "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition",
-                        pollQuestion.trim() ? "border-primary/40 bg-primary/10 text-primary" : "border-white/10 text-muted-foreground hover:bg-background/70",
+                        pollQuestion.trim() ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-accent-soft",
                       )}
                     >
                       <Bell className="h-4 w-4" />
                       Poll
                     </button>
-                    <div className="ml-auto inline-flex items-center gap-2 rounded-full border border-white/10 bg-background/40 px-3 py-1.5 text-sm text-muted-foreground">
+                    <div className="ml-auto inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3 py-1.5 text-sm text-muted-foreground">
                       <Users className="h-4 w-4" />
                       {visibility === "friends" ? "Friends" : "Public"}
                     </div>
                   </div>
-                  <Input placeholder="หัวข้อโพสต์" value={title} onChange={(event) => setTitle(event.target.value)} className="rounded-2xl border-white/10 bg-background/70 shadow-none" />
+                  <Input placeholder="หัวข้อโพสต์" value={title} onChange={(event) => setTitle(event.target.value)} className="rounded-2xl border-border bg-input-background shadow-none" />
                   <Textarea
                     placeholder="อยากชวนคุยเรื่องอะไร..."
-                    className="min-h-32 resize-none rounded-2xl border-white/10 bg-background/70 shadow-none"
+                    className="min-h-32 resize-none rounded-2xl border-border bg-input-background shadow-none"
                     value={content}
                     onChange={(event) => setContent(event.target.value)}
                   />
@@ -3720,7 +3720,7 @@ export default function CommunityPage() {
 
                   {renderActiveComposerSection()}
 
-                  <div className="rounded-[22px] border border-white/10 bg-background/35">
+                  <div className="rounded-[22px] border border-border bg-surface-2">
                     <button
                       type="button"
                       onClick={() => setShowAdvancedContext((value) => !value)}
@@ -3731,7 +3731,7 @@ export default function CommunityPage() {
                       <span className="text-xs text-muted-foreground">{showAdvancedContext ? "ซ่อน" : "เพิ่มรายละเอียด"}</span>
                     </button>
                     {showAdvancedContext ? (
-                      <div className="space-y-4 border-t border-white/10 p-4">
+                      <div className="space-y-4 border-t border-border p-4">
                         <div>
                           <p className="mb-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">Category</p>
                           <div className="flex flex-wrap gap-2">
@@ -3741,7 +3741,7 @@ export default function CommunityPage() {
                                 type="button"
                                 className={cn(
                                   "rounded-full border px-3 py-1.5 text-sm transition",
-                                  category === item.id ? "border-primary/40 bg-primary/15 text-primary" : "border-white/10 bg-background/35 text-muted-foreground hover:text-foreground",
+                                  category === item.id ? "border-primary/40 bg-primary/15 text-primary" : "border-border bg-card text-muted-foreground hover:text-foreground",
                                 )}
                                 onClick={() => setCategory(item.id)}
                               >
@@ -3762,7 +3762,7 @@ export default function CommunityPage() {
                   </div>
 
                   <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={resetComposer} className="rounded-full border-white/10 text-muted-foreground">ยกเลิก</Button>
+                    <Button variant="outline" onClick={resetComposer} className="rounded-full border-border text-muted-foreground">ยกเลิก</Button>
                     <Button onClick={handleCreatePost} disabled={submitting} className="rounded-full">
                       {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                       โพสต์
@@ -3772,7 +3772,7 @@ export default function CommunityPage() {
               </Card>
             ) : null}
 
-            <div className="flex items-center gap-2 border-b border-white/10 px-1">
+            <div className="flex items-center gap-2 border-b border-border px-1">
               <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
                 {feedTabs.map((tab) => (
                   <button
@@ -3795,14 +3795,14 @@ export default function CommunityPage() {
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-white/10 bg-background/35 px-3 text-sm text-muted-foreground transition hover:bg-background/70 hover:text-foreground"
+                      className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-border bg-card px-3 text-sm text-muted-foreground transition hover:bg-accent-soft hover:text-foreground"
                       aria-label="เลือกหมวดโพสต์"
                     >
                       <Sparkles className="h-4 w-4" />
                       {categories.find((item) => item.id === selectedCategory)?.label || "ทั้งหมด"}
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-64 rounded-2xl border-white/10 bg-[#121416] p-2 text-foreground shadow-2xl">
+                  <DropdownMenuContent align="end" className="w-64 rounded-2xl border-border bg-popover p-2 text-popover-foreground shadow-2xl">
                     <DropdownMenuItem onSelect={() => setSelectedCategory("all")} className="rounded-xl">
                       ทั้งหมด
                     </DropdownMenuItem>
@@ -3844,7 +3844,7 @@ export default function CommunityPage() {
                   กำลังโหลด Feed...
                 </Card>
               ) : !posts.length ? (
-                <Card className="rounded-[12px] border border-dashed border-white/[0.1] bg-[#0b1012]/88 p-8 text-center">
+                <Card className="rounded-[12px] border border-dashed border-border bg-card/88 p-8 text-center">
                   <p className="font-semibold text-foreground">
                     {feedTab === "favorites"
                       ? "เลือกทีมโปรดเพื่อดูโพสต์จากทีมที่คุณสนใจ"
@@ -3909,7 +3909,7 @@ export default function CommunityPage() {
                                   <MoreHorizontal className="h-5 w-5" />
                                 </button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-56 rounded-2xl border-white/10 bg-[#121416] p-2 text-foreground shadow-2xl">
+                              <DropdownMenuContent align="end" className="w-56 rounded-2xl border-border bg-popover p-2 text-popover-foreground shadow-2xl">
                                 {isOwner ? (
                                   <>
                                     <DropdownMenuItem onSelect={() => void openEditPost(post)} className="rounded-xl">
@@ -4150,7 +4150,7 @@ export default function CommunityPage() {
               <CardContent className="space-y-2 px-4 pb-4">
                 {activityNotifications.length ? (
                   activityNotifications.slice(0, 5).map((item) => (
-                    <Link key={item.id} href={item.post.id ? `/community/${item.post.id}` : "/community"} className="flex min-h-[58px] items-start gap-3 rounded-[12px] px-2 py-2 transition hover:bg-white/[0.04]">
+                    <Link key={item.id} href={item.post.id ? `/community/${item.post.id}` : "/community"} className="flex min-h-[58px] items-start gap-3 rounded-[12px] px-2 py-2 transition hover:bg-accent-soft">
                       <Avatar className="h-9 w-9 border border-white/10">
                         <AvatarImage src={getSafeAvatarSrc(item.actor.avatar)} />
                         <AvatarFallback>{item.actor.name.charAt(0)}</AvatarFallback>
@@ -4240,7 +4240,7 @@ export default function CommunityPage() {
                       key={topic.label}
                       type="button"
                       onClick={() => setSearchQuery(topic.label)}
-                      className="rounded-full border border-white/10 bg-white/[0.045] px-3 py-1.5 text-xs text-muted-foreground transition hover:border-primary/35 hover:text-primary"
+                      className="rounded-full border border-border bg-muted px-3 py-1.5 text-xs text-muted-foreground transition hover:border-primary/35 hover:text-primary"
                     >
                       #{topic.label}
                     </button>
@@ -4260,7 +4260,7 @@ export default function CommunityPage() {
                   { label: "Comments", value: feedCommentCount },
                   { label: "Polls", value: feedPollCount },
                 ].map((item) => (
-                  <div key={item.label} className="rounded-[12px] border border-white/[0.06] bg-white/[0.035] p-3 text-center">
+                  <div key={item.label} className="rounded-[12px] border border-border bg-muted p-3 text-center">
                     <p className="text-xl font-black text-primary">{item.value}</p>
                     <p className="mt-1 text-xs text-muted-foreground">{item.label}</p>
                   </div>
