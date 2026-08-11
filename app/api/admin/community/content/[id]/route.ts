@@ -29,7 +29,36 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const story = await CommunityStory.findById(id)
       if (!story) return errorResponse("Story not found", 404)
       if (action === "hide") story.status = "hidden"
-      else if (action === "unhide") story.status = "published"
+      else if (action === "unhide") {
+        let imageSource = String(story.image || "").trim()
+        let videoSource = String(story.video || "").trim()
+
+        if ((!imageSource && !videoSource) && story.mediaId) {
+          const linkedMedia = await CommunityMedia.findById(story.mediaId).select("mediaType status publicUrl")
+          if (!linkedMedia || linkedMedia.status !== "approved" || !String(linkedMedia.publicUrl || "").trim()) {
+            return errorResponse("Story media is missing or not approved, cannot publish", 422)
+          }
+
+          if (String(linkedMedia.mediaType || "") === "video") {
+            videoSource = String(linkedMedia.publicUrl || "").trim()
+          } else {
+            imageSource = String(linkedMedia.publicUrl || "").trim()
+          }
+        }
+
+        if (!imageSource && !videoSource) {
+          return errorResponse("Story has no preview media, cannot publish", 422)
+        }
+
+        story.status = "published"
+        story.image = imageSource
+        story.video = videoSource
+        const now = Date.now()
+        const currentExpiresAt = story.expiresAt ? new Date(story.expiresAt).getTime() : 0
+        if (!currentExpiresAt || currentExpiresAt <= now) {
+          story.expiresAt = new Date(now + 24 * 60 * 60 * 1000)
+        }
+      }
       else if (action === "delete") {
         await story.deleteOne()
         await createModerationLog({
@@ -48,7 +77,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
       story.moderation = {
         ...(story.moderation?.toObject?.() || story.moderation || {}),
-        status: action === "hide" ? "pending_review" : "approved",
+        status: "approved",
         provider: "manual",
         reviewedBy: admin._id,
         reviewedAt: new Date(),
@@ -63,7 +92,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         userId: story.author?.toString?.() || null,
         contentType: "story",
         contentId: id,
-        status: action === "hide" ? "pending_review" : "approved",
+        status: "approved",
         action: `story_${action}`,
         provider: "manual",
         reviewedBy: admin._id.toString(),
@@ -107,7 +136,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     post.moderation = {
       ...(post.moderation?.toObject?.() || post.moderation || {}),
-      status: action === "hide" ? "pending_review" : action === "unhide" ? "approved" : post.moderation?.status || "approved",
+      status: action === "hide" || action === "unhide" ? "approved" : post.moderation?.status || "approved",
       provider: "manual",
       reviewedBy: admin._id,
       reviewedAt: new Date(),
@@ -124,7 +153,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       userId: post.author?.toString?.() || null,
       contentType,
       contentId: id,
-      status: action === "hide" ? "pending_review" : "approved",
+      status: "approved",
       action: `content_${action}`,
       provider: "manual",
       reviewedBy: admin._id.toString(),
