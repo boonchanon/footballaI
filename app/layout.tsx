@@ -26,7 +26,10 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: "#d4a574",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f3f6ef" },
+    { media: "(prefers-color-scheme: dark)", color: "#05090b" },
+  ],
 }
 
 export default function RootLayout({
@@ -37,7 +40,7 @@ export default function RootLayout({
   return (
     <html lang="th" suppressHydrationWarning className="bg-background text-foreground">
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange storageKey="footballai-theme-v3">
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange storageKey="footballai-theme-v3">
           <SiteNavigationProvider>
             <div className="min-h-screen bg-background text-foreground">
               {children}

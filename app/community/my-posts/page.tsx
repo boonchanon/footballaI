@@ -49,10 +49,10 @@ const statusTabs = [
 ]
 
 function getStatusClass(status: string) {
-  if (status === "published") return "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+  if (status === "published") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
   if (status === "pending_review" || status === "revision_pending") return "border-primary/30 bg-primary/15 text-primary"
   if (status === "rejected") return "border-destructive/30 bg-destructive/10 text-destructive"
-  return "border-white/10 bg-background/70 text-muted-foreground"
+  return "border-border bg-muted text-muted-foreground"
 }
 
 export default function MyCommunityPostsPage() {
@@ -72,9 +72,9 @@ export default function MyCommunityPostsPage() {
   return (
     <div className="min-h-screen bg-background px-3 py-5 text-foreground sm:px-6">
       <main className="mx-auto max-w-5xl space-y-5">
-        <div className="overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,#1e1e20_0%,#151517_100%)] shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
-          <div className="flex flex-wrap items-center gap-4 border-b border-white/10 px-5 py-4">
-            <Button asChild variant="outline" className="rounded-full border-white/10 bg-background/50">
+        <div className="overflow-hidden rounded-[32px] border border-border bg-card shadow-[0_24px_70px_rgba(0,0,0,0.10)]">
+          <div className="flex flex-wrap items-center gap-4 border-b border-border px-5 py-4">
+            <Button asChild variant="outline" className="rounded-full border-border bg-card">
               <Link href="/community">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 กลับคอมมูนิตี้
@@ -96,7 +96,7 @@ export default function MyCommunityPostsPage() {
                   onClick={() => setStatus(tab.id)}
                   className={cn(
                     "rounded-full border px-3 py-1.5 text-sm transition",
-                    status === tab.id ? "border-primary/40 bg-primary/15 text-primary" : "border-white/10 text-muted-foreground hover:bg-background/70 hover:text-foreground",
+                    status === tab.id ? "border-primary/40 bg-primary/15 text-primary" : "border-border text-muted-foreground hover:bg-accent-soft hover:text-foreground",
                   )}
                 >
                   {tab.label}
@@ -106,7 +106,7 @@ export default function MyCommunityPostsPage() {
             </div>
 
             {isLoading ? (
-              <Card className="rounded-[28px] border-white/10 bg-card/80">
+              <Card className="rounded-[28px] border-border bg-card">
                 <CardContent className="flex items-center justify-center gap-3 py-16 text-muted-foreground">
                   <Loader2 className="h-5 w-5 animate-spin text-primary" />
                   กำลังโหลดโพสต์ของคุณ...
@@ -119,7 +119,7 @@ export default function MyCommunityPostsPage() {
                 <CardContent className="space-y-3 py-8">
                   <p className="font-semibold text-destructive">โหลดข้อมูลไม่ได้</p>
                   <p className="text-sm text-muted-foreground">{error instanceof Error ? error.message : "เกิดข้อผิดพลาด"}</p>
-                  <Button variant="outline" className="rounded-full border-white/10" onClick={() => void mutate()}>
+                  <Button variant="outline" className="rounded-full border-border" onClick={() => void mutate()}>
                     <RefreshCw className="mr-2 h-4 w-4" />
                     ลองใหม่
                   </Button>
@@ -128,7 +128,7 @@ export default function MyCommunityPostsPage() {
             ) : null}
 
             {!isLoading && !error && !data?.items?.length ? (
-              <Card className="rounded-[28px] border-dashed border-white/10 bg-card/70">
+              <Card className="rounded-[28px] border-dashed border-border bg-card">
                 <CardContent className="py-16 text-center">
                   <ShieldCheck className="mx-auto mb-4 h-12 w-12 text-muted-foreground/40" />
                   <h2 className="text-xl font-semibold">ยังไม่มีรายการในสถานะนี้</h2>
@@ -139,7 +139,7 @@ export default function MyCommunityPostsPage() {
 
             <div className="space-y-3">
               {data?.items?.map((post) => (
-                <Card key={post.id} className="rounded-[26px] border-white/10 bg-card/85">
+                <Card key={post.id} className="rounded-[26px] border-border bg-card">
                   <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
                     <div className="min-w-0 flex-1">
                       <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -159,7 +159,7 @@ export default function MyCommunityPostsPage() {
                     </div>
 
                     <div className="flex flex-wrap gap-2 sm:justify-end">
-                      <Button asChild variant="outline" className="rounded-full border-white/10">
+                      <Button asChild variant="outline" className="rounded-full border-border">
                         <Link href={`/community/${post.id}`}>
                           <Eye className="mr-2 h-4 w-4" />
                           ดูโพสต์

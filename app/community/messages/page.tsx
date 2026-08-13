@@ -267,16 +267,16 @@ export default function CommunityMessagesPage() {
     }
   }
 
-  const panelClass = "rounded-[12px] border border-white/[0.07] bg-[#0b1012]/92 shadow-[0_10px_28px_rgba(0,0,0,0.22)]"
-  const softPanelClass = "rounded-[12px] border border-white/[0.07] bg-[#0b1012]/88 shadow-[0_10px_28px_rgba(0,0,0,0.18)]"
-  const insetClass = "rounded-[12px] border border-white/[0.06] bg-white/[0.045]"
+  const panelClass = "rounded-[12px] border border-border bg-card shadow-[0_10px_28px_rgba(0,0,0,0.10)]"
+  const softPanelClass = "rounded-[12px] border border-border bg-card shadow-[0_10px_28px_rgba(0,0,0,0.08)]"
+  const insetClass = "rounded-[12px] border border-border bg-muted"
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <main className="px-3 pb-8 pt-4 sm:px-4 sm:pt-5 lg:px-6">
-        <div className="mx-auto max-w-[1500px] overflow-hidden rounded-[18px] border border-white/[0.07] bg-[radial-gradient(circle_at_top_left,rgba(184,255,0,0.10),transparent_22%),radial-gradient(circle_at_bottom_right,rgba(184,255,0,0.06),transparent_18%),linear-gradient(180deg,#121517_0%,#0b1012_100%)] shadow-[0_18px_48px_rgba(0,0,0,0.26)]">
-          <div className="flex flex-wrap items-center gap-4 border-b border-white/10 px-5 py-4 lg:px-7">
-            <Link href="/community" className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-white/[0.06] bg-white/[0.045] px-4 text-sm font-medium text-muted-foreground transition hover:border-primary/40 hover:bg-primary/10 hover:text-primary">
+        <div className="mx-auto max-w-[1500px] overflow-hidden rounded-[18px] border border-border bg-card shadow-[0_18px_48px_rgba(0,0,0,0.10)]">
+          <div className="flex flex-wrap items-center gap-4 border-b border-border px-5 py-4 lg:px-7">
+            <Link href="/community" className="inline-flex h-10 items-center gap-2 rounded-[12px] border border-border bg-card px-4 text-sm font-medium text-muted-foreground transition hover:border-primary/40 hover:bg-primary/10 hover:text-primary">
               <ArrowLeft className="h-4 w-4" />
               กลับคอมมูนิตี้
             </Link>
@@ -289,7 +289,7 @@ export default function CommunityMessagesPage() {
                 value={conversationQuery}
                 onChange={(event) => setConversationQuery(event.target.value)}
                 placeholder="Search in your inbox..."
-                className="h-11 rounded-[12px] border-white/[0.06] bg-white/[0.045] pl-11 text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-primary/40"
+                className="h-11 rounded-[12px] border-border bg-input-background pl-11 text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-primary/40"
               />
             </div>
 
@@ -320,7 +320,7 @@ export default function CommunityMessagesPage() {
             </div>
           ) : (
             <div className="grid min-h-[78vh] gap-0 lg:grid-cols-[68px_340px_minmax(0,1fr)] xl:grid-cols-[68px_340px_minmax(0,1fr)_280px]">
-              <aside className="hidden border-r border-white/[0.07] bg-[#0b1012]/78 lg:flex lg:flex-col lg:items-center lg:justify-between lg:py-5">
+              <aside className="hidden border-r border-border bg-surface-2 lg:flex lg:flex-col lg:items-center lg:justify-between lg:py-5">
                 <div className="flex flex-col items-center gap-5">
                   <Avatar className="h-12 w-12 border-2 border-primary/40">
                     <AvatarImage src={user?.avatar || "/placeholder-user.jpg"} />
@@ -329,18 +329,18 @@ export default function CommunityMessagesPage() {
                   <Link href="/community/messages" className="rounded-[12px] bg-primary/12 p-3 text-primary transition hover:bg-primary/20">
                     <MessageSquare className="h-5 w-5" />
                   </Link>
-                  <Link href="/community" className="rounded-[12px] p-3 text-muted-foreground transition hover:bg-white/[0.05] hover:text-primary">
+                  <Link href="/community" className="rounded-[12px] p-3 text-muted-foreground transition hover:bg-accent-soft hover:text-primary">
                     <Home className="h-5 w-5" />
                   </Link>
                 </div>
-                <div className="rounded-[12px] p-3 text-muted-foreground transition hover:bg-white/[0.05] hover:text-foreground">
+                <div className="rounded-[12px] p-3 text-muted-foreground transition hover:bg-accent-soft hover:text-foreground">
                   <Bell className="h-5 w-5" />
                 </div>
               </aside>
 
-              <Card className="overflow-hidden rounded-none border-0 border-r border-white/[0.07] bg-[#0b1012]/76 shadow-none">
+              <Card className="overflow-hidden rounded-none border-0 border-r border-border bg-card shadow-none">
                 <CardContent className="flex h-full flex-col p-0">
-                  <div className="border-b border-white/10 px-5 py-5">
+                  <div className="border-b border-border px-5 py-5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <h1 className="text-2xl font-semibold">ข้อความ</h1>
@@ -364,17 +364,17 @@ export default function CommunityMessagesPage() {
                             "flex w-full items-start gap-3 rounded-[12px] border p-3 text-left transition duration-200",
                             activeConversationId === conversation.id
                               ? "border-primary/35 bg-[linear-gradient(135deg,rgba(184,255,0,0.12),rgba(184,255,0,0.04))] shadow-[0_10px_28px_rgba(0,0,0,0.18)]"
-                              : "border-white/[0.07] bg-white/[0.03] hover:border-primary/20 hover:bg-white/[0.05]",
+                              : "border-border bg-muted hover:border-primary/20 hover:bg-accent-soft",
                           )}
                         >
-                          <Avatar className="h-12 w-12 border border-white/10">
+                          <Avatar className="h-12 w-12 border border-border">
                             <AvatarImage src={conversation.user.avatar || "/placeholder-user.jpg"} />
                             <AvatarFallback>{conversation.user.name.charAt(0)}</AvatarFallback>
                           </Avatar>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex min-w-0 items-center gap-2">
-                                <p className={cn("truncate text-sm", conversation.hasUnread ? "font-semibold text-white" : "font-medium text-foreground")}>
+                                <p className={cn("truncate text-sm", conversation.hasUnread ? "font-semibold text-foreground" : "font-medium text-foreground")}>
                                   {conversation.user.name}
                                 </p>
                                 {conversation.hasUnread ? <span className="h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_rgba(184,255,0,0.7)]" /> : null}
@@ -402,13 +402,13 @@ export default function CommunityMessagesPage() {
                 </CardContent>
               </Card>
 
-              <Card className="overflow-hidden rounded-none border-0 border-t border-white/[0.07] bg-[#0b1012]/82 shadow-none lg:border-t-0">
+              <Card className="overflow-hidden rounded-none border-0 border-t border-border bg-card shadow-none lg:border-t-0">
                 <CardContent className="flex h-full flex-col p-0">
                   {currentConversation ? (
                     <>
-                      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-white/[0.07] bg-[#0b1012]/94 px-5 py-4 backdrop-blur">
+                      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-card/95 px-5 py-4 backdrop-blur">
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-12 w-12 border border-white/10">
+                          <Avatar className="h-12 w-12 border border-border">
                             <AvatarImage src={currentConversation.user.avatar || "/placeholder-user.jpg"} />
                             <AvatarFallback>{currentConversation.user.name.charAt(0)}</AvatarFallback>
                           </Avatar>
@@ -423,12 +423,12 @@ export default function CommunityMessagesPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="rounded-[12px] border border-white/[0.06] bg-white/[0.045] px-3 py-1 text-xs text-muted-foreground">
+                        <div className="rounded-[12px] border border-border bg-muted px-3 py-1 text-xs text-muted-foreground">
                           {detailData?.messages?.length || 0} ข้อความ
                         </div>
                       </div>
 
-                      <div className="flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top,rgba(184,255,0,0.05),transparent_22%),radial-gradient(circle_at_bottom_right,rgba(184,255,0,0.03),transparent_18%),linear-gradient(180deg,#101416_0%,#0b1012_100%)] px-4 py-5">
+                      <div className="flex-1 overflow-y-auto bg-surface-2 px-4 py-5">
                         {detailLoading && !detailData ? (
                           <div className="flex h-full min-h-[320px] items-center justify-center">
                             <div className="text-center">
@@ -468,7 +468,7 @@ export default function CommunityMessagesPage() {
                               return (
                                 <div key={message.id} className={cn("flex", isMine ? "justify-end" : "justify-start")}>
                                   <div className={cn("flex max-w-[82%] items-end gap-3", isMine ? "flex-row-reverse" : "flex-row")}>
-                                    <Avatar className="h-9 w-9 shrink-0 border border-white/10">
+                                    <Avatar className="h-9 w-9 shrink-0 border border-border">
                                       <AvatarImage src={message.sender.avatar || "/placeholder-user.jpg"} />
                                       <AvatarFallback>{message.sender.name.charAt(0)}</AvatarFallback>
                                     </Avatar>
@@ -477,7 +477,7 @@ export default function CommunityMessagesPage() {
                                         "rounded-[12px] px-4 py-3 shadow-[0_10px_24px_rgba(0,0,0,0.18)]",
                                         isMine
                                           ? "rounded-br-md bg-primary text-primary-foreground"
-                                          : "rounded-bl-md border border-white/[0.07] bg-[#12181b] text-foreground",
+                                          : "rounded-bl-md border border-border bg-card text-foreground",
                                       )}
                                     >
                                       {!isMine ? <p className="mb-1 text-xs font-medium text-primary">{message.sender.name}</p> : null}
@@ -530,12 +530,12 @@ export default function CommunityMessagesPage() {
                                         </div>
                                       ) : null}
                                       {!shouldHidePlainContent ? <p className="whitespace-pre-wrap text-sm leading-6">{message.content}</p> : null}
-                                      <div className={cn("mt-1 flex items-center gap-2 text-[11px]", isMine ? "justify-end text-white/70" : "text-muted-foreground")}>
+                                      <div className={cn("mt-1 flex items-center gap-2 text-[11px]", isMine ? "justify-end text-primary-foreground/70" : "text-muted-foreground")}>
                                         <span>{message.timeAgo}</span>
                                         {isMine ? <span>{message.seenByRecipient ? "อ่านแล้ว" : "ส่งแล้ว"}</span> : null}
                                       </div>
                                       {isMine && message.seenByRecipient && message.seenTimeAgo ? (
-                                        <p className="mt-1 text-right text-[11px] text-white/70">อ่านข้อความแล้วเมื่อ {message.seenTimeAgo}</p>
+                                        <p className="mt-1 text-right text-[11px] text-primary-foreground/70">อ่านข้อความแล้วเมื่อ {message.seenTimeAgo}</p>
                                       ) : null}
                                     </div>
                                   </div>
@@ -556,7 +556,7 @@ export default function CommunityMessagesPage() {
                         )}
                       </div>
 
-                      <div className="border-t border-white/[0.07] bg-[#0b1012]/94 px-4 py-4 backdrop-blur">
+                      <div className="border-t border-border bg-card/95 px-4 py-4 backdrop-blur">
                         <div className="mx-auto max-w-4xl space-y-3">
                           {pendingSharedItem ? (
                             <div className="rounded-[12px] border border-primary/30 bg-primary/5 p-3">
@@ -574,12 +574,12 @@ export default function CommunityMessagesPage() {
                                     ;["shareType", "shareTitle", "shareUrl", "shareImage", "shareSource", "sharePostId"].forEach((key) => params.delete(key))
                                     window.history.replaceState({}, "", params.toString() ? `/community/messages?${params.toString()}` : "/community/messages")
                                   }}
-                                  className="rounded-[12px] border border-white/[0.07] p-1 text-muted-foreground transition hover:text-foreground"
+                                  className="rounded-[12px] border border-border p-1 text-muted-foreground transition hover:text-foreground"
                                 >
                                   <X className="h-4 w-4" />
                                 </button>
                               </div>
-                              <a href={pendingSharedItem.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-[12px] border border-white/[0.07] bg-white/[0.04] p-3">
+                              <a href={pendingSharedItem.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-[12px] border border-border bg-muted p-3">
                                 {pendingSharedItem.image ? (
                                   <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-xl">
                                     <Image src={pendingSharedItem.image} alt={pendingSharedItem.title} fill className="object-cover" unoptimized />
@@ -597,9 +597,9 @@ export default function CommunityMessagesPage() {
                           ) : null}
 
                           {attachedImages.length ? (
-                            <div className="grid grid-cols-2 gap-2 rounded-[12px] border border-white/[0.07] bg-white/[0.04] p-3">
+                            <div className="grid grid-cols-2 gap-2 rounded-[12px] border border-border bg-muted p-3">
                               {attachedImages.map((imageUrl) => (
-                                <div key={imageUrl} className="relative overflow-hidden rounded-[12px] border border-white/[0.07]">
+                                <div key={imageUrl} className="relative overflow-hidden rounded-[12px] border border-border">
                                   <div className="relative h-28 w-full">
                                     <Image src={imageUrl} alt="Upload preview" fill className="object-cover" unoptimized />
                                   </div>
@@ -616,7 +616,7 @@ export default function CommunityMessagesPage() {
                           ) : null}
 
                           <div className="flex items-end gap-3">
-                            <label className="inline-flex h-[56px] cursor-pointer items-center justify-center rounded-[12px] border border-white/[0.07] bg-white/[0.045] px-4 text-muted-foreground transition hover:border-primary/40 hover:text-primary">
+                            <label className="inline-flex h-[56px] cursor-pointer items-center justify-center rounded-[12px] border border-border bg-card px-4 text-muted-foreground transition hover:border-primary/40 hover:text-primary">
                               {uploadingImages ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
                               <input type="file" accept="image/png,image/jpeg,image/webp" multiple className="hidden" onChange={handleChatImageUpload} />
                             </label>
@@ -630,7 +630,7 @@ export default function CommunityMessagesPage() {
                                 }
                               }}
                               placeholder={pendingSharedItem ? "พิมพ์ความเห็นเพิ่มก่อนส่ง..." : "Type a message..."}
-                              className="min-h-[56px] rounded-[12px] border-white/[0.07] bg-white/[0.045]"
+                              className="min-h-[56px] rounded-[12px] border-border bg-input-background"
                             />
                             <Button
                               onClick={sendMessage}
@@ -655,7 +655,7 @@ export default function CommunityMessagesPage() {
                 </CardContent>
               </Card>
 
-              <aside className="hidden border-l border-white/[0.07] bg-[#0b1012]/72 xl:block">
+              <aside className="hidden border-l border-border bg-surface-2 xl:block">
                 <div className="flex h-full flex-col p-5">
                   {currentConversation ? (
                     <>
@@ -687,7 +687,7 @@ export default function CommunityMessagesPage() {
                               href={item.href}
                               target="_blank"
                               rel="noopener noreferrer"
-                            className="relative overflow-hidden rounded-[12px] border border-white/[0.07] bg-white/[0.04]"
+                            className="relative overflow-hidden rounded-[12px] border border-border bg-muted"
                             >
                               <div className="relative aspect-square">
                                 <Image src={item.image} alt="Attachment" fill className="object-cover" unoptimized />
@@ -695,7 +695,7 @@ export default function CommunityMessagesPage() {
                             </a>
                           ))
                         ) : (
-                          <div className="col-span-3 rounded-[12px] border border-dashed border-white/[0.1] bg-white/[0.04] p-4 text-sm text-muted-foreground">
+                          <div className="col-span-3 rounded-[12px] border border-dashed border-border bg-muted p-4 text-sm text-muted-foreground">
                             ยังไม่มีไฟล์แนบในบทสนทนานี้
                           </div>
                         )}

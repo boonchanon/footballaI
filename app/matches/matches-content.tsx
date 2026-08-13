@@ -1,24 +1,36 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import Link from "next/link"
+import { type ReactNode, useEffect, useMemo, useState } from "react"
 import Image from "next/image"
+import Link from "next/link"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import useSWR from "swr"
-import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Loader2, MapPin, RefreshCw, Shield, Sparkles, Trophy } from "lucide-react"
+import {
+  CalendarDays,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  MapPin,
+  RefreshCw,
+  Shield,
+  Trophy,
+} from "lucide-react"
 
 import { Footer } from "@/components/footer"
 import { Navigation } from "@/components/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
-import { Card, CardContent } from "@/components/ui/card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { PREMIER_LEAGUE_DATA_SEASON } from "@/lib/season"
+import { cn } from "@/lib/utils"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 type MatchStatus = "live" | "finished" | "upcoming"
-type SidePanel = "detail" | "lineup" | "statistics" | "table"
+type MatchFilter = "all" | MatchStatus
+type DetailTab = "overview" | "events" | "statistics" | "lineups" | "standings"
 
 type MatchItem = {
   id: string
@@ -36,14 +48,26 @@ type MatchItem = {
   isoDate: string
   dateKey: string
   status: MatchStatus
+  statusShort: string
+  elapsed: number | null
   venue: string
 }
 
-const dateFormatter = new Intl.DateTimeFormat("th-TH", {
-  weekday: "short",
-  day: "numeric",
-  month: "short",
-})
+type MatchEvent = {
+  time?: { elapsed?: number | null }
+  team?: { id?: string | number | null; name?: string | null }
+  player?: { name?: string | null }
+  assist?: { name?: string | null }
+  type?: string | null
+  detail?: string | null
+}
+
+type LineupSide = {
+  formation?: string
+  coach?: { name?: string }
+  startXI?: Array<{ player?: { id?: number; name?: string; number?: number; pos?: string } }>
+  substitutes?: Array<{ player?: { id?: number; name?: string; number?: number; pos?: string } }>
+}
 
 const fullDateFormatter = new Intl.DateTimeFormat("th-TH", {
   weekday: "long",
@@ -54,6 +78,25 @@ const fullDateFormatter = new Intl.DateTimeFormat("th-TH", {
 
 function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+function addDays(date: Date, amount: number) {
+  const next = new Date(date)
+  next.setDate(next.getDate() + amount)
+  return next
+}
+
+function parseDateKey(key: string) {
+  const [year, month, day] = key.split("-").map(Number)
+  if (!year || !month || !day) return null
+  return new Date(year, month - 1, day)
+}
+
+function buildDateKey(date: Date) {
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, "0")
+  const day = `${date.getDate()}`.padStart(2, "0")
+  return `${year}-${month}-${day}`
 }
 
 function buildDateLabel(targetDate: Date, now: Date) {
@@ -67,35 +110,47 @@ function buildDateLabel(targetDate: Date, now: Date) {
   return fullDateFormatter.format(targetDate)
 }
 
-function buildDateKey(date: Date) {
-  const year = date.getFullYear()
-  const month = `${date.getMonth() + 1}`.padStart(2, "0")
-  const day = `${date.getDate()}`.padStart(2, "0")
-  return `${year}-${month}-${day}`
-}
-
 function buildStatusLabel(status: MatchStatus) {
-  if (status === "live") return "กำลังแข่ง"
-  if (status === "finished") return "จบการแข่งขัน"
+  if (status === "live") return "LIVE"
+  if (status === "finished") return "Finished"
   return "ยังไม่แข่ง"
 }
 
-function buildStatRows(match: MatchItem) {
-  const homeScore = match.homeScore ?? 0
-  const awayScore = match.awayScore ?? 0
-  const scoreBase = Math.max(homeScore + awayScore, 1)
-  const homeMomentum = 50 + (homeScore - awayScore) * 10
-  const awayMomentum = 100 - homeMomentum
+function buildStatusTone(status: MatchStatus) {
+  if (status === "live") return "bg-red-500 text-white"
+  if (status === "finished") return "bg-primary/15 text-primary"
+  return "bg-muted text-muted-foreground"
+}
 
-  return [
-    { label: "โมเมนตัม", home: Math.min(Math.max(homeMomentum, 12), 88), away: Math.min(Math.max(awayMomentum, 12), 88) },
-    { label: "สัดส่วนประตู", home: Math.max(10, Math.round((homeScore / scoreBase) * 100)), away: Math.max(10, Math.round((awayScore / scoreBase) * 100)) },
-    { label: "สถานะเกม", home: match.status === "live" ? 66 : match.status === "finished" ? 52 : 48, away: match.status === "live" ? 34 : match.status === "finished" ? 48 : 52 },
-  ]
+function formatScore(match: MatchItem) {
+  if (match.status === "upcoming") return "vs"
+  return `${match.homeScore ?? 0} - ${match.awayScore ?? 0}`
+}
+
+function normalizeEventType(type?: string | null) {
+  const value = String(type || "").toLowerCase()
+  if (value.includes("goal")) return "⚽"
+  if (value.includes("card")) return "▰"
+  if (value.includes("subst")) return "↔"
+  return "•"
+}
+
+function getEventTeamSide(event: MatchEvent, match: MatchItem) {
+  const eventTeamId = String(event.team?.id || "")
+  const eventTeamName = String(event.team?.name || "")
+  if (eventTeamId && eventTeamId === match.homeId) return "home"
+  if (eventTeamId && eventTeamId === match.awayId) return "away"
+  if (eventTeamName && eventTeamName === match.homeTeam) return "home"
+  if (eventTeamName && eventTeamName === match.awayTeam) return "away"
+  return "neutral"
 }
 
 export default function MatchesContent() {
-  const { data: allData, isLoading, mutate } = useSWR("/api/football/fixtures?type=all", fetcher, {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  const { data: allData, isLoading, mutate, error } = useSWR("/api/football/fixtures?type=all", fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 60000,
   })
@@ -104,647 +159,906 @@ export default function MatchesContent() {
     dedupingInterval: 300000,
   })
 
-  const allFixtures: MatchItem[] = useMemo(() => {
-    const now = new Date()
-    return (allData?.data || []).map((fixture: any) => {
-      const fixtureDate = new Date(fixture.date)
-      return {
-        id: String(fixture.id ?? ""),
-        round: fixture.roundNumber || 1,
-        homeTeam: fixture.teams.home.name,
-        awayTeam: fixture.teams.away.name,
-        homeId: String(fixture.teams.home.id || ""),
-        awayId: String(fixture.teams.away.id || ""),
-        homeLogo: fixture.teams.home.logo || "",
-        awayLogo: fixture.teams.away.logo || "",
-        homeScore: fixture.goals.home ?? null,
-        awayScore: fixture.goals.away ?? null,
-        dateLabel: buildDateLabel(fixtureDate, now),
-        timeLabel: fixtureDate.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }),
-        isoDate: fixture.date,
-        dateKey: buildDateKey(fixtureDate),
-        status: fixture.status.isLive ? "live" : fixture.status.isFinished ? "finished" : "upcoming",
-        venue: fixture.venue?.name || "สนามแข่งขัน",
-      }
-    })
-  }, [allData])
-
-  const dateOptions = useMemo(() => {
-    const grouped = new Map<string, { key: string; date: Date; label: string; sublabel: string; matches: number }>()
-    for (const match of allFixtures) {
-      if (!grouped.has(match.dateKey)) {
-        const date = new Date(match.isoDate)
-        grouped.set(match.dateKey, {
-          key: match.dateKey,
-          date,
-          label: buildDateLabel(date, new Date()),
-          sublabel: dateFormatter.format(date),
-          matches: 0,
-        })
-      }
-      grouped.get(match.dateKey)!.matches += 1
-    }
-
-    return Array.from(grouped.values())
-      .sort((a, b) => a.date.getTime() - b.date.getTime())
-  }, [allFixtures])
-
   const [selectedDateKey, setSelectedDateKey] = useState("")
   const [selectedMatchId, setSelectedMatchId] = useState("")
-  const [activePanel, setActivePanel] = useState<SidePanel>("detail")
+  const [matchFilter, setMatchFilter] = useState<MatchFilter>("all")
+  const [activeTab, setActiveTab] = useState<DetailTab>("overview")
+
+  const allFixtures: MatchItem[] = useMemo(() => {
+    const now = new Date()
+    return (allData?.data || [])
+      .map((fixture: any) => {
+        const fixtureDate = new Date(fixture.date)
+        if (Number.isNaN(fixtureDate.getTime())) return null
+        return {
+          id: String(fixture.id ?? ""),
+          round: fixture.roundNumber || 1,
+          homeTeam: fixture.teams?.home?.name || "Home",
+          awayTeam: fixture.teams?.away?.name || "Away",
+          homeId: String(fixture.teams?.home?.id || ""),
+          awayId: String(fixture.teams?.away?.id || ""),
+          homeLogo: fixture.teams?.home?.logo || "",
+          awayLogo: fixture.teams?.away?.logo || "",
+          homeScore: fixture.goals?.home ?? null,
+          awayScore: fixture.goals?.away ?? null,
+          dateLabel: buildDateLabel(fixtureDate, now),
+          timeLabel: fixtureDate.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }),
+          isoDate: fixture.date,
+          dateKey: buildDateKey(fixtureDate),
+          status: fixture.status?.isLive ? "live" : fixture.status?.isFinished ? "finished" : "upcoming",
+          statusShort: String(fixture.status?.short || ""),
+          elapsed: Number.isFinite(Number(fixture.status?.elapsed)) ? Number(fixture.status.elapsed) : null,
+          venue: fixture.venue?.name || "สนามแข่งขัน",
+        } satisfies MatchItem
+      })
+      .filter(Boolean) as MatchItem[]
+  }, [allData])
+
+  const matchesByDate = useMemo(() => {
+    const grouped = new Map<string, MatchItem[]>()
+    for (const match of allFixtures) {
+      const list = grouped.get(match.dateKey) || []
+      list.push(match)
+      grouped.set(match.dateKey, list)
+    }
+    for (const [key, value] of grouped) {
+      grouped.set(
+        key,
+        value.sort((a, b) => new Date(a.isoDate).getTime() - new Date(b.isoDate).getTime()),
+      )
+    }
+    return grouped
+  }, [allFixtures])
 
   useEffect(() => {
-    if (!dateOptions.length) return
-    if (selectedDateKey && dateOptions.some((item) => item.key === selectedDateKey)) return
-
-    const preferred =
-      dateOptions.find((item) => item.date >= startOfDay(new Date())) ||
-      dateOptions[0]
-
-    setSelectedDateKey(preferred.key)
-  }, [dateOptions, selectedDateKey])
-
-  const selectedDateMatches = useMemo(
-    () =>
-      allFixtures
-        .filter((match) => match.dateKey === selectedDateKey)
-        .sort((a, b) => new Date(a.isoDate).getTime() - new Date(b.isoDate).getTime()),
-    [allFixtures, selectedDateKey],
-  )
+    const dateFromUrl = searchParams.get("date")
+    const matchFromUrl = searchParams.get("match")
+    if (dateFromUrl && parseDateKey(dateFromUrl)) setSelectedDateKey(dateFromUrl)
+    if (matchFromUrl) setSelectedMatchId(matchFromUrl)
+  }, [searchParams])
 
   useEffect(() => {
-    if (!selectedDateMatches.length) return
+    if (selectedDateKey || !allFixtures.length) return
+    const todayKey = buildDateKey(new Date())
+    const today = matchesByDate.has(todayKey) ? todayKey : ""
+    const nextFixture = allFixtures.find((match) => new Date(match.isoDate) >= startOfDay(new Date()))
+    setSelectedDateKey(today || nextFixture?.dateKey || allFixtures[0]?.dateKey || todayKey)
+  }, [allFixtures, matchesByDate, selectedDateKey])
+
+  const selectedDate = parseDateKey(selectedDateKey) || new Date()
+  const selectedDateMatches = matchesByDate.get(selectedDateKey) || []
+  const filteredMatches = selectedDateMatches.filter((match) => matchFilter === "all" || match.status === matchFilter)
+
+  useEffect(() => {
+    if (!selectedDateKey) return
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("date", selectedDateKey)
+    if (selectedMatchId) params.set("match", selectedMatchId)
+    else params.delete("match")
+    const next = `${pathname}?${params.toString()}`
+    const current = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
+    if (next !== current) router.replace(next, { scroll: false })
+  }, [pathname, router, searchParams, selectedDateKey, selectedMatchId])
+
+  useEffect(() => {
+    if (!selectedDateMatches.length) {
+      setSelectedMatchId("")
+      return
+    }
     if (selectedMatchId && selectedDateMatches.some((match) => match.id === selectedMatchId)) return
-
-    const preferredMatch =
+    const preferred =
       selectedDateMatches.find((match) => match.status === "live") ||
       selectedDateMatches.find((match) => match.status === "upcoming") ||
       selectedDateMatches[0]
-
-    setSelectedMatchId(preferredMatch.id)
+    setSelectedMatchId(preferred.id)
   }, [selectedDateMatches, selectedMatchId])
 
   const selectedMatch = selectedDateMatches.find((match) => match.id === selectedMatchId) || selectedDateMatches[0] || null
-
-  const heroStatRows = selectedMatch ? buildStatRows(selectedMatch) : []
-  const selectedDateLabel = dateOptions.find((item) => item.key === selectedDateKey)
-  const liveCount = allFixtures.filter((match) => match.status === "live").length
-  const upcomingCount = allFixtures.filter((match) => match.status === "upcoming").length
-  const finishedCount = allFixtures.filter((match) => match.status === "finished").length
-  const totalMatchesLoaded = allData?.totalMatches || 0
+  const standings = standingsData?.data || []
+  const totalMatchesLoaded = allData?.totalMatches || allFixtures.length
   const expectedMatches = allData?.expectedMatches || 380
-  const availableRounds = allData?.rounds?.available || []
-  const expectedRounds = allData?.rounds?.total || 38
   const isCompleteSeason = Boolean(allData?.isCompleteSeason)
-  const selectedDateIndex = dateOptions.findIndex((item) => item.key === selectedDateKey)
-  const visibleDateStart = selectedDateIndex <= 3 ? 0 : Math.max(0, Math.min(selectedDateIndex - 3, Math.max(0, dateOptions.length - 7)))
-  const visibleDateOptions = dateOptions.slice(visibleDateStart, visibleDateStart + 7)
-  const calendarSelectedDate = selectedDateLabel?.date
-  const enabledCalendarDates = dateOptions.map((item) => item.date)
-  const railMatches = useMemo(() => {
-    const primary = selectedDateMatches
-    const extras = allFixtures.filter((match) => match.dateKey !== selectedDateKey)
-    const sortedExtras = [...extras].sort((a, b) => {
-      const aDiff = Math.abs(new Date(a.isoDate).getTime() - new Date(selectedDateKey || a.dateKey).getTime())
-      const bDiff = Math.abs(new Date(b.isoDate).getTime() - new Date(selectedDateKey || b.dateKey).getTime())
-      return aDiff - bDiff
-    })
 
-    return [...primary, ...sortedExtras].slice(0, 8)
-  }, [allFixtures, selectedDateKey, selectedDateMatches])
-  const standings = (standingsData?.data || []).slice(0, 5)
-  const quickPanelItems: Array<{ key: SidePanel; label: string }> = [
-    { key: "detail", label: "รายละเอียดแมตช์" },
-    { key: "lineup", label: "ไลน์อัป" },
+  const { data: eventsData, isLoading: eventsLoading } = useSWR(
+    selectedMatch ? `/api/football/events/${selectedMatch.id}` : null,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 300000 },
+  )
+  const { data: lineupsData, isLoading: lineupsLoading } = useSWR(
+    selectedMatch ? `/api/football/lineups/${selectedMatch.id}` : null,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 300000 },
+  )
+
+  const events: MatchEvent[] = Array.isArray(eventsData?.data) ? eventsData.data : []
+  const lineups: LineupSide[] = Array.isArray(lineupsData?.data) ? lineupsData.data : []
+  const detailTabs: Array<{ key: DetailTab; label: string }> = [
+    { key: "overview", label: "ภาพรวม" },
+    { key: "events", label: "ไทม์ไลน์" },
     { key: "statistics", label: "สถิติ" },
-    { key: "table", label: "ตารางคะแนน" },
+    { key: "lineups", label: "ไลน์อัพ" },
+    { key: "standings", label: "ตารางคะแนน" },
   ]
 
-  const DateCard = ({ item }: { item: (typeof dateOptions)[number] }) => {
-    const isActive = item.key === selectedDateKey
-    const dayName = item.date.toLocaleDateString("th-TH", { weekday: "short" })
-    const dayNumber = item.date.getDate()
+  useEffect(() => {
+    if (detailTabs.some((item) => item.key === activeTab)) return
+    setActiveTab("overview")
+  }, [activeTab, detailTabs])
 
-    return (
-      <button
-        type="button"
-        onClick={() => setSelectedDateKey(item.key)}
-        className={`flex min-h-[118px] min-w-[78px] flex-col items-center justify-between rounded-[999px] border px-3 py-4 text-center transition-all ${
-          isActive
-            ? "border-lime-300 bg-lime-300 text-slate-950 shadow-[0_16px_40px_rgba(190,242,100,0.35)]"
-            : "border-white/10 bg-white/5 text-white hover:border-lime-300/40 hover:bg-white/10"
-        }`}
-        aria-pressed={isActive}
-      >
-        <div>
-          <p className={`text-lg font-medium ${isActive ? "text-slate-800" : "text-white/78"}`}>{dayName}</p>
-        </div>
-        <div
-          className={`flex h-11 w-11 items-center justify-center rounded-full text-2xl font-semibold ${
-            isActive ? "bg-slate-950 text-white" : "border border-white/10 bg-black/20 text-white"
-          }`}
-        >
-          {dayNumber}
-        </div>
-        <div className={`text-[11px] ${isActive ? "text-slate-700" : "text-white/45"}`}>{item.matches} แมตช์</div>
-      </button>
-    )
+  const dateTabs = useMemo(() => {
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = addDays(selectedDate, index - 3)
+      const key = buildDateKey(date)
+      return {
+        key,
+        date,
+        day: date.toLocaleDateString("th-TH", { weekday: "short" }),
+        label: date.toLocaleDateString("th-TH", { day: "numeric", month: "short" }),
+        matches: matchesByDate.get(key)?.length || 0,
+      }
+    })
+  }, [matchesByDate, selectedDate])
+
+  const selectedDateTitle = fullDateFormatter.format(selectedDate)
+  const liveCount = selectedDateMatches.filter((match) => match.status === "live").length
+  const upcomingCount = selectedDateMatches.filter((match) => match.status === "upcoming").length
+  const finishedCount = selectedDateMatches.filter((match) => match.status === "finished").length
+
+  const changeDate = (date: Date) => {
+    setSelectedDateKey(buildDateKey(date))
+    setSelectedMatchId("")
+    setActiveTab("overview")
   }
 
-  const MatchRailCard = ({ match }: { match: MatchItem }) => {
-    const isActive = selectedMatch?.id === match.id
-    const isSameDay = match.dateKey === selectedDateKey
-    return (
-      <button
-        type="button"
-        onClick={() => {
-          if (!isSameDay) {
-            setSelectedDateKey(match.dateKey)
-          }
-          setSelectedMatchId(match.id)
-        }}
-        className={`min-w-[230px] rounded-[28px] border p-4 text-left transition-all ${
-          isActive
-            ? "border-lime-300 bg-lime-300 text-slate-950 shadow-[0_16px_40px_rgba(190,242,100,0.35)]"
-            : "border-white/10 bg-[#262626] text-white hover:border-lime-300/30 hover:bg-[#2d2d2d]"
-        }`}
-      >
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <Badge className={isActive ? "border-0 bg-slate-950/10 text-slate-800" : "border-0 bg-white/10 text-white/80"}>
-            {isSameDay ? buildStatusLabel(match.status) : match.dateLabel}
-          </Badge>
-          <span className={`text-xs ${isActive ? "text-slate-700" : "text-white/55"}`}>{match.timeLabel}</span>
-        </div>
+  const selectMatch = (match: MatchItem) => {
+    setSelectedDateKey(match.dateKey)
+    setSelectedMatchId(match.id)
+    setActiveTab("overview")
+  }
 
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-          <div className="min-w-0">
-            <div className="mb-2 flex items-center gap-2">
-              {match.homeLogo ? <Image src={match.homeLogo} alt={match.homeTeam} width={28} height={28} className="h-7 w-7 object-contain" /> : <Shield className="h-7 w-7" />}
-              <span className="truncate text-sm font-medium">{match.homeTeam}</span>
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <Navigation />
+
+      <main className="mx-auto max-w-[1540px] px-3 pb-10 pt-24 sm:px-4 md:px-6 lg:px-8 xl:pt-20">
+        <header className="mb-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[20px] border border-border bg-card text-primary shadow-[0_0_28px_rgba(184,255,0,0.08)] md:h-20 md:w-20 md:rounded-[24px]">
+              <Trophy className="h-8 w-8 md:h-10 md:w-10" />
             </div>
-            <div className="mb-2 flex items-center gap-2">
-              {match.awayLogo ? <Image src={match.awayLogo} alt={match.awayTeam} width={28} height={28} className="h-7 w-7 object-contain" /> : <Shield className="h-7 w-7" />}
-              <span className="truncate text-sm font-medium">{match.awayTeam}</span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground">Premier League</p>
+              <h1 className="text-2xl font-black leading-tight tracking-normal text-foreground sm:text-3xl md:text-5xl">โปรแกรมพรีเมียร์ลีก</h1>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground md:mt-2 md:text-base">โปรแกรมและผลการแข่งขัน ฤดูกาล {PREMIER_LEAGUE_DATA_SEASON.labelLong}</p>
             </div>
           </div>
 
-          <div className="px-1 text-center">
-            {match.status === "upcoming" ? (
-              <div className="text-xl font-semibold">พบ</div>
-            ) : (
-              <div className="text-2xl font-bold">
-                {match.homeScore} : {match.awayScore}
-              </div>
+          <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center xl:justify-end">
+            <Button variant="outline" className="h-11 rounded-[14px] border-border bg-card px-3 text-foreground hover:bg-accent-soft sm:h-12 sm:px-4">
+              <CalendarDays className="mr-2 h-4 w-4" />
+              {PREMIER_LEAGUE_DATA_SEASON.labelShort}
+              <ChevronDown className="ml-2 h-4 w-4 text-muted-foreground" />
+            </Button>
+            <Button onClick={() => mutate()} disabled={isLoading} className="h-11 rounded-[14px] bg-primary px-3 font-bold text-primary-foreground hover:bg-primary/90 sm:h-12 sm:px-5">
+              <RefreshCw className={cn("mr-2 h-4 w-4", isLoading && "animate-spin")} />
+              รีเฟรชข้อมูล
+            </Button>
+          </div>
+        </header>
+
+        <section className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-center">
+          <div className="flex min-w-0 flex-1 items-center rounded-[14px] border border-border bg-card p-1 sm:p-2 lg:p-1">
+            <button
+              type="button"
+              onClick={() => changeDate(addDays(selectedDate, -1))}
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] bg-muted text-foreground transition-colors hover:bg-accent-soft"
+              aria-label="วันก่อนหน้า"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto px-1 [scrollbar-width:none] lg:grid lg:grid-cols-7 lg:overflow-hidden [&::-webkit-scrollbar]:hidden">
+              {dateTabs.map((item) => {
+                const active = item.key === selectedDateKey
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => changeDate(item.date)}
+                    className={cn(
+                      "min-h-[58px] min-w-[86px] rounded-[10px] px-2 text-center transition-all sm:min-w-[104px] lg:min-w-0",
+                      active
+                        ? "bg-primary text-primary-foreground shadow-[0_12px_28px_rgba(184,255,0,0.18)]"
+                        : "text-muted-foreground hover:bg-accent-soft hover:text-foreground",
+                    )}
+                    aria-pressed={active}
+                  >
+                    <span className="block text-xs font-semibold">{item.day}</span>
+                    <span className="mt-1 block text-sm font-bold leading-tight">{item.label}</span>
+                    <span className="mt-1 block text-[10px] leading-tight opacity-70">{item.matches ? `${item.matches} แมตช์` : "ไม่มีแมตช์"}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={() => changeDate(addDays(selectedDate, 1))}
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] bg-muted text-foreground transition-colors hover:bg-accent-soft"
+              aria-label="วันถัดไป"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="h-12 w-full rounded-[14px] border-border bg-card px-5 text-foreground hover:bg-accent-soft xl:h-14 xl:w-auto">
+                <CalendarDays className="mr-2 h-4 w-4" />
+                ปฏิทิน
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-auto rounded-[18px] border-border bg-popover p-2 text-popover-foreground">
+              <Calendar mode="single" selected={selectedDate} onSelect={(date) => date && changeDate(date)} className="rounded-[14px]" />
+            </PopoverContent>
+          </Popover>
+        </section>
+
+        {error || allData?.source === "error" ? (
+          <section className="mb-5 rounded-[18px] border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+            โหลดโปรแกรมไม่สำเร็จจากผู้ให้บริการ กรุณาลองรีเฟรชอีกครั้ง
+          </section>
+        ) : null}
+
+        {!isLoading ? (
+          <section
+            className={cn(
+              "mb-5 rounded-[18px] border p-4 text-sm",
+              isCompleteSeason ? "border-primary/25 bg-primary/10 text-foreground" : "border-amber-500/25 bg-amber-500/10 text-foreground",
             )}
-          </div>
+          >
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:flex sm:flex-wrap sm:gap-x-5">
+              <span>โหลดแล้ว {totalMatchesLoaded}/{expectedMatches} แมตช์</span>
+              <span>กำลังแข่งวันนี้ {liveCount}</span>
+              <span>ยังไม่แข่งวันนี้ {upcomingCount}</span>
+              <span>จบแล้ววันนี้ {finishedCount}</span>
+            </div>
+          </section>
+        ) : null}
 
-          <div className={`text-right text-xs ${isActive ? "text-slate-700" : "text-white/60"}`}>
-            <p>รอบ {match.round}</p>
-            <p className="mt-1 truncate">{match.venue}</p>
+        {isLoading ? (
+          <section className="flex min-h-[560px] items-center justify-center rounded-[18px] border border-border bg-card">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-3 text-muted-foreground">กำลังโหลดโปรแกรมการแข่งขัน...</span>
+          </section>
+        ) : (
+          <section className="grid gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
+            <aside className="rounded-[16px] border border-border bg-card p-3">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-bold">การแข่งขันวัน{selectedDateTitle}</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">{selectedDateMatches.length} แมตช์จากข้อมูล provider</p>
+                </div>
+                <Badge className="border-0 bg-primary/15 text-primary">{selectedDateMatches.length} แมตช์</Badge>
+              </div>
+
+              <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+                {[
+                  ["all", "ทั้งหมด"],
+                  ["live", "สด"],
+                  ["upcoming", "ยังไม่แข่ง"],
+                  ["finished", "จบแล้ว"],
+                ].map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setMatchFilter(key as MatchFilter)}
+                    className={cn(
+                      "h-9 shrink-0 rounded-full border px-4 text-sm font-semibold transition-colors",
+                      matchFilter === key ? "border-primary bg-primary text-primary-foreground" : "border-border bg-muted text-muted-foreground hover:bg-accent-soft hover:text-foreground",
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                {filteredMatches.length > 0 ? (
+                  filteredMatches.map((match) => <MatchRow key={match.id} match={match} active={selectedMatch?.id === match.id} onSelect={() => selectMatch(match)} />)
+                ) : (
+                  <div className="flex min-h-[240px] flex-col items-center justify-center rounded-[14px] border border-dashed border-border bg-muted/45 p-6 text-center">
+                    <CalendarDays className="mb-3 h-10 w-10 text-muted-foreground/50" />
+                    <p className="font-semibold">ไม่มีแมตช์ในช่วงที่เลือก</p>
+                    <p className="mt-1 text-sm text-muted-foreground">ลองเปลี่ยนวันหรือเลือกตัวกรองอื่น</p>
+                  </div>
+                )}
+              </div>
+            </aside>
+
+            <section className="min-w-0 rounded-[16px] border border-border bg-card">
+              {selectedMatch ? (
+                <>
+                  <SelectedMatchHeader match={selectedMatch} events={events} />
+
+                  <div className="border-b border-border px-3 md:px-6">
+                    <div className="flex gap-7 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                      {detailTabs.map((item) => (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() => setActiveTab(item.key)}
+                          className={cn(
+                            "relative h-11 shrink-0 text-sm font-bold transition-colors",
+                            activeTab === item.key ? "text-primary" : "text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          {item.label}
+                          {activeTab === item.key ? <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-primary" /> : null}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="p-3 md:p-4">
+                    {activeTab === "overview" ? (
+                      <OverviewPanel
+                        match={selectedMatch}
+                        allFixtures={allFixtures}
+                        events={events}
+                        eventsLoading={eventsLoading}
+                      />
+                    ) : null}
+                    {activeTab === "events" ? <EventsPanel match={selectedMatch} events={events} /> : null}
+                    {activeTab === "statistics" ? <StatisticsPanel match={selectedMatch} events={events} eventsLoading={eventsLoading} /> : null}
+                    {activeTab === "lineups" ? <LineupsPanel match={selectedMatch} lineups={lineups} loading={lineupsLoading} /> : null}
+                    {activeTab === "standings" ? <StandingsPanel standings={standings} selectedMatch={selectedMatch} /> : null}
+                  </div>
+                </>
+              ) : (
+                <div className="flex min-h-[560px] flex-col items-center justify-center p-8 text-center">
+                  <Trophy className="mb-4 h-12 w-12 text-muted-foreground/40" />
+                  <p className="text-lg font-bold">เลือกวันที่มีการแข่งขันเพื่อดูรายละเอียด</p>
+                  <p className="mt-2 max-w-md text-sm text-muted-foreground">วันนี้ยังไม่มีข้อมูลแมตช์จาก provider หน้า detail จึงยังไม่แสดงคู่แข่งขัน</p>
+                </div>
+              )}
+            </section>
+          </section>
+        )}
+      </main>
+
+      <Footer />
+    </div>
+  )
+}
+
+function TeamLogo({ src, name, size = "md", className }: { src?: string; name: string; size?: "sm" | "md" | "lg"; className?: string }) {
+  const dimensions = size === "lg" ? "h-20 w-20" : size === "sm" ? "h-9 w-9" : "h-12 w-12"
+  const imageSize = size === "lg" ? 64 : size === "sm" ? 30 : 42
+
+  return (
+    <div className={cn("flex shrink-0 items-center justify-center rounded-full border border-border bg-muted p-2", dimensions, className)}>
+      {src ? <Image src={src} alt={name} width={imageSize} height={imageSize} className="h-full w-full object-contain" /> : <Shield className="h-1/2 w-1/2 text-muted-foreground" />}
+    </div>
+  )
+}
+
+function MatchRow({ match, active, onSelect }: { match: MatchItem; active: boolean; onSelect: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "w-full rounded-[13px] border p-3 text-left transition-all",
+        active ? "border-primary bg-primary/10 shadow-[0_0_0_1px_rgba(184,255,0,0.15)]" : "border-border bg-muted/35 hover:border-border-strong hover:bg-accent-soft",
+      )}
+    >
+      <div className="grid grid-cols-[54px_1fr_auto] items-center gap-3">
+        <div className="text-[13px]">
+          <p className="font-semibold text-foreground">{match.timeLabel}</p>
+          <Badge className={cn("mt-2 border-0 text-[10px]", buildStatusTone(match.status))}>{buildStatusLabel(match.status)}</Badge>
+          {match.status === "live" && match.elapsed ? <p className="mt-1 text-xs text-primary">{match.elapsed}'</p> : null}
+        </div>
+
+        <div className="min-w-0 space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <TeamLogo src={match.homeLogo} name={match.homeTeam} size="sm" />
+              <span className="truncate font-semibold">{match.homeTeam}</span>
+            </div>
+            <span className="text-base font-black">{match.status === "upcoming" ? "vs" : match.homeScore ?? 0}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <TeamLogo src={match.awayLogo} name={match.awayTeam} size="sm" />
+              <span className="truncate font-semibold">{match.awayTeam}</span>
+            </div>
+            <span className="text-base font-black">{match.status === "upcoming" ? "" : match.awayScore ?? 0}</span>
           </div>
         </div>
-      </button>
+
+        <ChevronRight className={cn("h-5 w-5", active ? "text-primary" : "text-muted-foreground")} />
+      </div>
+      <div className="mt-2.5 flex items-center gap-2 text-xs text-muted-foreground">
+        <MapPin className="h-3.5 w-3.5" />
+        <span className="truncate">{match.venue}</span>
+      </div>
+    </button>
+  )
+}
+
+function SelectedMatchHeader({ match, events }: { match: MatchItem; events: MatchEvent[] }) {
+  const scoringEvents = events.filter((event) => String(event.type || "").toLowerCase().includes("goal")).slice(0, 4)
+
+  return (
+    <div className="relative overflow-hidden border-b border-border p-4 md:p-6">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,hsl(var(--primary)/0.18),transparent_38%),linear-gradient(180deg,hsl(var(--muted)/0.36),transparent)]" />
+      <div className="relative z-10">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Trophy className="h-4 w-4 text-primary" />
+            <span>Premier League {PREMIER_LEAGUE_DATA_SEASON.labelShort}</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <MapPin className="h-4 w-4" />
+            <span>{match.venue}</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-5">
+          <div className="min-w-0 text-center lg:text-right">
+            <TeamLogo src={match.homeLogo} name={match.homeTeam} size="sm" className="mx-auto sm:h-12 sm:w-12 lg:ml-auto lg:mr-0" />
+            <h2 className="mt-2 truncate text-sm font-black sm:text-lg">{match.homeTeam}</h2>
+          </div>
+
+          <div className="text-center">
+            <Badge className={cn("mb-1 border-0 text-[10px] sm:mb-2 sm:text-xs", buildStatusTone(match.status))}>{buildStatusLabel(match.status)}</Badge>
+            {match.status === "live" && match.elapsed ? <p className="text-sm font-semibold text-primary">{match.elapsed}'</p> : null}
+            <div className="mt-1 text-3xl font-black tracking-normal sm:text-4xl md:text-6xl">{formatScore(match)}</div>
+            <p className="mt-2 max-w-[132px] text-xs leading-5 text-muted-foreground sm:max-w-none sm:text-sm">{match.dateLabel} • {match.timeLabel}</p>
+          </div>
+
+          <div className="min-w-0 text-center lg:text-left">
+            <TeamLogo src={match.awayLogo} name={match.awayTeam} size="sm" className="mx-auto sm:h-12 sm:w-12 lg:ml-0 lg:mr-auto" />
+            <h2 className="mt-2 truncate text-sm font-black sm:text-lg">{match.awayTeam}</h2>
+          </div>
+        </div>
+
+        {scoringEvents.length > 0 ? (
+          <div className="mt-6 grid gap-2 text-sm text-muted-foreground md:grid-cols-2">
+            {scoringEvents.map((event, index) => (
+              <div key={`${event.player?.name}-${index}`} className="rounded-[12px] border border-border bg-card/70 px-4 py-3">
+                <span className="font-semibold text-foreground">{event.time?.elapsed ? `${event.time.elapsed}'` : "-"}</span>{" "}
+                {event.player?.name || "Goal"} {event.assist?.name ? <span>(Assist: {event.assist.name})</span> : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function OverviewPanel({
+  match,
+  allFixtures,
+  events,
+  eventsLoading,
+}: {
+  match: MatchItem
+  allFixtures: MatchItem[]
+  events: MatchEvent[]
+  eventsLoading: boolean
+}) {
+  const eventStats = buildEventStatRows(match, events)
+  const recentForms = buildRecentForms(match, allFixtures)
+  const nextMatches = [
+    { team: match.homeTeam, logo: match.homeLogo, match: findNextMatchForTeam(match, allFixtures, match.homeId) },
+    { team: match.awayTeam, logo: match.awayLogo, match: findNextMatchForTeam(match, allFixtures, match.awayId) },
+  ]
+
+  return (
+    <div className="grid gap-3 xl:grid-cols-[0.9fr_1fr_1fr]">
+      <section className="rounded-[14px] border border-border bg-muted/35 p-4">
+        <h3 className="text-base font-black">ข้อมูลการแข่งขัน</h3>
+        <div className="mt-5 space-y-5 text-[13px]">
+          <InfoBlock icon={<Trophy className="h-4 w-4" />} label="การแข่งขัน" value="Premier League" />
+          <InfoBlock icon={<Shield className="h-4 w-4" />} label="ฤดูกาล" value={PREMIER_LEAGUE_DATA_SEASON.labelLong} />
+          <InfoBlock icon={<CalendarDays className="h-4 w-4" />} label="วันที่" value={match.dateLabel} />
+          <InfoBlock icon={<ClockIcon />} label="เวลาแข่งขัน" value={match.timeLabel} />
+          <InfoBlock icon={<MapPin className="h-4 w-4" />} label="สนาม" value={match.venue} />
+          <InfoBlock icon={<UserIcon />} label="ผู้ตัดสิน" value="ไม่มีข้อมูลจากผู้ให้บริการ" muted />
+        </div>
+      </section>
+
+      <section className="rounded-[14px] border border-border bg-muted/35 p-4">
+        <h3 className="text-base font-black">สถิติสำคัญ</h3>
+        <div className="mt-5 space-y-4">
+          {eventsLoading ? (
+            <div className="flex min-h-[190px] items-center justify-center rounded-[12px] border border-border bg-card">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            </div>
+          ) : eventStats.length > 0 ? (
+            eventStats.map((row) => <EventStatBar key={row.label} row={row} />)
+          ) : (
+            <div className="flex min-h-[190px] flex-col items-center justify-center rounded-[12px] border border-dashed border-border bg-card/70 p-5 text-center">
+              <p className="text-sm font-semibold">ยังไม่มีสถิติสำคัญจากผู้ให้บริการ</p>
+              <p className="mt-2 text-sm text-muted-foreground">จะแสดงเฉพาะ goal, card และ substitution ที่ provider ส่งมาเท่านั้น</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <AiPredictionPendingCard match={match} />
+
+        <div className="rounded-[14px] border border-border bg-muted/35 p-4">
+          <h3 className="text-base font-black">ผลงาน 5 นัดล่าสุด</h3>
+          <div className="mt-5 space-y-4">
+            <FormRow team={match.homeTeam} logo={match.homeLogo} form={recentForms.home} />
+            <FormRow team={match.awayTeam} logo={match.awayLogo} form={recentForms.away} />
+          </div>
+        </div>
+
+        <div className="rounded-[14px] border border-border bg-muted/35 p-4">
+          <h3 className="text-base font-black">แมตช์ถัดไป</h3>
+          <div className="mt-4 space-y-3">
+            {nextMatches.map((item) => (
+              <NextMatchCard key={item.team} team={item.team} logo={item.logo} match={item.match} />
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function ClockIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  )
+}
+
+function UserIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
+    </svg>
+  )
+}
+
+function InfoBlock({ icon, label, value, muted = false }: { icon: ReactNode; label: string; value: string; muted?: boolean }) {
+  return (
+    <div className="grid grid-cols-[22px_1fr] gap-3">
+      <span className="mt-0.5 text-muted-foreground">{icon}</span>
+      <div>
+        <p className="text-muted-foreground">{label}</p>
+        <p className={cn("mt-1 font-semibold leading-6", muted ? "text-muted-foreground" : "text-foreground")}>{value}</p>
+      </div>
+    </div>
+  )
+}
+
+function AiPredictionPendingCard({ match }: { match: MatchItem }) {
+  return (
+    <div className="rounded-[14px] border border-primary/25 bg-primary/10 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-base font-black">AI ทำนายผล</h3>
+          <p className="mt-1 text-xs text-muted-foreground">รอผลวิเคราะห์จากระบบ</p>
+        </div>
+        <Badge className="border-0 bg-primary/20 text-primary">Pending</Badge>
+      </div>
+      <div className="mt-4 rounded-[12px] border border-border bg-card/70 p-3 text-sm leading-6 text-muted-foreground">
+        AI จะเติมผลทำนายสำหรับ {match.homeTeam} vs {match.awayTeam} เมื่อข้อมูลจาก provider และโมเดลพร้อมใช้งาน
+      </div>
+    </div>
+  )
+}
+
+function buildEventStatRows(match: MatchItem, events: MatchEvent[]) {
+  if (!events.length) return []
+
+  const rows = [
+    { label: "ประตู", home: 0, away: 0 },
+    { label: "ใบเหลือง", home: 0, away: 0 },
+    { label: "ใบแดง", home: 0, away: 0 },
+    { label: "เปลี่ยนตัว", home: 0, away: 0 },
+  ]
+
+  for (const event of events) {
+    const side = getEventTeamSide(event, match)
+    if (side === "neutral") continue
+    const type = String(event.type || "").toLowerCase()
+    const detail = String(event.detail || "").toLowerCase()
+    const target =
+      type.includes("goal")
+        ? rows[0]
+        : detail.includes("red")
+          ? rows[2]
+          : type.includes("card") || detail.includes("yellow")
+            ? rows[1]
+            : type.includes("subst")
+              ? rows[3]
+              : null
+
+    if (!target) continue
+    target[side] += 1
+  }
+
+  return rows.filter((row) => row.home > 0 || row.away > 0)
+}
+
+function EventStatBar({ row }: { row: { label: string; home: number; away: number } }) {
+  const total = Math.max(row.home + row.away, 1)
+  const homePercent = Math.round((row.home / total) * 100)
+  const awayPercent = 100 - homePercent
+
+  return (
+    <div>
+      <div className="mb-2 grid grid-cols-[52px_1fr_52px] items-center gap-4 text-sm">
+        <span className="text-lg font-black">{row.home}</span>
+        <span className="text-center font-semibold text-muted-foreground">{row.label}</span>
+        <span className="text-right text-lg font-black">{row.away}</span>
+      </div>
+      <div className="grid grid-cols-[1fr_1fr] overflow-hidden rounded-full bg-muted">
+        <div className="flex justify-end bg-primary/20">
+          <div className="h-2 rounded-full bg-primary" style={{ width: `${Math.max(homePercent, row.home ? 12 : 0)}%` }} />
+        </div>
+        <div className="bg-foreground/10">
+          <div className="h-2 rounded-full bg-foreground/70" style={{ width: `${Math.max(awayPercent, row.away ? 12 : 0)}%` }} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function getTeamResult(match: MatchItem, teamId: string) {
+  if (match.status !== "finished" || match.homeScore == null || match.awayScore == null) return null
+  const isHome = match.homeId === teamId
+  const teamScore = isHome ? match.homeScore : match.awayScore
+  const opponentScore = isHome ? match.awayScore : match.homeScore
+  if (teamScore > opponentScore) return "W"
+  if (teamScore < opponentScore) return "L"
+  return "D"
+}
+
+function buildRecentForms(match: MatchItem, fixtures: MatchItem[]) {
+  const collect = (teamId: string) =>
+    fixtures
+      .filter((fixture) => fixture.id !== match.id && fixture.status === "finished" && (fixture.homeId === teamId || fixture.awayId === teamId))
+      .sort((left, right) => new Date(right.isoDate).getTime() - new Date(left.isoDate).getTime())
+      .map((fixture) => getTeamResult(fixture, teamId))
+      .filter(Boolean)
+      .slice(0, 5) as Array<"W" | "D" | "L">
+
+  return {
+    home: collect(match.homeId),
+    away: collect(match.awayId),
+  }
+}
+
+function FormRow({ team, logo, form }: { team: string; logo: string; form: Array<"W" | "D" | "L"> }) {
+  return (
+    <div className="grid grid-cols-[52px_1fr] items-center gap-4">
+      <TeamLogo src={logo} name={team} size="md" />
+      <div className="min-w-0">
+        <p className="truncate font-bold">{team}</p>
+        {form.length > 0 ? (
+          <div className="mt-3 flex gap-2">
+            {form.map((item, index) => (
+              <span
+                key={`${team}-${item}-${index}`}
+                className={cn(
+                  "flex h-7 w-7 items-center justify-center rounded-[7px] text-xs font-black text-white",
+                  item === "W" ? "bg-green-600" : item === "D" ? "bg-yellow-500 text-slate-950" : "bg-red-600",
+                )}
+              >
+                {item}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-muted-foreground">ไม่มีข้อมูลฟอร์มล่าสุด</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function findNextMatchForTeam(match: MatchItem, fixtures: MatchItem[], teamId: string) {
+  const selectedTime = new Date(match.isoDate).getTime()
+  return (
+    fixtures
+      .filter((fixture) => fixture.id !== match.id && fixture.status === "upcoming")
+      .filter((fixture) => fixture.homeId === teamId || fixture.awayId === teamId)
+      .sort((left, right) => Math.abs(new Date(left.isoDate).getTime() - selectedTime) - Math.abs(new Date(right.isoDate).getTime() - selectedTime))[0] || null
+  )
+}
+
+function NextMatchCard({ team, logo, match }: { team: string; logo: string; match: MatchItem | null }) {
+  if (!match) {
+    return (
+      <div className="rounded-[12px] border border-dashed border-border bg-card/70 p-3">
+        <div className="flex items-center gap-3">
+          <TeamLogo src={logo} name={team} size="sm" />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold">{team}</p>
+            <p className="mt-1 text-xs text-muted-foreground">ยังไม่มีแมตช์ถัดไปจากข้อมูล provider</p>
+          </div>
+        </div>
+      </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#1f1f1f] text-white">
-      <Navigation />
+    <div className="rounded-[12px] border border-border bg-card p-3">
+      <p className="mb-3 truncate text-xs font-semibold text-muted-foreground">ถัดไปของ {team}</p>
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-center">
+        <div className="flex justify-center">
+          <TeamLogo src={match.homeLogo} name={match.homeTeam} size="sm" />
+        </div>
+        <div className="text-xs font-black uppercase text-muted-foreground">
+          {match.homeTeam.slice(0, 3)} <span className="mx-1.5 text-foreground">vs</span> {match.awayTeam.slice(0, 3)}
+        </div>
+        <div className="flex justify-center">
+          <TeamLogo src={match.awayLogo} name={match.awayTeam} size="sm" />
+        </div>
+      </div>
+      <p className="mt-3 text-center text-sm font-semibold">{match.dateLabel}</p>
+      <p className="mt-1 text-center text-xs text-muted-foreground">{match.timeLabel}</p>
+      <p className="mt-2 truncate text-center text-xs text-muted-foreground">{match.venue}</p>
+    </div>
+  )
+}
 
-      <main className="pb-10 pt-16">
-        <section className="border-b border-white/10 bg-[#1f1f1f]">
-          <div className="mx-auto max-w-[1400px] px-4 py-6">
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-lime-300 text-slate-950">
-                  <CalendarDays className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-sm text-white/55">ศูนย์รวมแมตช์</p>
-                  <h1 className="text-2xl font-semibold md:text-3xl">โปรแกรมพรีเมียร์ลีก</h1>
-                </div>
-              </div>
+function EventsPanel({ match, events }: { match: MatchItem; events: MatchEvent[] }) {
+  if (!events.length) {
+    return (
+      <EmptyDetailState
+        title="ยังไม่มีไทม์ไลน์จากผู้ให้บริการ"
+        description="เหตุการณ์จะปรากฏเมื่อ provider ส่ง goal, card หรือ substitution สำหรับแมตช์นี้"
+      />
+    )
+  }
 
-              <div className="flex items-center gap-2">
-                <Badge className="border-0 bg-lime-300 text-slate-950">{PREMIER_LEAGUE_DATA_SEASON.labelShort}</Badge>
-                <Button variant="outline" size="sm" onClick={() => mutate()} disabled={isLoading} className="border-white/15 bg-transparent text-white hover:bg-white/10 hover:text-white">
-                  <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-                  รีเฟรช
-                </Button>
-              </div>
+  return (
+    <div className="space-y-3">
+      {events.map((event, index) => {
+        const side = getEventTeamSide(event, match)
+        return (
+          <div key={`${event.time?.elapsed}-${event.player?.name}-${index}`} className="grid grid-cols-[72px_1fr_72px] items-center gap-3 rounded-[14px] border border-border bg-muted/35 p-4">
+            <div className="font-bold text-primary">{event.time?.elapsed ? `${event.time.elapsed}'` : "-"}</div>
+            <div className={cn("rounded-[12px] border border-border bg-card p-3", side === "away" && "text-right")}>
+              <p className="font-semibold">
+                <span className="mr-2">{normalizeEventType(event.type)}</span>
+                {event.player?.name || event.detail || event.type || "Match event"}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">{event.team?.name || "Provider event"}{event.assist?.name ? ` • ${event.assist.name}` : ""}</p>
             </div>
+            <div className="text-right text-xs text-muted-foreground">{side === "home" ? match.homeTeam : side === "away" ? match.awayTeam : ""}</div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
-            {!isLoading ? (
-              <div className={`mb-5 rounded-2xl border px-4 py-3 text-sm ${isCompleteSeason ? "border-lime-300/30 bg-lime-300/10 text-white" : "border-amber-400/25 bg-amber-400/10 text-white/88"}`}>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                  <span>ฤดูกาล {PREMIER_LEAGUE_DATA_SEASON.labelLong}</span>
-                  <span>โหลดแล้ว {totalMatchesLoaded}/{expectedMatches} แมตช์</span>
-                  <span>มีแล้ว {availableRounds.length}/{expectedRounds} สัปดาห์แข่งขัน</span>
-                  <span>{isCompleteSeason ? "โปรแกรมครบทั้งฤดูกาลแล้ว" : "แหล่งข้อมูลยังไม่ครบ 380 แมตช์"}</span>
-                </div>
+function StatisticsPanel({ match, events, eventsLoading }: { match: MatchItem; events: MatchEvent[]; eventsLoading: boolean }) {
+  const eventStats = buildEventStatRows(match, events)
+
+  if (eventsLoading) {
+    return (
+      <div className="flex min-h-[260px] items-center justify-center rounded-[14px] border border-border bg-muted/35">
+        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (!eventStats.length) {
+    return (
+      <EmptyDetailState
+        title="ยังไม่มีสถิติจากผู้ให้บริการ"
+        description="หน้านี้ไม่สร้าง possession, shots หรือ xG ปลอม จะแสดงเฉพาะข้อมูลจริงที่ provider ส่งมา"
+      />
+    )
+  }
+
+  return (
+    <div className="mx-auto max-w-2xl rounded-[14px] border border-border bg-muted/35 p-5">
+      <h3 className="text-base font-black">สถิติจากเหตุการณ์จริง</h3>
+      <div className="mt-5 space-y-4">
+        {eventStats.map((row) => (
+          <EventStatBar key={row.label} row={row} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function LineupsPanel({ match, lineups, loading }: { match: MatchItem; lineups: LineupSide[]; loading: boolean }) {
+  if (loading) {
+    return (
+      <div className="flex min-h-[260px] items-center justify-center rounded-[14px] border border-border bg-muted/35">
+        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (!lineups.length) {
+    return (
+      <EmptyDetailState
+        title="ยังไม่มีไลน์อัพจากผู้ให้บริการ"
+        description="เมื่อ provider มี formation, starting XI หรือ substitutes ระบบจะแสดงในหมวดนี้"
+      />
+    )
+  }
+
+  const sides = [
+    { team: match.homeTeam, logo: match.homeLogo, data: lineups[0] },
+    { team: match.awayTeam, logo: match.awayLogo, data: lineups[1] },
+  ]
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      {sides.map((side) => (
+        <div key={side.team} className="rounded-[16px] border border-border bg-muted/35 p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <TeamLogo src={side.logo} name={side.team} size="sm" />
+              <div>
+                <h3 className="font-bold">{side.team}</h3>
+                <p className="text-sm text-muted-foreground">{side.data?.formation || "ไม่มีข้อมูลแผนการเล่น"}</p>
               </div>
-            ) : null}
-
-            <div className="flex items-center gap-3 overflow-x-auto pb-1">
-              {isLoading
-                ? Array.from({ length: 7 }).map((_, index) => (
-                    <Card key={index} className="min-w-[78px] rounded-[999px] border-white/10 bg-white/5">
-                      <CardContent className="h-[118px] animate-pulse p-4" />
-                    </Card>
-                  ))
-                : visibleDateOptions.map((item) => <DateCard key={item.key} item={item} />)}
-              {!isLoading && dateOptions.length > 0 ? (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      className="flex min-h-[118px] min-w-[78px] flex-col items-center justify-center rounded-[999px] border border-white/10 bg-white/5 px-3 py-4 text-center text-white transition-all hover:border-lime-300/40 hover:bg-white/10"
-                      aria-label="เปิดปฏิทินแมตช์"
-                    >
-                      <CalendarDays className="h-6 w-6 text-lime-300" />
-                      <span className="mt-3 text-xs text-white/65">ปฏิทิน</span>
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent align="end" className="w-auto rounded-3xl border-white/10 bg-[#262626] p-2 text-white">
-                    <Calendar
-                      mode="single"
-                      selected={calendarSelectedDate}
-                      onSelect={(date) => {
-                        if (!date) return
-                        const key = buildDateKey(date)
-                        const matched = dateOptions.find((item) => item.key === key)
-                        if (matched) {
-                          setSelectedDateKey(matched.key)
-                        }
-                      }}
-                      disabled={(date) => !enabledCalendarDates.some((item) => item.toDateString() === date.toDateString())}
-                      className="rounded-2xl bg-transparent text-white"
-                      classNames={{
-                        month_caption: "text-white",
-                        caption_label: "text-white",
-                        weekday: "text-white/55",
-                        outside: "text-white/25",
-                        disabled: "text-white/20 opacity-100",
-                      }}
-                    />
-                  </PopoverContent>
-                </Popover>
-              ) : null}
             </div>
           </div>
-        </section>
-
-        <section className="mx-auto max-w-[1400px] px-4 py-6">
-          {isLoading ? (
-            <Card className="rounded-[32px] border-white/10 bg-[#262626]">
-              <CardContent className="flex min-h-[520px] items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-lime-300" />
-                <span className="ml-3 text-white/70">กำลังโหลดโปรแกรมการแข่งขัน...</span>
-              </CardContent>
-            </Card>
-          ) : !selectedMatch ? (
-            <Card className="rounded-[32px] border-white/10 bg-[#262626]">
-              <CardContent className="flex min-h-[420px] flex-col items-center justify-center text-center">
-                <CalendarDays className="mb-4 h-12 w-12 text-white/30" />
-                <p className="text-lg font-medium">ไม่มีแมตช์ในวันที่เลือก</p>
-                <p className="mt-2 max-w-md text-sm text-white/55">ลองเลือกวันอื่นจากแถบวันที่ด้านบน เพื่อดูโปรแกรมและเลือกแมตช์ที่ต้องการ</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <>
-              <div className="overflow-hidden rounded-[36px] border border-white/10 bg-[#262626]">
-                <div className="grid xl:grid-cols-[1.35fr_0.75fr]">
-                  <div className="relative overflow-hidden p-6 md:p-8">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(190,242,100,0.12),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.06),transparent_25%)]" />
-                    <div className="relative z-10">
-                      <div className="mb-6 flex flex-wrap items-center gap-3">
-                        <Badge className="border-0 bg-lime-300 text-slate-950">{buildStatusLabel(selectedMatch.status)}</Badge>
-                        <Badge variant="outline" className="border-white/15 bg-transparent text-white/75">
-                          รอบ {selectedMatch.round}
-                        </Badge>
-                        <span className="text-sm text-white/55">{selectedDateLabel?.label || selectedMatch.dateLabel}</span>
-                      </div>
-
-                      <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-                        <div className="space-y-6">
-                          <div>
-                            <h2 className="max-w-xl text-4xl font-semibold leading-tight md:text-6xl">
-                              เลือกดูฟุตบอล
-                              <span className="text-lime-300"> แบบครบทุกแมตช์</span>
-                            </h2>
-                            <p className="mt-4 max-w-xl text-sm leading-7 text-white/65 md:text-base">
-                              เลือกวันก่อน แล้วค่อยสลับไปดูคู่ที่สนใจได้ทันทีจากแถบแมตช์ด้านล่าง โดยไม่ต้องออกจากหน้านี้
-                            </p>
-                          </div>
-
-                          <div className="rounded-[30px] border border-white/10 bg-black/20 p-5">
-                            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-                              <div className="text-center">
-                                <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-white/5 p-3">
-                                  {selectedMatch.homeLogo ? (
-                                    <Image src={selectedMatch.homeLogo} alt={selectedMatch.homeTeam} width={56} height={56} className="h-14 w-14 object-contain" />
-                                  ) : (
-                                    <Shield className="h-12 w-12 text-white/50" />
-                                  )}
-                                </div>
-                                <p className="text-lg font-semibold">{selectedMatch.homeTeam}</p>
-                              </div>
-
-                              <div className="text-center">
-                                {selectedMatch.status === "upcoming" ? (
-                                  <>
-                                    <p className="text-sm text-white/55">{selectedMatch.timeLabel}</p>
-                                    <p className="mt-1 text-4xl font-semibold text-lime-300">พบ</p>
-                                  </>
-                                ) : (
-                                  <>
-                                    <p className="text-sm text-white/55">{selectedMatch.timeLabel}</p>
-                                    <div className="mt-1 flex items-center gap-3 text-5xl font-semibold">
-                                      <span>{selectedMatch.homeScore}</span>
-                                      <span className="text-white/35">:</span>
-                                      <span>{selectedMatch.awayScore}</span>
-                                    </div>
-                                  </>
-                                )}
-                              </div>
-
-                              <div className="text-center">
-                                <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-white/5 p-3">
-                                  {selectedMatch.awayLogo ? (
-                                    <Image src={selectedMatch.awayLogo} alt={selectedMatch.awayTeam} width={56} height={56} className="h-14 w-14 object-contain" />
-                                  ) : (
-                                    <Shield className="h-12 w-12 text-white/50" />
-                                  )}
-                                </div>
-                                <p className="text-lg font-semibold">{selectedMatch.awayTeam}</p>
-                              </div>
-                            </div>
-
-                            <div className="mt-5 flex flex-wrap items-center justify-center gap-4 border-t border-white/10 pt-4 text-sm text-white/55">
-                              <span className="inline-flex items-center gap-2">
-                                <Clock3 className="h-4 w-4" />
-                                {selectedMatch.dateLabel} • {selectedMatch.timeLabel}
-                              </span>
-                              <span className="inline-flex items-center gap-2">
-                                <MapPin className="h-4 w-4" />
-                                {selectedMatch.venue}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="relative min-h-[360px] overflow-hidden rounded-[34px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))]">
-                          <div className="absolute inset-0 flex items-end justify-center gap-4 px-4">
-                            <div className="relative h-[85%] w-[46%]">
-                              {selectedMatch.homeLogo ? (
-                                <Image src={selectedMatch.homeLogo} alt={selectedMatch.homeTeam} fill className="object-contain opacity-90 drop-shadow-[0_20px_40px_rgba(0,0,0,0.45)]" />
-                              ) : null}
-                            </div>
-                            <div className="relative h-[85%] w-[46%]">
-                              {selectedMatch.awayLogo ? (
-                                <Image src={selectedMatch.awayLogo} alt={selectedMatch.awayTeam} fill className="object-contain opacity-90 drop-shadow-[0_20px_40px_rgba(0,0,0,0.45)]" />
-                              ) : null}
-                            </div>
-                          </div>
-                          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#262626] to-transparent" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <aside className="border-t border-white/10 bg-[#202020] p-6 xl:border-l xl:border-t-0">
-                    <div className="space-y-3">
-                      {quickPanelItems.map((item) => (
-                        <button
-                          key={item.key}
-                          type="button"
-                          onClick={() => setActivePanel(item.key)}
-                          className={`h-12 w-full rounded-full border px-4 py-3 text-center text-sm transition-colors ${
-                            activePanel === item.key
-                              ? "border-lime-300 bg-lime-300 text-slate-950"
-                              : "border-white/10 text-white/80 hover:border-lime-300/30 hover:bg-white/5"
-                          }`}
-                        >
-                          {item.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="mt-8 rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
-                      {activePanel === "detail" ? (
-                        <div className="space-y-5">
-                          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                            <p className="text-xs uppercase tracking-[0.18em] text-white/45">แมตช์ที่เลือก</p>
-                            <div className="mt-4 flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-3">
-                                {selectedMatch.homeLogo ? <Image src={selectedMatch.homeLogo} alt={selectedMatch.homeTeam} width={38} height={38} className="h-9 w-9 object-contain" /> : <Shield className="h-9 w-9" />}
-                                <span className="text-sm font-medium">{selectedMatch.homeTeam}</span>
-                              </div>
-                              <div className="text-lg font-semibold">{selectedMatch.status === "upcoming" ? "พบ" : `${selectedMatch.homeScore} : ${selectedMatch.awayScore}`}</div>
-                              <div className="flex items-center gap-3">
-                                <span className="text-sm font-medium">{selectedMatch.awayTeam}</span>
-                                {selectedMatch.awayLogo ? <Image src={selectedMatch.awayLogo} alt={selectedMatch.awayTeam} width={38} height={38} className="h-9 w-9 object-contain" /> : <Shield className="h-9 w-9" />}
-                              </div>
-                            </div>
-                            <div className="mt-4 grid gap-3 text-sm text-white/60">
-                              <div className="flex items-center justify-between">
-                                <span>เวลาแข่ง</span>
-                                <span className="text-white">{selectedMatch.timeLabel}</span>
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <span>สนาม</span>
-                                <span className="text-white">{selectedMatch.venue}</span>
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <span>รอบ</span>
-                                <span className="text-white">รอบ {selectedMatch.round}</span>
-                              </div>
-                            </div>
-                          </div>
-                          <Link href={`/matches/${selectedMatch.id}`} className="block">
-                            <Button className="h-11 w-full rounded-full bg-lime-300 text-slate-950 hover:bg-lime-200">เปิดหน้ารายละเอียดแมตช์</Button>
-                          </Link>
-                        </div>
-                      ) : null}
-
-                      {activePanel === "lineup" ? (
-                        <div className="space-y-3">
-                          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                            <p className="text-xs uppercase tracking-[0.18em] text-white/45">ภาพรวมแมตช์</p>
-                            <div className="mt-4 space-y-3">
-                              <div className="flex items-center justify-between rounded-xl border border-white/10 px-3 py-3">
-                                <span className="text-sm text-white/65">สถานะ</span>
-                                <Badge className="border-0 bg-lime-300 text-slate-950">{buildStatusLabel(selectedMatch.status)}</Badge>
-                              </div>
-                              <div className="flex items-center justify-between rounded-xl border border-white/10 px-3 py-3">
-                                <span className="text-sm text-white/65">วันที่</span>
-                                <span className="text-sm text-white">{selectedMatch.dateLabel}</span>
-                              </div>
-                              <div className="flex items-center justify-between rounded-xl border border-white/10 px-3 py-3">
-                                <span className="text-sm text-white/65">เวลาแข่ง</span>
-                                <span className="text-sm text-white">{selectedMatch.timeLabel}</span>
-                              </div>
-                            </div>
-                          </div>
-                          <p className="text-xs leading-6 text-white/45">ถ้าต้องการดูไลน์อัปและรายละเอียดเต็มแบบเจาะลึก ให้กด `รายละเอียดแมตช์` เพื่อไปยังหน้ารายละเอียดแมตช์</p>
-                        </div>
-                      ) : null}
-
-                      {activePanel === "statistics" ? (
-                        <div className="space-y-5">
-                          <div className="mb-5 flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                              {selectedMatch.homeLogo ? <Image src={selectedMatch.homeLogo} alt={selectedMatch.homeTeam} width={38} height={38} className="h-9 w-9 object-contain" /> : <Shield className="h-9 w-9" />}
-                              <span className="text-sm font-medium">{selectedMatch.homeTeam}</span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm font-medium">{selectedMatch.awayTeam}</span>
-                              {selectedMatch.awayLogo ? <Image src={selectedMatch.awayLogo} alt={selectedMatch.awayTeam} width={38} height={38} className="h-9 w-9 object-contain" /> : <Shield className="h-9 w-9" />}
-                            </div>
-                          </div>
-
-                          <div className="space-y-4">
-                            {heroStatRows.map((row) => (
-                              <div key={row.label}>
-                                <div className="mb-1 flex items-center justify-between text-xs text-white/60">
-                                  <span>{row.home}%</span>
-                                  <span>{row.label}</span>
-                                  <span>{row.away}%</span>
-                                </div>
-                                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-                                  <div className="h-2 overflow-hidden rounded-full bg-white/10">
-                                    <div className="h-full rounded-full bg-lime-300" style={{ width: `${row.home}%` }} />
-                                  </div>
-                                  <div className="h-2 w-2 rounded-full bg-white/30" />
-                                  <div className="h-2 overflow-hidden rounded-full bg-white/10">
-                                    <div className="ml-auto h-full rounded-full bg-lime-300" style={{ width: `${row.away}%` }} />
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-
-                      {activePanel === "table" ? (
-                        <div className="space-y-3">
-                          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                            <p className="text-xs uppercase tracking-[0.18em] text-white/45">อันดับบนตาราง</p>
-                            <div className="mt-4 space-y-2">
-                              {standings.length > 0 ? (
-                                standings.map((team: any) => (
-                                  <Link
-                                    key={team.team.id}
-                                    href="/standings"
-                                    className="flex items-center justify-between rounded-xl border border-white/10 px-3 py-3 text-sm hover:border-lime-300/30 hover:bg-white/5"
-                                  >
-                                    <div className="flex items-center gap-3">
-                                      <span className="w-5 text-white/55">{team.rank}</span>
-                                      {team.team.logo ? <Image src={team.team.logo} alt={team.team.name} width={24} height={24} className="h-6 w-6 object-contain" /> : <Shield className="h-6 w-6" />}
-                                      <span>{team.team.name}</span>
-                                    </div>
-                                    <span className="font-semibold text-lime-300">{team.points} แต้ม</span>
-                                  </Link>
-                                ))
-                              ) : (
-                                <p className="text-sm text-white/55">ยังไม่มีข้อมูลตารางคะแนน</p>
-                              )}
-                            </div>
-                          </div>
-                          <Link href="/standings" className="block">
-                            <Button variant="outline" className="h-11 w-full rounded-full border-white/10 bg-transparent text-white hover:bg-white/5 hover:text-white">
-                              เปิดตารางคะแนนเต็ม
-                            </Button>
-                          </Link>
-                        </div>
-                      ) : null}
-
-                      <div className="mt-6 grid gap-3">
-                        <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                          <p className="text-xs uppercase tracking-[0.18em] text-white/45">วันที่ที่เลือก</p>
-                          <p className="mt-2 text-base font-semibold">{selectedDateLabel?.label}</p>
-                          <p className="mt-1 text-sm text-white/55">{selectedDateLabel?.sublabel}</p>
-                        </div>
-                        <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                          <p className="text-xs uppercase tracking-[0.18em] text-white/45">สรุปด่วน</p>
-                          <div className="mt-3 grid grid-cols-3 gap-3 text-center">
-                            <div>
-                              <p className="text-lg font-semibold text-lime-300">{liveCount}</p>
-                              <p className="text-xs text-white/55">กำลังแข่ง</p>
-                            </div>
-                            <div>
-                              <p className="text-lg font-semibold text-lime-300">{upcomingCount}</p>
-                              <p className="text-xs text-white/55">ยังไม่แข่ง</p>
-                            </div>
-                            <div>
-                              <p className="text-lg font-semibold text-lime-300">{finishedCount}</p>
-                              <p className="text-xs text-white/55">จบแล้ว</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </aside>
-                </div>
+          {side.data?.coach?.name ? <p className="mb-4 text-sm text-muted-foreground">Manager: {side.data.coach.name}</p> : null}
+          <div className="space-y-2">
+            {(side.data?.startXI || []).slice(0, 11).map((item, index) => (
+              <div key={`${item.player?.name}-${index}`} className="flex items-center justify-between rounded-[10px] border border-border bg-card px-3 py-2 text-sm">
+                <span>{item.player?.name || "Player"}</span>
+                <span className="text-muted-foreground">{item.player?.pos || "-"}</span>
               </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
-              <div className="mt-6 rounded-[34px] border border-white/10 bg-[#3a3a3a] px-4 py-5">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm text-white/55">เลือกแมตช์ประจำวันและคู่ใกล้เคียง</p>
-                    <h3 className="text-xl font-semibold">{selectedDateLabel?.label || "โปรแกรมแข่งขัน"}</h3>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-white/50">
-                    <ChevronLeft className="h-4 w-4" />
-                    เลื่อนดู
-                    <ChevronRight className="h-4 w-4" />
-                  </div>
-                </div>
+function EmptyDetailState({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="flex min-h-[260px] flex-col items-center justify-center rounded-[14px] border border-dashed border-border bg-muted/35 p-6 text-center">
+      <p className="text-base font-bold">{title}</p>
+      <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">{description}</p>
+    </div>
+  )
+}
 
-                <div className="flex gap-4 overflow-x-auto pb-2">
-                  {railMatches.map((match) => (
-                    <MatchRailCard key={match.id} match={match} />
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-6 grid gap-4 md:grid-cols-3">
-                <Card className="rounded-[28px] border-white/10 bg-[#262626] text-white">
-                  <CardContent className="p-6">
-                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-lime-300/15 text-lime-300">
-                      <Sparkles className="h-5 w-5" />
-                    </div>
-                    <h4 className="text-lg font-semibold">เลือกดูตามวัน</h4>
-                    <p className="mt-2 text-sm leading-7 text-white/60">เลือกวันจากแถบด้านบน แล้วระบบจะสลับแมตช์ทั้งหมดของวันนั้นให้ทันที</p>
-                  </CardContent>
-                </Card>
-
-                <Card className="rounded-[28px] border-white/10 bg-[#262626] text-white">
-                  <CardContent className="p-6">
-                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-lime-300/15 text-lime-300">
-                      <Clock3 className="h-5 w-5" />
-                    </div>
-                    <h4 className="text-lg font-semibold">สลับคู่ได้เร็ว</h4>
-                    <p className="mt-2 text-sm leading-7 text-white/60">เปลี่ยนคู่ดูต่อจากแถบด้านล่างได้เลย ไม่ต้องรีเฟรชหน้าและไม่ต้องย้อนกลับ</p>
-                  </CardContent>
-                </Card>
-
-                <Card className="rounded-[28px] border-white/10 bg-[#262626] text-white">
-                  <CardContent className="p-6">
-                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-lime-300/15 text-lime-300">
-                      <Trophy className="h-5 w-5" />
-                    </div>
-                    <h4 className="text-lg font-semibold">ต่อไปหน้าลึกได้ทันที</h4>
-                    <p className="mt-2 text-sm leading-7 text-white/60">ถ้าต้องการข้อมูลเชิงลึกเพิ่มเติม ค่อยกด `รายละเอียดแมตช์` ไปยังหน้ารายละเอียดของคู่ที่เลือก</p>
-                  </CardContent>
-                </Card>
-              </div>
-            </>
-          )}
-        </section>
-      </main>
-
-      <Footer />
+function StandingsPanel({ standings, selectedMatch }: { standings: any[]; selectedMatch: MatchItem }) {
+  return (
+    <div className="overflow-hidden rounded-[16px] border border-border">
+      {standings.slice(0, 12).map((item: any) => {
+        const active = String(item?.team?.id || "") === selectedMatch.homeId || String(item?.team?.id || "") === selectedMatch.awayId
+        return (
+          <Link
+            key={item.team.id}
+            href="/standings"
+            className={cn("grid grid-cols-[44px_1fr_auto_auto] items-center gap-3 border-b border-border px-4 py-3 text-sm last:border-0 hover:bg-accent-soft", active && "bg-primary/10")}
+          >
+            <span className="font-semibold text-muted-foreground">{item.rank}</span>
+            <span className="flex min-w-0 items-center gap-3">
+              <TeamLogo src={item.team.logo} name={item.team.name} size="sm" />
+              <span className="truncate font-semibold">{item.team.name}</span>
+            </span>
+            <span className="text-muted-foreground">{item.all?.played || 0} นัด</span>
+            <span className="font-black text-primary">{item.points} แต้ม</span>
+          </Link>
+        )
+      })}
     </div>
   )
 }
