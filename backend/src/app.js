@@ -7,6 +7,7 @@ const morgan = require("morgan")
 
 const { env } = require("./config/env")
 const apiRoutes = require("./routes")
+const predictionWorkflowRoutes = require("./routes/prediction-workflow.routes")
 const { errorHandler } = require("./middleware/error-handler")
 const { notFound } = require("./middleware/not-found")
 
@@ -33,8 +34,9 @@ app.use(cookieParser())
 
 app.get("/health", (req, res) => {
   res.json({
-    success: true,
-    message: "API is healthy",
+    ok: true,
+    service: "football-wc2026-api",
+    status: "พร้อมใช้งาน",
     data: {
       environment: env.nodeEnv,
       timestamp: new Date().toISOString(),
@@ -42,6 +44,7 @@ app.get("/health", (req, res) => {
   })
 })
 
+app.use("/", predictionWorkflowRoutes)
 app.use("/api", apiRoutes)
 app.use(notFound)
 app.use(errorHandler)

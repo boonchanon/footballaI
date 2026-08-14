@@ -1,520 +1,555 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import { Switch } from "@/components/ui/switch"
+import { useEffect, useMemo, useState } from "react"
+
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
+  deleteRawArchiveFile,
+  exportFixturePredictions,
+  fetchAdminAiSummary,
+  predictMatchPair,
+  rebuildFromRawArchive,
+  uploadLatestSeasonFile,
+  type AdminAiStatusSummary,
+  type DeleteRawFileResult,
+  type ExportPipelineResult,
+  type MatchPredictionResult,
+  type UploadPipelineResult,
+} from "./admin-ai-client"
 import {
-  Brain,
-  Settings,
-  Zap,
-  Database,
-  RefreshCw,
-  Save,
-  Play,
-  Download,
-  AlertCircle,
-  CheckCircle2,
-} from "lucide-react"
-import { getAuthToken } from "@/lib/auth-client"
+  AdminAiHero,
+  ArchiveSummarySection,
+  createActionState,
+  FixtureExportSection,
+  HistoricalUpdateSection,
+  KnownFilesSection,
+  MatchPredictionSection,
+  ModelEvaluationSection,
+  type ActionState,
+  type RemoteState,
+} from "./admin-ai-sections"
 
-const models = [
-  { id: "gpt-4o", name: "GPT-4o", provider: "OpenAI", status: "active" },
-  { id: "claude-3-opus", name: "Claude 3 Opus", provider: "Anthropic", status: "active" },
-  { id: "custom-ml", name: "Custom ML Model", provider: "Internal", status: "training" },
-]
+const TEAM_ALIAS_MAP: Record<string, string> = {
+  "man utd": "Manchester United",
+  "man city": "Manchester City",
+  spurs: "Tottenham Hotspur",
+  "nott'm forest": "Nottingham Forest",
+  brighton: "Brighton",
+  newcastle: "Newcastle United",
+  leeds: "Leeds United",
+  ipswich: "Ipswich Town",
+  hull: "Hull City",
+  coventry: "Coventry City",
+  bournemouth: "AFC Bournemouth",
+}
 
-export default function AIConfigPage() {
-  const [selectedModel, setSelectedModel] = useState("gpt-4o")
-  const [temperature, setTemperature] = useState([0.7])
-  const [maxTokens, setMaxTokens] = useState([2048])
-  const [autoPredict, setAutoPredict] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
-  const [syncMode, setSyncMode] = useState<"fixtures" | "snapshot" | "all">("all")
-  const [isSyncing, setIsSyncing] = useState(false)
-  const [syncMessage, setSyncMessage] = useState("")
-  const [syncStatus, setSyncStatus] = useState<any>(null)
+function isCsvFile(file: File | null) {
+  if (!file) return false
+  return file.name.toLowerCase().endsWith(".csv") || file.type === "text/csv"
+}
 
-  const handleSave = async () => {
-    setIsSaving(true)
-    await new Promise((r) => setTimeout(r, 1500))
-    setIsSaving(false)
-  }
+function areCsvFiles(files: File[]) {
+  return files.length > 0 && files.every((file) => isCsvFile(file))
+}
 
-  const loadSyncStatus = async () => {
-    const token = getAuthToken()
-    if (!token) {
-      setSyncMessage("ยังไม่พบ token ของผู้ใช้แอดมิน")
-      return
-    }
+function isSeasonFormat(value: string) {
+  return /^\d{4}-\d{4}$/.test(value.trim())
+}
 
-    const response = await fetch("/api/admin/sync/premier-league", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
+function normalizeLookupKey(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ")
+}
 
-    const data = await response.json()
-    if (!response.ok) {
-      setSyncMessage(data?.error || "โหลดสถานะ sync ไม่สำเร็จ")
-      return
-    }
+function buildCanonicalTeamMap(teamOptions: string[]) {
+  const entries = teamOptions.map((team) => [normalizeLookupKey(team), team] as const)
+  return new Map<string, string>(entries)
+}
 
-    setSyncStatus(data)
-  }
+function normalizeTeamName(teamName: string, canonicalTeamMap: Map<string, string>) {
+  const normalizedKey = normalizeLookupKey(teamName)
+  const aliasResolved = TEAM_ALIAS_MAP[normalizedKey] ?? teamName.trim()
+  const canonical = canonicalTeamMap.get(normalizeLookupKey(aliasResolved))
+  return canonical ?? aliasResolved
+}
 
-  const handleSync = async () => {
-    const token = getAuthToken()
-    if (!token) {
-      setSyncMessage("ยังไม่พบ token ของผู้ใช้แอดมิน")
-      return
-    }
+function parseCsvLine(line: string) {
+  const values: string[] = []
+  let current = ""
+  let inQuotes = false
 
-    setIsSyncing(true)
-    setSyncMessage("")
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index]
 
-    try {
-      const response = await fetch("/api/admin/sync/premier-league", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ mode: syncMode }),
-      })
-
-      const data = await response.json()
-      if (!response.ok) {
-        setSyncMessage(data?.error || "Sync ไม่สำเร็จ")
-        return
+    if (char === '"') {
+      const nextChar = line[index + 1]
+      if (inQuotes && nextChar === '"') {
+        current += '"'
+        index += 1
+      } else {
+        inQuotes = !inQuotes
       }
+      continue
+    }
 
-      setSyncStatus(data.status || null)
-      setSyncMessage("ซิงค์ข้อมูลลง Atlas แล้ว")
-    } catch {
-      setSyncMessage("เชื่อมต่อ sync route ไม่สำเร็จ")
-    } finally {
-      setIsSyncing(false)
+    if (char === "," && !inQuotes) {
+      values.push(current)
+      current = ""
+      continue
+    }
+
+    current += char
+  }
+
+  values.push(current)
+  return values
+}
+
+function serializeCsvValue(value: string) {
+  if (/[",\n\r]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`
+  }
+  return value
+}
+
+type FixtureHeaderValidation = {
+  valid: boolean
+  error?: string
+}
+
+type FixtureNormalizationResult = {
+  file: File
+  replacements: number
+}
+
+async function validateFixtureCsvFile(file: File): Promise<FixtureHeaderValidation> {
+  const rawText = await file.text()
+  const firstLine = rawText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean)
+
+  if (!firstLine) {
+    return {
+      valid: false,
+      error: "ไฟล์ fixture ว่างเปล่าหรือไม่มี header",
+    }
+  }
+
+  const normalizedHeaders = parseCsvLine(firstLine)
+    .map((value) => value.trim().replace(/^"|"$/g, "").toLowerCase())
+
+  const hasDate = normalizedHeaders.includes("fixture_date") || normalizedHeaders.includes("date")
+  const hasHomeTeam =
+    normalizedHeaders.includes("home_team") ||
+    normalizedHeaders.includes("hometeam") ||
+    normalizedHeaders.includes("home team")
+  const hasAwayTeam =
+    normalizedHeaders.includes("away_team") ||
+    normalizedHeaders.includes("awayteam") ||
+    normalizedHeaders.includes("away team")
+
+  if (hasDate && hasHomeTeam && hasAwayTeam) {
+    return { valid: true }
+  }
+
+  const missing: string[] = []
+  if (!hasDate) missing.push("fixture_date หรือ date")
+  if (!hasHomeTeam) missing.push("home_team หรือ HomeTeam หรือ Home Team")
+  if (!hasAwayTeam) missing.push("away_team หรือ AwayTeam หรือ Away Team")
+
+  return {
+    valid: false,
+    error: `ไฟล์ fixture ไม่ถูกต้อง: ไม่พบคอลัมน์ ${missing.join(", ")}`,
+  }
+}
+
+async function normalizeFixtureCsvTeams(file: File, canonicalTeamMap: Map<string, string>): Promise<FixtureNormalizationResult> {
+  const rawText = await file.text()
+  const lines = rawText.split(/\r?\n/)
+  const headerIndex = lines.findIndex((line) => line.trim())
+
+  if (headerIndex === -1) {
+    return { file, replacements: 0 }
+  }
+
+  const headerValues = parseCsvLine(lines[headerIndex]).map((value) => value.trim().replace(/^"|"$/g, ""))
+  const normalizedHeaders = headerValues.map((value) => value.toLowerCase())
+  const homeIndex = normalizedHeaders.findIndex(
+    (value) => value === "home_team" || value === "hometeam" || value === "home team",
+  )
+  const awayIndex = normalizedHeaders.findIndex(
+    (value) => value === "away_team" || value === "awayteam" || value === "away team",
+  )
+
+  if (homeIndex === -1 || awayIndex === -1) {
+    return { file, replacements: 0 }
+  }
+
+  let replacements = 0
+  const nextLines = [...lines]
+
+  for (let index = headerIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index]
+    if (!line.trim()) continue
+
+    const values = parseCsvLine(line)
+    if (values.length <= Math.max(homeIndex, awayIndex)) continue
+
+    const currentHome = values[homeIndex].trim()
+    const currentAway = values[awayIndex].trim()
+    const normalizedHome = normalizeTeamName(currentHome, canonicalTeamMap)
+    const normalizedAway = normalizeTeamName(currentAway, canonicalTeamMap)
+
+    if (normalizedHome !== currentHome) {
+      values[homeIndex] = normalizedHome
+      replacements += 1
+    }
+
+    if (normalizedAway !== currentAway) {
+      values[awayIndex] = normalizedAway
+      replacements += 1
+    }
+
+    nextLines[index] = values.map(serializeCsvValue).join(",")
+  }
+
+  if (!replacements) {
+    return { file, replacements: 0 }
+  }
+
+  const normalizedContent = nextLines.join("\n")
+  const normalizedFile = new File([normalizedContent], file.name, {
+    type: file.type || "text/csv",
+    lastModified: file.lastModified,
+  })
+
+  return {
+    file: normalizedFile,
+    replacements,
+  }
+}
+
+export default function AdminAiPage() {
+  const [summaryState, setSummaryState] = useState<RemoteState<AdminAiStatusSummary>>({
+    loading: true,
+    error: "",
+    data: null,
+  })
+  const [latestFiles, setLatestFiles] = useState<File[]>([])
+  const [latestFileInputKey, setLatestFileInputKey] = useState(0)
+  const [fixtureFile, setFixtureFile] = useState<File | null>(null)
+  const [fixtureFileInputKey, setFixtureFileInputKey] = useState(0)
+  const [targetSeason, setTargetSeason] = useState("2026-2027")
+  const [homeTeam, setHomeTeam] = useState("")
+  const [awayTeam, setAwayTeam] = useState("")
+  const [uploadState, setUploadState] = useState<ActionState<UploadPipelineResult>>(createActionState())
+  const [rebuildState, setRebuildState] = useState<ActionState<UploadPipelineResult>>(createActionState())
+  const [exportState, setExportState] = useState<ActionState<ExportPipelineResult>>(createActionState())
+  const [predictState, setPredictState] = useState<ActionState<MatchPredictionResult>>(createActionState())
+  const [deleteState, setDeleteState] = useState<ActionState<{ filename: string }>>(createActionState())
+
+  const canonicalTeamMap = useMemo(() => buildCanonicalTeamMap(summaryState.data?.teams || []), [summaryState.data?.teams])
+
+  const loadSummary = async () => {
+    setSummaryState((prev) => ({ ...prev, loading: true, error: "" }))
+    try {
+      const data = await fetchAdminAiSummary()
+      setSummaryState({ loading: false, error: "", data })
+      return true
+    } catch (error) {
+      setSummaryState({
+        loading: false,
+        error: error instanceof Error ? error.message : "โหลดสถานะระบบ AI ไม่สำเร็จ",
+        data: null,
+      })
+      return false
     }
   }
 
   useEffect(() => {
-    loadSyncStatus().catch(() => {
-      setSyncMessage("โหลดสถานะ sync ไม่สำเร็จ")
-    })
+    void loadSummary()
   }, [])
+
+  const topModel = useMemo(() => {
+    return summaryState.data?.models.find((item) => item.isBest) || summaryState.data?.models[0] || null
+  }, [summaryState.data])
+
+  const handleLatestFileChange = (files: File[]) => {
+    setLatestFiles(files)
+    setUploadState(createActionState())
+  }
+
+  const handleFixtureFileChange = (file: File | null) => {
+    setFixtureFile(file)
+    setExportState(createActionState())
+  }
+
+  const handleLatestUpload = async () => {
+    if (!latestFiles.length) {
+      setUploadState({
+        ...createActionState(),
+        error: "กรุณาเลือกไฟล์ฤดูกาลล่าสุดก่อนอัปโหลด",
+      })
+      return
+    }
+
+    if (!areCsvFiles(latestFiles)) {
+      setUploadState({
+        ...createActionState(),
+        error: "รองรับเฉพาะไฟล์ CSV สำหรับการอัปเดตข้อมูลย้อนหลัง",
+      })
+      return
+    }
+
+    setUploadState({ ...createActionState(), loading: true })
+    try {
+      const data = await uploadLatestSeasonFile(latestFiles)
+      const refreshed = await loadSummary()
+
+      setUploadState({
+        loading: false,
+        error: "",
+        success: refreshed
+          ? `อัปเดตข้อมูลย้อนหลังสำเร็จ ${data.processedFiles || latestFiles.length} ไฟล์`
+          : `อัปเดตข้อมูลย้อนหลังสำเร็จ ${data.processedFiles || latestFiles.length} ไฟล์ แต่รีเฟรชสถานะล่าสุดไม่สำเร็จ`,
+        data,
+      })
+
+    } catch (error) {
+      setUploadState({
+        loading: false,
+        error: error instanceof Error ? error.message : "อัปโหลดไฟล์และอัปเดตข้อมูลไม่สำเร็จ",
+        success: "",
+        data: null,
+      })
+    }
+  }
+
+  const handleRebuild = async () => {
+    setRebuildState({ ...createActionState(), loading: true })
+    try {
+      const data = await rebuildFromRawArchive()
+      await loadSummary()
+      setRebuildState({
+        loading: false,
+        error: "",
+        success: "สร้างข้อมูลใหม่จากไฟล์ดิบทั้งหมดสำเร็จ",
+        data,
+      })
+    } catch (error) {
+      setRebuildState({
+        loading: false,
+        error: error instanceof Error ? error.message : "สร้างข้อมูลใหม่จากไฟล์ดิบทั้งหมดไม่สำเร็จ",
+        success: "",
+        data: null,
+      })
+    }
+  }
+
+  const handleDeleteFile = async (filename: string) => {
+    setDeleteState({
+      loading: true,
+      error: "",
+      success: "",
+      data: { filename },
+    })
+
+    try {
+      const result: DeleteRawFileResult = await deleteRawArchiveFile(filename)
+      const refreshed = await loadSummary()
+      setDeleteState({
+        loading: false,
+        error: "",
+        success: refreshed
+          ? `ลบไฟล์ ${result.filename} ออกจากคลังข้อมูลสำเร็จ`
+          : `ลบไฟล์ ${result.filename} สำเร็จ แต่รีเฟรชสถานะล่าสุดไม่สำเร็จ`,
+        data: { filename: result.filename },
+      })
+    } catch (error) {
+      setDeleteState({
+        loading: false,
+        error: error instanceof Error ? error.message : "ลบไฟล์ไม่สำเร็จ",
+        success: "",
+        data: null,
+      })
+    }
+  }
+
+  const handleFixtureExport = async () => {
+    if (!fixtureFile) {
+      setExportState({
+        ...createActionState(),
+        error: "กรุณาเลือกไฟล์ fixture CSV ก่อนประมวลผล",
+      })
+      return
+    }
+
+    if (!targetSeason.trim()) {
+      setExportState({
+        ...createActionState(),
+        error: "กรุณากรอกฤดูกาลเป้าหมาย",
+      })
+      return
+    }
+
+    if (!isSeasonFormat(targetSeason)) {
+      setExportState({
+        ...createActionState(),
+        error: "กรุณากรอกฤดูกาลในรูปแบบ YYYY-YYYY เช่น 2026-2027",
+      })
+      return
+    }
+
+    if (!isCsvFile(fixtureFile)) {
+      setExportState({
+        ...createActionState(),
+        error: "รองรับเฉพาะไฟล์ fixture แบบ CSV",
+      })
+      return
+    }
+
+    const fixtureValidation = await validateFixtureCsvFile(fixtureFile)
+    if (!fixtureValidation.valid) {
+      setExportState({
+        ...createActionState(),
+        error: fixtureValidation.error || "ไฟล์ fixture ไม่ถูกต้อง",
+      })
+      return
+    }
+
+    setExportState({ ...createActionState(), loading: true })
+    try {
+      const normalizedFixture = await normalizeFixtureCsvTeams(fixtureFile, canonicalTeamMap)
+      const data = await exportFixturePredictions(normalizedFixture.file, targetSeason.trim())
+      const refreshed = await loadSummary()
+
+      setExportState({
+        loading: false,
+        error: "",
+        success:
+          normalizedFixture.replacements > 0
+            ? `สร้างไฟล์ทำนายสำเร็จ และ normalize ชื่อทีม ${normalizedFixture.replacements} รายการ`
+            : refreshed
+              ? "สร้างไฟล์ทำนายสำเร็จ ระบบกำลังดาวน์โหลด CSV"
+              : "สร้างไฟล์ทำนายสำเร็จ แต่รีเฟรชสถานะล่าสุดไม่สำเร็จ",
+        data,
+      })
+
+      const anchor = document.createElement("a")
+      anchor.href = data.downloadUrl
+      anchor.download = data.filename
+      anchor.rel = "noopener"
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+
+      setFixtureFile(null)
+      setFixtureFileInputKey((prev) => prev + 1)
+    } catch (error) {
+      setExportState({
+        loading: false,
+        error: error instanceof Error ? error.message : "สร้างไฟล์ทำนายไม่สำเร็จ",
+        success: "",
+        data: null,
+      })
+    }
+  }
+
+  const handlePredictMatch = async () => {
+    if (!homeTeam || !awayTeam) {
+      setPredictState({
+        ...createActionState(),
+        error: "กรุณาเลือกทีมเหย้าและทีมเยือนให้ครบ",
+      })
+      return
+    }
+
+    const normalizedHomeTeam = normalizeTeamName(homeTeam, canonicalTeamMap)
+    const normalizedAwayTeam = normalizeTeamName(awayTeam, canonicalTeamMap)
+
+    if (normalizedHomeTeam === normalizedAwayTeam) {
+      setPredictState({
+        ...createActionState(),
+        error: "ทีมเหย้าและทีมเยือนต้องไม่ซ้ำกัน",
+      })
+      return
+    }
+
+    setPredictState({ ...createActionState(), loading: true })
+    try {
+      const data = await predictMatchPair(normalizedHomeTeam, normalizedAwayTeam)
+      setPredictState({
+        loading: false,
+        error: "",
+        success:
+          normalizedHomeTeam !== homeTeam || normalizedAwayTeam !== awayTeam
+            ? `ทำนายผลการแข่งขันสำเร็จ โดย normalize ชื่อทีมเป็น ${normalizedHomeTeam} vs ${normalizedAwayTeam}`
+            : "ทำนายผลการแข่งขันสำเร็จ",
+        data,
+      })
+    } catch (error) {
+      setPredictState({
+        loading: false,
+        error: error instanceof Error ? error.message : "ทำนายผลการแข่งขันไม่สำเร็จ",
+        success: "",
+        data: null,
+      })
+    }
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">AI Configuration</h1>
-          <p className="text-muted-foreground mt-1">
-            Configure AI models and prediction settings
-          </p>
-        </div>
-        <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving ? (
-            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4 mr-2" />
-          )}
-          Save Changes
-        </Button>
+      <AdminAiHero
+        summary={summaryState.data}
+        topModel={topModel}
+        loading={summaryState.loading}
+        error={summaryState.error}
+        onRefresh={() => void loadSummary()}
+      />
+
+      <div className="grid gap-6 2xl:grid-cols-[1.1fr_0.9fr]">
+        <HistoricalUpdateSection
+          latestFileInputKey={latestFileInputKey}
+          latestFileNames={latestFiles.map((file) => file.name)}
+          uploadState={uploadState}
+          rebuildState={rebuildState}
+          canUpload={latestFiles.length > 0 && !uploadState.loading && !rebuildState.loading}
+          onLatestFileChange={handleLatestFileChange}
+          onUpload={() => void handleLatestUpload()}
+          onRebuild={() => void handleRebuild()}
+        />
+        <FixtureExportSection
+          fixtureFileInputKey={fixtureFileInputKey}
+          targetSeason={targetSeason}
+          fixtureFileName={fixtureFile?.name || ""}
+          exportState={exportState}
+          canExport={Boolean(fixtureFile) && targetSeason.trim().length > 0 && !exportState.loading}
+          onTargetSeasonChange={setTargetSeason}
+          onFixtureFileChange={handleFixtureFileChange}
+          onExport={() => void handleFixtureExport()}
+        />
       </div>
 
-      <Card className="border-primary/20 bg-primary/5">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Database className="h-5 w-5" />
-            Premier League Atlas Sync
-          </CardTitle>
-          <CardDescription>
-            แยก fixtures แบบคงที่กับ snapshot แบบ dynamic แล้วบันทึกลง MongoDB Atlas
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-[220px_1fr_auto_auto] md:items-end">
-            <div className="space-y-2">
-              <Label>Sync Mode</Label>
-              <Select value={syncMode} onValueChange={(value: "fixtures" | "snapshot" | "all") => setSyncMode(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Fixtures + Snapshot</SelectItem>
-                  <SelectItem value="fixtures">Fixtures Only</SelectItem>
-                  <SelectItem value="snapshot">Snapshot Only</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="rounded-xl border border-border/60 bg-background/70 p-3 text-sm text-muted-foreground">
-              `fixtures` จะดึงตารางแข่งจาก service ฟุตบอลของระบบมาเก็บใน Atlas
-              <br />
-              `snapshot` จะให้ Gemini/IntelSphere สรุปข้อมูลสด เช่น ตารางคะแนนและสถิติมาเก็บใน Atlas
-            </div>
-            <Button variant="outline" onClick={() => void loadSyncStatus()} disabled={isSyncing}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              โหลดสถานะ
-            </Button>
-            <Button onClick={handleSync} disabled={isSyncing}>
-              {isSyncing ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-              ซิงค์ข้อมูล
-            </Button>
-          </div>
-
-          {syncMessage ? <div className="text-sm text-muted-foreground">{syncMessage}</div> : null}
-
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="rounded-xl border border-border/60 bg-background/70 p-4">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">Fixtures In Atlas</div>
-              <div className="mt-2 text-2xl font-semibold">{syncStatus?.fixtureCount ?? 0}</div>
-            </div>
-            <div className="rounded-xl border border-border/60 bg-background/70 p-4">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">Snapshot Status</div>
-              <div className="mt-2 text-sm font-semibold">{syncStatus?.latestSnapshot?.status || "not synced"}</div>
-            </div>
-            <div className="rounded-xl border border-border/60 bg-background/70 p-4">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">Search Verified</div>
-              <div className="mt-2 text-sm font-semibold">
-                {typeof syncStatus?.latestSnapshot?.searchVerified === "boolean"
-                  ? String(syncStatus.latestSnapshot.searchVerified)
-                  : "unknown"}
-              </div>
-            </div>
-            <div className="rounded-xl border border-border/60 bg-background/70 p-4">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">Last Sync</div>
-              <div className="mt-2 text-sm font-semibold">
-                {syncStatus?.latestSnapshot?.syncedAt
-                  ? new Date(syncStatus.latestSnapshot.syncedAt).toLocaleString("th-TH")
-                  : "-"}
-              </div>
-            </div>
-          </div>
-
-          {syncStatus?.latestSnapshot?.summary ? (
-            <div className="rounded-xl border border-border/60 bg-background/70 p-4 text-sm text-muted-foreground">
-              <div className="mb-2 font-medium text-foreground">Latest Summary</div>
-              {syncStatus.latestSnapshot.summary}
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Model Selection */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Brain className="h-5 w-5" />
-              Model Selection
-            </CardTitle>
-            <CardDescription>
-              Choose the AI model for match predictions
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Primary Model</Label>
-              <Select value={selectedModel} onValueChange={setSelectedModel}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select model" />
-                </SelectTrigger>
-                <SelectContent>
-                  {models.map((model) => (
-                    <SelectItem key={model.id} value={model.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{model.name}</span>
-                        <Badge variant={model.status === "active" ? "default" : "secondary"}>
-                          {model.status}
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Fallback Model</Label>
-              <Select defaultValue="claude-3-opus">
-                <SelectTrigger>
-                  <SelectValue placeholder="Select fallback" />
-                </SelectTrigger>
-                <SelectContent>
-                  {models.filter((m) => m.id !== selectedModel).map((model) => (
-                    <SelectItem key={model.id} value={model.id}>
-                      {model.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="pt-4 border-t">
-              <h4 className="font-medium mb-3">Available Models</h4>
-              <div className="space-y-2">
-                {models.map((model) => (
-                  <div
-                    key={model.id}
-                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      {model.status === "active" ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <AlertCircle className="h-4 w-4 text-yellow-500" />
-                      )}
-                      <div>
-                        <p className="font-medium text-sm">{model.name}</p>
-                        <p className="text-xs text-muted-foreground">{model.provider}</p>
-                      </div>
-                    </div>
-                    <Badge variant={model.status === "active" ? "default" : "outline"}>
-                      {model.status}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Model Parameters */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              Model Parameters
-            </CardTitle>
-            <CardDescription>
-              Fine-tune model behavior and output
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Temperature</Label>
-                  <span className="text-sm text-muted-foreground">{temperature[0]}</span>
-                </div>
-                <Slider
-                  value={temperature}
-                  onValueChange={setTemperature}
-                  max={1}
-                  step={0.1}
-                  className="w-full"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Higher values make output more random, lower values more focused
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Max Tokens</Label>
-                  <span className="text-sm text-muted-foreground">{maxTokens[0]}</span>
-                </div>
-                <Slider
-                  value={maxTokens}
-                  onValueChange={setMaxTokens}
-                  min={256}
-                  max={4096}
-                  step={256}
-                  className="w-full"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Maximum length of the generated response
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Top P (Nucleus Sampling)</Label>
-                <Input type="number" defaultValue="0.9" step="0.1" min="0" max="1" />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Frequency Penalty</Label>
-                <Input type="number" defaultValue="0" step="0.1" min="-2" max="2" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Prediction Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Zap className="h-5 w-5" />
-              Prediction Settings
-            </CardTitle>
-            <CardDescription>
-              Configure automatic predictions and scheduling
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Auto-Predict Matches</Label>
-                <p className="text-xs text-muted-foreground">
-                  Automatically generate predictions for upcoming matches
-                </p>
-              </div>
-              <Switch checked={autoPredict} onCheckedChange={setAutoPredict} />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Pre-Match Analysis</Label>
-                <p className="text-xs text-muted-foreground">
-                  Generate detailed analysis 24 hours before kickoff
-                </p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Live Updates</Label>
-                <p className="text-xs text-muted-foreground">
-                  Update predictions during live matches
-                </p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-
-            <div className="space-y-2 pt-4 border-t">
-              <Label>Prediction Confidence Threshold</Label>
-              <Select defaultValue="70">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="50">50% - Show all predictions</SelectItem>
-                  <SelectItem value="60">60% - Moderate confidence</SelectItem>
-                  <SelectItem value="70">70% - High confidence only</SelectItem>
-                  <SelectItem value="80">80% - Very high confidence</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Prediction Lookahead (days)</Label>
-              <Input type="number" defaultValue="7" min="1" max="30" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Data Sources */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Database className="h-5 w-5" />
-              Data Sources
-            </CardTitle>
-            <CardDescription>
-              Configure data inputs for predictions
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Historical Match Data</Label>
-                <p className="text-xs text-muted-foreground">Last 5 seasons</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Player Statistics</Label>
-                <p className="text-xs text-muted-foreground">Current season stats</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Head-to-Head Records</Label>
-                <p className="text-xs text-muted-foreground">Last 10 meetings</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Form Analysis</Label>
-                <p className="text-xs text-muted-foreground">Last 5 matches</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Injury Reports</Label>
-                <p className="text-xs text-muted-foreground">Real-time updates</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Weather Conditions</Label>
-                <p className="text-xs text-muted-foreground">Match day forecast</p>
-              </div>
-              <Switch />
-            </div>
-
-            <div className="pt-4 border-t">
-              <Button variant="outline" className="w-full bg-transparent">
-                <Play className="h-4 w-4 mr-2" />
-                Test Prediction Pipeline
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+        <ArchiveSummarySection loading={summaryState.loading} summary={summaryState.data} />
+        <ModelEvaluationSection loading={summaryState.loading} models={summaryState.data?.models || []} />
       </div>
 
-      {/* API Keys */}
-      <Card>
-        <CardHeader>
-          <CardTitle>API Configuration</CardTitle>
-          <CardDescription>
-            Manage API keys for external AI services
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>OpenAI API Key</Label>
-              <Input type="password" placeholder="sk-..." defaultValue="sk-*********************" />
-            </div>
-            <div className="space-y-2">
-              <Label>Anthropic API Key</Label>
-              <Input type="password" placeholder="sk-ant-..." defaultValue="sk-ant-***************" />
-            </div>
-            <div className="space-y-2">
-              <Label>Sports Data API Key</Label>
-              <Input type="password" placeholder="Your API key" defaultValue="*********************" />
-            </div>
-            <div className="space-y-2">
-              <Label>Weather API Key</Label>
-              <Input type="password" placeholder="Your API key" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <KnownFilesSection
+        loading={summaryState.loading}
+        files={summaryState.data?.files || []}
+        deleteState={deleteState}
+        onDeleteFile={(filename) => void handleDeleteFile(filename)}
+      />
+
+      <MatchPredictionSection
+        teamOptions={summaryState.data?.teams || []}
+        homeTeam={homeTeam}
+        awayTeam={awayTeam}
+        predictState={predictState}
+        onHomeTeamChange={setHomeTeam}
+        onAwayTeamChange={setAwayTeam}
+        onPredict={() => void handlePredictMatch()}
+      />
     </div>
   )
 }
