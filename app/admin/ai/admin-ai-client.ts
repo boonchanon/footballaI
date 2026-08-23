@@ -1,10 +1,57 @@
 "use client"
 
-export const ADMIN_AI_API_BASE_URL =
-  process.env.NEXT_PUBLIC_epl_PREDICTION_API_BASE_URL?.trim() ||
-  "https://football-predictionwc-api.onrender.com"
+export const ADMIN_AI_API_BASE_URL = "/api/admin-ai"
 
 type JsonRecord = Record<string, any>
+
+type PipelineStatusPayload = {
+  summary?: {
+    teamsLoaded?: number
+    latestSeason?: string
+    seasons_available?: string[]
+    totalMatches?: number
+    rawFileCount?: number
+    seasonCount?: number
+  }
+  inventory?: {
+    rawFileCount?: number
+    recognized_files?: Array<{
+      filename?: string
+      season?: string
+      matches?: number
+    }>
+  }
+  models?: Array<{
+    key?: string
+    name?: string
+    label?: string
+    accuracy?: number
+    f1_macro?: number
+    log_loss?: number
+    brier_score?: number
+    is_best?: boolean
+  }>
+  evaluation?: {
+    bestModel?: string
+    bestAccuracy?: number
+    models?: Array<{
+      key?: string
+      name?: string
+      label?: string
+      accuracy?: number
+      f1_macro?: number
+      log_loss?: number
+      brier_score?: number
+      is_best?: boolean
+    }>
+  }
+  prediction?: {
+    latestPredictionFile?: string
+    latest_prediction_file?: string
+    teams?: string[]
+  }
+  teams?: string[]
+}
 
 export type AdminAiStatusSummary = {
   teamsLoaded: number
@@ -94,32 +141,24 @@ function toNumber(value: unknown): number | null {
   return null
 }
 
+function toStringValue(value: unknown, fallback = "-") {
+  if (typeof value !== "string") return fallback
+  const normalized = value.trim()
+  if (!normalized) return fallback
+  if (/^(unknown|null|undefined|none|n\/a)$/i.test(normalized)) return fallback
+  return normalized
+}
+
+function toStringList(value: unknown) {
+  return toArray<string>(value)
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter(Boolean)
+}
+
 function normalizePercent(value: unknown) {
   const parsed = toNumber(value)
   if (parsed == null) return null
   return parsed <= 1 ? parsed * 100 : parsed
-}
-
-function pickFirstNumber(source: JsonRecord, keys: string[]) {
-  for (const key of keys) {
-    const parsed = toNumber(source[key])
-    if (parsed != null) return parsed
-  }
-  return null
-}
-
-function pickFirstString(source: JsonRecord, keys: string[], fallback = "-") {
-  for (const key of keys) {
-    const value = source[key]
-    if (typeof value === "string" && value.trim()) return value.trim()
-  }
-  return fallback
-}
-
-function normalizeStringList(value: unknown) {
-  return toArray<string>(value)
-    .map((item) => (typeof item === "string" ? item.trim() : ""))
-    .filter(Boolean)
 }
 
 function containsDuplicateHint(value: unknown) {
@@ -127,13 +166,10 @@ function containsDuplicateHint(value: unknown) {
   return /duplicate|already exists|file exists|มีอยู่แล้ว|ไฟล์ซ้ำ/i.test(value)
 }
 
-function isNotFoundError(error: unknown) {
-  return error instanceof Error && /404|not found/i.test(error.message)
-}
-
 async function fetchJson(path: string, init?: RequestInit) {
   const response = await fetch(`${ADMIN_AI_API_BASE_URL}${path}`, {
     ...init,
+    cache: "no-store",
     headers: {
       Accept: "application/json",
       ...(init?.headers || {}),
@@ -141,7 +177,9 @@ async function fetchJson(path: string, init?: RequestInit) {
   })
 
   const contentType = response.headers.get("content-type") || ""
-  const payload = contentType.includes("application/json") ? await response.json().catch(() => null) : await response.text()
+  const payload = contentType.includes("application/json")
+    ? await response.json().catch(() => null)
+    : await response.text()
 
   if (!response.ok) {
     const errorMessage =
@@ -154,115 +192,26 @@ async function fetchJson(path: string, init?: RequestInit) {
   return payload
 }
 
+function normalizeTeamOptions(payload: PipelineStatusPayload) {
+  const aliasMap = new Map<string, string>([
+    ["Bournemouth", "AFC Bournemouth"],
+    ["Coventry", "Coventry City"],
+    ["Ipswich", "Ipswich Town"],
+    ["Leeds", "Leeds United"],
+    ["Newcastle", "Newcastle United"],
+    ["Tottenham", "Tottenham Hotspur"],
+  ])
+
+  const deduped = new Set<string>()
+  for (const team of [...toStringList(payload.teams), ...toStringList(payload.prediction?.teams)]) {
+    deduped.add(aliasMap.get(team) ?? team)
+  }
+
+  return Array.from(deduped).sort((left, right) => left.localeCompare(right))
+}
+
 export async function fetchAdminAiSummary(): Promise<AdminAiStatusSummary> {
-  const healthRaw = await fetchJson("/health")
-  let statusRaw: unknown = null
-
-  try {
-    statusRaw = await fetchJson("/pipeline/status")
-  } catch (error) {
-    if (!isNotFoundError(error)) throw error
-  }
-
-  const health = toRecord(healthRaw)
-  const status = toRecord(statusRaw)
-  const summary = toRecord(status.summary)
-  const inventory = toRecord(status.inventory)
-  const warehouse = toRecord(status.warehouse)
-  const evaluation = toRecord(status.evaluation)
-  const prediction = toRecord(status.prediction)
-
-  const rawModels = toArray(status.models ?? evaluation.models).map((item, index) => {
-    const model = toRecord(item)
-    return {
-      key: pickFirstString(model, ["key", "name", "model", "id"], `model-${index + 1}`),
-      label: pickFirstString(model, ["label", "name", "model"], `Model ${index + 1}`),
-      accuracy: normalizePercent(model.accuracy),
-      f1Macro: toNumber(model.f1_macro ?? model.f1Macro),
-      logLoss: toNumber(model.log_loss ?? model.logLoss),
-      brierScore: toNumber(model.brier_score ?? model.brierScore),
-      isBest: Boolean(model.is_best ?? model.isBest),
-    }
-  })
-
-  const derivedBestAccuracy = [...rawModels]
-    .filter((item) => item.accuracy != null)
-    .sort((a, b) => (b.accuracy ?? 0) - (a.accuracy ?? 0))[0]
-
-  const models = rawModels.map((item) => ({
-    ...item,
-    isBest: item.isBest || item.key === derivedBestAccuracy?.key,
-  }))
-
-  const recognizedFilesSource =
-    status.files ??
-    status.recognized_files ??
-    inventory.files ??
-    inventory.recognized_files ??
-    warehouse.files ??
-    warehouse.recognized_files
-
-  const files = toArray(recognizedFilesSource).map((item, index) => {
-    const file = toRecord(item)
-    return {
-      filename: pickFirstString(file, ["filename", "file_name", "name"], `File ${index + 1}`),
-      season: pickFirstString(file, ["season", "season_label", "seasonLabel"], "-"),
-      matches: pickFirstNumber(file, ["matches", "match_count", "matchCount", "rows"]) ?? 0,
-    }
-  })
-
-  const seasonsAvailable = Array.from(
-    new Set([
-      ...normalizeStringList(status.seasons_available),
-      ...normalizeStringList(summary.seasons_available),
-      ...normalizeStringList(warehouse.seasons_available),
-      ...normalizeStringList(inventory.seasons_available),
-    ]),
-  )
-
-  const teams = Array.from(new Set(normalizeStringList(status.teams ?? summary.teams ?? prediction.teams)))
-
-  return {
-    teamsLoaded:
-      pickFirstNumber(summary, ["teamsLoaded", "teams_loaded", "teamCount"]) ??
-      pickFirstNumber(warehouse, ["teamsLoaded", "teams_loaded", "teamCount"]) ??
-      teams.length,
-    bestModelLabel:
-      models.find((item) => item.isBest)?.label ||
-      pickFirstString(evaluation, ["bestModel", "best_model", "bestModelLabel"], "ยังไม่มีผลประเมิน"),
-    bestModelAccuracy:
-      models.find((item) => item.isBest)?.accuracy ??
-      normalizePercent(evaluation.bestAccuracy ?? evaluation.best_accuracy),
-    latestSeason:
-      pickFirstString(summary, ["latestSeason", "latest_season"]) ||
-      pickFirstString(warehouse, ["latestSeason", "latest_season"]) ||
-      pickFirstString(inventory, ["latestSeason", "latest_season"]) ||
-      seasonsAvailable[seasonsAvailable.length - 1] ||
-      "-",
-    latestPredictionFile:
-      pickFirstString(prediction, ["latestPredictionFile", "latest_prediction_file", "latestExport", "latest_export"], "ยังไม่มีไฟล์"),
-    rawFileCount:
-      pickFirstNumber(inventory, ["rawFileCount", "raw_file_count", "fileCount"]) ??
-      pickFirstNumber(summary, ["rawFileCount", "raw_file_count"]) ??
-      files.length,
-    totalMatches:
-      pickFirstNumber(warehouse, ["totalMatches", "total_matches", "matchCount"]) ??
-      pickFirstNumber(summary, ["totalMatches", "total_matches"]) ??
-      files.reduce((sum, item) => sum + item.matches, 0),
-    seasonCount:
-      pickFirstNumber(warehouse, ["seasonCount", "season_count"]) ??
-      pickFirstNumber(summary, ["seasonCount", "season_count"]) ??
-      pickFirstNumber(inventory, ["seasonCount", "season_count"]) ??
-      seasonsAvailable.length ??
-      new Set(files.map((item) => item.season).filter((item) => item !== "-")).size,
-    files,
-    models,
-    teams,
-    healthLabel:
-      statusRaw == null
-        ? "backend พร้อม แต่ deploy ปัจจุบันยังไม่มี pipeline status"
-        : pickFirstString(health, ["status", "message"], "พร้อมใช้งาน"),
-  }
+  return fetchJson("/summary") as Promise<AdminAiStatusSummary>
 }
 
 export async function uploadLatestSeasonFile(files: File[]): Promise<UploadPipelineResult> {
@@ -282,7 +231,7 @@ export async function uploadLatestSeasonFile(files: File[]): Promise<UploadPipel
     containsDuplicateHint(payload.status)
 
   return {
-    message: pickFirstString(payload, ["message", "status"], "อัปโหลดและอัปเดตข้อมูลสำเร็จ"),
+    message: toStringValue(payload.message ?? payload.status, "อัปโหลดและอัปเดตข้อมูลสำเร็จ"),
     duplicateNotice: duplicateDetected
       ? "ไฟล์นี้มีอยู่แล้ว ระบบจะใช้ข้อมูลเดิมประมวลผลต่อ"
       : typeof payload.upload_validation === "string" && payload.upload_validation.trim()
@@ -290,25 +239,26 @@ export async function uploadLatestSeasonFile(files: File[]): Promise<UploadPipel
         : typeof payload.notice === "string" && payload.notice.trim()
           ? payload.notice.trim()
           : null,
-    matchesAdded: pickFirstNumber(payload, ["matches_added", "matchesAdded", "new_matches"]) ?? 0,
-    duplicatesRemoved: pickFirstNumber(payload, ["duplicates_removed", "duplicatesRemoved", "removed_duplicates"]) ?? 0,
-    latestSeason: pickFirstString(payload, ["latest_season", "latestSeason", "season"], "-"),
-    featureRows: pickFirstNumber(payload, ["feature_rows", "featureRows", "rows"]) ?? 0,
-    processedFiles: pickFirstNumber(payload, ["processed_files", "processedFiles"]) ?? files.length,
-    uploadedFiles: normalizeStringList(payload.uploaded_files ?? payload.uploadedFiles),
-    duplicateFiles: normalizeStringList(payload.duplicate_files ?? payload.duplicateFiles),
+    matchesAdded: toNumber(payload.matches_added ?? payload.matchesAdded ?? payload.new_matches) ?? 0,
+    duplicatesRemoved: toNumber(payload.duplicates_removed ?? payload.duplicatesRemoved ?? payload.removed_duplicates) ?? 0,
+    latestSeason: toStringValue(payload.latest_season ?? payload.latestSeason ?? payload.season, "-"),
+    featureRows: toNumber(payload.feature_rows ?? payload.featureRows ?? payload.rows) ?? 0,
+    processedFiles: toNumber(payload.processed_files ?? payload.processedFiles) ?? files.length,
+    uploadedFiles: toStringList(payload.uploaded_files ?? payload.uploadedFiles),
+    duplicateFiles: toStringList(payload.duplicate_files ?? payload.duplicateFiles),
   }
 }
 
 export async function rebuildFromRawArchive(): Promise<UploadPipelineResult> {
   const payload = toRecord(await fetchJson("/pipeline/full", { method: "POST" }))
+
   return {
-    message: pickFirstString(payload, ["message", "status"], "สร้างข้อมูลใหม่จากไฟล์ดิบทั้งหมดสำเร็จ"),
+    message: toStringValue(payload.message ?? payload.status, "สร้างข้อมูลใหม่จากไฟล์ดิบทั้งหมดสำเร็จ"),
     duplicateNotice: null,
-    matchesAdded: pickFirstNumber(payload, ["matches_added", "matchesAdded", "processed_matches"]) ?? 0,
-    duplicatesRemoved: pickFirstNumber(payload, ["duplicates_removed", "duplicatesRemoved", "removed_duplicates"]) ?? 0,
-    latestSeason: pickFirstString(payload, ["latest_season", "latestSeason", "season"], "-"),
-    featureRows: pickFirstNumber(payload, ["feature_rows", "featureRows", "rows"]) ?? 0,
+    matchesAdded: toNumber(payload.matches_added ?? payload.matchesAdded ?? payload.processed_matches) ?? 0,
+    duplicatesRemoved: toNumber(payload.duplicates_removed ?? payload.duplicatesRemoved ?? payload.removed_duplicates) ?? 0,
+    latestSeason: toStringValue(payload.latest_season ?? payload.latestSeason ?? payload.season, "-"),
+    featureRows: toNumber(payload.feature_rows ?? payload.featureRows ?? payload.rows) ?? 0,
     processedFiles: 0,
     uploadedFiles: [],
     duplicateFiles: [],
@@ -317,12 +267,13 @@ export async function rebuildFromRawArchive(): Promise<UploadPipelineResult> {
 
 export async function deleteRawArchiveFile(filename: string): Promise<DeleteRawFileResult> {
   const payload = toRecord(await fetchJson(`/pipeline/files/${encodeURIComponent(filename)}`, { method: "DELETE" }))
+
   return {
-    filename: pickFirstString(payload, ["filename"], filename),
-    rawFileCount: pickFirstNumber(payload, ["raw_file_count", "rawFileCount"]) ?? 0,
-    latestSeason: pickFirstString(payload, ["latest_season", "latestSeason"], "-"),
-    totalMatches: pickFirstNumber(payload, ["total_matches", "totalMatches"]) ?? 0,
-    message: pickFirstString(payload, ["message"], "ลบไฟล์ออกจากคลังข้อมูลสำเร็จ"),
+    filename: toStringValue(payload.filename, filename),
+    rawFileCount: toNumber(payload.raw_file_count ?? payload.rawFileCount) ?? 0,
+    latestSeason: toStringValue(payload.latest_season ?? payload.latestSeason, "-"),
+    totalMatches: toNumber(payload.total_matches ?? payload.totalMatches) ?? 0,
+    message: toStringValue(payload.message, "ลบไฟล์ออกจากคลังข้อมูลสำเร็จ"),
   }
 }
 
@@ -332,14 +283,17 @@ export async function exportFixturePredictions(file: File, season: string): Prom
   formData.append("season", season)
 
   const payload = toRecord(await fetchJson("/predictions/export-fixtures", { method: "POST", body: formData }))
-  const filename = pickFirstString(payload, ["output_filename", "filename", "file_name", "download_name"], "predictions.csv")
+  const filename = toStringValue(
+    payload.output_filename ?? payload.filename ?? payload.file_name ?? payload.download_name,
+    "predictions.csv",
+  )
 
   return {
     season,
     filename,
-    filePath: pickFirstString(payload, ["output_path", "file_path", "filePath", "path"], "-"),
-    predictionCount: pickFirstNumber(payload, ["prediction_count", "predictionCount", "matches"]) ?? 0,
-    dateRange: pickFirstString(payload, ["date_range", "dateRange", "period"], "-"),
+    filePath: toStringValue(payload.output_path ?? payload.file_path ?? payload.filePath ?? payload.path, "-"),
+    predictionCount: toNumber(payload.prediction_count ?? payload.predictionCount ?? payload.matches) ?? 0,
+    dateRange: toStringValue(payload.date_range ?? payload.dateRange ?? payload.period, "-"),
     downloadUrl: `${ADMIN_AI_API_BASE_URL}/predictions/download/${encodeURIComponent(filename)}`,
   }
 }
@@ -362,7 +316,7 @@ export async function predictMatchPair(homeTeam: string, awayTeam: string): Prom
   const topScores = toArray(payload.top_scores ?? payload.topScores ?? payload.scorelines).map((item) => {
     const score = toRecord(item)
     return {
-      score: pickFirstString(score, ["score", "label"], "-"),
+      score: toStringValue(score.score ?? score.label, "-"),
       probability: normalizePercent(score.probability ?? score.prob ?? score.value),
     }
   })
@@ -376,6 +330,6 @@ export async function predictMatchPair(homeTeam: string, awayTeam: string): Prom
       away: toNumber(expectedGoals.away ?? expectedGoals.away_goals ?? expectedGoals.awayGoals ?? payload.away_xg),
     },
     topScores,
-    summary: pickFirstString(payload, ["summary", "message", "analysis"], "ประมวลผลผลทำนายสำเร็จ"),
+    summary: toStringValue(payload.summary ?? payload.message ?? payload.analysis, "ประมวลผลผลทำนายสำเร็จ"),
   }
 }

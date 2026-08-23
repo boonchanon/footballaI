@@ -119,6 +119,35 @@ function parseCsv(content) {
   return { headers, rows }
 }
 
+function decodeCsvBuffer(buffer, filename) {
+  const encodings = ["utf8", "utf-8", "latin1", "binary"]
+  let lastError = null
+
+  for (const encoding of encodings) {
+    try {
+      const decoded = Buffer.isBuffer(buffer) ? buffer.toString(encoding) : Buffer.from(buffer).toString(encoding)
+      if (decoded.includes("�")) continue
+      return decoded
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  const error = new Error(`ไม่สามารถอ่านไฟล์ CSV ได้: ${filename}`)
+  error.statusCode = 422
+  error.details = {
+    filename,
+    supportedEncodings: encodings,
+    reason: lastError ? String(lastError.message || lastError) : "Unknown decode error",
+  }
+  throw error
+}
+
+async function readCsvFileContent(filePath) {
+  const buffer = await fsp.readFile(filePath)
+  return decodeCsvBuffer(buffer, path.basename(filePath))
+}
+
 function pickFirstValue(record, keys) {
   for (const key of keys) {
     const direct = record[key]
@@ -291,7 +320,7 @@ async function loadArchive() {
 
   for (const filename of filenames) {
     const fullPath = path.join(RAW_DIR, filename)
-    const content = await fsp.readFile(fullPath, "utf8")
+    const content = await readCsvFileContent(fullPath)
     const { rows } = parseCsv(content)
     const season = inferSeason(filename, rows)
     let fileMatchCount = 0
@@ -430,8 +459,30 @@ async function getPipelineStatus() {
 
 async function storeUploadedSeasonFile({ originalName, buffer }) {
   await ensureDirectories()
-  const incomingContent = buffer.toString("utf8")
+  const incomingContent = decodeCsvBuffer(buffer, originalName)
   const parsedCsv = parseCsv(incomingContent)
+  if (!parsedCsv.rows.length) {
+    const error = new Error(`ไฟล์ historical ว่างเปล่าหรือไม่มีข้อมูลที่อ่านได้: ${originalName}`)
+    error.statusCode = 422
+    throw error
+  }
+
+  const validMatchCount = parsedCsv.rows.reduce(
+    (count, row) => count + (normalizeHistoricalRow(row, inferSeason(originalName, parsedCsv.rows)) ? 1 : 0),
+    0,
+  )
+  if (!validMatchCount) {
+    const error = new Error(`ไฟล์ historical ใช้งานไม่ได้: ${originalName}`)
+    error.statusCode = 422
+    error.details = {
+      filename: originalName,
+      reason: "ไม่พบแถวข้อมูลแมตช์ย้อนหลังที่มี Date, HomeTeam, AwayTeam, FTHG และ FTAG ครบ",
+      rowCount: parsedCsv.rows.length,
+      validMatchCount: 0,
+    }
+    throw error
+  }
+
   const inferredSeason = inferSeason(originalName, parsedCsv.rows)
   const parsed = path.parse(path.basename(originalName || "season-upload.csv"))
   const baseName = sanitizeFilenamePart(parsed.name, "season-upload")
@@ -443,7 +494,7 @@ async function storeUploadedSeasonFile({ originalName, buffer }) {
   const existingFiles = await listRawFiles()
   for (const existingFilename of existingFiles) {
     const existingPath = path.join(RAW_DIR, existingFilename)
-    const existingContent = await fsp.readFile(existingPath, "utf8")
+    const existingContent = await readCsvFileContent(existingPath)
     if (existingContent === incomingContent) {
       duplicate = true
       break

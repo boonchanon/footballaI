@@ -27,6 +27,9 @@ import { PREMIER_LEAGUE_DATA_SEASON } from "@/lib/season"
 import { cn } from "@/lib/utils"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
+const FIXTURES_REFRESH_INTERVAL_MS = 15000
+const MATCH_DETAILS_REFRESH_INTERVAL_MS = 30000
+const THAI_TIME_ZONE = "Asia/Bangkok"
 
 type MatchStatus = "live" | "finished" | "upcoming"
 type MatchFilter = "all" | MatchStatus
@@ -62,6 +65,12 @@ type MatchEvent = {
   detail?: string | null
 }
 
+type MatchStatistic = {
+  type: string
+  home: string | null
+  away: string | null
+}
+
 type LineupSide = {
   formation?: string
   coach?: { name?: string }
@@ -69,15 +78,61 @@ type LineupSide = {
   substitutes?: Array<{ player?: { id?: number; name?: string; number?: number; pos?: string } }>
 }
 
+type LiveStreamSnapshot = {
+  generatedAt?: string
+  fixtures?: {
+    live?: any[]
+    upcoming?: any[]
+    finished?: any[]
+  }
+  matchId?: string | null
+  events?: MatchEvent[]
+  lineups?: LineupSide[]
+}
+
 const fullDateFormatter = new Intl.DateTimeFormat("th-TH", {
+  timeZone: THAI_TIME_ZONE,
   weekday: "long",
   day: "numeric",
   month: "long",
   year: "numeric",
 })
 
+const shortWeekdayFormatter = new Intl.DateTimeFormat("th-TH", {
+  timeZone: THAI_TIME_ZONE,
+  weekday: "short",
+})
+
+const shortDayMonthFormatter = new Intl.DateTimeFormat("th-TH", {
+  timeZone: THAI_TIME_ZONE,
+  day: "numeric",
+  month: "short",
+})
+
+const timeFormatter = new Intl.DateTimeFormat("th-TH", {
+  timeZone: THAI_TIME_ZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+})
+
+function getThaiDateParts(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: THAI_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date)
+
+  const year = parts.find((part) => part.type === "year")?.value || "1970"
+  const month = parts.find((part) => part.type === "month")?.value || "01"
+  const day = parts.find((part) => part.type === "day")?.value || "01"
+
+  return { year, month, day }
+}
+
 function startOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const { year, month, day } = getThaiDateParts(date)
+  return new Date(Number(year), Number(month) - 1, Number(day))
 }
 
 function addDays(date: Date, amount: number) {
@@ -93,15 +148,23 @@ function parseDateKey(key: string) {
 }
 
 function buildDateKey(date: Date) {
-  const year = date.getFullYear()
-  const month = `${date.getMonth() + 1}`.padStart(2, "0")
-  const day = `${date.getDate()}`.padStart(2, "0")
+  const { year, month, day } = getThaiDateParts(date)
   return `${year}-${month}-${day}`
 }
 
+function buildFixtureWindow(centerDate: Date) {
+  return {
+    from: buildDateKey(addDays(centerDate, -3)),
+    to: buildDateKey(addDays(centerDate, 3)),
+  }
+}
+
 function buildDateLabel(targetDate: Date, now: Date) {
-  const current = startOfDay(now)
-  const target = startOfDay(targetDate)
+  const currentKey = buildDateKey(now)
+  const targetKey = buildDateKey(targetDate)
+  const current = parseDateKey(currentKey)
+  const target = parseDateKey(targetKey)
+  if (!current || !target) return fullDateFormatter.format(targetDate)
   const diffDays = Math.round((target.getTime() - current.getTime()) / 86400000)
 
   if (diffDays === 0) return "วันนี้"
@@ -118,6 +181,37 @@ function buildStatusLabel(status: MatchStatus) {
 
 function buildStatusTone(status: MatchStatus) {
   if (status === "live") return "bg-red-500 text-white"
+  if (status === "finished") return "bg-primary/15 text-primary"
+  return "bg-muted text-muted-foreground"
+}
+
+function normalizeStatusShort(statusShort?: string) {
+  return String(statusShort || "").trim().toLowerCase()
+}
+
+function buildMatchStatusLabel(status: MatchStatus, statusShort?: string) {
+  const normalized = normalizeStatusShort(statusShort)
+
+  if (status === "finished") return "จบ"
+  if (status === "upcoming") return "ยังไม่แข่ง"
+
+  if (normalized === "1" || normalized === "1h") return "ครึ่งแรก"
+  if (normalized === "ht" || normalized.includes("half")) return "พักครึ่ง"
+  if (normalized === "2" || normalized === "2h") return "ครึ่งหลัง"
+  if (normalized === "et" || normalized === "aet") return "ต่อเวลา"
+  if (normalized.includes("pen")) return "จุดโทษ"
+  if (/^\d+$/.test(normalized) && Number(normalized) > 2) return `${normalized}'`
+
+  return "LIVE"
+}
+
+function buildMatchStatusTone(status: MatchStatus, statusShort?: string) {
+  const normalized = normalizeStatusShort(statusShort)
+  if (status === "live") {
+    if (normalized === "ht" || normalized.includes("half")) return "bg-amber-500 text-black"
+    return "bg-red-500 text-white"
+  }
+
   if (status === "finished") return "bg-primary/15 text-primary"
   return "bg-muted text-muted-foreground"
 }
@@ -149,24 +243,69 @@ export default function MatchesContent() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const [selectedDateKey, setSelectedDateKey] = useState("")
+  const [selectedMatchId, setSelectedMatchId] = useState("")
+  const [matchFilter, setMatchFilter] = useState<MatchFilter>("all")
+  const [activeTab, setActiveTab] = useState<DetailTab>("overview")
+  const [streamSnapshot, setStreamSnapshot] = useState<LiveStreamSnapshot | null>(null)
+  const requestedDateKey = searchParams.get("date")
+  const initialWindowDate = parseDateKey(requestedDateKey || "") || new Date()
+  const windowCenterDate = parseDateKey(selectedDateKey) || initialWindowDate
+  const fixtureWindow = buildFixtureWindow(windowCenterDate)
+  const upcomingFixturesUrl = `/api/football/fixtures?type=upcoming&from=${fixtureWindow.from}&to=${fixtureWindow.to}`
+  const finishedFixturesUrl = `/api/football/fixtures?type=finished&from=${fixtureWindow.from}&to=${fixtureWindow.to}`
+  const liveStreamUrl = `/api/football/live/stream?from=${fixtureWindow.from}&to=${fixtureWindow.to}`
 
-  const { data: allData, isLoading, mutate, error } = useSWR("/api/football/fixtures?type=all", fetcher, {
+  const { data: liveData, isLoading: liveLoading, mutate: mutateLive, error: liveError } = useSWR("/api/football/fixtures?type=live", fetcher, {
     revalidateOnFocus: false,
-    dedupingInterval: 60000,
+    refreshInterval: FIXTURES_REFRESH_INTERVAL_MS,
+    dedupingInterval: FIXTURES_REFRESH_INTERVAL_MS,
   })
+  const { data: upcomingData, isLoading: upcomingLoading, mutate: mutateUpcoming, error: upcomingError } = useSWR(upcomingFixturesUrl, fetcher, {
+    revalidateOnFocus: false,
+    refreshInterval: FIXTURES_REFRESH_INTERVAL_MS,
+    dedupingInterval: FIXTURES_REFRESH_INTERVAL_MS,
+  })
+  const { data: finishedData, isLoading: finishedLoading, mutate: mutateFinished, error: finishedError } = useSWR(finishedFixturesUrl, fetcher, {
+    revalidateOnFocus: false,
+    refreshInterval: FIXTURES_REFRESH_INTERVAL_MS * 2,
+    dedupingInterval: FIXTURES_REFRESH_INTERVAL_MS,
+  })
+  const isLoading = liveLoading || upcomingLoading || finishedLoading
+  const error = liveError || upcomingError || finishedError
+  const mutateFixtures = () => Promise.all([mutateLive(), mutateUpcoming(), mutateFinished()])
   const { data: standingsData } = useSWR("/api/football/standings", fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 300000,
   })
 
-  const [selectedDateKey, setSelectedDateKey] = useState("")
-  const [selectedMatchId, setSelectedMatchId] = useState("")
-  const [matchFilter, setMatchFilter] = useState<MatchFilter>("all")
-  const [activeTab, setActiveTab] = useState<DetailTab>("overview")
+  useEffect(() => {
+    const eventSource = new EventSource(`${liveStreamUrl}${selectedMatchId ? `&matchId=${selectedMatchId}` : ""}`)
+
+    eventSource.addEventListener("snapshot", (event) => {
+      try {
+        setStreamSnapshot(JSON.parse((event as MessageEvent).data))
+      } catch {}
+    })
+
+    return () => {
+      eventSource.close()
+    }
+  }, [fixtureWindow.from, fixtureWindow.to, liveStreamUrl, selectedMatchId])
 
   const allFixtures: MatchItem[] = useMemo(() => {
     const now = new Date()
-    return (allData?.data || [])
+    const fixtureSources = [
+      ...(Array.isArray(streamSnapshot?.fixtures?.live) ? streamSnapshot.fixtures.live : []),
+      ...(Array.isArray(streamSnapshot?.fixtures?.upcoming) ? streamSnapshot.fixtures.upcoming : []),
+      ...(Array.isArray(streamSnapshot?.fixtures?.finished) ? streamSnapshot.fixtures.finished : []),
+      ...(Array.isArray(liveData?.data) ? liveData.data : []),
+      ...(Array.isArray(upcomingData?.data) ? upcomingData.data : []),
+      ...(Array.isArray(finishedData?.data) ? finishedData.data : []),
+    ]
+    const dedupedFixtures = Array.from(new Map(fixtureSources.map((fixture: any) => [String(fixture?.id ?? ""), fixture])).values())
+
+    return dedupedFixtures
       .map((fixture: any) => {
         const fixtureDate = new Date(fixture.date)
         if (Number.isNaN(fixtureDate.getTime())) return null
@@ -182,7 +321,7 @@ export default function MatchesContent() {
           homeScore: fixture.goals?.home ?? null,
           awayScore: fixture.goals?.away ?? null,
           dateLabel: buildDateLabel(fixtureDate, now),
-          timeLabel: fixtureDate.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }),
+          timeLabel: timeFormatter.format(fixtureDate),
           isoDate: fixture.date,
           dateKey: buildDateKey(fixtureDate),
           status: fixture.status?.isLive ? "live" : fixture.status?.isFinished ? "finished" : "upcoming",
@@ -192,7 +331,23 @@ export default function MatchesContent() {
         } satisfies MatchItem
       })
       .filter(Boolean) as MatchItem[]
-  }, [allData])
+  }, [finishedData, liveData, streamSnapshot, upcomingData])
+
+  const liveMatches = useMemo(() => allFixtures.filter((match) => match.status === "live"), [allFixtures])
+  const hasLiveMatches = liveMatches.length > 0
+  const fallbackDateKey = useMemo(() => {
+    if (hasLiveMatches) return ""
+
+    const upcomingMatch = allFixtures
+      .filter((match) => match.status === "upcoming")
+      .sort((left, right) => new Date(left.isoDate).getTime() - new Date(right.isoDate).getTime())[0]
+    if (upcomingMatch) return upcomingMatch.dateKey
+
+    const latestFinishedMatch = allFixtures
+      .filter((match) => match.status === "finished")
+      .sort((left, right) => new Date(right.isoDate).getTime() - new Date(left.isoDate).getTime())[0]
+    return latestFinishedMatch?.dateKey || ""
+  }, [allFixtures, hasLiveMatches])
 
   const matchesByDate = useMemo(() => {
     const grouped = new Map<string, MatchItem[]>()
@@ -218,27 +373,38 @@ export default function MatchesContent() {
   }, [searchParams])
 
   useEffect(() => {
-    if (selectedDateKey || !allFixtures.length) return
+    if (!allFixtures.length) return
+
+    if (hasLiveMatches) {
+      const firstLiveDateKey = liveMatches[0]?.dateKey || buildDateKey(new Date())
+      if (selectedDateKey !== firstLiveDateKey) {
+        setSelectedDateKey(firstLiveDateKey)
+      }
+      return
+    }
+
+    if (selectedDateKey) return
     const todayKey = buildDateKey(new Date())
     const today = matchesByDate.has(todayKey) ? todayKey : ""
     const nextFixture = allFixtures.find((match) => new Date(match.isoDate) >= startOfDay(new Date()))
-    setSelectedDateKey(today || nextFixture?.dateKey || allFixtures[0]?.dateKey || todayKey)
-  }, [allFixtures, matchesByDate, selectedDateKey])
+    setSelectedDateKey(today || nextFixture?.dateKey || fallbackDateKey || allFixtures[0]?.dateKey || todayKey)
+  }, [allFixtures, fallbackDateKey, hasLiveMatches, liveMatches, matchesByDate, selectedDateKey])
 
-  const selectedDate = parseDateKey(selectedDateKey) || new Date()
-  const selectedDateMatches = matchesByDate.get(selectedDateKey) || []
+  const effectiveDateKey = hasLiveMatches ? selectedDateKey || liveMatches[0]?.dateKey || fallbackDateKey : selectedDateKey || fallbackDateKey
+  const selectedDate = parseDateKey(effectiveDateKey) || new Date()
+  const selectedDateMatches = matchesByDate.get(effectiveDateKey) || []
   const filteredMatches = selectedDateMatches.filter((match) => matchFilter === "all" || match.status === matchFilter)
 
   useEffect(() => {
-    if (!selectedDateKey) return
+    if (!effectiveDateKey) return
     const params = new URLSearchParams(searchParams.toString())
-    params.set("date", selectedDateKey)
+    params.set("date", effectiveDateKey)
     if (selectedMatchId) params.set("match", selectedMatchId)
     else params.delete("match")
     const next = `${pathname}?${params.toString()}`
     const current = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
     if (next !== current) router.replace(next, { scroll: false })
-  }, [pathname, router, searchParams, selectedDateKey, selectedMatchId])
+  }, [effectiveDateKey, pathname, router, searchParams, selectedMatchId])
 
   useEffect(() => {
     if (!selectedDateMatches.length) {
@@ -255,23 +421,46 @@ export default function MatchesContent() {
 
   const selectedMatch = selectedDateMatches.find((match) => match.id === selectedMatchId) || selectedDateMatches[0] || null
   const standings = standingsData?.data || []
-  const totalMatchesLoaded = allData?.totalMatches || allFixtures.length
-  const expectedMatches = allData?.expectedMatches || 380
-  const isCompleteSeason = Boolean(allData?.isCompleteSeason)
+  const totalMatchesLoaded = allFixtures.length
+  const expectedMatches =
+    Number(liveData?.expectedMatches || upcomingData?.expectedMatches || finishedData?.expectedMatches || 380) || 380
+  const isCompleteSeason = Boolean(liveData?.isCompleteSeason || upcomingData?.isCompleteSeason || finishedData?.isCompleteSeason)
 
   const { data: eventsData, isLoading: eventsLoading } = useSWR(
     selectedMatch ? `/api/football/events/${selectedMatch.id}` : null,
     fetcher,
-    { revalidateOnFocus: false, dedupingInterval: 300000 },
+    {
+      revalidateOnFocus: false,
+      refreshInterval: selectedMatch?.status === "live" ? MATCH_DETAILS_REFRESH_INTERVAL_MS : 0,
+      dedupingInterval: selectedMatch?.status === "live" ? MATCH_DETAILS_REFRESH_INTERVAL_MS : 300000,
+    },
   )
   const { data: lineupsData, isLoading: lineupsLoading } = useSWR(
     selectedMatch ? `/api/football/lineups/${selectedMatch.id}` : null,
     fetcher,
-    { revalidateOnFocus: false, dedupingInterval: 300000 },
+    {
+      revalidateOnFocus: false,
+      refreshInterval: selectedMatch?.status === "live" ? MATCH_DETAILS_REFRESH_INTERVAL_MS : 0,
+      dedupingInterval: selectedMatch?.status === "live" ? MATCH_DETAILS_REFRESH_INTERVAL_MS : 300000,
+    },
+  )
+  const { data: statisticsData, isLoading: statisticsLoading } = useSWR(
+    selectedMatch ? `/api/football/statistics/${selectedMatch.id}` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      refreshInterval: selectedMatch?.status === "live" ? MATCH_DETAILS_REFRESH_INTERVAL_MS : 0,
+      dedupingInterval: selectedMatch?.status === "live" ? MATCH_DETAILS_REFRESH_INTERVAL_MS : 300000,
+    },
   )
 
-  const events: MatchEvent[] = Array.isArray(eventsData?.data) ? eventsData.data : []
-  const lineups: LineupSide[] = Array.isArray(lineupsData?.data) ? lineupsData.data : []
+  const events: MatchEvent[] = Array.isArray(streamSnapshot?.events) ? streamSnapshot.events : Array.isArray(eventsData?.data) ? eventsData.data : []
+  const statistics: MatchStatistic[] = Array.isArray(statisticsData?.data) ? statisticsData.data : []
+  const lineups: LineupSide[] = Array.isArray(streamSnapshot?.lineups)
+    ? streamSnapshot.lineups
+    : Array.isArray(lineupsData?.data)
+      ? lineupsData.data
+      : []
   const detailTabs: Array<{ key: DetailTab; label: string }> = [
     { key: "overview", label: "ภาพรวม" },
     { key: "events", label: "ไทม์ไลน์" },
@@ -292,8 +481,8 @@ export default function MatchesContent() {
       return {
         key,
         date,
-        day: date.toLocaleDateString("th-TH", { weekday: "short" }),
-        label: date.toLocaleDateString("th-TH", { day: "numeric", month: "short" }),
+        day: shortWeekdayFormatter.format(date),
+        label: shortDayMonthFormatter.format(date),
         matches: matchesByDate.get(key)?.length || 0,
       }
     })
@@ -339,7 +528,7 @@ export default function MatchesContent() {
               {PREMIER_LEAGUE_DATA_SEASON.labelShort}
               <ChevronDown className="ml-2 h-4 w-4 text-muted-foreground" />
             </Button>
-            <Button onClick={() => mutate()} disabled={isLoading} className="h-11 rounded-[14px] bg-primary px-3 font-bold text-primary-foreground hover:bg-primary/90 sm:h-12 sm:px-5">
+            <Button onClick={() => void mutateFixtures()} disabled={isLoading} className="h-11 rounded-[14px] bg-primary px-3 font-bold text-primary-foreground hover:bg-primary/90 sm:h-12 sm:px-5">
               <RefreshCw className={cn("mr-2 h-4 w-4", isLoading && "animate-spin")} />
               รีเฟรชข้อมูล
             </Button>
@@ -358,7 +547,7 @@ export default function MatchesContent() {
             </button>
             <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto px-1 [scrollbar-width:none] lg:grid lg:grid-cols-7 lg:overflow-hidden [&::-webkit-scrollbar]:hidden">
               {dateTabs.map((item) => {
-                const active = item.key === selectedDateKey
+                const active = item.key === effectiveDateKey
                 return (
                   <button
                     key={item.key}
@@ -402,7 +591,7 @@ export default function MatchesContent() {
           </Popover>
         </section>
 
-        {error || allData?.source === "error" ? (
+        {error || liveData?.source === "error" || upcomingData?.source === "error" || finishedData?.source === "error" ? (
           <section className="mb-5 rounded-[18px] border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
             โหลดโปรแกรมไม่สำเร็จจากผู้ให้บริการ กรุณาลองรีเฟรชอีกครั้ง
           </section>
@@ -508,7 +697,7 @@ export default function MatchesContent() {
                       />
                     ) : null}
                     {activeTab === "events" ? <EventsPanel match={selectedMatch} events={events} /> : null}
-                    {activeTab === "statistics" ? <StatisticsPanel match={selectedMatch} events={events} eventsLoading={eventsLoading} /> : null}
+                    {activeTab === "statistics" ? <StatisticsPanel match={selectedMatch} events={events} eventsLoading={eventsLoading} statistics={statistics} statisticsLoading={statisticsLoading} /> : null}
                     {activeTab === "lineups" ? <LineupsPanel match={selectedMatch} lineups={lineups} loading={lineupsLoading} /> : null}
                     {activeTab === "standings" ? <StandingsPanel standings={standings} selectedMatch={selectedMatch} /> : null}
                   </div>
@@ -554,7 +743,7 @@ function MatchRow({ match, active, onSelect }: { match: MatchItem; active: boole
       <div className="grid grid-cols-[54px_1fr_auto] items-center gap-3">
         <div className="text-[13px]">
           <p className="font-semibold text-foreground">{match.timeLabel}</p>
-          <Badge className={cn("mt-2 border-0 text-[10px]", buildStatusTone(match.status))}>{buildStatusLabel(match.status)}</Badge>
+          <Badge className={cn("mt-2 border-0 text-[10px]", buildMatchStatusTone(match.status, match.statusShort))}>{buildMatchStatusLabel(match.status, match.statusShort)}</Badge>
           {match.status === "live" && match.elapsed ? <p className="mt-1 text-xs text-primary">{match.elapsed}'</p> : null}
         </div>
 
@@ -610,7 +799,7 @@ function SelectedMatchHeader({ match, events }: { match: MatchItem; events: Matc
           </div>
 
           <div className="text-center">
-            <Badge className={cn("mb-1 border-0 text-[10px] sm:mb-2 sm:text-xs", buildStatusTone(match.status))}>{buildStatusLabel(match.status)}</Badge>
+            <Badge className={cn("mb-1 border-0 text-[10px] sm:mb-2 sm:text-xs", buildMatchStatusTone(match.status, match.statusShort))}>{buildMatchStatusLabel(match.status, match.statusShort)}</Badge>
             {match.status === "live" && match.elapsed ? <p className="text-sm font-semibold text-primary">{match.elapsed}'</p> : null}
             <div className="mt-1 text-3xl font-black tracking-normal sm:text-4xl md:text-6xl">{formatScore(match)}</div>
             <p className="mt-2 max-w-[132px] text-xs leading-5 text-muted-foreground sm:max-w-none sm:text-sm">{match.dateLabel} • {match.timeLabel}</p>
@@ -815,6 +1004,18 @@ function EventStatBar({ row }: { row: { label: string; home: number; away: numbe
   )
 }
 
+function ProviderStatisticRow({ row }: { row: MatchStatistic }) {
+  return (
+    <div className="rounded-[12px] border border-border bg-card/80 p-4">
+      <div className="grid grid-cols-[64px_1fr_64px] items-center gap-3 text-sm">
+        <span className="text-lg font-black">{row.home || "-"}</span>
+        <span className="text-center font-semibold text-muted-foreground">{row.type}</span>
+        <span className="text-right text-lg font-black">{row.away || "-"}</span>
+      </div>
+    </div>
+  )
+}
+
 function getTeamResult(match: MatchItem, teamId: string) {
   if (match.status !== "finished" || match.homeScore == null || match.awayScore == null) return null
   const isHome = match.homeId === teamId
@@ -946,10 +1147,23 @@ function EventsPanel({ match, events }: { match: MatchItem; events: MatchEvent[]
   )
 }
 
-function StatisticsPanel({ match, events, eventsLoading }: { match: MatchItem; events: MatchEvent[]; eventsLoading: boolean }) {
+function StatisticsPanel({
+  match,
+  events,
+  eventsLoading,
+  statistics,
+  statisticsLoading,
+}: {
+  match: MatchItem
+  events: MatchEvent[]
+  eventsLoading: boolean
+  statistics: MatchStatistic[]
+  statisticsLoading: boolean
+}) {
   const eventStats = buildEventStatRows(match, events)
+  const providerStats = statistics.filter((row) => row.type)
 
-  if (eventsLoading) {
+  if (eventsLoading || statisticsLoading) {
     return (
       <div className="flex min-h-[260px] items-center justify-center rounded-[14px] border border-border bg-muted/35">
         <Loader2 className="h-5 w-5 animate-spin text-primary" />
@@ -957,7 +1171,7 @@ function StatisticsPanel({ match, events, eventsLoading }: { match: MatchItem; e
     )
   }
 
-  if (!eventStats.length) {
+  if (!providerStats.length && !eventStats.length) {
     return (
       <EmptyDetailState
         title="ยังไม่มีสถิติจากผู้ให้บริการ"
@@ -968,11 +1182,11 @@ function StatisticsPanel({ match, events, eventsLoading }: { match: MatchItem; e
 
   return (
     <div className="mx-auto max-w-2xl rounded-[14px] border border-border bg-muted/35 p-5">
-      <h3 className="text-base font-black">สถิติจากเหตุการณ์จริง</h3>
+      <h3 className="text-base font-black">{providerStats.length ? "สถิติจากผู้ให้บริการ" : "สถิติจากเหตุการณ์จริง"}</h3>
       <div className="mt-5 space-y-4">
-        {eventStats.map((row) => (
-          <EventStatBar key={row.label} row={row} />
-        ))}
+        {providerStats.length
+          ? providerStats.map((row) => <ProviderStatisticRow key={row.type} row={row} />)
+          : eventStats.map((row) => <EventStatBar key={row.label} row={row} />)}
       </div>
     </div>
   )
@@ -1018,11 +1232,30 @@ function LineupsPanel({ match, lineups, loading }: { match: MatchItem; lineups: 
           <div className="space-y-2">
             {(side.data?.startXI || []).slice(0, 11).map((item, index) => (
               <div key={`${item.player?.name}-${index}`} className="flex items-center justify-between rounded-[10px] border border-border bg-card px-3 py-2 text-sm">
-                <span>{item.player?.name || "Player"}</span>
-                <span className="text-muted-foreground">{item.player?.pos || "-"}</span>
+                <span className="min-w-0 truncate">{item.player?.name || "Player"}</span>
+                <span className="ml-3 flex items-center gap-3 text-muted-foreground">
+                  <span className="rounded-full border border-border px-2 py-0.5 text-xs">{item.player?.number || "-"}</span>
+                  <span>{item.player?.pos || "-"}</span>
+                </span>
               </div>
             ))}
           </div>
+          {(side.data?.substitutes || []).length ? (
+            <div className="mt-5">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Substitutes</p>
+              <div className="space-y-2">
+                {(side.data?.substitutes || []).map((item, index) => (
+                  <div key={`${item.player?.name}-sub-${index}`} className="flex items-center justify-between rounded-[10px] border border-border/70 bg-background px-3 py-2 text-sm">
+                    <span className="min-w-0 truncate">{item.player?.name || "Substitute"}</span>
+                    <span className="ml-3 flex items-center gap-3 text-muted-foreground">
+                      <span className="rounded-full border border-border px-2 py-0.5 text-xs">{item.player?.number || "-"}</span>
+                      <span>{item.player?.pos || "SUB"}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       ))}
     </div>

@@ -192,6 +192,39 @@ def load_csv_rows_from_text(content: str) -> list[dict[str, str]]:
     return [dict(row) for row in reader]
 
 
+def decode_csv_bytes(content: bytes, filename: str) -> str:
+    last_error: Exception | None = None
+    for encoding in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
+        try:
+            return content.decode(encoding)
+        except UnicodeDecodeError as error:
+            last_error = error
+
+    raise ApiError(
+        422,
+        f"ไม่สามารถอ่านไฟล์ CSV ได้: {filename}",
+        details={
+            "filename": filename,
+            "supported_encodings": ["utf-8-sig", "utf-8", "cp1252", "latin-1"],
+            "reason": str(last_error) if last_error else "Unknown decode error",
+        },
+    )
+
+
+def read_csv_text_from_path(file_path: Path) -> str:
+    try:
+        return decode_csv_bytes(file_path.read_bytes(), file_path.name)
+    except ApiError as error:
+        raise ApiError(
+            error.status_code,
+            f"ไม่สามารถอ่านไฟล์ historical ในคลังได้: {file_path.name}",
+            details={
+                **(error.details or {}),
+                "filename": file_path.name,
+            },
+        ) from error
+
+
 def load_archive() -> dict[str, Any]:
     files: list[dict[str, Any]] = []
     matches: list[HistoricalMatch] = []
@@ -199,7 +232,7 @@ def load_archive() -> dict[str, Any]:
     duplicates_removed = 0
 
     for file_path in list_raw_files():
-        content = file_path.read_text(encoding="utf-8")
+        content = read_csv_text_from_path(file_path)
         rows = load_csv_rows_from_text(content)
         season = infer_season(file_path.name, rows)
         file_match_count = 0
@@ -381,9 +414,27 @@ def get_pipeline_status() -> dict[str, Any]:
 
 def store_uploaded_season_file(filename: str, content: bytes) -> dict[str, Any]:
     ensure_directories()
-    incoming_text = content.decode("utf-8")
+    incoming_text = decode_csv_bytes(content, filename)
     rows = load_csv_rows_from_text(incoming_text)
     inferred_season = infer_season(filename, rows)
+    valid_matches = [match for row in rows if (match := normalize_historical_row(row, inferred_season)) is not None]
+
+    if not rows:
+        raise ApiError(422, f"ไฟล์ historical ว่างเปล่าหรือไม่มีข้อมูลที่อ่านได้: {filename}")
+
+    if not valid_matches:
+        raise ApiError(
+            422,
+            f"ไฟล์ historical ใช้งานไม่ได้: {filename}",
+            details={
+                "filename": filename,
+                "reason": "ไม่พบแถวข้อมูลแมตช์ย้อนหลังที่มี Date, HomeTeam, AwayTeam, FTHG และ FTAG ครบ",
+                "season": inferred_season,
+                "row_count": len(rows),
+                "valid_match_count": 0,
+            },
+        )
+
     file_path = Path(filename or "season-upload.csv")
     base_name = sanitize_filename_part(file_path.stem, "season-upload")
     extension = file_path.suffix or ".csv"
@@ -393,7 +444,7 @@ def store_uploaded_season_file(filename: str, content: bytes) -> dict[str, Any]:
     duplicate = False
 
     for existing_path in list_raw_files():
-        if existing_path.read_text(encoding="utf-8") == incoming_text:
+        if read_csv_text_from_path(existing_path) == incoming_text:
             duplicate = True
             break
 
@@ -405,7 +456,13 @@ def store_uploaded_season_file(filename: str, content: bytes) -> dict[str, Any]:
         suffix += 1
 
     candidate_path.write_text(incoming_text, encoding="utf-8")
-    return {"filename": candidate_name, "duplicate": duplicate}
+    return {
+        "filename": candidate_name,
+        "duplicate": duplicate,
+        "season": inferred_season,
+        "row_count": len(rows),
+        "valid_match_count": len(valid_matches),
+    }
 
 
 def run_upload_pipeline_batch(items: list[tuple[str, bytes]]) -> dict[str, Any]:
@@ -738,7 +795,7 @@ def resolve_fixture_columns(headers: list[str]) -> dict[str, str]:
 
 def export_fixture_predictions(season: str, original_name: str, content: bytes) -> dict[str, Any]:
     ensure_directories()
-    text = content.decode("utf-8")
+    text = decode_csv_bytes(content, original_name)
     reader = csv.DictReader(io.StringIO(text))
     if reader.fieldnames is None:
         raise ApiError(422, "Fixture CSV is empty or missing a header row")

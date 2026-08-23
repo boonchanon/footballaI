@@ -51,6 +51,20 @@ function areCsvFiles(files: File[]) {
   return files.length > 0 && files.every((file) => isCsvFile(file))
 }
 
+function mergeSelectedFiles(existingFiles: File[], incomingFiles: File[]) {
+  const merged = new Map<string, File>()
+
+  for (const file of existingFiles) {
+    merged.set(`${file.name}:${file.size}:${file.lastModified}`, file)
+  }
+
+  for (const file of incomingFiles) {
+    merged.set(`${file.name}:${file.size}:${file.lastModified}`, file)
+  }
+
+  return Array.from(merged.values())
+}
+
 function isSeasonFormat(value: string) {
   return /^\d{4}-\d{4}$/.test(value.trim())
 }
@@ -134,8 +148,9 @@ async function validateFixtureCsvFile(file: File): Promise<FixtureHeaderValidati
     }
   }
 
-  const normalizedHeaders = parseCsvLine(firstLine)
-    .map((value) => value.trim().replace(/^"|"$/g, "").toLowerCase())
+  const normalizedHeaders = parseCsvLine(firstLine).map((value) =>
+    value.trim().replace(/^"|"$/g, "").toLowerCase(),
+  )
 
   const hasDate = normalizedHeaders.includes("fixture_date") || normalizedHeaders.includes("date")
   const hasHomeTeam =
@@ -162,7 +177,10 @@ async function validateFixtureCsvFile(file: File): Promise<FixtureHeaderValidati
   }
 }
 
-async function normalizeFixtureCsvTeams(file: File, canonicalTeamMap: Map<string, string>): Promise<FixtureNormalizationResult> {
+async function normalizeFixtureCsvTeams(
+  file: File,
+  canonicalTeamMap: Map<string, string>,
+): Promise<FixtureNormalizationResult> {
   const rawText = await file.text()
   const lines = rawText.split(/\r?\n/)
   const headerIndex = lines.findIndex((line) => line.trim())
@@ -228,6 +246,10 @@ async function normalizeFixtureCsvTeams(file: File, canonicalTeamMap: Map<string
   }
 }
 
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
+}
+
 export default function AdminAiPage() {
   const [summaryState, setSummaryState] = useState<RemoteState<AdminAiStatusSummary>>({
     loading: true,
@@ -247,34 +269,66 @@ export default function AdminAiPage() {
   const [predictState, setPredictState] = useState<ActionState<MatchPredictionResult>>(createActionState())
   const [deleteState, setDeleteState] = useState<ActionState<{ filename: string }>>(createActionState())
 
-  const canonicalTeamMap = useMemo(() => buildCanonicalTeamMap(summaryState.data?.teams || []), [summaryState.data?.teams])
+  const canonicalTeamMap = useMemo(
+    () => buildCanonicalTeamMap(summaryState.data?.teams || []),
+    [summaryState.data?.teams],
+  )
 
-  const loadSummary = async () => {
+  const clearPipelineStates = () => {
+    setUploadState(createActionState())
+    setRebuildState(createActionState())
+    setExportState(createActionState())
+    setDeleteState(createActionState())
+    setLatestFiles([])
+    setFixtureFile(null)
+  }
+
+  const loadSummary = async (): Promise<AdminAiStatusSummary | null> => {
     setSummaryState((prev) => ({ ...prev, loading: true, error: "" }))
     try {
       const data = await fetchAdminAiSummary()
       setSummaryState({ loading: false, error: "", data })
-      return true
+      if (data.rawFileCount === 0) {
+        clearPipelineStates()
+        setLatestFileInputKey((prev) => prev + 1)
+        setFixtureFileInputKey((prev) => prev + 1)
+      }
+      return data
     } catch (error) {
       setSummaryState({
         loading: false,
         error: error instanceof Error ? error.message : "โหลดสถานะระบบ AI ไม่สำเร็จ",
         data: null,
       })
-      return false
+      return null
     }
+  }
+
+  const refreshSummaryTwice = async () => {
+    const immediate = await loadSummary()
+    await wait(800)
+    const delayed = await loadSummary()
+    return delayed ?? immediate
   }
 
   useEffect(() => {
     void loadSummary()
   }, [])
 
+  useEffect(() => {
+    if (summaryState.loading || !summaryState.data) return
+
+    if (summaryState.data.rawFileCount === 0) {
+      clearPipelineStates()
+    }
+  }, [summaryState.data, summaryState.loading])
+
   const topModel = useMemo(() => {
     return summaryState.data?.models.find((item) => item.isBest) || summaryState.data?.models[0] || null
   }, [summaryState.data])
 
   const handleLatestFileChange = (files: File[]) => {
-    setLatestFiles(files)
+    setLatestFiles((prev) => mergeSelectedFiles(prev, files))
     setUploadState(createActionState())
   }
 
@@ -287,7 +341,7 @@ export default function AdminAiPage() {
     if (!latestFiles.length) {
       setUploadState({
         ...createActionState(),
-        error: "กรุณาเลือกไฟล์ฤดูกาลล่าสุดก่อนอัปโหลด",
+        error: "กรุณาเลือกไฟล์ historical CSV อย่างน้อย 1 ไฟล์ก่อนอัปโหลด",
       })
       return
     }
@@ -295,7 +349,7 @@ export default function AdminAiPage() {
     if (!areCsvFiles(latestFiles)) {
       setUploadState({
         ...createActionState(),
-        error: "รองรับเฉพาะไฟล์ CSV สำหรับการอัปเดตข้อมูลย้อนหลัง",
+        error: "รองรับเฉพาะไฟล์ CSV สำหรับข้อมูลย้อนหลัง",
       })
       return
     }
@@ -303,17 +357,21 @@ export default function AdminAiPage() {
     setUploadState({ ...createActionState(), loading: true })
     try {
       const data = await uploadLatestSeasonFile(latestFiles)
-      const refreshed = await loadSummary()
+      const refreshed = await refreshSummaryTwice()
+      const mergedUploadData: UploadPipelineResult = {
+        ...data,
+        latestSeason: refreshed?.latestSeason || data.latestSeason,
+        featureRows: refreshed?.totalMatches ?? data.featureRows,
+      }
 
       setUploadState({
         loading: false,
         error: "",
-        success: refreshed
-          ? `อัปเดตข้อมูลย้อนหลังสำเร็จ ${data.processedFiles || latestFiles.length} ไฟล์`
-          : `อัปเดตข้อมูลย้อนหลังสำเร็จ ${data.processedFiles || latestFiles.length} ไฟล์ แต่รีเฟรชสถานะล่าสุดไม่สำเร็จ`,
-        data,
+        success: refreshed ? "" : `อัปเดตข้อมูลย้อนหลังสำเร็จ ${data.processedFiles || latestFiles.length} ไฟล์ แต่รีเฟรชสถานะล่าสุดไม่สำเร็จ`,
+        data: mergedUploadData,
       })
-
+      setLatestFiles([])
+      setLatestFileInputKey((prev) => prev + 1)
     } catch (error) {
       setUploadState({
         loading: false,
@@ -328,12 +386,18 @@ export default function AdminAiPage() {
     setRebuildState({ ...createActionState(), loading: true })
     try {
       const data = await rebuildFromRawArchive()
-      await loadSummary()
+      const refreshed = await refreshSummaryTwice()
+      const mergedRebuildData: UploadPipelineResult = {
+        ...data,
+        latestSeason: refreshed?.latestSeason || data.latestSeason,
+        featureRows: refreshed?.totalMatches ?? data.featureRows,
+      }
+
       setRebuildState({
         loading: false,
         error: "",
-        success: "สร้างข้อมูลใหม่จากไฟล์ดิบทั้งหมดสำเร็จ",
-        data,
+        success: refreshed ? "" : "สร้างข้อมูลใหม่จากไฟล์ดิบทั้งหมดสำเร็จ แต่รีเฟรชสถานะล่าสุดไม่สำเร็จ",
+        data: mergedRebuildData,
       })
     } catch (error) {
       setRebuildState({
@@ -355,13 +419,16 @@ export default function AdminAiPage() {
 
     try {
       const result: DeleteRawFileResult = await deleteRawArchiveFile(filename)
-      const refreshed = await loadSummary()
+      const refreshed = await refreshSummaryTwice()
+      if (refreshed) {
+        setUploadState(createActionState())
+        setRebuildState(createActionState())
+      }
+
       setDeleteState({
         loading: false,
         error: "",
-        success: refreshed
-          ? `ลบไฟล์ ${result.filename} ออกจากคลังข้อมูลสำเร็จ`
-          : `ลบไฟล์ ${result.filename} สำเร็จ แต่รีเฟรชสถานะล่าสุดไม่สำเร็จ`,
+        success: refreshed ? "" : `ลบไฟล์ ${result.filename} สำเร็จ แต่รีเฟรชสถานะล่าสุดไม่สำเร็จ`,
         data: { filename: result.filename },
       })
     } catch (error) {
@@ -420,7 +487,7 @@ export default function AdminAiPage() {
     try {
       const normalizedFixture = await normalizeFixtureCsvTeams(fixtureFile, canonicalTeamMap)
       const data = await exportFixturePredictions(normalizedFixture.file, targetSeason.trim())
-      const refreshed = await loadSummary()
+      const refreshed = await refreshSummaryTwice()
 
       setExportState({
         loading: false,
@@ -508,6 +575,7 @@ export default function AdminAiPage() {
 
       <div className="grid gap-6 2xl:grid-cols-[1.1fr_0.9fr]">
         <HistoricalUpdateSection
+          statusSummary={summaryState.data}
           latestFileInputKey={latestFileInputKey}
           latestFileNames={latestFiles.map((file) => file.name)}
           uploadState={uploadState}
