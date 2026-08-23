@@ -55,39 +55,58 @@ export async function GET(request: Request) {
   const stream = new ReadableStream({
     start(controller) {
       let closed = false
+      let interval: ReturnType<typeof setInterval> | null = null
+      let keepAlive: ReturnType<typeof setInterval> | null = null
 
-      const send = async () => {
+      const safeEnqueue = (payload: Uint8Array) => {
+        if (closed) return false
         try {
-          const payload = await loadSnapshot(matchId, from, to)
-          controller.enqueue(encoder.encode(`event: snapshot\ndata: ${JSON.stringify(payload)}\n\n`))
-        } catch (error) {
-          const message = error instanceof Error ? error.message : "Failed to stream live football data"
-          controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ message })}\n\n`))
+          controller.enqueue(payload)
+          return true
+        } catch {
+          closed = true
+          return false
         }
       }
 
-      controller.enqueue(encoder.encode(`retry: ${STREAM_INTERVAL_MS}\n\n`))
+      const close = () => {
+        if (closed) return
+        closed = true
+        if (interval) clearInterval(interval)
+        if (keepAlive) clearInterval(keepAlive)
+        try {
+          controller.close()
+        } catch {
+          // Stream is already closed.
+        }
+      }
+
+      const send = async () => {
+        if (closed) return
+        try {
+          const payload = await loadSnapshot(matchId, from, to)
+          safeEnqueue(encoder.encode(`event: snapshot\ndata: ${JSON.stringify(payload)}\n\n`))
+        } catch (error) {
+          if (closed) return
+          const message = error instanceof Error ? error.message : "Failed to stream live football data"
+          safeEnqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ message })}\n\n`))
+        }
+      }
+
+      safeEnqueue(encoder.encode(`retry: ${STREAM_INTERVAL_MS}\n\n`))
       void send()
 
-      const interval = setInterval(() => {
+      interval = setInterval(() => {
         if (!closed) {
           void send()
         }
       }, STREAM_INTERVAL_MS)
 
-      const keepAlive = setInterval(() => {
+      keepAlive = setInterval(() => {
         if (!closed) {
-          controller.enqueue(encoder.encode(`: keep-alive\n\n`))
+          safeEnqueue(encoder.encode(`: keep-alive\n\n`))
         }
       }, 10000)
-
-      const close = () => {
-        if (closed) return
-        closed = true
-        clearInterval(interval)
-        clearInterval(keepAlive)
-        controller.close()
-      }
 
       request.signal.addEventListener("abort", close)
     },

@@ -87,8 +87,13 @@ export type MatchRoomStructuredSummary = {
 type MatchRoomSummaryProviderStatus = MatchRoomStructuredSummary["providerStatus"]
 
 const FINISHED_MATCH_STATUSES = new Set(["FT", "AET", "PEN", "finished", "Finished", "Match Finished"])
-const LIVE_MATCH_STATUSES = new Set(["1H", "2H", "HT", "ET", "BT", "P", "SUSP", "INT", "live", "Live", "In Progress"])
+const LIVE_MATCH_STATUSES = new Set(["1H", "2H", "HT", "Half Time", "HALF TIME", "ET", "BT", "P", "SUSP", "INT", "live", "Live", "In Progress"])
 const CLOSED_MATCH_STATUSES = new Set(["PST", "CANC", "ABD", "AWD", "WO", "postponed", "Postponed", "cancelled", "Cancelled"])
+
+function isMinuteLiveStatus(status: string) {
+  const normalized = String(status || "").trim()
+  return /^\d{1,3}(\+\d{1,2})?$/.test(normalized)
+}
 
 function safeString(value: unknown) {
   return typeof value === "string" ? value.trim() : ""
@@ -121,6 +126,37 @@ function normalizeTeamSummary(value: unknown, side: "home" | "away") {
 
 function normalizeScore(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
+function getMaxEventMinute(events: unknown[] | undefined) {
+  if (!Array.isArray(events)) return null
+  let maxMinute: number | null = null
+  for (const event of events) {
+    const item = event && typeof event === "object" ? (event as Record<string, any>) : {}
+    const elapsed = Number(item.time?.elapsed ?? item.elapsed ?? item.minute)
+    if (!Number.isFinite(elapsed)) continue
+    maxMinute = maxMinute == null ? elapsed : Math.max(maxMinute, elapsed)
+  }
+  return maxMinute
+}
+
+function parseMinuteStatus(status: string) {
+  const normalized = String(status || "").trim()
+  const match = normalized.match(/^(\d{1,3})(?:\+\d{1,2})?$/)
+  if (!match) return null
+  const value = Number(match[1])
+  return Number.isFinite(value) ? value : null
+}
+
+function resolveStableMatchStatus(rawStatus: string, events: unknown[] | undefined) {
+  if (!isMinuteLiveStatus(rawStatus)) return rawStatus
+  const currentMinute = parseMinuteStatus(rawStatus)
+  const maxEventMinute = getMaxEventMinute(events)
+  if (currentMinute == null || maxEventMinute == null) return rawStatus
+  if (maxEventMinute >= 90 && currentMinute + 10 < maxEventMinute) {
+    return "Finished"
+  }
+  return rawStatus
 }
 
 function normalizeSummaryFixtureEvents(events: unknown[] | undefined) {
@@ -300,7 +336,12 @@ function sortFixturesForMatchRooms(fixtures: MatchRoomFixture[], favoriteTeamNam
 }
 
 export function normalizeMatchRoomFixture(fixture: any): MatchRoomFixture {
-  const status = safeString(fixture?.status?.short || fixture?.status || fixture?.fixture?.status?.short)
+  const rawEvents = Array.isArray(fixture?.events) ? fixture.events : Array.isArray(fixture?.fixture?.events) ? fixture.fixture.events : []
+  const rawLineups = Array.isArray(fixture?.lineups) ? fixture.lineups : Array.isArray(fixture?.fixture?.lineups) ? fixture.fixture.lineups : []
+  const status = resolveStableMatchStatus(
+    safeString(fixture?.status?.short || fixture?.status || fixture?.fixture?.status?.short),
+    rawEvents,
+  )
   const home = fixture?.teams?.home || fixture?.home || {}
   const away = fixture?.teams?.away || fixture?.away || {}
   const goals = fixture?.goals || fixture?.score || {}
@@ -326,8 +367,8 @@ export function normalizeMatchRoomFixture(fixture: any): MatchRoomFixture {
     finishedAt: safeString(fixture?.finishedAt || fixture?.endedAt || fixture?.fullTimeAt || fixture?.fixture?.finishedAt || fixture?.fixture?.endedAt),
     dateThai: safeString(fixture?.dateThai),
     venue: safeString(fixture?.venue?.name || fixture?.venue),
-    events: Array.isArray(fixture?.events) ? fixture.events : Array.isArray(fixture?.fixture?.events) ? fixture.fixture.events : [],
-    lineups: Array.isArray(fixture?.lineups) ? fixture.lineups : Array.isArray(fixture?.fixture?.lineups) ? fixture.fixture.lineups : [],
+    events: rawEvents,
+    lineups: rawLineups,
     isFinished: isFinishedMatchStatus(status),
   }
 }
@@ -337,7 +378,7 @@ export function isFinishedMatchStatus(status: string) {
 }
 
 export function isLiveMatchStatus(status: string) {
-  return LIVE_MATCH_STATUSES.has(status)
+  return LIVE_MATCH_STATUSES.has(status) || isMinuteLiveStatus(status)
 }
 
 export function isClosedMatchStatus(status: string) {
