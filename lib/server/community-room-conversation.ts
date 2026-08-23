@@ -78,12 +78,13 @@ function resolveFinishedAt(match: MatchRoomFixture | null, now: Date) {
   if (explicitFinishedAt) return explicitFinishedAt
 
   const kickoff = normalizeDate(match?.kickoff)
-  if (!kickoff) return null
+  if (!kickoff) return now
 
   // The current football fixture contract does not expose a trusted finishedAt.
-  // Use provider kickoff plus regulation time as the server-side fallback, never client input.
+  // If provider already marks the match finished but does not send finishedAt,
+  // open post-match rooms immediately instead of waiting for a synthetic timeout.
   const fallbackFinishedAt = addMinutes(kickoff, 105)
-  return fallbackFinishedAt && fallbackFinishedAt <= now ? fallbackFinishedAt : null
+  return fallbackFinishedAt && fallbackFinishedAt <= now ? fallbackFinishedAt : now
 }
 
 export function getRoomState(match: MatchRoomFixture | null, roomTypeInput: unknown, nowInput: Date = new Date(), effectivePhase: MatchDemoOverridePhase = "auto") {
@@ -179,19 +180,12 @@ function getDemoOverrideRoomState(
       const closesAt = kickoff || now
       return buildState(roomType, "closed", now, subtractMinutes(closesAt, config.previewRoomMinutes), closesAt, true, closesAt, addDays(closesAt, config.retentionDays))
     }
-    if (roomType === "tactics") {
-      return buildState(roomType, "open", now, subtractMinutes(kickoff, config.previewRoomMinutes), null, false)
-    }
     return buildState(roomType, "unavailable", now, null, null, true, null, null)
   }
 
   const providerFinishedAt = resolveFinishedAt(match, now) || now
   const closesAt = addMinutes(providerFinishedAt, config.postRoomMinutes)
   if (roomType === "post_match") return buildState(roomType, "open", now, providerFinishedAt, closesAt, true, closesAt, addDays(closesAt, config.retentionDays))
-  if (roomType === "tactics") {
-    const tacticsOpensAt = subtractMinutes(kickoff, config.previewRoomMinutes)
-    return buildState(roomType, "open", now, tacticsOpensAt, closesAt, false)
-  }
   const previewClosesAt = kickoff || providerFinishedAt
   return buildState(roomType, "closed", now, subtractMinutes(previewClosesAt, config.previewRoomMinutes), previewClosesAt, true, previewClosesAt, addDays(previewClosesAt, config.retentionDays))
 }
