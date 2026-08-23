@@ -9,14 +9,19 @@ export const MATCH_TIMELINE_COPY = {
   noEvents: "No verified match events available yet.",
 } as const
 
-const LIVE_STATUSES = new Set(["1H", "2H", "HT", "ET", "BT", "P", "SUSP", "INT", "LIVE", "LIVE", "IN PROGRESS"])
+const LIVE_STATUSES = new Set(["1H", "2H", "HT", "HALF TIME", "ET", "BT", "P", "SUSP", "INT", "LIVE", "LIVE", "IN PROGRESS"])
 const FINISHED_STATUSES = new Set(["FT", "AET", "PEN", "FINISHED", "MATCH FINISHED"])
+
+function isMinuteLiveStatus(status: string) {
+  const normalized = String(status || "").trim()
+  return /^\d{1,3}(\+\d{1,2})?$/.test(normalized)
+}
 
 export function getMatchTimelinePhase(input: { status?: string | null; isFinished?: boolean | null }): MatchTimelinePhase {
   const status = String(input.status || "").trim()
   const upper = status.toUpperCase()
   if (input.isFinished || FINISHED_STATUSES.has(upper)) return "full_time"
-  if (LIVE_STATUSES.has(status) || LIVE_STATUSES.has(upper)) return "live"
+  if (LIVE_STATUSES.has(status) || LIVE_STATUSES.has(upper) || isMinuteLiveStatus(status)) return "live"
   return "pre_match"
 }
 

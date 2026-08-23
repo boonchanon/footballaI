@@ -27,6 +27,15 @@ function normalizeStatusValue(status?: string | null) {
   return String(status || "").trim().toLowerCase()
 }
 
+function parseMinuteStatus(status?: string | null) {
+  const normalized = normalizeStatusValue(status)
+  const match = normalized.match(/^(\d{1,3})(?:\+\d{1,2})?$/)
+  if (!match) return null
+
+  const minute = Number(match[1])
+  return Number.isFinite(minute) ? minute : null
+}
+
 function isFinishedStatus(status?: string | null) {
   const normalized = normalizeStatusValue(status)
   return ["finished", "ft", "full time", "after extra time", "penalties", "aet"].includes(normalized)
@@ -52,6 +61,32 @@ function isLiveStatus(status?: string | null) {
   }
 
   return false
+}
+
+function resolveStableStatus(
+  status?: string | null,
+  kickoffAt?: string | null,
+  providerLiveFlag?: unknown,
+  homeScore?: number | null,
+  awayScore?: number | null,
+) {
+  const normalized = normalizeStatusValue(status)
+  if (!normalized) return "ns"
+  if (isFinishedStatus(normalized)) return status || "FT"
+
+  const minuteStatus = parseMinuteStatus(normalized)
+  if (minuteStatus == null) return status || normalized
+
+  const kickoffTime = kickoffAt ? new Date(kickoffAt).getTime() : Number.NaN
+  const elapsedMinutes = Number.isFinite(kickoffTime) ? Math.floor((Date.now() - kickoffTime) / 60000) : null
+  const hasScore = homeScore != null || awayScore != null
+  const isStillLive = isProviderLiveFlag(providerLiveFlag)
+
+  if (!isStillLive && hasScore && elapsedMinutes != null && elapsedMinutes >= 150 && minuteStatus <= 60) {
+    return "FT"
+  }
+
+  return status || normalized
 }
 
 function isProviderLiveFlag(value: unknown) {
@@ -180,6 +215,18 @@ function countGoalsFromScorers(goalscorer: unknown) {
   }
 }
 
+function getMaxElapsedFromDetail(detail: any) {
+  let maxMinute = 0
+  for (const event of mapFixtureEventItem(detail)) {
+    const parsed = Number(event?.time?.elapsed ?? 0)
+    if (Number.isFinite(parsed) && parsed > maxMinute) {
+      maxMinute = parsed
+    }
+  }
+
+  return maxMinute
+}
+
 function mapFixture(item: any) {
   const matchId = item.match_id || item.event_key || item.fixture_id || ""
   const matchDate = item.match_date || item.event_date || item.fixture_date || ""
@@ -204,12 +251,12 @@ function mapFixture(item: any) {
   const parsedFinalScore = parseScorePair(item.event_final_result ?? item.event_ft_result ?? item.match_result)
   const countedGoals = countGoalsFromScorers(item.goalscorer)
   const providerLiveFlag = item.event_live ?? item.match_live ?? item.live ?? null
-
-  const isoDate = toUtcIsoFromTimeZone(matchDate, matchTime)
-  const finished = isFinishedStatus(statusValue)
-  const live = !finished && (isProviderLiveFlag(providerLiveFlag) || isLiveStatus(statusValue))
   const homeScoreValue = directHomeScore ?? parsedFinalScore.home ?? countedGoals.home
   const awayScoreValue = directAwayScore ?? parsedFinalScore.away ?? countedGoals.away
+  const isoDate = toUtcIsoFromTimeZone(matchDate, matchTime)
+  const stableStatusValue = resolveStableStatus(statusValue, isoDate, providerLiveFlag, homeScoreValue, awayScoreValue)
+  const finished = isFinishedStatus(stableStatusValue)
+  const live = !finished && (isProviderLiveFlag(providerLiveFlag) || isLiveStatus(stableStatusValue))
 
   return {
     id: String(matchId),
@@ -238,8 +285,8 @@ function mapFixture(item: any) {
       away: awayScoreValue,
     },
     status: {
-      short: statusValue,
-      long: statusValue,
+      short: stableStatusValue,
+      long: stableStatusValue,
       isLive: live,
       isFinished: finished,
       isUpcoming: !live && !finished,
@@ -991,10 +1038,97 @@ async function fetchRemoteLiveFixtures() {
     withPlayerStats: "1",
   })
 
-  return (Array.isArray(rows) ? rows : [])
+  const enrichedRows = await Promise.all(
+    (Array.isArray(rows) ? rows : []).map(async (row: any) => {
+      const mapped = mapFixture(row)
+      const minuteStatus = parseMinuteStatus(mapped?.status?.short)
+      if (minuteStatus == null) return row
+
+      const detail = await fetchFixtureDetailsWithLiveFallback(String(mapped.id)).catch(() => null)
+      if (!detail) return row
+
+      const maxElapsed = getMaxElapsedFromDetail(detail)
+      if (maxElapsed >= 90) {
+        return {
+          ...mergeFixtureDetail(detail, row),
+          match_status: "FT",
+          event_status: "FT",
+          status: "FT",
+          event_live: "0",
+          match_live: "0",
+          live: "0",
+        }
+      }
+
+      return mergeFixtureDetail(detail, row)
+    }),
+  )
+
+  return enrichedRows
     .map(mapFixture)
+    .filter((fixture) => !fixture.status?.isFinished)
     .filter(isValidFixture)
     .sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())
+}
+
+async function getStaleFinishedFixturesFromLive(
+  getFixtureEvents: (id: string) => Promise<any[]>,
+  params?: Pick<FixtureQueryParams, "from" | "to">,
+) {
+  const liveRows = await fetchAllSportsApi({
+    met: "Livescore",
+    leagueId: DEFAULT_LEAGUE_ID,
+    withPlayerStats: "1",
+  }).catch(() => [])
+  const liveFixtures = (Array.isArray(liveRows) ? liveRows : []).map(mapFixture).filter(isValidFixture)
+  if (liveFixtures.length === 0) return []
+
+  const reconciled = await Promise.all(
+    liveFixtures.map(async (fixture) => {
+      const events = await getFixtureEvents(String(fixture.id)).catch(() => [])
+      const maxElapsed = Array.isArray(events)
+        ? events.reduce((highest, event) => {
+            const elapsed = Number(event?.time?.elapsed ?? 0)
+            return Number.isFinite(elapsed) && elapsed > highest ? elapsed : highest
+          }, 0)
+        : 0
+
+      if (maxElapsed < 90) return null
+
+      return {
+        ...fixture,
+        status: {
+          short: "FT",
+          long: "FT",
+          isLive: false,
+          isFinished: true,
+          isUpcoming: false,
+        },
+      }
+    }),
+  )
+
+  return reconciled
+    .filter((fixture): fixture is NonNullable<typeof fixture> => Boolean(fixture))
+    .filter((fixture) => {
+      if (params?.from && String(fixture.date || "") < `${params.from}T00:00:00`) return false
+      if (params?.to && String(fixture.date || "") > `${params.to}T23:59:59`) return false
+      return true
+    })
+}
+
+function mergeFinishedFixtures(baseFixtures: any[], extraFixtures: any[]) {
+  const merged = new Map<string, any>()
+
+  for (const fixture of baseFixtures) {
+    if (fixture?.id) merged.set(String(fixture.id), fixture)
+  }
+
+  for (const fixture of extraFixtures) {
+    if (fixture?.id) merged.set(String(fixture.id), fixture)
+  }
+
+  return Array.from(merged.values()).sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())
 }
 
 function mergeFixtureDetail(base: any, live: any) {
@@ -1280,6 +1414,48 @@ async function getCachedFixtures(params?: FixtureQueryParams) {
   return rows.map(mapCachedFixture).filter(isValidFixture)
 }
 
+async function getReconciledFinishedFixturesFromAll(
+  allFixtures: any[],
+  getFixtureEvents: (id: string) => Promise<any[]>,
+  params?: Pick<FixtureQueryParams, "from" | "to">,
+) {
+  const reconciled = await Promise.all(
+    allFixtures.map(async (fixture) => {
+      if (fixture?.status?.isFinished) return fixture
+
+      const events = await getFixtureEvents(String(fixture.id)).catch(() => [])
+      const maxElapsed = Array.isArray(events)
+        ? events.reduce((highest, event) => {
+            const elapsed = Number(event?.time?.elapsed ?? 0)
+            return Number.isFinite(elapsed) && elapsed > highest ? elapsed : highest
+          }, 0)
+        : 0
+
+      if (maxElapsed < 90) return null
+
+      return {
+        ...fixture,
+        status: {
+          short: "FT",
+          long: "FT",
+          isLive: false,
+          isFinished: true,
+          isUpcoming: false,
+        },
+      }
+    }),
+  )
+
+  return reconciled
+    .filter((fixture): fixture is NonNullable<typeof fixture> => Boolean(fixture))
+    .filter((fixture) => {
+      if (params?.from && String(fixture.date || "") < `${params.from}T00:00:00`) return false
+      if (params?.to && String(fixture.date || "") > `${params.to}T23:59:59`) return false
+      return true
+    })
+    .sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())
+}
+
 async function syncHistoricalFixturesCache() {
   const results = []
 
@@ -1324,9 +1500,22 @@ export const footballService = {
     if (params?.type === "live") {
       try {
         const liveFixtures = await fetchRemoteLiveFixtures()
-        if (liveFixtures.length > 0) {
-          return liveFixtures
-        }
+        const confirmedLiveFixtures = await Promise.all(
+          liveFixtures.map(async (fixture) => {
+            const events = await this.getFixtureEvents(String(fixture.id)).catch(() => [])
+            const maxElapsed = Array.isArray(events)
+              ? events.reduce((highest, event) => {
+                  const elapsed = Number(event?.time?.elapsed ?? 0)
+                  return Number.isFinite(elapsed) && elapsed > highest ? elapsed : highest
+                }, 0)
+              : 0
+
+            if (maxElapsed >= 90) return null
+            return fixture
+          }),
+        )
+
+        return confirmedLiveFixtures.filter(Boolean)
       } catch {
         // Fall back to cache/fixtures flow when live endpoint is unavailable.
       }
@@ -1344,6 +1533,11 @@ export const footballService = {
 
       const cachedFixtures = await getCachedFixtures({ ...params, season: season.labelLong })
       if (cachedFixtures.length > 0) {
+        if (params?.type === "finished") {
+          const allCachedFixtures = await getCachedFixtures({ ...params, type: "all", season: season.labelLong }).catch(() => [])
+          const reconciledFinished = await getReconciledFinishedFixturesFromAll(allCachedFixtures, (id) => this.getFixtureEvents(id), params).catch(() => [])
+          return mergeFinishedFixtures(cachedFixtures, reconciledFinished)
+        }
         return cachedFixtures
       }
 
@@ -1364,7 +1558,9 @@ export const footballService = {
       } else if (params?.type === "upcoming") {
         fixtures = fixtures.filter((fixture) => fixture.status.isUpcoming)
       } else if (params?.type === "finished") {
-        fixtures = fixtures.filter((fixture) => fixture.status.isFinished)
+        fixtures = await getReconciledFinishedFixturesFromAll(fixtures, (id) => this.getFixtureEvents(id), params).catch(() =>
+          fixtures.filter((fixture) => fixture.status.isFinished),
+        )
       }
 
       if (params?.from) {
@@ -1401,7 +1597,9 @@ export const footballService = {
       } else if (params?.type === "upcoming") {
         fixtures = fixtures.filter((fixture) => fixture.status.isUpcoming)
       } else if (params?.type === "finished") {
-        fixtures = fixtures.filter((fixture) => fixture.status.isFinished)
+        fixtures = await getReconciledFinishedFixturesFromAll(fixtures, (id) => this.getFixtureEvents(id), params).catch(() =>
+          fixtures.filter((fixture) => fixture.status.isFinished),
+        )
       }
 
       if (params?.from) {
