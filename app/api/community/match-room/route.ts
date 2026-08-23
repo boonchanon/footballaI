@@ -74,7 +74,12 @@ export async function GET(request: NextRequest) {
     const fixtures = fixture && !directoryFixtures.some((item) => item.id === fixture.id) ? [fixture, ...directoryFixtures] : directoryFixtures
     const selectedMatchId = fixture?.id || matchId
     const selectedDemoOverride = fixture?.id ? await getMatchDemoOverrideState(fixture.id, fixture) : null
-    const selectedRoomAvailabilityPhase = selectedDemoOverride ? getMatchDemoRoomAvailabilityPhase(selectedDemoOverride) : "auto"
+    const selectedRoomAvailabilityPhase =
+      selectedDemoOverride?.providerPhase === "full_time"
+        ? "auto"
+        : selectedDemoOverride
+          ? getMatchDemoRoomAvailabilityPhase(selectedDemoOverride)
+          : "auto"
     const fixtureIds = fixtures.map((item) => item.id).filter(Boolean)
     const roomStatsEntries = fixtureIds.length
       ? await CommunityPost.aggregate([

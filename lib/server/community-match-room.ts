@@ -162,7 +162,24 @@ function getFootballService() {
   // Lazy load so pure helper tests do not need the football backend module.
   return require("../../app/api/football/service").footballService as {
     getFixtures: (params?: Record<string, unknown>) => Promise<any[]>
+    getFixtureLineups: (matchId: string) => Promise<any[]>
+    getFixtureEvents: (matchId: string) => Promise<any[]>
   }
+}
+
+function mergeFreshFixtureState(baseFixtures: MatchRoomFixture[], freshFixtures: MatchRoomFixture[]) {
+  if (!freshFixtures.length) return baseFixtures
+  const freshById = new Map(freshFixtures.map((fixture) => [normalizeMatchRoomId(fixture.id), fixture]))
+  return baseFixtures.map((fixture) => {
+    const fresh = freshById.get(normalizeMatchRoomId(fixture.id))
+    if (!fresh) return fixture
+    return {
+      ...fixture,
+      ...fresh,
+      events: fresh.events?.length ? fresh.events : fixture.events,
+      lineups: fresh.lineups?.length ? fresh.lineups : fixture.lineups,
+    }
+  })
 }
 
 const MARQUEE_TEAMS = [
@@ -358,9 +375,17 @@ export function buildMatchContext(fixture: MatchRoomFixture | null) {
 
 export async function getMatchRoomFixtures(options?: { favoriteTeamName?: string | null }) {
   const footballService = getFootballService()
-  const fixtures = await footballService.getFixtures({ type: "all" })
+  const [allFixtures, liveFixtures, finishedFixtures] = await Promise.all([
+    footballService.getFixtures({ type: "all" }),
+    footballService.getFixtures({ type: "live" }).catch(() => []),
+    footballService.getFixtures({ type: "finished" }).catch(() => []),
+  ])
+  const fixtures = mergeFreshFixtureState(
+    allFixtures.map(normalizeMatchRoomFixture),
+    [...liveFixtures, ...finishedFixtures].map(normalizeMatchRoomFixture),
+  )
   return sortFixturesForMatchRooms(
-    fixtures.map(normalizeMatchRoomFixture).filter((fixture) => fixture.id),
+    fixtures.filter((fixture) => fixture.id),
     options?.favoriteTeamName,
   )
 }
@@ -369,8 +394,32 @@ export async function getMatchRoomFixture(matchId: string | number) {
   const normalizedMatchId = normalizeMatchRoomId(matchId)
   if (!normalizedMatchId) return null
   const footballService = getFootballService()
-  const fixtures = await footballService.getFixtures({ type: "all" })
-  return fixtures.map(normalizeMatchRoomFixture).find((fixture) => normalizeMatchRoomId(fixture.id) === normalizedMatchId) || null
+  const [allFixtures, liveFixtures, finishedFixtures] = await Promise.all([
+    footballService.getFixtures({ type: "all" }),
+    footballService.getFixtures({ type: "live" }).catch(() => []),
+    footballService.getFixtures({ type: "finished" }).catch(() => []),
+  ])
+  const fixtures = mergeFreshFixtureState(
+    allFixtures.map(normalizeMatchRoomFixture),
+    [...liveFixtures, ...finishedFixtures].map(normalizeMatchRoomFixture),
+  )
+  let baseFixture = fixtures.find((fixture) => normalizeMatchRoomId(fixture.id) === normalizedMatchId) || null
+  if (!baseFixture) return null
+
+  try {
+    const [lineups, events] = await Promise.all([
+      footballService.getFixtureLineups(normalizedMatchId).catch(() => []),
+      footballService.getFixtureEvents(normalizedMatchId).catch(() => []),
+    ])
+
+    return {
+      ...baseFixture,
+      lineups: Array.isArray(lineups) && lineups.length ? lineups : baseFixture.lineups,
+      events: Array.isArray(events) && events.length ? events : baseFixture.events,
+    }
+  } catch {
+    return baseFixture
+  }
 }
 
 export function buildPostMatchPollTemplate(fixture: MatchRoomFixture | null) {

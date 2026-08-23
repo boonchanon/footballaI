@@ -276,7 +276,12 @@ export async function POST(request: NextRequest) {
     }
 
     const hasPendingMedia = imageAttachments.hasPendingReview || videoAttachments.hasPendingReview || videoAttachments.hasProcessing
-    const finalModerationStatus = moderation.status === "approved" && hasPendingMedia ? "pending_review" : moderation.status
+    const shouldBypassPendingReviewForTactics = roomType === "tactics" && Boolean(tacticalTopic) && !hasPendingMedia
+    const finalModerationStatus = shouldBypassPendingReviewForTactics
+      ? "approved"
+      : moderation.status === "approved" && hasPendingMedia
+        ? "pending_review"
+        : moderation.status
     const matchContext = buildMatchContext(fixture)
     const metadata = buildRoomMessageMetadata({
       matchId,

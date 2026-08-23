@@ -3763,15 +3763,40 @@ function TacticalRoomContextPanel({
 
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <div className="rounded-2xl border border-border bg-surface-2 p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Formation / Lineup</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">แผนการเล่น / รายชื่อ</p>
           {context.lineups.length ? (
-            <div className="mt-2 space-y-2 text-sm text-muted-foreground">
+            <div className="mt-2 space-y-3 text-sm text-muted-foreground">
               {context.lineups.map((lineup) => (
-                <p key={`${lineup.teamName}-${lineup.formation}-${lineup.manager}`}>
-                  <span className="font-semibold text-foreground">{lineup.teamName || getMatchTitle(fixture)}</span>
-                  {lineup.formation ? ` · ${lineup.formation}` : ""}
-                  {lineup.manager ? ` · ${lineup.manager}` : ""}
-                </p>
+                <div key={`${lineup.teamName}-${lineup.formation}-${lineup.manager}`} className="rounded-xl border border-border bg-card p-3">
+                  <p className="font-semibold text-foreground">{lineup.teamName || getMatchTitle(fixture)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {lineup.formation ? `แผน: ${lineup.formation}` : "ยังไม่มีแผน"}{lineup.manager ? ` · โค้ช: ${lineup.manager}` : ""}
+                  </p>
+                  {lineup.startXI?.length ? (
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold text-foreground">11 ตัวจริง</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {lineup.startXI.map((player) => (
+                          <span key={`${lineup.teamName}-xi-${player.number}-${player.name}`} className="rounded-full border border-border bg-surface-2 px-2 py-1 text-xs text-foreground">
+                            {player.number ? `${player.number} ` : ""}{player.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {lineup.substitutes?.length ? (
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold text-foreground">ตัวสำรอง</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {lineup.substitutes.map((player) => (
+                          <span key={`${lineup.teamName}-sub-${player.number}-${player.name}`} className="rounded-full border border-border bg-surface-2 px-2 py-1 text-xs text-muted-foreground">
+                            {player.number ? `${player.number} ` : ""}{player.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
               ))}
             </div>
           ) : (
@@ -3780,37 +3805,38 @@ function TacticalRoomContextPanel({
         </div>
 
         <div className="rounded-2xl border border-border bg-surface-2 p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Tactical Match Context</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">บริบทแท็กติกของแมตช์</p>
           {context.hasProviderData ? (
             <div className="mt-2 space-y-2 text-sm text-muted-foreground">
-              {context.substitutions.slice(0, 3).map((event) => <p key={event.id}>Substitution {event.minute ? `${event.minute}'` : ""} {event.player || event.team || ""}</p>)}
-              {context.cards.slice(0, 3).map((event) => <p key={event.id}>{event.type === "red_card" ? "Red Card" : "Yellow Card"} {event.minute ? `${event.minute}'` : ""} {event.player || event.team || ""}</p>)}
-              {context.formationChanges.slice(0, 2).map((event) => <p key={event.id}>Formation Change {event.minute ? `${event.minute}'` : ""} {event.detail || ""}</p>)}
+              {context.substitutions.slice(0, 3).map((event) => <p key={event.id}>เปลี่ยนตัว {event.minute ? `${event.minute}'` : ""} {event.player || event.team || ""}</p>)}
+              {context.cards.slice(0, 3).map((event) => <p key={event.id}>{event.type === "red_card" ? "ใบแดง" : "ใบเหลือง"} {event.minute ? `${event.minute}'` : ""} {event.player || event.team || ""}</p>)}
+              {context.formationChanges.slice(0, 2).map((event) => <p key={event.id}>เปลี่ยนแผน {event.minute ? `${event.minute}'` : ""} {event.detail || ""}</p>)}
+              {!context.substitutions.length && !context.cards.length && !context.formationChanges.length ? <p>มีข้อมูลผังนักเตะจากผู้ให้บริการแล้ว</p> : null}
             </div>
           ) : (
-            <p className="mt-2 text-sm text-muted-foreground">ไม่มีข้อมูลจากผู้ให้บริการ</p>
+            <p className="mt-2 text-sm text-muted-foreground">ยังไม่มีข้อมูลจากผู้ให้บริการ</p>
           )}
         </div>
       </div>
 
       <div className="mt-4 rounded-2xl border border-border bg-surface-2 p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="font-semibold text-foreground">Tactical Threads</p>
+          <p className="font-semibold text-foreground">หัวข้อวิเคราะห์แท็กติก</p>
           <Button type="button" variant="outline" onClick={onOpenThreads} className="rounded-full border-border">
             สร้างหัวข้อวิเคราะห์
           </Button>
         </div>
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
           <div className="rounded-xl border border-border bg-card p-3 text-sm">
-            <p className="text-xs text-muted-foreground">Pinned Tactical Thread</p>
+            <p className="text-xs text-muted-foreground">หัวข้อปักหมุด</p>
             <p className="mt-1 line-clamp-1 font-semibold text-foreground">{pinnedThread?.title || "-"}</p>
           </div>
           <div className="rounded-xl border border-border bg-card p-3 text-sm">
-            <p className="text-xs text-muted-foreground">Official Tactical Thread</p>
+            <p className="text-xs text-muted-foreground">หัวข้อทางการ</p>
             <p className="mt-1 line-clamp-1 font-semibold text-foreground">{officialThread?.title || "-"}</p>
           </div>
           <div className="rounded-xl border border-border bg-card p-3 text-sm">
-            <p className="text-xs text-muted-foreground">Community Tactical Threads</p>
+            <p className="text-xs text-muted-foreground">หัวข้อจากคอมมูนิตี้</p>
             <p className="mt-1 font-semibold text-foreground">{threads.length}</p>
           </div>
         </div>
@@ -4051,16 +4077,6 @@ function MatchRoomConversation({
               </div>
             ) : null}
             {roomNotice ? <TemporaryRoomNotice notice={roomNotice} onGoMain={() => onChangeRoom("main")} /> : null}
-            {isTacticalRoom && tacticalContext ? (
-              <TacticalRoomContextPanel
-                fixture={fixture}
-                context={tacticalContext}
-                threads={tacticalThreads}
-                phase={timelinePhase}
-                onOpenThreads={onOpenTacticalThreads}
-              />
-            ) : null}
-            {activeReactionLounge ? <ReactionTeamSummaryCard summary={data?.summary} teamSummary={reactionTeamSummary} lounge={activeReactionLounge} onOpenSummary={() => onOpenView("summary")} /> : null}
             {matchEvents.length ? <SystemMatchEvents events={matchEvents} /> : null}
 
             {messagesError ? (
@@ -4711,7 +4727,7 @@ function RoomComposer({
       ) : (
         <div className="rounded-[24px] border border-border bg-card p-3">
           {room.roomType === "tactics" && onSelectTacticalTopic ? (
-            <div className="mb-2 flex flex-wrap gap-2" aria-label="Tactical quick topics">
+            <div className="mb-2 flex flex-wrap gap-2" aria-label="หัวข้อด่วนห้องแท็กติก">
               {TACTICAL_QUICK_TOPICS.map((topic) => (
                 <Button
                   key={topic.id}
@@ -4764,12 +4780,12 @@ function RoomComposer({
               className="max-h-36 min-h-11 resize-none rounded-2xl border-border bg-input-background px-4 py-3"
               aria-label={`พิมพ์ข้อความใน ${roomTitle}`}
             />
-            <Button type="button" onClick={onSend} disabled={sending || !draft.trim()} className="h-11 shrink-0 rounded-2xl px-4">
+            <Button type="button" onClick={onSend} disabled={sending || !draft.trim() || (room.roomType === "tactics" && !selectedTacticalTopic)} className="h-11 shrink-0 rounded-2xl px-4">
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               <span className="sr-only">ส่งข้อความ</span>
             </Button>
           </div>
-          <p className="mt-2 px-1 text-[11px] text-muted-foreground">{helperText || MAIN_ROOM_COPY.enterHint}</p>
+          <p className="mt-2 px-1 text-[11px] text-muted-foreground">{room.roomType === "tactics" && !selectedTacticalTopic ? "เลือกหัวข้อก่อนส่งข้อความ" : helperText || MAIN_ROOM_COPY.enterHint}</p>
         </div>
       )}
     </div>
