@@ -105,7 +105,27 @@ export function getRoomState(match: MatchRoomFixture | null, roomTypeInput: unkn
   }
 
   if (roomType === "main" || roomType === "tactics") {
-    return buildState(roomType, isCancelledOrPostponed ? "closed" : "open", now, null, null, false)
+    if (roomType === "main") {
+      return buildState(roomType, isCancelledOrPostponed ? "closed" : "open", now, null, null, false)
+    }
+
+    const opensAt = subtractMinutes(kickoff, config.previewRoomMinutes)
+    const finishedAt = isFinished ? resolveFinishedAt(match, now) : null
+    const closesAt = addMinutes(finishedAt, config.postRoomMinutes)
+
+    if (isCancelledOrPostponed) {
+      return buildState(roomType, "closed", now, opensAt, closesAt, false)
+    }
+    if (!opensAt || now < opensAt) {
+      return buildState(roomType, "upcoming", now, opensAt, closesAt, false)
+    }
+    if (!isFinished || !finishedAt || !closesAt) {
+      return buildState(roomType, "open", now, opensAt, closesAt, false)
+    }
+    if (now < closesAt) {
+      return buildState(roomType, getClosingState(closesAt, now), now, opensAt, closesAt, false)
+    }
+    return buildState(roomType, "closed", now, opensAt, closesAt, false)
   }
 
   if (isCancelledOrPostponed) {
@@ -118,7 +138,8 @@ export function getRoomState(match: MatchRoomFixture | null, roomTypeInput: unkn
     const archiveAt = closesAt
     const expiresAt = addDays(closesAt, config.retentionDays)
     if (!opensAt || !closesAt) return buildState(roomType, "unavailable", now, opensAt, closesAt, true, archiveAt, expiresAt)
-    if (now >= archiveAt || isLive || isFinished) return buildState(roomType, "archived", now, opensAt, closesAt, true, archiveAt, expiresAt)
+    if (expiresAt && now.getTime() >= expiresAt.getTime()) return buildState(roomType, "archived", now, opensAt, closesAt, true, archiveAt, expiresAt)
+    if (isLive || isFinished) return buildState(roomType, "closed", now, opensAt, closesAt, true, archiveAt, expiresAt)
     if (now < opensAt) return buildState(roomType, "upcoming", now, opensAt, closesAt, true, archiveAt)
     return buildState(roomType, getClosingState(closesAt, now), now, opensAt, closesAt, true, archiveAt, expiresAt)
   }
@@ -129,7 +150,8 @@ export function getRoomState(match: MatchRoomFixture | null, roomTypeInput: unkn
   const expiresAt = addDays(closesAt, config.retentionDays)
   if (!isFinished || !finishedAt || !closesAt) return buildState(roomType, "unavailable", now, finishedAt, closesAt, true, archiveAt, expiresAt)
   if (now < finishedAt) return buildState(roomType, "unavailable", now, finishedAt, closesAt, true, archiveAt, expiresAt)
-  if (now >= archiveAt) return buildState(roomType, "archived", now, finishedAt, closesAt, true, archiveAt, expiresAt)
+  if (expiresAt && now.getTime() >= expiresAt.getTime()) return buildState(roomType, "archived", now, finishedAt, closesAt, true, archiveAt, expiresAt)
+  if (closesAt && now.getTime() >= closesAt.getTime()) return buildState(roomType, "closed", now, finishedAt, closesAt, true, archiveAt, expiresAt)
   return buildState(roomType, getClosingState(closesAt, now), now, finishedAt, closesAt, true, archiveAt, expiresAt)
 }
 
@@ -157,12 +179,19 @@ function getDemoOverrideRoomState(
       const closesAt = kickoff || now
       return buildState(roomType, "closed", now, subtractMinutes(closesAt, config.previewRoomMinutes), closesAt, true, closesAt, addDays(closesAt, config.retentionDays))
     }
+    if (roomType === "tactics") {
+      return buildState(roomType, "open", now, subtractMinutes(kickoff, config.previewRoomMinutes), null, false)
+    }
     return buildState(roomType, "unavailable", now, null, null, true, null, null)
   }
 
   const providerFinishedAt = resolveFinishedAt(match, now) || now
   const closesAt = addMinutes(providerFinishedAt, config.postRoomMinutes)
   if (roomType === "post_match") return buildState(roomType, "open", now, providerFinishedAt, closesAt, true, closesAt, addDays(closesAt, config.retentionDays))
+  if (roomType === "tactics") {
+    const tacticsOpensAt = subtractMinutes(kickoff, config.previewRoomMinutes)
+    return buildState(roomType, "open", now, tacticsOpensAt, closesAt, false)
+  }
   const previewClosesAt = kickoff || providerFinishedAt
   return buildState(roomType, "closed", now, subtractMinutes(previewClosesAt, config.previewRoomMinutes), previewClosesAt, true, previewClosesAt, addDays(previewClosesAt, config.retentionDays))
 }

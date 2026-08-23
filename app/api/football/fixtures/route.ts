@@ -8,12 +8,16 @@ export async function GET(request: Request) {
   const type = searchParams.get("type") || "all"
   const round = searchParams.get("round")
   const limit = searchParams.get("limit")
+  const from = searchParams.get("from")
+  const to = searchParams.get("to")
 
   try {
     const data = await footballService.getFixtures({
       type,
       round: round || undefined,
       limit: limit || undefined,
+      from: from || undefined,
+      to: to || undefined,
     })
 
     const availableRounds = [...new Set(data.map((item: any) => item.roundNumber).filter(Boolean))].sort((a: any, b: any) => a - b)

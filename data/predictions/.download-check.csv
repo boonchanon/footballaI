@@ -1,0 +1,4 @@
+fixture_date,home_team,away_team,home_win,draw,away_win,expected_home_goals,expected_away_goals,top_score_1,top_score_1_probability,top_score_2,top_score_2_probability,top_score_3,top_score_3_probability,summary
+2026-08-22,Manchester United,Tottenham Hotspur,43.56,24.62,31.82,1.57,1.33,1-1,11.49,2-1,9.02,1-0,8.64,Manchester United has the edge from the latest snapshot and home advantage.
+2026-08-23,Nottingham Forest,Hull City,49.43,33.35,17.21,1.05,0.6,1-0,20.17,0-0,19.2,1-1,12.1,Nottingham Forest has the edge from the latest snapshot and home advantage.
+2026-08-24,Coventry City,Chelsea,16.17,26.72,57.11,0.74,1.46,0-1,16.18,1-1,11.97,0-2,11.81,Chelsea has a strong away-win profile from team quality and attacking output.

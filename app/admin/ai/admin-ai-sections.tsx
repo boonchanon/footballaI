@@ -10,11 +10,11 @@ import {
   Download,
   FileSpreadsheet,
   Loader2,
-  Trash2,
   RefreshCw,
   ShieldCheck,
   Sparkles,
   Target,
+  Trash2,
   Upload,
 } from "lucide-react"
 
@@ -24,21 +24,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type {
   AdminAiStatusSummary,
   ExportPipelineResult,
@@ -223,6 +210,7 @@ export function AdminAiHero({
 }
 
 export function HistoricalUpdateSection({
+  statusSummary,
   latestFileInputKey,
   latestFileNames,
   uploadState,
@@ -232,6 +220,7 @@ export function HistoricalUpdateSection({
   onUpload,
   onRebuild,
 }: {
+  statusSummary: AdminAiStatusSummary | null
   latestFileInputKey: number
   latestFileNames: string[]
   uploadState: ActionState<UploadPipelineResult>
@@ -241,9 +230,16 @@ export function HistoricalUpdateSection({
   onUpload: () => void
   onRebuild: () => void
 }) {
-  const summary = uploadState.data || rebuildState.data
+  const latestActionSummary = uploadState.data || rebuildState.data
   const selectedFilePreview = latestFileNames.slice(0, 3).join(", ")
   const hasMoreSelectedFiles = latestFileNames.length > 3
+  const systemMetrics = [
+    { label: "จำนวนไฟล์ดิบในคลัง", value: formatNumber(statusSummary?.rawFileCount ?? 0) },
+    { label: "จำนวนแมตช์รวมในระบบ", value: formatNumber(statusSummary?.totalMatches ?? 0) },
+    { label: "จำนวนฤดูกาลที่มี", value: formatNumber(statusSummary?.seasonCount ?? 0) },
+    { label: "ฤดูกาลล่าสุดในระบบ", value: statusSummary?.latestSeason || "-" },
+    { label: "จำนวนทีมที่โหลดแล้ว", value: formatNumber(statusSummary?.teamsLoaded ?? 0) },
+  ]
 
   return (
     <Card className="rounded-[22px] border-border">
@@ -305,20 +301,34 @@ export function HistoricalUpdateSection({
         />
         <StateMessage type="info" message={uploadState.data?.duplicateNotice || ""} />
 
-        {summary ? (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {[
-              { label: "จำนวนไฟล์ที่ประมวลผล", value: formatNumber(summary.processedFiles) },
-              { label: "แมตช์ที่เพิ่มเข้าใหม่", value: formatNumber(summary.matchesAdded) },
-              { label: "รายการซ้ำที่ลบออก", value: formatNumber(summary.duplicatesRemoved) },
-              { label: "ฤดูกาลล่าสุดในระบบ", value: summary.latestSeason || "-" },
-              { label: "จำนวนแถวของฟีเจอร์", value: formatNumber(summary.featureRows) },
-            ].map((item) => (
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-foreground">สถานะปัจจุบันของระบบ</p>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {systemMetrics.map((item) => (
               <div key={item.label} className="rounded-[16px] border border-border bg-muted/40 p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{item.label}</p>
                 <p className="mt-2 text-xl font-bold text-foreground">{item.value}</p>
               </div>
             ))}
+          </div>
+        </div>
+
+        {latestActionSummary ? (
+          <div className="space-y-3 rounded-[16px] border border-border bg-card/60 p-4">
+            <p className="text-sm font-semibold text-foreground">สรุปการประมวลผลล่าสุด</p>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {[
+                { label: "จำนวนไฟล์ที่ประมวลผล", value: formatNumber(latestActionSummary.processedFiles) },
+                { label: "แมตช์ที่เพิ่มเข้าใหม่", value: formatNumber(latestActionSummary.matchesAdded) },
+                { label: "รายการซ้ำที่ลบออก", value: formatNumber(latestActionSummary.duplicatesRemoved) },
+                { label: "จำนวนแถวฟีเจอร์จากรอบล่าสุด", value: formatNumber(latestActionSummary.featureRows) },
+              ].map((item) => (
+                <div key={item.label} className="rounded-[16px] border border-border bg-muted/30 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{item.label}</p>
+                  <p className="mt-2 text-xl font-bold text-foreground">{item.value}</p>
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
 
@@ -420,7 +430,7 @@ export function FixtureExportSection({
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">จำนวนคู่ที่ทำนาย</p>
               <p className="mt-2 text-base font-bold text-foreground">{formatNumber(exportState.data.predictionCount)}</p>
             </div>
-            <div className="rounded-[16px] border border-border bg-muted/40 p-4">
+            <div className="rounded-[16px] border border-border bg-muted/40 p-4 sm:col-span-2">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">ช่วงวันที่ในไฟล์</p>
               <p className="mt-2 text-base font-bold text-foreground">{exportState.data.dateRange}</p>
             </div>
@@ -693,7 +703,7 @@ export function MatchPredictionSection({
 
         <StateMessage type="error" message={predictState.error} />
         <StateMessage type="success" message={predictState.success} />
-        <StateMessage type="loading" message={predictState.loading ? "กำลังประมวลผลผลทำนายการแข่งขันคู่นี้" : ""} />
+        <StateMessage type="loading" message={predictState.loading ? "กำลังประมวลผลทำนายการแข่งขันคู่นี้" : ""} />
 
         {predictState.data ? (
           <div className="space-y-4">

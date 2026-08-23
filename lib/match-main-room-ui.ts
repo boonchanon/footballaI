@@ -1,14 +1,14 @@
 export const MAIN_ROOM_COPY = {
-  title: "Main Room",
-  eyebrow: "Match Hub Center",
-  intro: "Everyone joins here.",
-  description: "General discussion about this match.",
-  placeholder: "Share your match take with everyone...",
-  emptyTitle: "Be the first fan to start the Main Room discussion.",
-  emptyDescription: "Kick off the central conversation for this match community.",
-  deletedParent: "Original message is no longer available.",
-  newMessages: "New messages",
-  enterHint: "Enter to send · Shift+Enter for a new line",
+  title: "ห้องหลัก",
+  eyebrow: "ศูนย์กลาง Match Hub",
+  intro: "ทุกคนมารวมคุยกันที่นี่",
+  description: "ห้องสนทนากลางสำหรับคุยทุกเรื่องของแมตช์นี้",
+  placeholder: "แชร์มุมมองของคุณเกี่ยวกับเกมนี้กับทุกคน...",
+  emptyTitle: "เป็นแฟนบอลคนแรกที่เริ่มบทสนทนาในห้องหลัก",
+  emptyDescription: "เริ่มต้นบทสนทนากลางของคอมมูนิตี้สำหรับแมตช์นี้ได้เลย",
+  deletedParent: "ข้อความต้นฉบับไม่พร้อมใช้งานแล้ว",
+  newMessages: "ข้อความใหม่",
+  enterHint: "กด Enter เพื่อส่ง · Shift+Enter ขึ้นบรรทัดใหม่",
 } as const
 
 function normalizeDate(value: unknown) {
@@ -25,8 +25,8 @@ export function getMainRoomDateDividerLabel(value?: string | Date | null, nowInp
   if (!date) return ""
   const now = normalizeDate(nowInput) || new Date()
   const dayDelta = Math.round((startOfDay(now) - startOfDay(date)) / 86_400_000)
-  if (dayDelta === 0) return "Today"
-  if (dayDelta === 1) return "Yesterday"
+  if (dayDelta === 0) return "วันนี้"
+  if (dayDelta === 1) return "เมื่อวาน"
   return new Intl.DateTimeFormat("th-TH", { dateStyle: "medium" }).format(date)
 }
 
