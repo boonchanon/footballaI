@@ -49,8 +49,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import { useAuthSession } from "@/hooks/use-auth-session"
 import { fetchJson } from "@/lib/api-client"
-import { getAuthToken } from "@/lib/auth-client"
 import { MAIN_ROOM_COPY, getMainRoomDateDividerLabel, getRoomMessageBubbleLayout, getSystemMessageLayout, mergeMainRoomMessages, shouldGroupMainRoomMessage, shouldShowMainRoomDateDivider } from "@/lib/match-main-room-ui"
 import { getMatchDemoOverrideNotice, type MatchDemoOverrideState } from "@/lib/match-demo-override"
 import {
@@ -483,14 +483,20 @@ function getRoomHubBadge(channel?: MatchRoomChannel) {
   return getMatchHubRoomBadge(channel)
 }
 
-function getRoomAvailabilityText(channel?: MatchRoomChannel) {
+function getRoomAvailabilityText(channel?: MatchRoomChannel, nowMs: number = Date.now()) {
   if (!channel) return "Opening soon"
-  if (channel.state === "upcoming" && channel.remainingSeconds !== null && typeof channel.remainingSeconds === "number") {
-    return `Opening in ${formatDuration(channel.remainingSeconds * 1000)}`
+  const target = getRoomTargetTime(channel)
+  const remainingLabel = target ? formatDuration(target - nowMs) : ""
+  if (channel.state === "upcoming") {
+    if (remainingLabel) return `เปิดใน ${remainingLabel}`
+    if (channel.remainingSeconds !== null && typeof channel.remainingSeconds === "number") return `เปิดใน ${formatDuration(channel.remainingSeconds * 1000)}`
   }
   if (channel.state === "unavailable" && channel.opensAt) {
-    const target = parseRoomTime(channel.opensAt)
-    if (target) return `Opening in ${formatDuration(target - Date.now())}`
+    const opensAt = parseRoomTime(channel.opensAt)
+    if (opensAt) return `เปิดใน ${formatDuration(opensAt - nowMs)}`
+  }
+  if ((channel.state === "open" || channel.state === "closing") && remainingLabel && channel.isTemporary) {
+    return `ปิดใน ${remainingLabel}`
   }
   return getRoomStateLabel(channel.state)
 }
@@ -552,11 +558,6 @@ function getTimelineRoomLabel(phase: MatchTimelinePhase) {
 
 function getInitials(name?: string) {
   return (name || "U").trim().slice(0, 2).toUpperCase()
-}
-
-function authUploadHeaders() {
-  const token = getAuthToken()
-  return token ? { Authorization: `Bearer ${token}` } : undefined
 }
 
 function matchRoomFetcher<T>(path: string) {
@@ -641,15 +642,17 @@ function getTemporaryRoomNotice(room: MatchRoomChannel, nowMs: number) {
   if (room.state === "upcoming") {
     return {
       tone: "muted" as const,
-      title: room.roomType === "preview" ? "เปิดก่อนแข่ง 60 นาที" : "ยังไม่เปิดห้องหลังเกม",
-      detail: room.roomType === "preview" && remainingLabel ? `จะเปิดใน ${remainingLabel}` : "ห้องหลังเกมเปิดเมื่อสถานะเป็นจบการแข่งขัน",
+      title: room.roomType === "preview" && remainingLabel ? `เปิดใน ${remainingLabel}` : room.roomType === "preview" ? "เปิดก่อนแข่ง 60 นาที" : "ยังไม่เปิดห้องหลังเกม",
+      detail: room.roomType === "preview" ? "ห้องพรีวิวเปิดก่อนแข่ง และปิดเมื่อเริ่มการแข่งขัน" : "ห้องหลังเกมเปิดเมื่อสถานะเป็นจบการแข่งขัน",
     }
   }
 
   if (room.state === "open" || room.state === "closing") {
     const title =
       room.roomType === "preview"
-        ? "ปิดเมื่อการแข่งขันเริ่ม"
+        ? remainingLabel
+          ? `ปิดใน ${remainingLabel}`
+          : "ปิดเมื่อการแข่งขันเริ่ม"
         : remainingLabel
           ? `เหลือเวลา ${remainingLabel}`
           : "ห้องหลังเกมเปิดอยู่"
@@ -1661,6 +1664,7 @@ export function MatchRoomsDirectory() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { token: authToken } = useAuthSession()
   const urlDate = searchParams.get("date") || ""
   const [query, setQuery] = useState("")
   const [activeDate, setActiveDate] = useState(urlDate)
@@ -1669,7 +1673,6 @@ export function MatchRoomsDirectory() {
   const [followingBusyId, setFollowingBusyId] = useState<string | null>(null)
   const [followError, setFollowError] = useState("")
   const [showNotificationsDialog, setShowNotificationsDialog] = useState(false)
-  const authToken = getAuthToken()
   const { data, error, isLoading, mutate } = useSWR<CommunityMatchRoomResponse>("/community/match-room", matchRoomFetcher, { revalidateOnFocus: true })
   const { data: notifications, mutate: mutateNotifications } = useSWR<MatchHubNotificationsResponse>(
     authToken ? ["/community/notifications", authToken] : null,
@@ -2411,6 +2414,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { token: authToken } = useAuthSession()
   const activeView = searchParams.get("view")
   const activeTab = (searchParams.get("tab") || (activeView === "polls" || activeView === "summary" ? activeView : activeView === "info" ? "discussion" : "overview")) as RoomTab
   const safeTab = roomTabs.some((tab) => tab.id === activeTab) ? activeTab : "overview"
@@ -2614,13 +2618,18 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
   async function handleThreadImageSelected(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     if (!file) return
+    if (!authToken) {
+      setThreadFormError("กรุณาเข้าสู่ระบบสมาชิกก่อนอัปโหลดรูป")
+      event.target.value = ""
+      return
+    }
     setThreadFormError("")
     setUploadingThreadImage(true)
     try {
       const formData = new FormData()
       formData.append("purpose", "upload")
       formData.append("files", file)
-      const response = await fetch("/api/community/upload", { method: "POST", headers: authUploadHeaders(), body: formData })
+      const response = await fetch("/api/community/upload", { method: "POST", headers: { Authorization: `Bearer ${authToken}` }, body: formData })
       const payload = await response.json().catch(() => null)
       if (!response.ok) throw new Error(payload?.error || "อัปโหลดรูปไม่สำเร็จ")
       const media = payload?.media || payload?.items?.[0] || payload?.pendingItems?.[0]
@@ -2642,13 +2651,18 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
   async function handleMessageImageSelected(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     if (!file) return
+    if (!authToken) {
+      setMessagesError("กรุณาเข้าสู่ระบบสมาชิกก่อนแนบรูป")
+      event.target.value = ""
+      return
+    }
     setMessagesError("")
     setUploadingMessageImage(true)
     try {
       const formData = new FormData()
       formData.append("purpose", "upload")
       formData.append("files", file)
-      const response = await fetch("/api/community/upload", { method: "POST", headers: authUploadHeaders(), body: formData })
+      const response = await fetch("/api/community/upload", { method: "POST", headers: { Authorization: `Bearer ${authToken}` }, body: formData })
       const payload = await response.json().catch(() => null)
       if (!response.ok) throw new Error(payload?.error || "อัปโหลดรูปไม่สำเร็จ")
       const media = payload?.media || payload?.items?.[0] || payload?.pendingItems?.[0]
@@ -2669,6 +2683,10 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
 
   async function sendRoomMessage() {
     if (!fixture || sendingMessage || !messageDraft.trim()) return
+    if (!authToken) {
+      setMessagesError("กรุณาเข้าสู่ระบบสมาชิกก่อนส่งข้อความใน Match Room")
+      return
+    }
     const draft = messageDraft.trim()
     const image = messageImage
     const reply = replyTarget
@@ -2703,6 +2721,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
     try {
       const response = await fetchJson<{ item: MatchRoomMessage; moderationStatus: string }>("/community/match-room/messages", {
         method: "POST",
+        headers: { Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({
           matchId: fixture.id,
           roomType: activeRoomType,
@@ -2730,7 +2749,10 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
         await mutateMessages()
         void mutate()
       }
-      setMessagesError(sendError instanceof Error ? sendError.message : "ส่งข้อความไม่สำเร็จ")
+      const isAuthError =
+        errorCode === "AUTHENTICATION_REQUIRED" ||
+        (sendError instanceof Error && /authentication required|unauthorized/i.test(sendError.message))
+      setMessagesError(isAuthError ? "session หมดหรือยังไม่ได้เข้าสู่ระบบสมาชิก กรุณาเข้าสู่ระบบใหม่ก่อนส่งข้อความ" : sendError instanceof Error ? sendError.message : "ส่งข้อความไม่สำเร็จ")
     } finally {
       setSendingMessage(false)
     }
@@ -3190,6 +3212,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                   sendingMessage={sendingMessage}
                   uploadingMessageImage={uploadingMessageImage}
                   messageImage={messageImage}
+                  isAuthenticated={Boolean(authToken)}
                   messageListRef={messageListRef}
                   messageEndRef={messageEndRef}
                   selectedTacticalTopic={selectedTacticalTopic}
@@ -3839,6 +3862,7 @@ function MatchRoomConversation({
   sendingMessage,
   uploadingMessageImage,
   messageImage,
+  isAuthenticated,
   messageListRef,
   messageEndRef,
   selectedTacticalTopic,
@@ -3887,6 +3911,7 @@ function MatchRoomConversation({
   sendingMessage: boolean
   uploadingMessageImage: boolean
   messageImage: { id: string; url?: string | null; ownerPreviewUrl?: string | null; status: string } | null
+  isAuthenticated: boolean
   messageListRef: RefObject<HTMLDivElement | null>
   messageEndRef: RefObject<HTMLDivElement | null>
   selectedTacticalTopic: TacticalQuickTopic | ""
@@ -4003,12 +4028,12 @@ function MatchRoomConversation({
             </SheetContent>
           </Sheet>
         </div>
-        <RoomMobileTabs fixture={fixture} activeRoomId={activeRoomId} channels={data?.channels || []} onChangeRoom={onChangeRoom} />
+        <RoomMobileTabs fixture={fixture} activeRoomId={activeRoomId} channels={data?.channels || []} clockNow={clockNow} onChangeRoom={onChangeRoom} />
       </div>
 
       <div className="grid min-h-[680px] lg:grid-cols-[300px_minmax(0,1fr)_320px]">
         <aside className="hidden border-r border-border bg-surface-2 p-4 lg:block">
-          <RoomSidebar fixture={fixture} activeRoomId={activeRoomId} channels={data?.channels || []} stats={stats} timelinePhase={timelinePhase} onChangeRoom={onChangeRoom} onOpenView={onOpenView} />
+          <RoomSidebar fixture={fixture} activeRoomId={activeRoomId} channels={data?.channels || []} stats={stats} timelinePhase={timelinePhase} clockNow={clockNow} onChangeRoom={onChangeRoom} onOpenView={onOpenView} />
         </aside>
 
           <div className="flex min-h-[680px] flex-col bg-[radial-gradient(circle_at_top_left,rgba(163,255,30,0.08),transparent_38%),var(--color-card)]">
@@ -4127,6 +4152,7 @@ function MatchRoomConversation({
             sending={sendingMessage}
             uploadingImage={uploadingMessageImage}
             image={messageImage}
+            isAuthenticated={isAuthenticated}
             onDraftChange={onDraftChange}
             onDraftKeyDown={onDraftKeyDown}
             onImageSelected={onImageSelected}
@@ -4156,6 +4182,7 @@ function RoomSidebar({
   channels,
   stats,
   timelinePhase,
+  clockNow,
   onChangeRoom,
   onOpenView,
 }: {
@@ -4164,6 +4191,7 @@ function RoomSidebar({
   channels: MatchRoomChannel[]
   stats?: MatchRoomStats
   timelinePhase?: MatchTimelinePhase
+  clockNow: number
   onChangeRoom: (roomType: ConversationRoomId) => void
   onOpenView: (view: "polls" | "summary" | "info") => void
 }) {
@@ -4229,7 +4257,8 @@ function RoomSidebar({
                 const baseRoomType = isPreviewLounge ? "preview" : isReactionLounge ? "post_match" : room.id
                 const channel = isPreviewLounge ? previewChannel : isReactionLounge ? postMatchChannel : channels.find((item) => item.roomType === room.id)
                 const roomId = room.id as ConversationRoomId
-                const loungeStats = isPreviewLounge ? stats?.previewLounges?.[room.side] : isReactionLounge ? stats?.postMatchLounges?.[room.side] : null
+                const previewStats = isPreviewLounge ? stats?.previewLounges?.[room.side] : null
+                const reactionStats = isReactionLounge ? stats?.postMatchLounges?.[room.side] : null
                 const temporaryActivity = stats?.activity?.temporaryRoom || ""
                 const hasRoomActivity = temporaryActivity.startsWith(baseRoomType === "preview" ? "preview" : "post_match")
                 return (
@@ -4238,11 +4267,12 @@ function RoomSidebar({
                     room={room}
                     channel={channel}
                     active={activeRoomId === roomId}
-                    activityCount={isPreviewLounge ? loungeStats?.messages || 0 : isReactionLounge ? loungeStats?.messageCount || loungeStats?.messages || 0 : baseRoomType === stats?.latestRoomType ? stats?.newRoomMessageCount || 0 : 0}
-                    hasActivity={isPreviewLounge ? Boolean(loungeStats?.latestActivityAt) : hasRoomActivity}
-                    latestActivityAt={isPreviewLounge ? loungeStats?.latestActivityAt : baseRoomType === stats?.latestRoomType ? stats?.latestRoomActivityAt : undefined}
+                    activityCount={isPreviewLounge ? previewStats?.messages || 0 : isReactionLounge ? reactionStats?.messageCount || reactionStats?.messages || 0 : baseRoomType === stats?.latestRoomType ? stats?.newRoomMessageCount || 0 : 0}
+                    hasActivity={isPreviewLounge ? Boolean(previewStats?.latestActivityAt) : hasRoomActivity}
+                    latestActivityAt={isPreviewLounge ? previewStats?.latestActivityAt : baseRoomType === stats?.latestRoomType ? stats?.latestRoomActivityAt : undefined}
                     recommended={recommendedPreview?.id === roomId || recommendedReaction?.id === roomId}
                     emphasized={highlightedRooms.includes(baseRoomType as MatchTimelineRoomId)}
+                    clockNow={clockNow}
                     onClick={() => onChangeRoom(roomId)}
                   />
                 )
@@ -4267,11 +4297,13 @@ function RoomMobileTabs({
   fixture,
   activeRoomId,
   channels,
+  clockNow,
   onChangeRoom,
 }: {
   fixture: CommunityMatchRoomFixture
   activeRoomId: ConversationRoomId
   channels: MatchRoomChannel[]
+  clockNow: number
   onChangeRoom: (roomType: ConversationRoomId) => void
 }) {
   const rooms = getNavigableRooms(channels)
@@ -4279,11 +4311,12 @@ function RoomMobileTabs({
   const postMatchChannel = channels.find((item) => item.roomType === "post_match")
   const previewLounges = previewChannel ? getTeamPreviewLounges(fixture) : []
   const reactionLounges = postMatchChannel ? getTeamReactionLounges(fixture) : []
-  const mobileRooms: Array<((typeof conversationRooms)[number] | TeamPreviewLounge | TeamReactionLounge)> = rooms.flatMap((room) => {
-    if (room.id === "preview") return previewLounges
-    if (room.id === "post_match") return reactionLounges
-    return [room]
-  })
+  const mobileRooms: Array<(typeof conversationRooms)[number] | TeamPreviewLounge | TeamReactionLounge> = []
+  for (const room of rooms) {
+    if (room.id === "preview") mobileRooms.push(...previewLounges)
+    else if (room.id === "post_match") mobileRooms.push(...reactionLounges)
+    else mobileRooms.push(room)
+  }
   return (
     <div className="mt-3 flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="เลือกห้องสนทนา">
       {mobileRooms.map((room) => {
@@ -4309,7 +4342,7 @@ function RoomMobileTabs({
             )}
           >
             #{isPreviewLounge || isReactionLounge ? room.teamName : room.label}
-            {channel && !channel.canPost ? <span className="ml-2 text-[11px] opacity-70">{getRoomAvailabilityText(channel)}</span> : null}
+            {channel ? <span className="ml-2 text-[11px] opacity-70">{getRoomAvailabilityText(channel, clockNow)}</span> : null}
           </button>
         )
       })}
@@ -4326,6 +4359,7 @@ function RoomNavButton({
   latestActivityAt,
   recommended,
   emphasized,
+  clockNow,
   onClick,
 }: {
   room: (typeof conversationRooms)[number] | TeamPreviewLounge | TeamReactionLounge
@@ -4336,6 +4370,7 @@ function RoomNavButton({
   latestActivityAt?: string | null
   recommended?: boolean
   emphasized?: boolean
+  clockNow: number
   onClick: () => void
 }) {
   const disabled = Boolean(channel && !channel.canRead && !channel.canPost)
@@ -4380,7 +4415,7 @@ function RoomNavButton({
       </span>
       <span className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
         <span className={cn("rounded-full px-2 py-0.5", active ? "bg-primary-foreground/15 text-primary-foreground/80" : "bg-muted text-muted-foreground")}>
-          {isTeamReaction && channel?.state === "unavailable" ? "Available after full time" : getRoomAvailabilityText(channel)}
+          {isTeamReaction && channel?.state === "unavailable" ? "เปิดหลังจบเกม" : getRoomAvailabilityText(channel, clockNow)}
         </span>
         <span className={cn("rounded-full px-2 py-0.5", active ? "bg-primary-foreground/15 text-primary-foreground/80" : "bg-muted text-muted-foreground")}>
           {activityCount} messages
@@ -4630,6 +4665,7 @@ function RoomComposer({
   sending,
   uploadingImage,
   image,
+  isAuthenticated,
   selectedTacticalTopic,
   onDraftChange,
   onDraftKeyDown,
@@ -4654,6 +4690,7 @@ function RoomComposer({
   sending: boolean
   uploadingImage: boolean
   image: { id: string; url?: string | null; ownerPreviewUrl?: string | null; status: string } | null
+  isAuthenticated: boolean
   selectedTacticalTopic?: TacticalQuickTopic | ""
   onDraftChange: (value: string) => void
   onDraftKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void
@@ -4684,6 +4721,22 @@ function RoomComposer({
             <p className="text-sm text-muted-foreground">{closedDescription}</p>
           </div>
           <Button type="button" onClick={onGoMain} className="rounded-full">ไปห้องหลัก</Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated && !editingMessage) {
+    return (
+      <div className="sticky bottom-0 border-t border-border bg-card/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/8 p-4">
+          <div>
+            <p className="font-semibold text-foreground">เข้าสู่ระบบก่อนคุยใน Match Room</p>
+            <p className="text-sm text-muted-foreground">ตอนนี้หน้านี้อ่านได้ แต่การส่งข้อความต้องใช้บัญชีสมาชิก FootballAI</p>
+          </div>
+          <Button asChild className="rounded-full">
+            <Link href="/login">เข้าสู่ระบบ</Link>
+          </Button>
         </div>
       </div>
     )

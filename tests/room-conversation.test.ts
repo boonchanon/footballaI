@@ -15,7 +15,16 @@ import {
   shouldArchiveRoom,
 } from "../lib/server/community-room-conversation"
 import { normalizeMatchRoomFixture } from "../lib/server/community-match-room"
-import { getEffectiveMatchTimelinePhase, getMatchDemoOverrideNotice, getMatchDemoRoomAvailabilityPhase, isMatchDemoOverrideEnabled, normalizeMatchDemoOverridePhase } from "../lib/match-demo-override"
+import {
+  getActiveMatchDemoOverridePhase,
+  getEffectiveMatchTimelinePhase,
+  getMatchDemoOverrideNotice,
+  getMatchDemoRoomAvailabilityPhase,
+  getTimedEffectiveMatchTimelinePhase,
+  isMatchDemoOverrideEnabled,
+  normalizeMatchDemoOverrideDurationMinutes,
+  normalizeMatchDemoOverridePhase,
+} from "../lib/match-demo-override"
 import { buildTeamPreviewLoungeTag, buildTeamReactionLoungeTag } from "../lib/match-preview-lounges"
 import { MAIN_ROOM_COPY, getMainRoomDateDividerLabel, getRoomMessageBubbleLayout, getSystemMessageLayout, mergeMainRoomMessages, shouldGroupMainRoomMessage, shouldShowMainRoomDateDivider } from "../lib/match-main-room-ui"
 import {
@@ -123,6 +132,70 @@ test("match demo override should normalize allowlisted phases and leave auto on 
   assert.equal(getMatchDemoRoomAvailabilityPhase({ enabled: false, effectivePhase: "full_time" }), "auto")
   assert.equal(getMatchDemoRoomAvailabilityPhase({ enabled: true, effectivePhase: "pre_match" }), "pre_match")
   assert.equal(getMatchDemoOverrideNotice("full_time"), "กำลังจำลองประสบการณ์หลังจบเกม")
+})
+
+test("timed match demo override should use override only until server expiresAt", () => {
+  const now = new Date("2026-08-20T00:00:00Z")
+  const activeExpiresAt = new Date("2026-08-20T00:05:00Z")
+  const expiredAt = new Date("2026-08-19T23:59:59Z")
+
+  assert.equal(getTimedEffectiveMatchTimelinePhase("pre_match", "auto", null, now), "pre_match")
+  assert.equal(getTimedEffectiveMatchTimelinePhase("pre_match", "live", activeExpiresAt, now), "live")
+  assert.equal(getTimedEffectiveMatchTimelinePhase("pre_match", "live", expiredAt, now), "pre_match")
+  assert.equal(getActiveMatchDemoOverridePhase("full_time", activeExpiresAt, now), "full_time")
+  assert.equal(getActiveMatchDemoOverridePhase("full_time", expiredAt, now), "auto")
+})
+
+test("timed demo override refresh should not reset expiry and provider updates should win after expiry", () => {
+  const startsAt = new Date("2026-08-20T00:00:00Z")
+  const expiresAt = new Date(startsAt.getTime() + 5 * 60 * 1000)
+  const afterRefresh = new Date("2026-08-20T00:02:00Z")
+  const afterExpiry = new Date("2026-08-20T00:05:01Z")
+
+  assert.equal(Math.ceil((expiresAt.getTime() - afterRefresh.getTime()) / 1000), 180)
+  assert.equal(getTimedEffectiveMatchTimelinePhase("pre_match", "live", expiresAt, afterRefresh), "live")
+  assert.equal(getTimedEffectiveMatchTimelinePhase("live", "pre_match", expiresAt, afterRefresh), "pre_match")
+  assert.equal(getTimedEffectiveMatchTimelinePhase("live", "pre_match", expiresAt, afterExpiry), "live")
+  assert.equal(getTimedEffectiveMatchTimelinePhase("full_time", "live", expiresAt, afterExpiry), "full_time")
+})
+
+test("timed demo override durations should support presets and reject invalid custom values", () => {
+  assert.equal(normalizeMatchDemoOverrideDurationMinutes(5), 5)
+  assert.equal(normalizeMatchDemoOverrideDurationMinutes("10"), 10)
+  assert.equal(normalizeMatchDemoOverrideDurationMinutes("30"), 30)
+  assert.equal(normalizeMatchDemoOverrideDurationMinutes("1"), 1)
+  assert.equal(normalizeMatchDemoOverrideDurationMinutes("120"), 120)
+  assert.equal(normalizeMatchDemoOverrideDurationMinutes("0"), null)
+  assert.equal(normalizeMatchDemoOverrideDurationMinutes("121"), null)
+  assert.equal(normalizeMatchDemoOverrideDurationMinutes("demo"), null)
+})
+
+test("timed pre-match demo override should count down from override expiry instead of kickoff", () => {
+  const match = fixture({
+    fixture: { id: "match-1", status: { short: "NS" }, date: "2026-08-22T00:00:00Z" },
+  })
+  const now = new Date("2026-08-20T00:00:00Z")
+  const demoExpiresAt = new Date("2026-08-20T00:05:00Z")
+  const previewRoom = getRoomState(match, "preview", now, "pre_match", { demoOverrideExpiresAt: demoExpiresAt })
+
+  assert.equal(previewRoom.state, "open")
+  assert.equal(previewRoom.remainingSeconds, 300)
+  assert.equal(previewRoom.closesAt?.toISOString(), demoExpiresAt.toISOString())
+  assert.equal(canPostToRoom(match, "preview", now, "pre_match", { demoOverrideExpiresAt: demoExpiresAt }), true)
+})
+
+test("timed full-time demo override should count down post-match lounge from override expiry", () => {
+  const match = fixture({
+    fixture: { id: "match-1", status: { short: "NS" }, date: "2026-08-22T00:00:00Z" },
+  })
+  const now = new Date("2026-08-20T00:00:00Z")
+  const demoExpiresAt = new Date("2026-08-20T00:10:00Z")
+  const reactionRoom = getRoomState(match, "post_match", now, "full_time", { demoOverrideExpiresAt: demoExpiresAt })
+
+  assert.equal(reactionRoom.state, "open")
+  assert.equal(reactionRoom.remainingSeconds, 600)
+  assert.equal(reactionRoom.closesAt?.toISOString(), demoExpiresAt.toISOString())
+  assert.equal(getTemporaryRoomActivityState(match, "post_match", now, "full_time", { demoOverrideExpiresAt: demoExpiresAt }), "post_match_open")
 })
 
 test("auto room availability should keep provider lifecycle while demo phases use effective phase", () => {

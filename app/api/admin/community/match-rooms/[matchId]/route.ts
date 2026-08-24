@@ -13,6 +13,7 @@ import {
 import { requireAdminRoles } from "@/lib/server/auth"
 import {
   getMatchDemoOverrideState,
+  normalizeMatchDemoOverrideDurationMinutes,
   normalizeMatchDemoOverridePhase,
   setMatchDemoOverride,
   validateDemoOverrideReason,
@@ -143,7 +144,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const { page, limit, skip } = parsePagination(searchParams)
     const overview = await getOverview(matchId)
     const demoOverride = await getMatchDemoOverrideState(matchId, fixture)
-    const channels = getMatchRoomChannels(fixture, new Date(), getMatchDemoRoomAvailabilityPhase(demoOverride))
+    const roomStateOptions = demoOverride.enabled ? { demoOverrideExpiresAt: demoOverride.expiresAt } : {}
+    const channels = getMatchRoomChannels(fixture, new Date(), getMatchDemoRoomAvailabilityPhase(demoOverride), roomStateOptions)
 
     let items: any[] = []
     let total = 0
@@ -244,12 +246,18 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (!requestedPhase) return errorResponse("Invalid demo phase", 422)
       const reasonCheck = validateDemoOverrideReason(body.reason)
       if (!reasonCheck.ok) return errorResponse(reasonCheck.error, 422)
+      const durationMinutes =
+        requestedPhase === "auto"
+          ? null
+          : normalizeMatchDemoOverrideDurationMinutes(body.durationMinutes)
+      if (requestedPhase !== "auto" && !durationMinutes) return errorResponse("Invalid demo duration", 422)
       const result = await setMatchDemoOverride({
         admin,
         matchId,
         fixture,
         requestedPhase,
         reason: sanitizeReason(reasonCheck.reason),
+        durationMinutes,
       })
       return ok({ success: true, demoOverride: result.state, idempotent: result.idempotent })
     }

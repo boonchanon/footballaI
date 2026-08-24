@@ -29,9 +29,14 @@ const DEFAULT_FOOTBALL_TEAMS_API_CONFIG: FootballTeamsApiConfig = {
   enabled: true,
 }
 
+type AppSettingLeanDoc = {
+  value?: unknown
+  updatedAt?: Date
+}
+
 export async function getFootballApiConfig(): Promise<FootballApiConfig> {
   await connectDatabase()
-  const doc = await AppSetting.findOne({ key: FOOTBALL_API_SETTING_KEY }).lean()
+  const doc = (await AppSetting.findOne({ key: FOOTBALL_API_SETTING_KEY }).lean()) as AppSettingLeanDoc | null
   const value = doc?.value && typeof doc.value === "object" ? doc.value : {}
 
   return {
@@ -47,7 +52,7 @@ export async function updateFootballApiConfig(input: Partial<FootballApiConfig>,
     ...input,
   }
 
-  const doc = await AppSetting.findOneAndUpdate(
+  const doc = (await AppSetting.findOneAndUpdate(
     { key: FOOTBALL_API_SETTING_KEY },
     {
       $set: {
@@ -57,7 +62,7 @@ export async function updateFootballApiConfig(input: Partial<FootballApiConfig>,
       },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
-  ).lean()
+  ).lean()) as AppSettingLeanDoc | null
 
   return {
     enabled: Boolean((doc?.value as Record<string, unknown> | undefined)?.enabled ?? nextValue.enabled),
@@ -67,7 +72,7 @@ export async function updateFootballApiConfig(input: Partial<FootballApiConfig>,
 
 export async function getNewsApiConfig(): Promise<NewsApiConfig> {
   await connectDatabase()
-  const doc = await AppSetting.findOne({ key: NEWS_API_SETTING_KEY }).lean()
+  const doc = (await AppSetting.findOne({ key: NEWS_API_SETTING_KEY }).lean()) as AppSettingLeanDoc | null
   const value = doc?.value && typeof doc.value === "object" ? doc.value : {}
 
   return {
@@ -86,7 +91,7 @@ export async function updateNewsApiConfig(input: Partial<NewsApiConfig>, updated
     ...input,
   }
 
-  const doc = await AppSetting.findOneAndUpdate(
+  const doc = (await AppSetting.findOneAndUpdate(
     { key: NEWS_API_SETTING_KEY },
     {
       $set: {
@@ -96,7 +101,7 @@ export async function updateNewsApiConfig(input: Partial<NewsApiConfig>, updated
       },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
-  ).lean()
+  ).lean()) as AppSettingLeanDoc | null
 
   return {
     enabled: Boolean((doc?.value as Record<string, unknown> | undefined)?.enabled ?? nextValue.enabled),
@@ -106,7 +111,7 @@ export async function updateNewsApiConfig(input: Partial<NewsApiConfig>, updated
 
 export async function getFootballTeamsApiConfig(): Promise<FootballTeamsApiConfig> {
   await connectDatabase()
-  const doc = await AppSetting.findOne({ key: FOOTBALL_TEAMS_API_SETTING_KEY }).lean()
+  const doc = (await AppSetting.findOne({ key: FOOTBALL_TEAMS_API_SETTING_KEY }).lean()) as AppSettingLeanDoc | null
   const value = doc?.value && typeof doc.value === "object" ? doc.value : {}
 
   return {
@@ -125,7 +130,7 @@ export async function updateFootballTeamsApiConfig(input: Partial<FootballTeamsA
     ...input,
   }
 
-  const doc = await AppSetting.findOneAndUpdate(
+  const doc = (await AppSetting.findOneAndUpdate(
     { key: FOOTBALL_TEAMS_API_SETTING_KEY },
     {
       $set: {
@@ -135,7 +140,7 @@ export async function updateFootballTeamsApiConfig(input: Partial<FootballTeamsA
       },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
-  ).lean()
+  ).lean()) as AppSettingLeanDoc | null
 
   return {
     enabled: Boolean((doc?.value as Record<string, unknown> | undefined)?.enabled ?? nextValue.enabled),

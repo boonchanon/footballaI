@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Archive, CheckCircle, EyeOff, Flag, Pin, RefreshCw, ShieldCheck, SlidersHorizontal } from "lucide-react"
+import { Archive, CheckCircle, Clock, EyeOff, Flag, Pin, RefreshCw, ShieldCheck, SlidersHorizontal } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -45,9 +45,13 @@ type AdminMatchRoomDetailResponse = {
     effectivePhase: "pre_match" | "live" | "full_time"
     overridePhase: "auto" | "pre_match" | "live" | "full_time"
     enabled: boolean
+    isExpired?: boolean
+    remainingSeconds?: number | null
     reason?: string
     updatedBy?: string
     updatedAt?: string | null
+    expiresAt?: string | null
+    durationMinutes?: number | null
   }
   overview: { roomMessages: number; threads: number; polls: number; reports: number; hidden: number; archivedMessages: number; latestActivityAt?: string | null }
   tab: string
@@ -68,6 +72,27 @@ const tabs = [
   { id: "audit", label: "Audit Log" },
 ]
 
+const durationPresets = [
+  { value: "5", label: "5 นาที" },
+  { value: "10", label: "10 นาที" },
+  { value: "30", label: "30 นาที" },
+  { value: "custom", label: "กำหนดเอง" },
+] as const
+
+function formatCountdown(seconds?: number | null) {
+  const safeSeconds = Math.max(0, Number(seconds || 0))
+  const minutes = Math.floor(safeSeconds / 60)
+  const remainingSeconds = safeSeconds % 60
+  return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "-"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "-"
+  return date.toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })
+}
+
 function statusBadge(status?: string) {
   if (status === "published" || status === "approved" || status === "open") return <Badge className="bg-emerald-500/10 text-emerald-400">{status}</Badge>
   if (status === "hidden" || status === "pending_review" || status === "archived") return <Badge className="bg-amber-500/10 text-amber-400">{status}</Badge>
@@ -81,8 +106,11 @@ export default function AdminMatchRoomDetailPage({ params }: { params: Promise<{
   const [page, setPage] = useState(1)
   const [reason, setReason] = useState("")
   const [demoPhase, setDemoPhase] = useState<"auto" | "pre_match" | "live" | "full_time">("auto")
+  const [durationPreset, setDurationPreset] = useState<"5" | "10" | "30" | "custom">("5")
+  const [customDuration, setCustomDuration] = useState("5")
   const [demoReason, setDemoReason] = useState("")
   const [demoFeedback, setDemoFeedback] = useState("")
+  const [clockNow, setClockNow] = useState(Date.now())
   const [manualArchiveRoomType, setManualArchiveRoomType] = useState("")
   const [loading, setLoading] = useState(true)
   const [actingId, setActingId] = useState("")
@@ -120,6 +148,17 @@ export default function AdminMatchRoomDetailPage({ params }: { params: Promise<{
     void load()
   }, [matchId, tab, page])
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    if (!data?.demoOverride?.enabled || !data.demoOverride.expiresAt) return
+    const remaining = Math.ceil((new Date(data.demoOverride.expiresAt).getTime() - clockNow) / 1000)
+    if (remaining <= 0) void load()
+  }, [clockNow, data?.demoOverride?.enabled, data?.demoOverride?.expiresAt])
+
   async function submitAction(action: string, item?: AdminMatchRoomItem, roomType?: string) {
     if (!matchId) return
     if ((action === "room_manual_close" || action === "room_manual_archive") && reason.trim().length < 6) {
@@ -153,6 +192,12 @@ export default function AdminMatchRoomDetailPage({ params }: { params: Promise<{
       setError("Demo override ต้องกรอก reason")
       return
     }
+    const durationCandidate = Number(durationPreset === "custom" ? customDuration : durationPreset)
+    const durationMinutes = nextPhase === "auto" ? null : durationCandidate
+    if (nextPhase !== "auto" && (!Number.isFinite(durationCandidate) || durationCandidate < 1 || durationCandidate > 120)) {
+      setError("Duration ต้องอยู่ระหว่าง 1–120 นาที")
+      return
+    }
     const label = nextPhase === "auto" ? "Reset to Provider" : `Apply ${nextPhase}`
     if (!window.confirm(`ยืนยัน ${label}?`)) return
     const token = getAuthToken()
@@ -162,7 +207,7 @@ export default function AdminMatchRoomDetailPage({ params }: { params: Promise<{
       const response = await fetchJson<Pick<AdminMatchRoomDetailResponse, "demoOverride"> & { idempotent?: boolean }>(`/admin/community/match-rooms/${matchId}`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ requestedPhase: nextPhase, reason: trimmedReason }),
+        body: JSON.stringify({ requestedPhase: nextPhase, reason: trimmedReason, durationMinutes }),
       })
       setDemoFeedback(response.idempotent ? "Demo override already matched this phase." : "Demo override updated.")
       setDemoReason("")
@@ -175,6 +220,8 @@ export default function AdminMatchRoomDetailPage({ params }: { params: Promise<{
   }
 
   const fixture = data?.fixture
+  const demoExpiresAt = data?.demoOverride?.expiresAt || null
+  const demoRemainingSeconds = demoExpiresAt ? Math.max(0, Math.ceil((new Date(demoExpiresAt).getTime() - clockNow) / 1000)) : data?.demoOverride?.remainingSeconds ?? null
 
   return (
     <div className="space-y-6">
@@ -280,6 +327,7 @@ export default function AdminMatchRoomDetailPage({ params }: { params: Promise<{
                 <SlidersHorizontal className="h-5 w-5 text-primary" />
                 Demo Controls
                 {data.demoOverride?.enabled ? <Badge className="bg-primary text-primary-foreground">DEMO OVERRIDE</Badge> : null}
+                {data.demoOverride?.isExpired ? <Badge variant="outline" className="border-amber-500/40 text-amber-400">EXPIRED</Badge> : null}
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 text-sm lg:grid-cols-[1fr_320px]">
@@ -296,6 +344,17 @@ export default function AdminMatchRoomDetailPage({ params }: { params: Promise<{
                   <p className="text-muted-foreground">Demo override</p>
                   <p className="font-semibold">{data.demoOverride?.overridePhase || "auto"}</p>
                 </div>
+                <div className="rounded-2xl border border-border p-3">
+                  <p className="text-muted-foreground">Remaining</p>
+                  <p className="flex items-center gap-2 font-semibold">
+                    <Clock className="h-4 w-4 text-primary" />
+                    {data.demoOverride?.enabled ? formatCountdown(demoRemainingSeconds) : data.demoOverride?.isExpired ? "หมดเวลาแล้ว" : "-"}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-border p-3 md:col-span-2">
+                  <p className="text-muted-foreground">Expires</p>
+                  <p className="font-semibold">{formatDateTime(data.demoOverride?.expiresAt)}</p>
+                </div>
               </div>
               <div className="space-y-3">
                 <Select value={demoPhase} onValueChange={(value) => setDemoPhase(value as typeof demoPhase)}>
@@ -309,6 +368,33 @@ export default function AdminMatchRoomDetailPage({ params }: { params: Promise<{
                     <SelectItem value="full_time">Full Time</SelectItem>
                   </SelectContent>
                 </Select>
+                <div className="space-y-2 rounded-2xl border border-border p-3">
+                  <p className="text-xs font-semibold text-muted-foreground">Override duration</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {durationPresets.map((preset) => (
+                      <Button
+                        key={preset.value}
+                        type="button"
+                        variant={durationPreset === preset.value ? "default" : "outline"}
+                        className="justify-center"
+                        onClick={() => setDurationPreset(preset.value)}
+                      >
+                        {preset.label}
+                      </Button>
+                    ))}
+                  </div>
+                  {durationPreset === "custom" ? (
+                    <Input
+                      type="number"
+                      min={1}
+                      max={120}
+                      value={customDuration}
+                      onChange={(event) => setCustomDuration(event.target.value)}
+                      placeholder="1-120 นาที"
+                      aria-label="Custom demo override duration"
+                    />
+                  ) : null}
+                </div>
                 <Input value={demoReason} onChange={(event) => setDemoReason(event.target.value)} placeholder="Reason required" aria-label="Demo override reason" />
                 {demoFeedback ? <p className="text-xs text-emerald-400">{demoFeedback}</p> : null}
                 <div className="flex flex-wrap gap-2">

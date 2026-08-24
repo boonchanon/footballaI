@@ -978,7 +978,10 @@ async function shouldRefreshTeamCache() {
   if (!config.enabled) return false
 
   await connectDatabase()
-  const latestTeam = await PremierLeagueTeam.findOne({ season: PREMIER_LEAGUE_DATA_SEASON.labelLong }).sort({ syncedAt: -1 }).select({ syncedAt: 1 }).lean()
+  const latestTeam = (await PremierLeagueTeam.findOne({ season: PREMIER_LEAGUE_DATA_SEASON.labelLong })
+    .sort({ syncedAt: -1 })
+    .select({ syncedAt: 1 })
+    .lean()) as { syncedAt?: Date | string } | null
   if (!latestTeam?.syncedAt) return true
   return Date.now() - new Date(latestTeam.syncedAt).getTime() > TEAM_CACHE_MAX_AGE_MS
 }
@@ -1059,10 +1062,10 @@ async function shouldRefreshFixtureCache(seasonValue?: string) {
   const season = getPremierLeagueSeasonByLabel(seasonValue)
 
   await connectDatabase()
-  const latestFixture = await PremierLeagueFixture.findOne({ season: season.labelLong })
+  const latestFixture = (await PremierLeagueFixture.findOne({ season: season.labelLong })
     .sort({ syncedAt: -1 })
     .select({ syncedAt: 1 })
-    .lean()
+    .lean()) as { syncedAt?: Date | string } | null
 
   if (!latestFixture?.syncedAt) return true
   if (season.labelLong !== PREMIER_LEAGUE_DATA_SEASON.labelLong) return false
