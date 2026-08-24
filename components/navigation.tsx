@@ -8,6 +8,7 @@ import {
   Brain,
   BrainCircuit,
   Calendar,
+  Crown,
   Flame,
   Gamepad2,
   Globe,
@@ -176,14 +177,15 @@ export function Navigation({ isLoggedIn = false, userName, variant = "page" }: N
       { href: "/heatmap", label: "Heat Map", icon: Flame, isActive: (path) => path === "/heatmap" },
       { href: "/worldcup-2026", label: "World Cup 2026", icon: Globe, isActive: (path) => path.startsWith("/worldcup-2026") },
       { href: "/ai-prediction", label: "AI Prediction", icon: Brain, isActive: (path) => path === "/ai-prediction" },
+      { href: "/subscription", label: "Subscription", icon: Crown, isActive: (path) => path === "/subscription" },
       { href: "/profile", label: "Profile", icon: User, isActive: (path) => path === "/profile" },
     ],
     [],
   )
 
   const primaryItems = navItems.slice(0, 7)
-  const secondaryItems = navItems.slice(7, 12)
-  const profileItem = navItems[12]
+  const secondaryItems = navItems.slice(7, 13)
+  const profileItem = navItems[13]
   const userInitial = (stableUserName || "F").charAt(0).toUpperCase()
 
   return (
