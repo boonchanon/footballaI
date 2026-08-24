@@ -1,18 +1,22 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
+import { useEffect, useMemo, useRef, useState } from "react"
 import useSWR from "swr"
 import {
   BrainCircuit,
   CalendarDays,
+  ChevronLeft,
   ChevronRight,
+  Coins,
   Loader2,
+  Lock,
   MapPin,
   ShieldCheck,
   Sparkles,
   Target,
-  TrendingUp,
   Trophy,
+  Wallet,
 } from "lucide-react"
 
 import { Footer } from "@/components/footer"
@@ -20,7 +24,9 @@ import { Navigation } from "@/components/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { backendFetcher } from "@/lib/api-client"
+import { useAuthSession } from "@/hooks/use-auth-session"
+import { backendFetcher, fetchJson } from "@/lib/api-client"
+import { getDisplayTeamName } from "@/lib/premier-league-predictions"
 import { cn } from "@/lib/utils"
 
 type Fixture = {
@@ -69,145 +75,45 @@ type CsvPrediction = {
   poissonPredictedScore: string
 }
 
-type PredictionMatch = {
-  fixture: Fixture
-  prediction: CsvPrediction | null
-  week: number
-}
+type RevealedMap = Record<string, CsvPrediction>
 
-type CsvRow = Record<string, string>
-
-const TEAM_NAME_ALIASES: Record<string, string> = {
-  "man utd": "manchester united",
-  "manchester utd": "manchester united",
-  "man united": "manchester united",
-  "man city": "manchester city",
-  spurs: "tottenham hotspur",
-  tottenham: "tottenham hotspur",
-  "nottm forest": "nottingham forest",
-  "nott'm forest": "nottingham forest",
-  nottingham: "nottingham forest",
-  wolves: "wolverhampton wanderers",
-  brighton: "brighton hove albion",
-  westham: "west ham united",
-  westhamunited: "west ham united",
-  newcastle: "newcastle united",
-}
-
-const TEAM_DISPLAY_NAMES: Record<string, string> = {
-  "Manchester Utd": "Manchester United",
-  Tottenham: "Tottenham Hotspur",
-  Nottingham: "Nottingham Forest",
-}
-
-function getDisplayTeamName(value: string) {
-  return TEAM_DISPLAY_NAMES[value] || value
-}
-
-function normalizeTeamName(value: string) {
-  const normalized = value
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[’']/g, "")
-    .replace(/&/g, " ")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim()
-    .replace(/\s+/g, " ")
-
-  return TEAM_NAME_ALIASES[normalized] || normalized
-}
-
-function normalizePredictionResult(value: string) {
-  const normalized = value.trim().toUpperCase()
-  if (normalized === "H") return "เจ้าบ้านชนะ"
-  if (normalized === "A") return "ทีมเยือนชนะ"
-  if (normalized === "D") return "เสมอ"
-  return value || "-"
-}
-
-function normalizeScoreText(value: string) {
-  return value.replace(/^="?/, "").replace(/"$/, "").trim()
-}
-
-function parseCsvLine(line: string) {
-  const values: string[] = []
-  let current = ""
-  let inQuotes = false
-
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index]
-    const nextChar = line[index + 1]
-
-    if (char === '"') {
-      if (inQuotes && nextChar === '"') {
-        current += '"'
-        index += 1
-      } else {
-        inQuotes = !inQuotes
-      }
-      continue
-    }
-
-    if (char === "," && !inQuotes) {
-      values.push(current)
-      current = ""
-      continue
-    }
-
-    current += char
+type AccessEntitlement = {
+  id: string
+  productCode: string
+  targetType: "credits" | "daypass"
+  targetId: string
+  active: boolean
+  amount: number
+  metadata?: {
+    creditsLimit?: number | null
+    remainingCredits?: number | null
+    unlockedFixtureIds?: string[]
   }
-
-  values.push(current)
-  return values
 }
 
-function parsePredictionCsv(csvText: string) {
-  const lines = csvText
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-
-  if (lines.length <= 1) return [] as CsvPrediction[]
-
-  const headers = parseCsvLine(lines[0])
-  const rows: CsvRow[] = lines.slice(1).map((line) => {
-    const values = parseCsvLine(line)
-    return headers.reduce<CsvRow>((accumulator, header, index) => {
-      accumulator[header] = values[index] ?? ""
-      return accumulator
-    }, {})
-  })
-
-  return rows.map((row) => ({
-    fixtureDate: row.fixture_date,
-    homeTeam: row.home_team,
-    awayTeam: row.away_team,
-    predictedResult: normalizePredictionResult(row.predicted_result),
-    confidence: Number.isFinite(Number(row.confidence)) ? Number(row.confidence) : null,
-    homeWin: Number.isFinite(Number(row.home_win)) ? Number(row.home_win) : null,
-    draw: Number.isFinite(Number(row.draw)) ? Number(row.draw) : null,
-    awayWin: Number.isFinite(Number(row.away_win)) ? Number(row.away_win) : null,
-    ensemblePredictedScore: normalizeScoreText(row.ensemble_predicted_score || "-"),
-    catboostPredictedScore: normalizeScoreText(row.catboost_predicted_score || "-"),
-    xgboostPredictedScore: normalizeScoreText(row.xgboost_predicted_score || "-"),
-    poissonPredictedScore: normalizeScoreText(row.poisson_predicted_score || "-"),
-  }))
+type PaymentStateResponse = {
+  promptpay: {
+    id: string
+    accountName: string
+  }
+  orders: Array<{
+    id: string
+    productCode: string
+    targetType: string
+    targetId: string
+    status: string
+  }>
+  entitlements: AccessEntitlement[]
 }
 
 function formatThaiDate(dateValue: string) {
   return new Intl.DateTimeFormat("th-TH", {
-    weekday: "long",
+    weekday: "short",
     day: "numeric",
     month: "short",
     year: "numeric",
     timeZone: "Asia/Bangkok",
   }).format(new Date(dateValue))
-}
-
-function formatConfidence(value: number | null) {
-  if (value == null) return "-"
-  const normalized = value <= 1 ? value * 100 : value
-  return `${normalized.toFixed(0)}%`
 }
 
 function formatPercent(value: number | null) {
@@ -224,14 +130,8 @@ function toPercentWidth(value: number | null) {
 
 function parseScorePair(value: string) {
   const match = value.match(/(\d+)\s*-\s*(\d+)/)
-  if (!match) {
-    return { home: null, away: null }
-  }
-
-  return {
-    home: Number(match[1]),
-    away: Number(match[2]),
-  }
+  if (!match) return { home: null, away: null }
+  return { home: Number(match[1]), away: Number(match[2]) }
 }
 
 function getWinnerFromScore(home: number | null, away: number | null) {
@@ -241,13 +141,12 @@ function getWinnerFromScore(home: number | null, away: number | null) {
   return "draw"
 }
 
-function getFinishedPredictionSummary(match: PredictionMatch | null) {
-  if (!match?.prediction) return null
-  if (!match.fixture.status.isFinished) return null
+function getFinishedPredictionSummary(fixture: Fixture, prediction: CsvPrediction | null) {
+  if (!prediction || !fixture.status.isFinished) return null
 
-  const actualHome = match.fixture.goals.home
-  const actualAway = match.fixture.goals.away
-  const predictedScore = parseScorePair(match.prediction.ensemblePredictedScore)
+  const actualHome = fixture.goals.home
+  const actualAway = fixture.goals.away
+  const predictedScore = parseScorePair(prediction.ensemblePredictedScore)
 
   if (actualHome == null || actualAway == null || predictedScore.home == null || predictedScore.away == null) {
     return null
@@ -266,20 +165,19 @@ function getFinishedPredictionSummary(match: PredictionMatch | null) {
     }
   }
 
-  if (exactScore) {
+  if (winnerMatched) {
     return {
-      label: "สกอร์ตรง",
-      detail: `สกอร์ที่ทำนายตรงกับผลจริง ${actualHome}-${actualAway}`,
-      tone: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+      label: "ทายทีมชนะถูก แต่สกอร์ไม่ตรง",
+      detail: `ทำนาย ${predictedScore.home}-${predictedScore.away} แต่ผลจริงจบ ${actualHome}-${actualAway}`,
+      tone: "border-amber-400/30 bg-amber-400/10 text-amber-200",
     }
   }
 
-  if (winnerMatched) {
-    const drawText = actualWinner === "draw" ? "ทายผลเสมอถูก" : "ทายทีมชนะถูก"
+  if (exactScore) {
     return {
-      label: `${drawText} แต่สกอร์ไม่ตรง`,
-      detail: `ทำนาย ${predictedScore.home}-${predictedScore.away} แต่ผลจริงจบ ${actualHome}-${actualAway}`,
-      tone: "border-amber-400/30 bg-amber-400/10 text-amber-200",
+      label: "สกอร์ตรง แต่ทิศทางผลไม่ตรง",
+      detail: `สกอร์ที่ทำนายคือ ${predictedScore.home}-${predictedScore.away} ตรงกับผลจริง`,
+      tone: "border-sky-400/30 bg-sky-400/10 text-sky-200",
     }
   }
 
@@ -290,18 +188,10 @@ function getFinishedPredictionSummary(match: PredictionMatch | null) {
   }
 }
 
-function getConfidenceTone(value: number | null) {
-  if (value == null) return "text-muted-foreground"
-  const normalized = value <= 1 ? value * 100 : value
-  if (normalized >= 65) return "text-primary"
-  if (normalized >= 50) return "text-amber-300"
-  return "text-slate-400"
-}
-
 function getStatusLabel(fixture: Fixture) {
   if (fixture.status.isFinished) return "จบ"
   if (fixture.status.isLive) return fixture.status.short ? `${fixture.status.short}'` : "สด"
-  return "ยังไม่แข่ง"
+  return "ล็อก"
 }
 
 function getStatusTone(fixture: Fixture) {
@@ -310,41 +200,12 @@ function getStatusTone(fixture: Fixture) {
   return "border-white/10 bg-white/5 text-slate-300"
 }
 
-function getWeekLabel(week: number) {
-  return `สัปดาห์ ${week}`
-}
-
-function getPredictionLookupKey(date: string, homeTeam: string, awayTeam: string) {
-  return `${date}__${normalizeTeamName(homeTeam)}__${normalizeTeamName(awayTeam)}`
-}
-
-function matchPredictionToFixture(fixtures: Fixture[], predictions: CsvPrediction[]) {
-  const predictionMap = new Map(predictions.map((item) => [getPredictionLookupKey(item.fixtureDate, item.homeTeam, item.awayTeam), item]))
-
-  return fixtures
-    .map<PredictionMatch>((fixture, index) => {
-      const dateKey = fixture.date.slice(0, 10)
-      const homeName = getDisplayTeamName(fixture.teams.home.nameEn || fixture.teams.home.name)
-      const awayName = getDisplayTeamName(fixture.teams.away.nameEn || fixture.teams.away.name)
-      const directKey = getPredictionLookupKey(dateKey, homeName, awayName)
-      const fallbackKey = getPredictionLookupKey(dateKey, getDisplayTeamName(fixture.teams.home.name), getDisplayTeamName(fixture.teams.away.name))
-      const prediction = predictionMap.get(directKey) || predictionMap.get(fallbackKey) || null
-
-      return {
-        fixture,
-        prediction,
-        week: fixture.roundNumber || Math.floor(index / 10) + 1,
-      }
-    })
-    .sort((left, right) => new Date(left.fixture.date).getTime() - new Date(right.fixture.date).getTime())
-}
-
-async function csvFetcher(path: string) {
-  const response = await fetch(path, { cache: "no-store" })
-  if (!response.ok) {
-    throw new Error("โหลดไฟล์ prediction ไม่สำเร็จ")
-  }
-  return response.text()
+function getConfidenceTone(value: number | null) {
+  if (value == null) return "text-muted-foreground"
+  const normalized = value <= 1 ? value * 100 : value
+  if (normalized >= 65) return "text-primary"
+  if (normalized >= 50) return "text-amber-300"
+  return "text-slate-400"
 }
 
 function SupportingModelRow({ label, value }: { label: string; value: string }) {
@@ -357,59 +218,189 @@ function SupportingModelRow({ label, value }: { label: string; value: string }) 
 }
 
 export default function AIPredictionPageClient() {
-  const { data: fixturesData, isLoading: fixturesLoading, error: fixturesError } = useSWR<FixturesResponse>("/football/fixtures?type=all&limit=380", backendFetcher)
-  const { data: csvText, isLoading: csvLoading, error: csvError } = useSWR("/predictions_2026_2027_retrained_h2h.csv", csvFetcher)
+  const { token: authToken } = useAuthSession()
+  const { data: fixturesData, isLoading: fixturesLoading, error: fixturesError } = useSWR<FixturesResponse>(
+    "/football/fixtures?type=all&limit=380",
+    backendFetcher,
+  )
 
-  const predictions = useMemo(() => (csvText ? parsePredictionCsv(csvText) : []), [csvText])
-  const predictionMatches = useMemo(() => matchPredictionToFixture(fixturesData?.data || [], predictions), [fixturesData?.data, predictions])
+  const [paymentState, setPaymentState] = useState<PaymentStateResponse | null>(null)
+  const [paymentLoading, setPaymentLoading] = useState(false)
+  const [paymentError, setPaymentError] = useState<string | null>(null)
+  const [selectedWeek, setSelectedWeek] = useState<number>(1)
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null)
+  const [revealedPredictions, setRevealedPredictions] = useState<RevealedMap>({})
+  const [revealLoadingId, setRevealLoadingId] = useState<string | null>(null)
+  const [revealError, setRevealError] = useState<string | null>(null)
+  const weekStripRef = useRef<HTMLDivElement | null>(null)
+
+  const fixtures = fixturesData?.data ?? []
+
+  const predictionMatches = useMemo(
+    () =>
+      fixtures
+        .map((fixture, index) => ({
+          fixture,
+          week: fixture.roundNumber || Math.floor(index / 10) + 1,
+        }))
+        .sort((left, right) => new Date(left.fixture.date).getTime() - new Date(right.fixture.date).getTime()),
+    [fixtures],
+  )
 
   const weeks = useMemo(() => {
-    const grouped = new Map<number, PredictionMatch[]>()
-
-    for (const match of predictionMatches) {
-      const existing = grouped.get(match.week) || []
-      existing.push(match)
-      grouped.set(match.week, existing)
+    const grouped = new Map<number, Fixture[]>()
+    for (const item of predictionMatches) {
+      const existing = grouped.get(item.week) || []
+      existing.push(item.fixture)
+      grouped.set(item.week, existing)
     }
-
     return Array.from(grouped.entries())
       .sort((left, right) => left[0] - right[0])
       .map(([week, matches]) => ({ week, matches }))
   }, [predictionMatches])
 
-  const [selectedWeek, setSelectedWeek] = useState<number>(1)
-  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null)
-  const [revealedMatchIds, setRevealedMatchIds] = useState<Record<string, boolean>>({})
-
   useEffect(() => {
     if (!weeks.length) return
-
     if (!weeks.some((item) => item.week === selectedWeek)) {
       setSelectedWeek(weeks[0].week)
-      setSelectedMatchId(weeks[0].matches[0]?.fixture.id || null)
+      setSelectedMatchId(weeks[0].matches[0]?.id || null)
       return
     }
-
     const activeWeek = weeks.find((item) => item.week === selectedWeek)
     if (activeWeek && !selectedMatchId) {
-      setSelectedMatchId(activeWeek.matches[0]?.fixture.id || null)
+      setSelectedMatchId(activeWeek.matches[0]?.id || null)
     }
   }, [weeks, selectedWeek, selectedMatchId])
 
+  useEffect(() => {
+    if (!authToken) {
+      setPaymentState(null)
+      return
+    }
+
+    let cancelled = false
+
+    async function loadPaymentState() {
+      setPaymentLoading(true)
+      setPaymentError(null)
+      try {
+        const data = await fetchJson<PaymentStateResponse>("/payments/me", {
+          headers: { Authorization: `Bearer ${authToken}` },
+        })
+        if (!cancelled) {
+          setPaymentState(data)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          const message = error instanceof Error ? error.message : "โหลดข้อมูลเหรียญไม่สำเร็จ"
+          setPaymentError(message)
+        }
+      } finally {
+        if (!cancelled) {
+          setPaymentLoading(false)
+        }
+      }
+    }
+
+    void loadPaymentState()
+
+    return () => {
+      cancelled = true
+    }
+  }, [authToken])
+
   const activeWeek = useMemo(() => weeks.find((item) => item.week === selectedWeek) || weeks[0] || null, [weeks, selectedWeek])
+  const selectedFixture = useMemo(() => {
+    const pool = activeWeek?.matches || fixtures
+    return pool.find((fixture) => fixture.id === selectedMatchId) || pool[0] || null
+  }, [activeWeek, fixtures, selectedMatchId])
 
-  const selectedMatch = useMemo(() => {
-    const pool = activeWeek?.matches || predictionMatches
-    return pool.find((item) => item.fixture.id === selectedMatchId) || pool[0] || null
-  }, [activeWeek, predictionMatches, selectedMatchId])
+  const activeEntitlements = paymentState?.entitlements ?? []
+  const hasDayPass = activeEntitlements.some((item) => item.active && item.targetType === "daypass" && item.targetId === "prediction-access")
+  const unlockedFixtureIds = Array.from(
+    new Set(
+      activeEntitlements.flatMap((item) =>
+        item.active && item.targetType === "credits" && item.targetId === "prediction-access" && Array.isArray(item.metadata?.unlockedFixtureIds)
+          ? item.metadata.unlockedFixtureIds
+          : [],
+      ),
+    ),
+  )
+  const remainingCredits = activeEntitlements.reduce((sum, item) => {
+    if (!item.active || item.targetType !== "credits" || item.targetId !== "prediction-access") return sum
+    return sum + (typeof item.metadata?.remainingCredits === "number" ? item.metadata.remainingCredits : 0)
+  }, 0)
+  const totalCreditLimit = activeEntitlements.reduce((sum, item) => {
+    if (!item.active || item.targetType !== "credits" || item.targetId !== "prediction-access") return sum
+    return sum + (typeof item.metadata?.creditsLimit === "number" ? item.metadata.creditsLimit : 0)
+  }, 0)
+  const accessibleMatchesCount = hasDayPass ? (fixturesData?.totalMatches || fixtures.length) : unlockedFixtureIds.length
 
-  const totalPredicted = predictions.length
-  const totalFixtures = fixturesData?.totalMatches || predictionMatches.length
-  const completeWeeks = weeks.length
-  const loading = fixturesLoading || csvLoading
-  const errorMessage = (fixturesError as Error | undefined)?.message || (csvError as Error | undefined)?.message || ""
-  const isRevealed = selectedMatch ? Boolean(revealedMatchIds[selectedMatch.fixture.id]) : false
-  const finishedPredictionSummary = getFinishedPredictionSummary(selectedMatch)
+  const selectedPrediction = selectedFixture ? revealedPredictions[selectedFixture.id] ?? null : null
+  const selectedUnlocked = selectedFixture ? hasDayPass || unlockedFixtureIds.includes(selectedFixture.id) || Boolean(revealedPredictions[selectedFixture.id]) : false
+  const finishedSummary = selectedFixture ? getFinishedPredictionSummary(selectedFixture, selectedPrediction) : null
+
+  async function refreshPaymentState() {
+    if (!authToken) return
+    try {
+      const data = await fetchJson<PaymentStateResponse>("/payments/me", {
+        headers: { Authorization: `Bearer ${authToken}` },
+      })
+      setPaymentState(data)
+    } catch {}
+  }
+
+  async function handleReveal(fixture: Fixture) {
+    if (!authToken) {
+      setRevealError("กรุณาเข้าสู่ระบบก่อนดูผลทำนาย")
+      return
+    }
+
+    if (revealedPredictions[fixture.id]) {
+      setRevealError(null)
+      return
+    }
+
+    setRevealLoadingId(fixture.id)
+    setRevealError(null)
+
+    try {
+      const response = await fetchJson<{ prediction: CsvPrediction }>("/ai-prediction/reveal", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({
+          fixtureId: fixture.id,
+          fixtureDate: fixture.date.slice(0, 10),
+          homeTeam: getDisplayTeamName(fixture.teams.home.nameEn || fixture.teams.home.name),
+          awayTeam: getDisplayTeamName(fixture.teams.away.nameEn || fixture.teams.away.name),
+          homeName: getDisplayTeamName(fixture.teams.home.name),
+          awayName: getDisplayTeamName(fixture.teams.away.name),
+        }),
+      })
+
+      setRevealedPredictions((current) => ({ ...current, [fixture.id]: response.prediction }))
+      await refreshPaymentState()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "ปลดล็อกผลทำนายไม่สำเร็จ"
+      if (/prediction_locked/i.test(message)) {
+        setRevealError("เหรียญไม่พอ คู่นี้ยังถูกล็อกอยู่")
+      } else {
+        setRevealError(message)
+      }
+    } finally {
+      setRevealLoadingId(null)
+    }
+  }
+
+  const scrollWeekStrip = (direction: "left" | "right") => {
+    const element = weekStripRef.current
+    if (!element) return
+    const offset = Math.max(element.clientWidth * 0.72, 240)
+    element.scrollBy({ left: direction === "left" ? -offset : offset, behavior: "smooth" })
+  }
+
+  const loading = fixturesLoading
+  const errorMessage = (fixturesError as Error | undefined)?.message || ""
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(184,255,0,0.10),transparent_22%),linear-gradient(180deg,#060a0b_0%,#091114_45%,#05080a_100%)] text-foreground">
@@ -422,34 +413,54 @@ export default function AIPredictionPageClient() {
             Premier League AI Prediction
           </Badge>
 
-          <div className="grid gap-8 lg:grid-cols-[1.35fr_0.85fr] lg:items-end">
+          <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
             <div>
               <h1 className="text-4xl font-display leading-tight text-white md:text-6xl">
-                บอร์ดทำนายพรีเมียร์ลีก
-                <span className="block text-primary">กดดูผลทำนายทีละคู่ได้</span>
+                ทายผลพรีเมียร์ลีก
+                <span className="block text-primary">ทุกคู่ถูกล็อกด้วยเหรียญ</span>
               </h1>
               <p className="mt-5 max-w-3xl text-base leading-8 text-slate-300 md:text-lg">
-                ดูคู่แข่งขันทั้งฤดูกาลแบบแยกตามสัปดาห์ เลือกแมตช์ที่สนใจ แล้วค่อยเปิดผลทำนายเมื่อผู้ใช้ต้องการดู
+                เลือกสัปดาห์ เลือกคู่ แล้วใช้เหรียญปลดล็อกผลทำนายรายคู่ ระบบจะจำสิทธิ์ของคู่ที่เคยเปิดไว้ให้ดูซ้ำได้
               </p>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-              <div className="rounded-[26px] border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Weeks</p>
-                <p className="mt-2 text-3xl font-black text-white">{completeWeeks}/38</p>
-                <p className="mt-1 text-sm text-slate-400">สัปดาห์ที่พร้อมแสดง</p>
-              </div>
-              <div className="rounded-[26px] border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Fixtures</p>
-                <p className="mt-2 text-3xl font-black text-white">{totalFixtures}/380</p>
-                <p className="mt-1 text-sm text-slate-400">คู่ที่โหลดจากระบบแข่ง</p>
-              </div>
-              <div className="rounded-[26px] border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Predictions</p>
-                <p className="mt-2 text-3xl font-black text-white">{totalPredicted}</p>
-                <p className="mt-1 text-sm text-slate-400">คู่ที่จับกับไฟล์ทำนายแล้ว</p>
-              </div>
-            </div>
+            <Card className="border-primary/20 bg-[linear-gradient(135deg,rgba(184,255,0,0.08),rgba(255,255,255,0.02))] text-white">
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Coin Wallet</p>
+                    <p className="mt-2 text-4xl font-black text-primary">{hasDayPass ? "Full" : remainingCredits}</p>
+                    <p className="mt-2 text-sm text-slate-300">
+                      {hasDayPass ? "คุณมีแพ็กปลดล็อกทั้งรายการ ดูได้ทุกคู่" : authToken ? `เหรียญทั้งหมด ${totalCreditLimit} เหลือใช้ ${remainingCredits}` : "ล็อกอินเพื่อดูเหรียญคงเหลือ"}
+                    </p>
+                  </div>
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/12 text-primary">
+                    <Coins className="h-6 w-6" />
+                  </span>
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-slate-400">{hasDayPass ? "เข้าถึงได้" : "ปลดล็อกแล้ว"}</p>
+                    <p className="mt-2 text-2xl font-black">{accessibleMatchesCount}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-slate-400">ทั้งฤดูกาล</p>
+                    <p className="mt-2 text-2xl font-black">{fixturesData?.totalMatches || fixtures.length}/380</p>
+                  </div>
+                </div>
+
+                <Button asChild className="mt-5 h-12 w-full rounded-full bg-primary font-black text-primary-foreground hover:bg-primary/90">
+                  <Link href="/payment">
+                    ซื้อเหรียญเพิ่ม
+                    <Wallet className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+
+                {paymentError ? <p className="mt-3 text-sm text-rose-300">{paymentError}</p> : null}
+                {paymentLoading ? <p className="mt-3 text-sm text-slate-400">กำลังโหลดกระเป๋าเหรียญ...</p> : null}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </section>
@@ -471,36 +482,41 @@ export default function AIPredictionPageClient() {
           </Card>
         ) : (
           <div className="space-y-8">
-            <section className="rounded-[30px] border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm md:p-6">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <section className="rounded-[30px] border border-white/10 bg-[#091114] p-4 md:p-5">
+              <div className="mb-4 flex items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-display text-white">เลือกสัปดาห์การแข่งขัน</h2>
-                  <p className="mt-1 text-sm text-slate-400">เปลี่ยนสัปดาห์ทางซ้าย แล้วเลือกแมตช์เพื่อเปิดผลทำนาย</p>
+                  <p className="text-sm text-slate-300">เลือกสัปดาห์การแข่งขัน</p>
+                  <p className="mt-1 text-xs text-slate-500">ทุกคู่ในหน้านี้ต้องใช้เหรียญปลดล็อกก่อนดูผลทำนาย</p>
                 </div>
-                <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
-                  {activeWeek ? `${getWeekLabel(activeWeek.week)} | ${activeWeek.matches.length} แมตช์` : "ยังไม่มีข้อมูล"}
-                </Badge>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="icon" onClick={() => scrollWeekStrip("left")} className="rounded-full border-white/10 bg-white/[0.03]">
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" variant="outline" size="icon" onClick={() => scrollWeekStrip("right")} className="rounded-full border-white/10 bg-white/[0.03]">
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+              <div ref={weekStripRef} className="grid auto-cols-[190px] grid-flow-col gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {weeks.map((item) => (
                   <button
                     key={item.week}
                     type="button"
                     onClick={() => {
                       setSelectedWeek(item.week)
-                      setSelectedMatchId(item.matches[0]?.fixture.id || null)
+                      setSelectedMatchId(item.matches[0]?.id || null)
                     }}
                     className={cn(
                       "rounded-[24px] border px-4 py-4 text-left transition",
-                      item.week === activeWeek?.week
-                        ? "border-primary bg-primary text-primary-foreground shadow-[0_0_0_1px_rgba(184,255,0,0.18)]"
-                        : "border-white/10 bg-white/5 text-slate-200 hover:border-primary/40 hover:bg-white/8",
+                      item.week === selectedWeek
+                        ? "border-primary bg-primary text-[#09110b] shadow-[0_0_0_1px_rgba(184,255,0,0.14)]"
+                        : "border-white/10 bg-white/[0.03] text-slate-200 hover:border-white/20 hover:bg-white/[0.05]",
                     )}
                   >
-                    <p className="text-xs uppercase tracking-[0.18em] opacity-80">Week</p>
-                    <p className="mt-2 text-xl font-black">{item.week}</p>
-                    <p className="mt-2 text-sm opacity-80">{item.matches.length} คู่</p>
+                    <p className="text-[11px] uppercase tracking-[0.22em] opacity-65">Week</p>
+                    <p className="mt-2 text-[30px] font-semibold leading-none">{item.week}</p>
+                    <p className="mt-3 text-sm opacity-75">{item.matches.length} คู่</p>
                   </button>
                 ))}
               </div>
@@ -511,7 +527,7 @@ export default function AIPredictionPageClient() {
                 <CardHeader className="border-b border-white/8 pb-5">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <CardTitle className="text-2xl">{activeWeek ? getWeekLabel(activeWeek.week) : "รายการแมตช์"}</CardTitle>
+                      <CardTitle className="text-2xl">{activeWeek ? `สัปดาห์ ${activeWeek.week}` : "รายการแข่งขัน"}</CardTitle>
                       <p className="mt-1 text-sm text-slate-400">เลือกแมตช์ทางซ้ายเพื่อดูผลทำนายของคู่นั้น</p>
                     </div>
                     <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-slate-300">
@@ -521,10 +537,10 @@ export default function AIPredictionPageClient() {
                 </CardHeader>
 
                 <CardContent className="space-y-4 p-4 md:p-5">
-                  {(activeWeek?.matches || []).map((item) => {
-                    const { fixture, prediction } = item
-                    const selected = selectedMatch?.fixture.id === fixture.id
-                    const revealed = Boolean(revealedMatchIds[fixture.id])
+                  {(activeWeek?.matches || []).map((fixture) => {
+                    const selected = selectedFixture?.id === fixture.id
+                    const isUnlocked = hasDayPass || unlockedFixtureIds.includes(fixture.id) || Boolean(revealedPredictions[fixture.id])
+                    const isBusy = revealLoadingId === fixture.id
 
                     return (
                       <button
@@ -544,36 +560,44 @@ export default function AIPredictionPageClient() {
                               <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold", getStatusTone(fixture))}>
                                 {getStatusLabel(fixture)}
                               </span>
-                              {prediction ? (
-                                <span className="inline-flex rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-                                  {revealed ? "เปิดผลแล้ว" : "กดดูผลได้"}
-                                </span>
-                              ) : (
-                                <span className="inline-flex rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-semibold text-slate-400">
-                                  ยังไม่จับ prediction
-                                </span>
-                              )}
+                              <span
+                                className={cn(
+                                  "inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold",
+                                  isUnlocked
+                                    ? "border-primary/25 bg-primary/10 text-primary"
+                                    : "border-amber-400/20 bg-amber-400/10 text-amber-200",
+                                )}
+                              >
+                                {isUnlocked ? "ปลดล็อกแล้ว" : "ล็อก 1 เหรียญ"}
+                              </span>
                             </div>
 
                             <div className="grid grid-cols-[auto_1fr_auto_1fr] items-center gap-3">
                               <img src={fixture.teams.home.logo || "/placeholder.svg"} alt={fixture.teams.home.name} className="h-11 w-11 rounded-full border border-white/10 bg-white/5 object-contain p-1.5" />
                               <div className="min-w-0">
-                                <p className="truncate text-base font-semibold text-white">{getDisplayTeamName(fixture.teams.home.name)}</p>
+                                <p className="truncate text-base font-semibold text-white">{getDisplayTeamName(fixture.teams.home.nameEn || fixture.teams.home.name)}</p>
                                 {fixture.goals.home != null ? <p className="text-xs text-slate-400">Score {fixture.goals.home}</p> : null}
                               </div>
                               <div className="text-center text-sm font-black text-primary">VS</div>
                               <div className="min-w-0 text-right">
-                                <p className="truncate text-base font-semibold text-white">{getDisplayTeamName(fixture.teams.away.name)}</p>
+                                <p className="truncate text-base font-semibold text-white">{getDisplayTeamName(fixture.teams.away.nameEn || fixture.teams.away.name)}</p>
                                 {fixture.goals.away != null ? <p className="text-xs text-slate-400">Score {fixture.goals.away}</p> : null}
                               </div>
                             </div>
 
                             <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-400">
-                              <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-primary" />{formatThaiDate(fixture.date)}</span>
+                              <span className="inline-flex items-center gap-1.5">
+                                <CalendarDays className="h-3.5 w-3.5 text-primary" />
+                                {formatThaiDate(fixture.date)}
+                              </span>
+                              {isBusy ? (
+                                <span className="inline-flex items-center gap-1.5 text-primary">
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  กำลังปลดล็อก
+                                </span>
+                              ) : null}
                             </div>
                           </div>
-
-                          <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-slate-500" />
                         </div>
                       </button>
                     )
@@ -582,7 +606,7 @@ export default function AIPredictionPageClient() {
               </Card>
 
               <div className="space-y-6">
-                {selectedMatch ? (
+                {selectedFixture ? (
                   <>
                     <Card className="overflow-hidden border-primary/20 bg-[linear-gradient(135deg,rgba(184,255,0,0.10),rgba(255,255,255,0.03))] text-white">
                       <CardContent className="p-6 md:p-7">
@@ -591,31 +615,37 @@ export default function AIPredictionPageClient() {
                             <Sparkles className="mr-2 h-3.5 w-3.5" />
                             Match Preview
                           </Badge>
-                          <span className={cn("inline-flex rounded-full border px-3 py-1 text-xs font-semibold", getStatusTone(selectedMatch.fixture))}>
-                            {getStatusLabel(selectedMatch.fixture)}
+                          <span className={cn("inline-flex rounded-full border px-3 py-1 text-xs font-semibold", getStatusTone(selectedFixture))}>
+                            {getStatusLabel(selectedFixture)}
                           </span>
                         </div>
 
                         <div className="grid gap-5 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
                           <div className="text-center">
-                            <img src={selectedMatch.fixture.teams.home.logo || "/placeholder.svg"} alt={selectedMatch.fixture.teams.home.name} className="mx-auto h-16 w-16 rounded-full border border-white/10 bg-white/5 object-contain p-2" />
-                            <p className="mt-3 text-2xl font-black">{getDisplayTeamName(selectedMatch.fixture.teams.home.name)}</p>
+                            <img src={selectedFixture.teams.home.logo || "/placeholder.svg"} alt={selectedFixture.teams.home.name} className="mx-auto h-16 w-16 rounded-full border border-white/10 bg-white/5 object-contain p-2" />
+                            <p className="mt-3 text-2xl font-black">{getDisplayTeamName(selectedFixture.teams.home.nameEn || selectedFixture.teams.home.name)}</p>
                           </div>
                           <div className="text-center">
                             <p className="text-5xl font-display text-primary">VS</p>
-                            {selectedMatch.fixture.goals.home != null && selectedMatch.fixture.goals.away != null ? (
-                              <p className="mt-3 text-lg font-semibold text-white">สกอร์สด {selectedMatch.fixture.goals.home}-{selectedMatch.fixture.goals.away}</p>
+                            {selectedFixture.goals.home != null && selectedFixture.goals.away != null ? (
+                              <p className="mt-3 text-lg font-semibold text-white">สกอร์สด {selectedFixture.goals.home}-{selectedFixture.goals.away}</p>
                             ) : null}
                           </div>
                           <div className="text-center">
-                            <img src={selectedMatch.fixture.teams.away.logo || "/placeholder.svg"} alt={selectedMatch.fixture.teams.away.name} className="mx-auto h-16 w-16 rounded-full border border-white/10 bg-white/5 object-contain p-2" />
-                            <p className="mt-3 text-2xl font-black">{getDisplayTeamName(selectedMatch.fixture.teams.away.name)}</p>
+                            <img src={selectedFixture.teams.away.logo || "/placeholder.svg"} alt={selectedFixture.teams.away.name} className="mx-auto h-16 w-16 rounded-full border border-white/10 bg-white/5 object-contain p-2" />
+                            <p className="mt-3 text-2xl font-black">{getDisplayTeamName(selectedFixture.teams.away.nameEn || selectedFixture.teams.away.name)}</p>
                           </div>
                         </div>
 
                         <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-300">
-                          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2"><CalendarDays className="h-4 w-4 text-primary" />{formatThaiDate(selectedMatch.fixture.date)}</span>
-                          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2"><MapPin className="h-4 w-4 text-primary" />{selectedMatch.fixture.venue.name}</span>
+                          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2">
+                            <CalendarDays className="h-4 w-4 text-primary" />
+                            {formatThaiDate(selectedFixture.date)}
+                          </span>
+                          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2">
+                            <MapPin className="h-4 w-4 text-primary" />
+                            {selectedFixture.venue.name}
+                          </span>
                         </div>
                       </CardContent>
                     </Card>
@@ -624,105 +654,130 @@ export default function AIPredictionPageClient() {
                       <CardHeader className="border-b border-white/8 pb-5">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <CardTitle className="text-2xl">ผลทำนาย</CardTitle>
-                          {selectedMatch.prediction ? (
+                          <div className="flex gap-3">
+                            <Badge className="border-primary/20 bg-primary/10 text-primary hover:bg-primary/10">
+                              {selectedUnlocked ? "เปิดดูได้แล้ว" : "ยังล็อกอยู่"}
+                            </Badge>
                             <Button
-                              onClick={() => setRevealedMatchIds((current) => ({ ...current, [selectedMatch.fixture.id]: !current[selectedMatch.fixture.id] }))}
+                              onClick={() => void handleReveal(selectedFixture)}
+                              disabled={revealLoadingId === selectedFixture.id}
                               className="rounded-full px-5"
                             >
-                              {isRevealed ? "ซ่อนผลทำนาย" : "ดูผลทำนาย"}
+                              {revealLoadingId === selectedFixture.id ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  กำลังปลดล็อก
+                                </>
+                              ) : selectedUnlocked ? (
+                                "ดูผลทำนาย"
+                              ) : (
+                                <>
+                                  ปลดล็อก 1 เหรียญ
+                                  <Lock className="ml-2 h-4 w-4" />
+                                </>
+                              )}
                             </Button>
-                          ) : null}
+                          </div>
                         </div>
                       </CardHeader>
+
                       <CardContent className="space-y-5 p-6">
-                        {selectedMatch.prediction ? (
-                          isRevealed ? (
-                            <>
-                              <div className="rounded-[28px] border border-primary/20 bg-primary/8 p-5">
-                                <p className="text-sm text-slate-300">คำตอบหลัก</p>
-                                <p className="mt-2 text-3xl font-black text-white">Predicted score: {selectedMatch.prediction.ensemblePredictedScore}</p>
-                                <p className="mt-2 text-base text-primary">ผลทำนาย: {selectedMatch.prediction.predictedResult}</p>
-                              </div>
+                        {revealError ? (
+                          <div className="rounded-[24px] border border-rose-500/30 bg-rose-500/10 p-4 text-rose-100">
+                            <p className="font-semibold">ปลดล็อกคู่นี้ไม่สำเร็จ</p>
+                            <p className="mt-1 text-sm text-rose-100/80">{revealError}</p>
+                          </div>
+                        ) : null}
 
-                              {finishedPredictionSummary ? (
-                                <div className={cn("rounded-[24px] border p-4", finishedPredictionSummary.tone)}>
-                                  <p className="text-base font-bold">{finishedPredictionSummary.label}</p>
-                                  <p className="mt-1 text-sm opacity-90">{finishedPredictionSummary.detail}</p>
-                                </div>
-                              ) : null}
-
-                              <div className="grid gap-4 md:grid-cols-3">
-                                <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-                                  <div className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                                    <ShieldCheck className="h-5 w-5" />
-                                  </div>
-                                  <p className="text-sm text-slate-400">ความมั่นใจ</p>
-                                  <p className={cn("mt-2 text-2xl font-black", getConfidenceTone(selectedMatch.prediction.confidence))}>{formatConfidence(selectedMatch.prediction.confidence)}</p>
-                                </div>
-                                <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-                                  <div className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                                    <Trophy className="h-5 w-5" />
-                                  </div>
-                                  <p className="text-sm text-slate-400">ผลทำนาย</p>
-                                  <p className="mt-2 text-2xl font-black text-white">{selectedMatch.prediction.predictedResult}</p>
-                                </div>
-                                <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-                                  <div className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                                    <Target className="h-5 w-5" />
-                                  </div>
-                                  <p className="text-sm text-slate-400">สกอร์หลัก</p>
-                                  <p className="mt-2 text-2xl font-black text-white">{selectedMatch.prediction.ensemblePredictedScore}</p>
-                                </div>
-                              </div>
-
-                              <div className="rounded-[28px] border border-white/10 bg-[#0e171a] p-5">
-                                <div className="grid grid-cols-3 gap-3 text-sm font-semibold">
-                                  <div>
-                                    <p className="text-slate-300">{getDisplayTeamName(selectedMatch.fixture.teams.home.name)}</p>
-                                    <p className="mt-1 text-2xl font-black text-white">{formatPercent(selectedMatch.prediction.homeWin)}</p>
-                                  </div>
-                                  <div className="text-center">
-                                    <p className="text-slate-400">เสมอ</p>
-                                    <p className="mt-1 text-2xl font-black text-white">{formatPercent(selectedMatch.prediction.draw)}</p>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="text-slate-300">{getDisplayTeamName(selectedMatch.fixture.teams.away.name)}</p>
-                                    <p className="mt-1 text-2xl font-black text-primary">{formatPercent(selectedMatch.prediction.awayWin)}</p>
-                                  </div>
-                                </div>
-
-                                <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/15">
-                                  <div className="flex h-full w-full overflow-hidden rounded-full">
-                                    <div className="h-full bg-white/70" style={{ width: toPercentWidth(selectedMatch.prediction.homeWin) }} />
-                                    <div className="h-full bg-white/25" style={{ width: toPercentWidth(selectedMatch.prediction.draw) }} />
-                                    <div className="h-full bg-primary" style={{ width: toPercentWidth(selectedMatch.prediction.awayWin) }} />
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="space-y-3 rounded-[28px] border border-white/10 bg-[#0e171a] p-5">
-                                <div className="flex items-center gap-2 text-lg font-semibold text-white">
-                                  <BrainCircuit className="h-5 w-5 text-primary" />
-                                  มุมมองจากโมเดลรอง
-                                </div>
-                                <SupportingModelRow label="CatBoost" value={selectedMatch.prediction.catboostPredictedScore} />
-                                <SupportingModelRow label="XGBoost" value={selectedMatch.prediction.xgboostPredictedScore} />
-                                <SupportingModelRow label="Poisson" value={selectedMatch.prediction.poissonPredictedScore} />
-                              </div>
-                            </>
-                          ) : (
-                            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-6 text-center">
-                              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                                <Sparkles className="h-7 w-7" />
-                              </div>
-                              <p className="mt-4 text-2xl font-semibold text-white">กดดูผลก่อน</p>
-                              <p className="mt-2 text-sm leading-7 text-slate-400">เมื่อกดปุ่ม ระบบจะแสดงสกอร์ที่ทำนาย ความมั่นใจ เปอร์เซ็นต์ชนะ และรายละเอียดจากโมเดลแต่ละตัว</p>
+                        {selectedPrediction ? (
+                          <>
+                            <div className="rounded-[28px] border border-primary/20 bg-primary/8 p-5">
+                              <p className="text-sm text-slate-300">คำตอบหลัก</p>
+                              <p className="mt-2 text-3xl font-black text-white">Predicted score: {selectedPrediction.ensemblePredictedScore}</p>
+                              <p className="mt-2 text-base text-primary">ผลทำนาย: {selectedPrediction.predictedResult}</p>
                             </div>
-                          )
+
+                            {finishedSummary ? (
+                              <div className={cn("rounded-[24px] border p-4", finishedSummary.tone)}>
+                                <p className="text-base font-bold">{finishedSummary.label}</p>
+                                <p className="mt-1 text-sm opacity-90">{finishedSummary.detail}</p>
+                              </div>
+                            ) : null}
+
+                            <div className="grid gap-4 md:grid-cols-3">
+                              <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+                                <div className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                                  <ShieldCheck className="h-5 w-5" />
+                                </div>
+                                <p className="text-sm text-slate-400">ความมั่นใจ</p>
+                                <p className={cn("mt-2 text-2xl font-black", getConfidenceTone(selectedPrediction.confidence))}>
+                                  {formatPercent(selectedPrediction.confidence)}
+                                </p>
+                              </div>
+                              <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+                                <div className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                                  <Trophy className="h-5 w-5" />
+                                </div>
+                                <p className="text-sm text-slate-400">ผลทำนาย</p>
+                                <p className="mt-2 text-2xl font-black text-white">{selectedPrediction.predictedResult}</p>
+                              </div>
+                              <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+                                <div className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                                  <Target className="h-5 w-5" />
+                                </div>
+                                <p className="text-sm text-slate-400">สกอร์หลัก</p>
+                                <p className="mt-2 text-2xl font-black text-white">{selectedPrediction.ensemblePredictedScore}</p>
+                              </div>
+                            </div>
+
+                            <div className="rounded-[28px] border border-white/10 bg-[#0e171a] p-5">
+                              <div className="grid grid-cols-3 gap-3 text-sm font-semibold">
+                                <div>
+                                  <p className="text-slate-300">{getDisplayTeamName(selectedFixture.teams.home.nameEn || selectedFixture.teams.home.name)}</p>
+                                  <p className="mt-1 text-2xl font-black text-white">{formatPercent(selectedPrediction.homeWin)}</p>
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-slate-400">เสมอ</p>
+                                  <p className="mt-1 text-2xl font-black text-white">{formatPercent(selectedPrediction.draw)}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-slate-300">{getDisplayTeamName(selectedFixture.teams.away.nameEn || selectedFixture.teams.away.name)}</p>
+                                  <p className="mt-1 text-2xl font-black text-primary">{formatPercent(selectedPrediction.awayWin)}</p>
+                                </div>
+                              </div>
+
+                              <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/15">
+                                <div className="flex h-full w-full overflow-hidden rounded-full">
+                                  <div className="h-full bg-white/70" style={{ width: toPercentWidth(selectedPrediction.homeWin) }} />
+                                  <div className="h-full bg-white/25" style={{ width: toPercentWidth(selectedPrediction.draw) }} />
+                                  <div className="h-full bg-primary" style={{ width: toPercentWidth(selectedPrediction.awayWin) }} />
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="space-y-3 rounded-[28px] border border-white/10 bg-[#0e171a] p-5">
+                              <div className="flex items-center gap-2 text-lg font-semibold text-white">
+                                <BrainCircuit className="h-5 w-5 text-primary" />
+                                มุมมองจากโมเดลรอง
+                              </div>
+                              <SupportingModelRow label="CatBoost" value={selectedPrediction.catboostPredictedScore} />
+                              <SupportingModelRow label="XGBoost" value={selectedPrediction.xgboostPredictedScore} />
+                              <SupportingModelRow label="Poisson" value={selectedPrediction.poissonPredictedScore} />
+                            </div>
+                          </>
                         ) : (
-                          <div className="rounded-[28px] border border-amber-300/20 bg-amber-300/10 p-5 text-amber-100">
-                            <p className="text-lg font-semibold">คู่นี้ยังไม่จับกับ prediction ในไฟล์</p>
-                            <p className="mt-2 text-sm text-amber-100/80">มักเกิดจากชื่อทีมใน fixture กับ CSV ยังไม่ตรงกันแบบพอดี</p>
+                          <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-6 text-center">
+                            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                              {selectedUnlocked ? <BrainCircuit className="h-7 w-7" /> : <Lock className="h-7 w-7" />}
+                            </div>
+                            <p className="mt-4 text-2xl font-semibold text-white">
+                              {selectedUnlocked ? "กำลังเตรียมผลทำนายของคู่นี้" : "คู่นี้ยังถูกล็อกอยู่"}
+                            </p>
+                            <p className="mt-2 text-sm leading-7 text-slate-400">
+                              {selectedUnlocked
+                                ? "ถ้าเพิ่งปลดล็อก ระบบจะโหลดผลทำนายของคู่นี้ขึ้นที่นี่"
+                                : "กดปุ่มปลดล็อก 1 เหรียญเพื่อดูสกอร์ที่คาด ความมั่นใจ เปอร์เซ็นต์ชนะ และมุมมองจากแต่ละโมเดล"}
+                            </p>
                           </div>
                         )}
                       </CardContent>
@@ -731,9 +786,9 @@ export default function AIPredictionPageClient() {
                 ) : (
                   <Card className="border-white/10 bg-[#0b1316] text-white">
                     <CardContent className="flex min-h-[420px] flex-col items-center justify-center p-6 text-center">
-                      <TrendingUp className="h-12 w-12 text-primary" />
+                      <BrainCircuit className="h-12 w-12 text-primary" />
                       <p className="mt-4 text-2xl font-semibold">ยังไม่ได้เลือกแมตช์</p>
-                      <p className="mt-2 max-w-md text-sm leading-7 text-slate-400">เมื่อโหลดข้อมูลครบแล้ว คุณสามารถเลือกคู่ใดก็ได้เพื่อดูผลทำนายตรงนี้</p>
+                      <p className="mt-2 max-w-md text-sm leading-7 text-slate-400">เลือกคู่ทางซ้ายก่อน แล้วค่อยใช้เหรียญปลดล็อกผลทำนาย</p>
                     </CardContent>
                   </Card>
                 )}

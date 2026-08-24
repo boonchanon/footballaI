@@ -13,6 +13,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
 
     const productCode = String(body.productCode || "")
+    const targetId = String(body.targetId || "prediction-access").trim() || "prediction-access"
+
     const product = getPredictionAccessProduct(productCode)
     if (!product) return errorResponse("แพ็กเกจที่เลือกไม่ถูกต้อง", 422)
 
@@ -25,7 +27,7 @@ export async function POST(request: NextRequest) {
       status: "pending",
       paymentProvider: "thunder",
       targetType: product.targetType,
-      targetId: "worldcup-2026",
+      targetId,
     })
 
     return ok(
