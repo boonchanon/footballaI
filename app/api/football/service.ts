@@ -15,6 +15,7 @@ const CURRENT_SEASON_START = PREMIER_LEAGUE_DATA_SEASON.startDate
 const CURRENT_SEASON_END = PREMIER_LEAGUE_DATA_SEASON.endDate
 const FIXTURE_CACHE_MAX_AGE_MS = 1000 * 60 * 30
 const TEAM_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12
+const PREMIER_LEAGUE_SOURCE_TIME_ZONE = "Europe/London"
 
 function getRoundNumber(value?: string | null) {
   if (!value) return null
@@ -22,13 +23,74 @@ function getRoundNumber(value?: string | null) {
   return match ? Number(match[1]) : null
 }
 
+function normalizeStatusValue(status?: string | null) {
+  return String(status || "").trim().toLowerCase()
+}
+
+function parseMinuteStatus(status?: string | null) {
+  const normalized = normalizeStatusValue(status)
+  const match = normalized.match(/^(\d{1,3})(?:\+\d{1,2})?$/)
+  if (!match) return null
+
+  const minute = Number(match[1])
+  return Number.isFinite(minute) ? minute : null
+}
+
 function isFinishedStatus(status?: string | null) {
-  return ["finished", "ft", "after extra time", "penalties", "aet"].includes(String(status || "").toLowerCase())
+  const normalized = normalizeStatusValue(status)
+  return ["finished", "ft", "full time", "after extra time", "penalties", "aet"].includes(normalized)
 }
 
 function isLiveStatus(status?: string | null) {
-  const normalized = String(status || "").toLowerCase()
-  return normalized.includes("live") || normalized.includes("1h") || normalized.includes("2h") || normalized.includes("half")
+  const normalized = normalizeStatusValue(status)
+  if (!normalized || normalized === "0" || normalized === "ns" || normalized === "not started") return false
+
+  if (
+    normalized.includes("live") ||
+    normalized.includes("1h") ||
+    normalized.includes("2h") ||
+    normalized.includes("half") ||
+    normalized === "ht"
+  ) {
+    return true
+  }
+
+  if (/^\d+$/.test(normalized)) {
+    const numericStatus = Number(normalized)
+    return Number.isFinite(numericStatus) && numericStatus > 0 && numericStatus <= 120
+  }
+
+  return false
+}
+
+function resolveStableStatus(
+  status?: string | null,
+  kickoffAt?: string | null,
+  providerLiveFlag?: unknown,
+  homeScore?: number | null,
+  awayScore?: number | null,
+) {
+  const normalized = normalizeStatusValue(status)
+  if (!normalized) return "ns"
+  if (isFinishedStatus(normalized)) return status || "FT"
+
+  const minuteStatus = parseMinuteStatus(normalized)
+  if (minuteStatus == null) return status || normalized
+
+  const kickoffTime = kickoffAt ? new Date(kickoffAt).getTime() : Number.NaN
+  const elapsedMinutes = Number.isFinite(kickoffTime) ? Math.floor((Date.now() - kickoffTime) / 60000) : null
+  const hasScore = homeScore != null || awayScore != null
+  const isStillLive = isProviderLiveFlag(providerLiveFlag)
+
+  if (!isStillLive && hasScore && elapsedMinutes != null && elapsedMinutes >= 150 && minuteStatus <= 60) {
+    return "FT"
+  }
+
+  return status || normalized
+}
+
+function isProviderLiveFlag(value: unknown) {
+  return String(value ?? "").trim() === "1"
 }
 
 async function fetchAllSportsApi(params: Record<string, string>) {
@@ -36,8 +98,16 @@ async function fetchAllSportsApi(params: Record<string, string>) {
     throw new Error("API_KEY or ALLSPORTS_API_KEY is not configured")
   }
 
+  const normalizedParams =
+    params.met === "Fixtures" && !params.timezone
+      ? {
+          ...params,
+          timezone: PREMIER_LEAGUE_SOURCE_TIME_ZONE,
+        }
+      : params
+
   const search = new URLSearchParams({
-    ...params,
+    ...normalizedParams,
     APIkey: API_KEY,
   })
 
@@ -66,6 +136,97 @@ async function fetchAllSportsApi(params: Record<string, string>) {
   throw new Error(payload?.error || "AllSportsAPI returned an invalid response")
 }
 
+function getTimeZoneOffsetMs(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date)
+
+  const year = Number(parts.find((part) => part.type === "year")?.value || "1970")
+  const month = Number(parts.find((part) => part.type === "month")?.value || "01")
+  const day = Number(parts.find((part) => part.type === "day")?.value || "01")
+  const hour = Number(parts.find((part) => part.type === "hour")?.value || "00")
+  const minute = Number(parts.find((part) => part.type === "minute")?.value || "00")
+  const second = Number(parts.find((part) => part.type === "second")?.value || "00")
+
+  const asUtc = Date.UTC(year, month - 1, day, hour, minute, second)
+  return asUtc - date.getTime()
+}
+
+function toUtcIsoFromTimeZone(dateValue?: string, timeValue?: string, timeZone: string = PREMIER_LEAGUE_SOURCE_TIME_ZONE) {
+  if (!dateValue) {
+    return "1970-01-01T00:00:00.000Z"
+  }
+
+  const [year, month, day] = dateValue.split("-").map(Number)
+  const [hour = 0, minute = 0, second = 0] = String(timeValue || "00:00:00")
+    .split(":")
+    .map((value) => Number(value) || 0)
+
+  let utcGuess = Date.UTC(year || 1970, (month || 1) - 1, day || 1, hour, minute, second)
+
+  // Resolve DST-aware offset for the source timezone.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const offset = getTimeZoneOffsetMs(new Date(utcGuess), timeZone)
+    utcGuess = Date.UTC(year || 1970, (month || 1) - 1, day || 1, hour, minute, second) - offset
+  }
+
+  return new Date(utcGuess).toISOString()
+}
+
+function toScoreNumber(value: unknown) {
+  if (value === "" || value == null) return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function parseScorePair(value: unknown) {
+  const normalized = String(value ?? "").trim()
+  const match = normalized.match(/(\d+)\s*-\s*(\d+)/)
+  if (!match) return { home: null, away: null }
+
+  return {
+    home: Number(match[1]),
+    away: Number(match[2]),
+  }
+}
+
+function countGoalsFromScorers(goalscorer: unknown) {
+  let home = 0
+  let away = 0
+
+  for (const goal of Array.isArray(goalscorer) ? goalscorer : []) {
+    const homeScorer = String(goal?.home_scorer || "").trim()
+    const awayScorer = String(goal?.away_scorer || "").trim()
+
+    if (homeScorer && homeScorer !== "-") home += 1
+    if (awayScorer && awayScorer !== "-") away += 1
+  }
+
+  return {
+    home: home > 0 ? home : null,
+    away: away > 0 ? away : null,
+  }
+}
+
+function getMaxElapsedFromDetail(detail: any) {
+  let maxMinute = 0
+  for (const event of mapFixtureEventItem(detail)) {
+    const parsed = Number(event?.time?.elapsed ?? 0)
+    if (Number.isFinite(parsed) && parsed > maxMinute) {
+      maxMinute = parsed
+    }
+  }
+
+  return maxMinute
+}
+
 function mapFixture(item: any) {
   const matchId = item.match_id || item.event_key || item.fixture_id || ""
   const matchDate = item.match_date || item.event_date || item.fixture_date || ""
@@ -79,12 +240,23 @@ function mapFixture(item: any) {
   const homeLogo = item.team_home_badge || item.match_hometeam_logo || item.event_home_team_logo || item.home_team_logo || ""
   const awayLogo = item.team_away_badge || item.match_awayteam_logo || item.event_away_team_logo || item.away_team_logo || ""
   const venueName = item.match_stadium || item.stadium || item.event_stadium || item.venue_name || "สนามแข่งขัน"
-  const homeScoreValue = item.match_hometeam_score ?? item.event_home_final_result ?? item.home_score ?? null
-  const awayScoreValue = item.match_awayteam_score ?? item.event_away_final_result ?? item.away_score ?? null
-
-  const isoDate = matchDate && matchTime ? `${matchDate}T${matchTime}:00` : `${matchDate || "1970-01-01"}T00:00:00`
-  const finished = isFinishedStatus(statusValue)
-  const live = isLiveStatus(statusValue)
+  const directHomeScore =
+    toScoreNumber(item.match_hometeam_score) ??
+    toScoreNumber(item.event_home_final_result) ??
+    toScoreNumber(item.home_score)
+  const directAwayScore =
+    toScoreNumber(item.match_awayteam_score) ??
+    toScoreNumber(item.event_away_final_result) ??
+    toScoreNumber(item.away_score)
+  const parsedFinalScore = parseScorePair(item.event_final_result ?? item.event_ft_result ?? item.match_result)
+  const countedGoals = countGoalsFromScorers(item.goalscorer)
+  const providerLiveFlag = item.event_live ?? item.match_live ?? item.live ?? null
+  const homeScoreValue = directHomeScore ?? parsedFinalScore.home ?? countedGoals.home
+  const awayScoreValue = directAwayScore ?? parsedFinalScore.away ?? countedGoals.away
+  const isoDate = toUtcIsoFromTimeZone(matchDate, matchTime)
+  const stableStatusValue = resolveStableStatus(statusValue, isoDate, providerLiveFlag, homeScoreValue, awayScoreValue)
+  const finished = isFinishedStatus(stableStatusValue)
+  const live = !finished && (isProviderLiveFlag(providerLiveFlag) || isLiveStatus(stableStatusValue))
 
   return {
     id: String(matchId),
@@ -109,17 +281,28 @@ function mapFixture(item: any) {
       },
     },
     goals: {
-      home: homeScoreValue === "" || homeScoreValue == null ? null : Number(homeScoreValue),
-      away: awayScoreValue === "" || awayScoreValue == null ? null : Number(awayScoreValue),
+      home: homeScoreValue,
+      away: awayScoreValue,
     },
     status: {
-      short: statusValue,
-      long: statusValue,
+      short: stableStatusValue,
+      long: stableStatusValue,
       isLive: live,
       isFinished: finished,
       isUpcoming: !live && !finished,
     },
   }
+}
+
+function isValidFixture(fixture: any) {
+  return Boolean(
+    fixture &&
+      String(fixture.id || "").trim() &&
+      String(fixture.date || "").trim() &&
+      !String(fixture.date || "").startsWith("1970-01-01") &&
+      String(fixture.teams?.home?.name || "").trim() &&
+      String(fixture.teams?.away?.name || "").trim(),
+  )
 }
 
 function mapStanding(item: any) {
@@ -771,27 +954,59 @@ function mapFixtureEventItem(item: any) {
 }
 
 function mapFixtureLineupSide(side: any) {
+  const normalizeLineupPosition = (value: any, fallback: string) => {
+    const raw = String(value || "").trim().toUpperCase()
+    const mappedNumeric: Record<string, string> = {
+      "1": "GK",
+      "2": "RB",
+      "3": "RCB",
+      "4": "LCB",
+      "5": "LB",
+      "6": "RCM",
+      "7": "CM",
+      "8": "LCM",
+      "9": "RW",
+      "10": "ST",
+      "11": "LW",
+      "0": fallback,
+    }
+
+    if (!raw) return fallback
+    return mappedNumeric[raw] || raw || fallback
+  }
+
+  const coachSource = Array.isArray(side?.coach)
+    ? side.coach[0]
+    : Array.isArray(side?.coaches)
+      ? side.coaches[0]
+      : side?.coach || side?.coaches || null
+
   return {
     formation: String(side?.formation || "4-3-3"),
     coach: {
-      name: String(side?.coach?.[0]?.lineup_player || side?.coach?.lineup_player || side?.coach?.name || ""),
+      name: String(
+        coachSource?.lineup_player ||
+          coachSource?.coache ||
+          coachSource?.name ||
+          "",
+      ),
     },
     startXI: (Array.isArray(side?.starting_lineups) ? side.starting_lineups : []).map((player: any) => ({
       player: {
-        id: Number(player.player_key || player.lineup_player_id || 0),
-        name: String(player.lineup_player || ""),
-        number: Number(player.lineup_number || 0),
-        pos: String(player.lineup_position || "CM"),
-        rating: Number(player.lineup_rating || 7),
-        grid: String(player.lineup_position || "CM"),
+        id: Number(player.player_key || player.lineup_player_id || player.player_id || 0),
+        name: String(player.lineup_player || player.player || player.player_name || ""),
+        number: Number(player.lineup_number || player.player_number || 0),
+        pos: normalizeLineupPosition(player.lineup_position || player.player_position || player.position, "CM"),
+        rating: Number(player.lineup_rating || player.player_rating || 7),
+        grid: normalizeLineupPosition(player.lineup_position || player.player_position || player.position, "CM"),
       },
     })),
     substitutes: (Array.isArray(side?.substitutes) ? side.substitutes : []).map((player: any) => ({
       player: {
-        id: Number(player.player_key || player.lineup_player_id || 0),
-        name: String(player.lineup_player || ""),
-        number: Number(player.lineup_number || 0),
-        pos: String(player.lineup_position || "SUB"),
+        id: Number(player.player_key || player.lineup_player_id || player.player_id || 0),
+        name: String(player.lineup_player || player.player || player.player_name || ""),
+        number: Number(player.lineup_number || player.player_number || 0),
+        pos: normalizeLineupPosition(player.lineup_position || player.player_position || player.position, "SUB"),
       },
     })),
   }
@@ -806,15 +1021,167 @@ async function fetchFixtureDetailsById(matchId: string) {
   return Array.isArray(rows) && rows.length > 0 ? rows[0] : null
 }
 
-export async function fetchRemoteFixtures(season: PremierLeagueSeasonCatalogEntry = PREMIER_LEAGUE_DATA_SEASON) {
+async function fetchLiveFixtureDetailsById(matchId: string) {
+  const rows = await fetchAllSportsApi({
+    met: "Livescore",
+    matchId: String(matchId),
+    withPlayerStats: "1",
+  })
+
+  return Array.isArray(rows) && rows.length > 0 ? rows[0] : null
+}
+
+async function fetchRemoteLiveFixtures() {
+  const rows = await fetchAllSportsApi({
+    met: "Livescore",
+    leagueId: DEFAULT_LEAGUE_ID,
+    withPlayerStats: "1",
+  })
+
+  const enrichedRows = await Promise.all(
+    (Array.isArray(rows) ? rows : []).map(async (row: any) => {
+      const mapped = mapFixture(row)
+      const minuteStatus = parseMinuteStatus(mapped?.status?.short)
+      if (minuteStatus == null) return row
+
+      const detail = await fetchFixtureDetailsWithLiveFallback(String(mapped.id)).catch(() => null)
+      if (!detail) return row
+
+      const maxElapsed = getMaxElapsedFromDetail(detail)
+      if (maxElapsed >= 90) {
+        return {
+          ...mergeFixtureDetail(detail, row),
+          match_status: "FT",
+          event_status: "FT",
+          status: "FT",
+          event_live: "0",
+          match_live: "0",
+          live: "0",
+        }
+      }
+
+      return mergeFixtureDetail(detail, row)
+    }),
+  )
+
+  return enrichedRows
+    .map(mapFixture)
+    .filter((fixture) => !fixture.status?.isFinished)
+    .filter(isValidFixture)
+    .sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())
+}
+
+async function getStaleFinishedFixturesFromLive(
+  getFixtureEvents: (id: string) => Promise<any[]>,
+  params?: Pick<FixtureQueryParams, "from" | "to">,
+) {
+  const liveRows = await fetchAllSportsApi({
+    met: "Livescore",
+    leagueId: DEFAULT_LEAGUE_ID,
+    withPlayerStats: "1",
+  }).catch(() => [])
+  const liveFixtures = (Array.isArray(liveRows) ? liveRows : []).map(mapFixture).filter(isValidFixture)
+  if (liveFixtures.length === 0) return []
+
+  const reconciled = await Promise.all(
+    liveFixtures.map(async (fixture) => {
+      const events = await getFixtureEvents(String(fixture.id)).catch(() => [])
+      const maxElapsed = Array.isArray(events)
+        ? events.reduce((highest, event) => {
+            const elapsed = Number(event?.time?.elapsed ?? 0)
+            return Number.isFinite(elapsed) && elapsed > highest ? elapsed : highest
+          }, 0)
+        : 0
+
+      if (maxElapsed < 90) return null
+
+      return {
+        ...fixture,
+        status: {
+          short: "FT",
+          long: "FT",
+          isLive: false,
+          isFinished: true,
+          isUpcoming: false,
+        },
+      }
+    }),
+  )
+
+  return reconciled
+    .filter((fixture): fixture is NonNullable<typeof fixture> => Boolean(fixture))
+    .filter((fixture) => {
+      if (params?.from && String(fixture.date || "") < `${params.from}T00:00:00`) return false
+      if (params?.to && String(fixture.date || "") > `${params.to}T23:59:59`) return false
+      return true
+    })
+}
+
+function mergeFinishedFixtures(baseFixtures: any[], extraFixtures: any[]) {
+  const merged = new Map<string, any>()
+
+  for (const fixture of baseFixtures) {
+    if (fixture?.id) merged.set(String(fixture.id), fixture)
+  }
+
+  for (const fixture of extraFixtures) {
+    if (fixture?.id) merged.set(String(fixture.id), fixture)
+  }
+
+  return Array.from(merged.values()).sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())
+}
+
+function mergeFixtureDetail(base: any, live: any) {
+  if (!base) return live
+  if (!live) return base
+
+  return {
+    ...base,
+    ...live,
+    goalscorer: Array.isArray(live?.goalscorer) && live.goalscorer.length > 0 ? live.goalscorer : base?.goalscorer,
+    cards: Array.isArray(live?.cards) && live.cards.length > 0 ? live.cards : base?.cards,
+    substitutions: Array.isArray(live?.substitutions) && live.substitutions.length > 0 ? live.substitutions : base?.substitutions,
+    statistics: Array.isArray(live?.statistics) && live.statistics.length > 0 ? live.statistics : base?.statistics,
+    lineup: live?.lineup || live?.lineups || base?.lineup || base?.lineups,
+    lineups: live?.lineups || live?.lineup || base?.lineups || base?.lineup,
+  }
+}
+
+async function fetchFixtureDetailsWithLiveFallback(matchId: string) {
+  const fixture = await fetchFixtureDetailsById(matchId).catch(() => null)
+  const likelyLive =
+    isProviderLiveFlag(fixture?.event_live ?? fixture?.match_live ?? fixture?.live ?? null) || isLiveStatus(fixture?.event_status || fixture?.match_status || fixture?.status)
+
+  if (!likelyLive) return fixture
+
+  const liveFixture = await fetchLiveFixtureDetailsById(matchId).catch(() => null)
+  return mergeFixtureDetail(fixture, liveFixture)
+}
+
+type FixtureQueryParams = {
+  round?: string
+  limit?: string
+  type?: string
+  season?: string
+  from?: string
+  to?: string
+}
+
+export async function fetchRemoteFixtures(
+  season: PremierLeagueSeasonCatalogEntry = PREMIER_LEAGUE_DATA_SEASON,
+  params?: Pick<FixtureQueryParams, "from" | "to">,
+) {
   const rawFixtures = await fetchAllSportsApi({
     met: "Fixtures",
     leagueId: DEFAULT_LEAGUE_ID,
-    from: season.startDate,
-    to: season.endDate,
+    from: params?.from || season.startDate,
+    to: params?.to || season.endDate,
   })
 
-  return rawFixtures.map(mapFixture).sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())
+  return rawFixtures
+    .map(mapFixture)
+    .filter(isValidFixture)
+    .sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())
 }
 
 async function buildFixtureDetailsMap(fixtures: any[]) {
@@ -897,6 +1264,7 @@ async function syncFixturesToDatabase(fixtures: any[], season: PremierLeagueSeas
                 seasonStart: season.startDate,
                 seasonEnd: season.endDate,
                 seasonLabelShort: season.labelShort,
+                sourceTimeZone: PREMIER_LEAGUE_SOURCE_TIME_ZONE,
                 playerStats: detail?.playerStats || [],
                 lineup: detail?.lineup || null,
                 goalscorer: detail?.goalscorer || [],
@@ -1001,7 +1369,7 @@ async function refreshTeamsCache() {
   return teams
 }
 
-function buildFixtureCacheQuery(params?: { round?: string; type?: string; season?: string }) {
+function buildFixtureCacheQuery(params?: FixtureQueryParams) {
   const season = getPremierLeagueSeasonByLabel(params?.season)
   const query: Record<string, any> = { season: season.labelLong }
 
@@ -1017,10 +1385,22 @@ function buildFixtureCacheQuery(params?: { round?: string; type?: string; season
     query["status.isFinished"] = true
   }
 
+  if (params?.from || params?.to) {
+    query.kickoffAt = {}
+
+    if (params.from) {
+      query.kickoffAt.$gte = new Date(`${params.from}T00:00:00.000Z`)
+    }
+
+    if (params.to) {
+      query.kickoffAt.$lt = new Date(`${params.to}T23:59:59.999Z`)
+    }
+  }
+
   return query
 }
 
-async function getCachedFixtures(params?: { round?: string; limit?: string; type?: string; season?: string }) {
+async function getCachedFixtures(params?: FixtureQueryParams) {
   await connectDatabase()
 
   const query = buildFixtureCacheQuery(params)
@@ -1034,7 +1414,49 @@ async function getCachedFixtures(params?: { round?: string; limit?: string; type
   }
 
   const rows = await cursor
-  return rows.map(mapCachedFixture)
+  return rows.map(mapCachedFixture).filter(isValidFixture)
+}
+
+async function getReconciledFinishedFixturesFromAll(
+  allFixtures: any[],
+  getFixtureEvents: (id: string) => Promise<any[]>,
+  params?: Pick<FixtureQueryParams, "from" | "to">,
+) {
+  const reconciled = await Promise.all(
+    allFixtures.map(async (fixture) => {
+      if (fixture?.status?.isFinished) return fixture
+
+      const events = await getFixtureEvents(String(fixture.id)).catch(() => [])
+      const maxElapsed = Array.isArray(events)
+        ? events.reduce((highest, event) => {
+            const elapsed = Number(event?.time?.elapsed ?? 0)
+            return Number.isFinite(elapsed) && elapsed > highest ? elapsed : highest
+          }, 0)
+        : 0
+
+      if (maxElapsed < 90) return null
+
+      return {
+        ...fixture,
+        status: {
+          short: "FT",
+          long: "FT",
+          isLive: false,
+          isFinished: true,
+          isUpcoming: false,
+        },
+      }
+    }),
+  )
+
+  return reconciled
+    .filter((fixture): fixture is NonNullable<typeof fixture> => Boolean(fixture))
+    .filter((fixture) => {
+      if (params?.from && String(fixture.date || "") < `${params.from}T00:00:00`) return false
+      if (params?.to && String(fixture.date || "") > `${params.to}T23:59:59`) return false
+      return true
+    })
+    .sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())
 }
 
 async function syncHistoricalFixturesCache() {
@@ -1064,23 +1486,49 @@ async function shouldRefreshFixtureCache(seasonValue?: string) {
   await connectDatabase()
   const latestFixture = (await PremierLeagueFixture.findOne({ season: season.labelLong })
     .sort({ syncedAt: -1 })
-    .select({ syncedAt: 1 })
-    .lean()) as { syncedAt?: Date | string } | null
+    .select({ syncedAt: 1, metadata: 1 })
+    .lean()) as { syncedAt?: Date | string; metadata?: { sourceTimeZone?: string | null } | null } | null
 
   if (!latestFixture?.syncedAt) return true
+  if (latestFixture?.metadata?.sourceTimeZone !== PREMIER_LEAGUE_SOURCE_TIME_ZONE) return true
   if (season.labelLong !== PREMIER_LEAGUE_DATA_SEASON.labelLong) return false
   return Date.now() - new Date(latestFixture.syncedAt).getTime() > FIXTURE_CACHE_MAX_AGE_MS
 }
 
 export const footballService = {
-  async getFixtures(params?: { round?: string | undefined; limit?: string | undefined; type?: string | undefined; season?: string | undefined }) {
+  async getFixtures(params?: FixtureQueryParams) {
     const season = getPremierLeagueSeasonByLabel(params?.season)
+    const includeDetails = false
+
+    if (params?.type === "live") {
+      try {
+        const liveFixtures = await fetchRemoteLiveFixtures()
+        const confirmedLiveFixtures = await Promise.all(
+          liveFixtures.map(async (fixture) => {
+            const events = await this.getFixtureEvents(String(fixture.id)).catch(() => [])
+            const maxElapsed = Array.isArray(events)
+              ? events.reduce((highest, event) => {
+                  const elapsed = Number(event?.time?.elapsed ?? 0)
+                  return Number.isFinite(elapsed) && elapsed > highest ? elapsed : highest
+                }, 0)
+              : 0
+
+            if (maxElapsed >= 90) return null
+            return fixture
+          }),
+        )
+
+        return confirmedLiveFixtures.filter(Boolean)
+      } catch {
+        // Fall back to cache/fixtures flow when live endpoint is unavailable.
+      }
+    }
 
     try {
       const needsRefresh = await shouldRefreshFixtureCache(season.labelLong)
       if (needsRefresh) {
         try {
-          await refreshFixturesCache(season, true)
+          await refreshFixturesCache(season, includeDetails)
         } catch {
           // Keep serving cached fixtures if refresh fails.
         }
@@ -1088,6 +1536,11 @@ export const footballService = {
 
       const cachedFixtures = await getCachedFixtures({ ...params, season: season.labelLong })
       if (cachedFixtures.length > 0) {
+        if (params?.type === "finished") {
+          const allCachedFixtures = await getCachedFixtures({ ...params, type: "all", season: season.labelLong }).catch(() => [])
+          const reconciledFinished = await getReconciledFinishedFixturesFromAll(allCachedFixtures, (id) => this.getFixtureEvents(id), params).catch(() => [])
+          return mergeFinishedFixtures(cachedFixtures, reconciledFinished)
+        }
         return cachedFixtures
       }
 
@@ -1096,7 +1549,7 @@ export const footballService = {
         return []
       }
 
-      const refreshedFixtures = await refreshFixturesCache(season, true)
+      const refreshedFixtures = await refreshFixturesCache(season, includeDetails)
       let fixtures = refreshedFixtures
 
       if (params?.round) {
@@ -1108,7 +1561,17 @@ export const footballService = {
       } else if (params?.type === "upcoming") {
         fixtures = fixtures.filter((fixture) => fixture.status.isUpcoming)
       } else if (params?.type === "finished") {
-        fixtures = fixtures.filter((fixture) => fixture.status.isFinished)
+        fixtures = await getReconciledFinishedFixturesFromAll(fixtures, (id) => this.getFixtureEvents(id), params).catch(() =>
+          fixtures.filter((fixture) => fixture.status.isFinished),
+        )
+      }
+
+      if (params?.from) {
+        fixtures = fixtures.filter((fixture) => String(fixture.date || "") >= `${params.from}T00:00:00`)
+      }
+
+      if (params?.to) {
+        fixtures = fixtures.filter((fixture) => String(fixture.date || "") <= `${params.to}T23:59:59`)
       }
 
       if (params?.limit) {
@@ -1125,7 +1588,7 @@ export const footballService = {
         return getCachedFixtures({ ...params, season: season.labelLong }).catch(() => [])
       }
 
-      const remoteFixtures = await fetchRemoteFixtures(season)
+      const remoteFixtures = await fetchRemoteFixtures(season, params)
       let fixtures = remoteFixtures
 
       if (params?.round) {
@@ -1137,7 +1600,17 @@ export const footballService = {
       } else if (params?.type === "upcoming") {
         fixtures = fixtures.filter((fixture) => fixture.status.isUpcoming)
       } else if (params?.type === "finished") {
-        fixtures = fixtures.filter((fixture) => fixture.status.isFinished)
+        fixtures = await getReconciledFinishedFixturesFromAll(fixtures, (id) => this.getFixtureEvents(id), params).catch(() =>
+          fixtures.filter((fixture) => fixture.status.isFinished),
+        )
+      }
+
+      if (params?.from) {
+        fixtures = fixtures.filter((fixture) => String(fixture.date || "") >= `${params.from}T00:00:00`)
+      }
+
+      if (params?.to) {
+        fixtures = fixtures.filter((fixture) => String(fixture.date || "") <= `${params.to}T23:59:59`)
       }
 
       if (params?.limit) {
@@ -1363,11 +1836,12 @@ export const footballService = {
     return null
   },
   async getFixtureLineups(id: string) {
-    const fixture = await fetchFixtureDetailsById(id)
-    if (!fixture?.lineup) return []
+    const fixture = await fetchFixtureDetailsWithLiveFallback(id)
+    const lineupSource = fixture?.lineup || fixture?.lineups
+    if (!lineupSource) return []
 
-    const home = mapFixtureLineupSide(fixture.lineup.home || {})
-    const away = mapFixtureLineupSide(fixture.lineup.away || {})
+    const home = mapFixtureLineupSide(lineupSource.home || lineupSource.home_team || {})
+    const away = mapFixtureLineupSide(lineupSource.away || lineupSource.away_team || {})
 
     const hasHomePlayers = home.startXI.length > 0 || home.substitutes.length > 0
     const hasAwayPlayers = away.startXI.length > 0 || away.substitutes.length > 0
@@ -1376,9 +1850,21 @@ export const footballService = {
     return [home, away]
   },
   async getFixtureEvents(id: string) {
-    const fixture = await fetchFixtureDetailsById(id)
+    const fixture = await fetchFixtureDetailsWithLiveFallback(id)
     if (!fixture) return []
     return mapFixtureEventItem(fixture)
+  },
+  async getFixtureStatistics(id: string) {
+    const fixture = await fetchFixtureDetailsWithLiveFallback(id)
+    const rawStats = Array.isArray(fixture?.statistics) ? fixture.statistics : []
+
+    return rawStats
+      .map((row: any) => ({
+        type: String(row?.type || row?.name || "").trim(),
+        home: row?.home == null ? null : String(row.home).trim(),
+        away: row?.away == null ? null : String(row.away).trim(),
+      }))
+      .filter((row: any) => row.type && (row.home != null || row.away != null))
   },
   async refreshFixturesCache() {
     return refreshFixturesCache()

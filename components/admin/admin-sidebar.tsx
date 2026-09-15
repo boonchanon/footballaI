@@ -104,7 +104,7 @@ const sidebarLinks: SidebarLink[] = [
     icon: Brain,
     section: "ai",
     subLinks: [
-      { title: "ตั้งค่าโมเดล", href: "/admin/ai" },
+      { title: "อัปโหลดไฟล์", href: "/admin/ai" },
       { title: "ประวัติ Training", href: "/admin/ai/training" },
       { title: "บันทึกการทำนาย", href: "/admin/ai/logs" },
     ],

@@ -1,28 +1,76 @@
 import { normalizeTimelineMatchEvents } from "./match-timeline-ui"
 
 export const TACTICAL_ROOM_COPY = {
-  title: "Tactical Room",
+  title: "ห้องแท็กติก",
   intro: "พื้นที่สำหรับการวิเคราะห์แท็กติก",
   description: "แผนการเล่น การเปลี่ยนตัว และการตัดสินใจของผู้จัดการทีม",
-  placeholder: "แชร์มุมมองแท็กติกของคุณ...",
+  placeholder: "พิมพ์ข้อความใน #ห้องแท็กติก...",
   emptyTitle: "ยังไม่มีการวิเคราะห์แท็กติก",
   emptyDescription: "เริ่มแบ่งปันมุมมองของคุณได้เลย",
   missingProviderData: "ยังไม่มีข้อมูลแผนการเล่นจากผู้ให้บริการ",
 } as const
 
 export const TACTICAL_QUICK_TOPICS = [
-  { id: "formation", label: "Formation" },
-  { id: "pressing", label: "Pressing" },
-  { id: "build_up", label: "Build-up" },
-  { id: "counter_attack", label: "Counter Attack" },
-  { id: "substitution", label: "Substitution" },
-  { id: "manager", label: "Manager" },
-  { id: "player", label: "Player" },
-  { id: "defence", label: "Defence" },
-  { id: "attack", label: "Attack" },
+  { id: "formation", label: "แผนการเล่น" },
+  { id: "pressing", label: "เพรสซิ่ง" },
+  { id: "build_up", label: "ขึ้นเกม" },
+  { id: "counter_attack", label: "สวนกลับ" },
+  { id: "substitution", label: "เปลี่ยนตัว" },
+  { id: "manager", label: "โค้ช" },
+  { id: "player", label: "นักเตะ" },
+  { id: "defence", label: "เกมรับ" },
+  { id: "attack", label: "เกมรุก" },
 ] as const
 
 export type TacticalQuickTopic = (typeof TACTICAL_QUICK_TOPICS)[number]["id"]
+
+type TacticalLineupPlayer = {
+  number: string
+  name: string
+  position: string
+  grid: string
+}
+
+type TacticalTeamLineup = {
+  teamName: string
+  formation: string
+  manager: string
+  startXI: TacticalLineupPlayer[]
+  substitutes: TacticalLineupPlayer[]
+}
+
+function safeString(value: unknown) {
+  return typeof value === "string" ? value.trim() : ""
+}
+
+function normalizeLineupPlayer(value: unknown) {
+  const item = value && typeof value === "object" ? (value as Record<string, any>) : {}
+  const player = item.player && typeof item.player === "object" ? item.player : item
+  return {
+    number: safeString(player.number),
+    name: safeString(player.name || player.player_name),
+    position: safeString(player.pos || player.position),
+    grid: safeString(player.grid),
+  } satisfies TacticalLineupPlayer
+}
+
+function normalizeLineupPlayers(value: unknown) {
+  if (!Array.isArray(value)) return []
+  return value.map(normalizeLineupPlayer).filter((player) => player.name)
+}
+
+function normalizeTeamLineup(value: unknown) {
+  const item = value && typeof value === "object" ? (value as Record<string, any>) : {}
+  const team = item.team && typeof item.team === "object" ? item.team : {}
+  const coach = item.coach && typeof item.coach === "object" ? item.coach : {}
+  return {
+    teamName: safeString(team.name || item.teamName || item.name),
+    formation: safeString(item.formation),
+    manager: safeString(coach.name || item.manager || item.coach),
+    startXI: normalizeLineupPlayers(item.startXI || item.startingXI || item.lineup || item.first11),
+    substitutes: normalizeLineupPlayers(item.substitutes || item.subs || item.bench),
+  } satisfies TacticalTeamLineup
+}
 
 export function normalizeTacticalQuickTopic(value: unknown): TacticalQuickTopic | null {
   const normalized = String(value || "").trim().toLowerCase().replace(/[\s-]+/g, "_")
@@ -45,28 +93,15 @@ export function extractTacticalTopicFromTags(tags: unknown) {
   return normalizeTacticalQuickTopic(String(raw || "").replace("match-tactical:", ""))
 }
 
-function safeString(value: unknown) {
-  return typeof value === "string" ? value.trim() : ""
-}
-
-function normalizeTeamLineup(value: unknown) {
-  const item = value && typeof value === "object" ? (value as Record<string, any>) : {}
-  const team = item.team && typeof item.team === "object" ? item.team : {}
-  const coach = item.coach && typeof item.coach === "object" ? item.coach : {}
-  return {
-    teamName: safeString(team.name || item.teamName || item.name),
-    formation: safeString(item.formation),
-    manager: safeString(coach.name || item.manager || item.coach),
-  }
-}
-
 export function getTacticalFixtureContext(fixture: {
   homeTeam?: string | null
   awayTeam?: string | null
   lineups?: unknown
   events?: unknown
 }) {
-  const lineups = Array.isArray(fixture.lineups) ? fixture.lineups.map(normalizeTeamLineup).filter((item) => item.teamName || item.formation || item.manager) : []
+  const lineups = Array.isArray(fixture.lineups)
+    ? fixture.lineups.map(normalizeTeamLineup).filter((item) => item.teamName || item.formation || item.manager || item.startXI.length || item.substitutes.length)
+    : []
   const events = normalizeTimelineMatchEvents(fixture.events)
   const rawEvents = Array.isArray(fixture.events) ? fixture.events : []
   const substitutions = events.filter((event) => event.type === "substitution")
@@ -94,7 +129,7 @@ export function getTacticalFixtureContext(fixture: {
 }
 
 export function getTacticalPhaseFocus(phase: "pre_match" | "live" | "full_time") {
-  if (phase === "live") return ["Substitution", "แท็กติก"]
-  if (phase === "full_time") return ["Analysis Threads", "AI Overall Summary"]
-  return ["Formation", "Lineup"]
+  if (phase === "live") return ["เปลี่ยนตัว", "แท็กติกสด"]
+  if (phase === "full_time") return ["วิเคราะห์หลังเกม", "สรุปภาพรวม AI"]
+  return ["แผนการเล่น", "รายชื่อ 11 ตัวจริง"]
 }

@@ -214,6 +214,20 @@ function assignPlayersToFormation(players: StartingPlayer[], formation: string, 
 }
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
+const THAI_TIME_ZONE = "Asia/Bangkok"
+
+const matchDateFormatter = new Intl.DateTimeFormat("th-TH", {
+  timeZone: THAI_TIME_ZONE,
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+})
+
+const matchTimeFormatter = new Intl.DateTimeFormat("th-TH", {
+  timeZone: THAI_TIME_ZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+})
 
 function translateApiPosition(position?: string) {
   const code = normalizePosition(position || "")
@@ -406,8 +420,8 @@ export default function MatchDetailPage() {
         awayTeam: liveFixture.teams?.away?.name || "-",
         homeScore: liveFixture.goals?.home ?? 0,
         awayScore: liveFixture.goals?.away ?? 0,
-        date: new Date(liveFixture.date).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" }),
-        time: new Date(liveFixture.date).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }),
+        date: matchDateFormatter.format(new Date(liveFixture.date)),
+        time: matchTimeFormatter.format(new Date(liveFixture.date)),
         stadium: liveFixture.venue?.name || "สนามแข่งขัน",
         attendance: "-",
         referee: "-",

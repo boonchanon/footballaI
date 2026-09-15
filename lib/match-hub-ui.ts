@@ -19,7 +19,7 @@ export type MatchHubCommunityPulse = {
 }
 
 const FINISHED_STATUSES = new Set(["FT", "AET", "PEN", "FINISHED", "MATCH FINISHED"])
-const LIVE_STATUSES = new Set(["1H", "2H", "HT", "ET", "BT", "P", "SUSP", "INT", "LIVE", "IN PROGRESS"])
+const LIVE_STATUSES = new Set(["1H", "2H", "HT", "HALF TIME", "ET", "BT", "P", "SUSP", "INT", "LIVE", "IN PROGRESS"])
 const UPCOMING_STATUSES = new Set(["NS", "TBD", "UPCOMING", "NOT STARTED"])
 const POSTPONED_STATUSES = new Set(["PST", "POSTPONED"])
 const CANCELLED_STATUSES = new Set(["CANC", "CANCELLED"])
@@ -29,24 +29,37 @@ function normalizeStatus(value?: string | null) {
   return String(value || "").trim().toUpperCase()
 }
 
+function isMinuteLiveStatus(value?: string | null) {
+  return /^\d{1,3}(?:\+\d{1,2})?$/.test(String(value || "").trim())
+}
+
 export function getMatchHubDisplayState(input: { status?: string | null; isFinished?: boolean | null }): MatchHubDisplayState {
   const status = normalizeStatus(input.status)
   if (POSTPONED_STATUSES.has(status)) return "postponed"
   if (CANCELLED_STATUSES.has(status)) return "cancelled"
   if (CLOSED_STATUSES.has(status)) return "closed"
   if (input.isFinished || FINISHED_STATUSES.has(status)) return "finished"
-  if (LIVE_STATUSES.has(status)) return "live"
+  if (LIVE_STATUSES.has(status) || isMinuteLiveStatus(status)) return "live"
   return UPCOMING_STATUSES.has(status) || !status ? "upcoming" : "upcoming"
 }
 
 export function getMatchHubStatusLabel(input: { status?: string | null; isFinished?: boolean | null }) {
+  const status = normalizeStatus(input.status)
   const state = getMatchHubDisplayState(input)
-  if (state === "finished") return "Finished"
-  if (state === "live") return "Live"
-  if (state === "postponed") return "Postponed"
-  if (state === "cancelled") return "Cancelled"
-  if (state === "closed") return "Closed"
-  return "Upcoming"
+  if (state === "finished") return "จบ"
+  if (state === "live") {
+    if (status === "1H" || status === "1") return "ครึ่งแรก"
+    if (status === "HT" || status === "HALF TIME") return "พักครึ่ง"
+    if (status === "2H" || status === "2") return "ครึ่งหลัง"
+    if (status === "ET") return "ต่อเวลา"
+    if (status === "PEN" || status === "P") return "ดวลจุดโทษ"
+    if (isMinuteLiveStatus(status)) return `${status}'`
+    return "สด"
+  }
+  if (state === "postponed") return "เลื่อน"
+  if (state === "cancelled") return "ยกเลิก"
+  if (state === "closed") return "ปิด"
+  return "ยังไม่แข่ง"
 }
 
 export function getMatchHubScoreLabel(input: { status?: string | null; isFinished?: boolean | null; homeScore?: number | null; awayScore?: number | null }) {

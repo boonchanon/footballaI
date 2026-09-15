@@ -33,6 +33,23 @@ import { getPageSourcePolicy } from "@/lib/content-sources"
 import { PREMIER_LEAGUE_DATA_SEASON } from "@/lib/season"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
+const THAI_TIME_ZONE = "Asia/Bangkok"
+
+const thaiDateTimeFormatter = new Intl.DateTimeFormat("th-TH", {
+  timeZone: THAI_TIME_ZONE,
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+})
+
+function formatThaiKickoff(value?: string) {
+  if (!value) return "ยังไม่ระบุเวลา"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return thaiDateTimeFormatter.format(date)
+}
 
 const playerPhotoOverrides: Record<string, string> = {
   "1100": "/players/haaland.webp",
@@ -65,7 +82,7 @@ export default function Home() {
   const upcomingMatches = fixtures.slice(0, 4).map((match: any) => ({
     home: match.homeTeamThai || match.homeTeam,
     away: match.awayTeamThai || match.awayTeam,
-    time: match.dateThai || match.date,
+    time: formatThaiKickoff(match.date),
     homeLogo: match.homeLogo,
     awayLogo: match.awayLogo,
     fixtureId: match.id,

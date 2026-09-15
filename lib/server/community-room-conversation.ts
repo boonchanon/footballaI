@@ -81,12 +81,13 @@ function resolveFinishedAt(match: MatchRoomFixture | null, now: Date) {
   if (explicitFinishedAt) return explicitFinishedAt
 
   const kickoff = normalizeDate(match?.kickoff)
-  if (!kickoff) return null
+  if (!kickoff) return now
 
   // The current football fixture contract does not expose a trusted finishedAt.
-  // Use provider kickoff plus regulation time as the server-side fallback, never client input.
+  // If provider already marks the match finished but does not send finishedAt,
+  // open post-match rooms immediately instead of waiting for a synthetic timeout.
   const fallbackFinishedAt = addMinutes(kickoff, 105)
-  return fallbackFinishedAt && fallbackFinishedAt <= now ? fallbackFinishedAt : null
+  return fallbackFinishedAt && fallbackFinishedAt <= now ? fallbackFinishedAt : now
 }
 
 export function getRoomState(
@@ -114,7 +115,27 @@ export function getRoomState(
   }
 
   if (roomType === "main" || roomType === "tactics") {
-    return buildState(roomType, isCancelledOrPostponed ? "closed" : "open", now, null, null, false)
+    if (roomType === "main") {
+      return buildState(roomType, isCancelledOrPostponed ? "closed" : "open", now, null, null, false)
+    }
+
+    const opensAt = subtractMinutes(kickoff, config.previewRoomMinutes)
+    const finishedAt = isFinished ? resolveFinishedAt(match, now) : null
+    const closesAt = addMinutes(finishedAt, config.postRoomMinutes)
+
+    if (isCancelledOrPostponed) {
+      return buildState(roomType, "closed", now, opensAt, closesAt, false)
+    }
+    if (!opensAt || now < opensAt) {
+      return buildState(roomType, "upcoming", now, opensAt, closesAt, false)
+    }
+    if (!isFinished || !finishedAt || !closesAt) {
+      return buildState(roomType, "open", now, opensAt, closesAt, false)
+    }
+    if (now < closesAt) {
+      return buildState(roomType, getClosingState(closesAt, now), now, opensAt, closesAt, false)
+    }
+    return buildState(roomType, "closed", now, opensAt, closesAt, false)
   }
 
   if (isCancelledOrPostponed) {
@@ -127,7 +148,8 @@ export function getRoomState(
     const archiveAt = closesAt
     const expiresAt = addDays(closesAt, config.retentionDays)
     if (!opensAt || !closesAt) return buildState(roomType, "unavailable", now, opensAt, closesAt, true, archiveAt, expiresAt)
-    if (now >= closesAt || isLive || isFinished) return buildState(roomType, "archived", now, opensAt, closesAt, true, archiveAt, expiresAt)
+    if (expiresAt && now.getTime() >= expiresAt.getTime()) return buildState(roomType, "archived", now, opensAt, closesAt, true, archiveAt, expiresAt)
+    if (isLive || isFinished) return buildState(roomType, "closed", now, opensAt, closesAt, true, archiveAt, expiresAt)
     if (now < opensAt) return buildState(roomType, "upcoming", now, opensAt, closesAt, true, archiveAt)
     return buildState(roomType, getClosingState(closesAt, now), now, opensAt, closesAt, true, archiveAt, expiresAt)
   }
@@ -138,7 +160,8 @@ export function getRoomState(
   const expiresAt = addDays(closesAt, config.retentionDays)
   if (!isFinished || !finishedAt || !closesAt) return buildState(roomType, "unavailable", now, finishedAt, closesAt, true, archiveAt, expiresAt)
   if (now < finishedAt) return buildState(roomType, "unavailable", now, finishedAt, closesAt, true, archiveAt, expiresAt)
-  if (now >= closesAt) return buildState(roomType, "archived", now, finishedAt, closesAt, true, archiveAt, expiresAt)
+  if (expiresAt && now.getTime() >= expiresAt.getTime()) return buildState(roomType, "archived", now, finishedAt, closesAt, true, archiveAt, expiresAt)
+  if (closesAt && now.getTime() >= closesAt.getTime()) return buildState(roomType, "closed", now, finishedAt, closesAt, true, archiveAt, expiresAt)
   return buildState(roomType, getClosingState(closesAt, now), now, finishedAt, closesAt, true, archiveAt, expiresAt)
 }
 

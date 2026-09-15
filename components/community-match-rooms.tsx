@@ -412,10 +412,10 @@ const roomTabs = [
 type RoomTab = (typeof roomTabs)[number]["id"]
 
 const conversationRooms: Array<{ id: MatchRoomType; query: string; label: string; description: string; group: "rooms" | "temporary" }> = [
-  { id: "main", query: "main", label: "Main Room", description: "General match community discussion", group: "rooms" },
-  { id: "tactics", query: "tactics", label: "Tactical Room", description: "Shape, pressing, substitutions and analysis", group: "rooms" },
-  { id: "preview", query: "preview", label: "Preview", description: "Team supporter lounges before kickoff", group: "temporary" },
-  { id: "post_match", query: "post-match", label: "Reaction Room", description: "Post-match reactions after full-time", group: "temporary" },
+  { id: "main", query: "main", label: "ห้องหลัก", description: "คุยภาพรวมของแมตช์แบบเรียลไทม์", group: "rooms" },
+  { id: "tactics", query: "tactics", label: "ห้องแท็กติก", description: "คุยแผนการเล่น การเพรส การเปลี่ยนตัว และวิเคราะห์เกม", group: "rooms" },
+  { id: "preview", query: "preview", label: "ห้องพรีวิว", description: "ห้องแฟนบอลก่อนคิกออฟ", group: "temporary" },
+  { id: "post_match", query: "post-match", label: "ห้องหลังเกม", description: "คุยรีแอ็กชันหลังจบการแข่งขัน", group: "temporary" },
 ]
 
 function normalizeRoomQuery(value: string | null): ConversationRoomId {
@@ -451,11 +451,11 @@ function getReactionSideFromConversationRoom(value: ConversationRoomId): TeamRea
 function getRoomLabel(roomType: ConversationRoomId, fixture?: CommunityMatchRoomFixture | null) {
   if (fixture && (roomType === "preview_home" || roomType === "preview_away")) {
     const side = getPreviewSideFromConversationRoom(roomType)
-    return getTeamPreviewLounges(fixture).find((lounge) => lounge.side === side)?.label || "Fans Preview"
+    return getTeamPreviewLounges(fixture).find((lounge) => lounge.side === side)?.label || "ห้องพรีวิวแฟนบอล"
   }
   if (fixture && (roomType === "post_match_home" || roomType === "post_match_away")) {
     const side = getReactionSideFromConversationRoom(roomType)
-    return getTeamReactionLounges(fixture).find((lounge) => lounge.side === side)?.label || "Team Reactions"
+    return getTeamReactionLounges(fixture).find((lounge) => lounge.side === side)?.label || "ห้องรีแอ็กชันทีม"
   }
   return conversationRooms.find((room) => room.id === roomType)?.label || "ห้องหลัก"
 }
@@ -484,16 +484,16 @@ function getRoomHubBadge(channel?: MatchRoomChannel) {
 }
 
 function getRoomAvailabilityText(channel?: MatchRoomChannel, nowMs: number = Date.now()) {
-  if (!channel) return "Opening soon"
+  if (!channel) return "กำลังเตรียมเปิดห้อง"
   const target = getRoomTargetTime(channel)
   const remainingLabel = target ? formatDuration(target - nowMs) : ""
   if (channel.state === "upcoming") {
-    if (remainingLabel) return `เปิดใน ${remainingLabel}`
-    if (channel.remainingSeconds !== null && typeof channel.remainingSeconds === "number") return `เปิดใน ${formatDuration(channel.remainingSeconds * 1000)}`
+    if (remainingLabel) return `เปิดในอีก ${remainingLabel}`
+    if (channel.remainingSeconds !== null && typeof channel.remainingSeconds === "number") return `เปิดในอีก ${formatDuration(channel.remainingSeconds * 1000)}`
   }
   if (channel.state === "unavailable" && channel.opensAt) {
     const opensAt = parseRoomTime(channel.opensAt)
-    if (opensAt) return `เปิดใน ${formatDuration(opensAt - nowMs)}`
+    if (opensAt) return `เปิดในอีก ${formatDuration(opensAt - nowMs)}`
   }
   if ((channel.state === "open" || channel.state === "closing") && remainingLabel && channel.isTemporary) {
     return `ปิดใน ${remainingLabel}`
@@ -530,23 +530,23 @@ function getRecommendedRoom(fixture: CommunityMatchRoomFixture, stats?: MatchRoo
   if (recommendedRoom === "post_match" && favoriteReactionLounge) {
     return {
       roomType: favoriteReactionLounge.id,
-      title: `Recommended Room: ${favoriteReactionLounge.label}`,
+      title: `ห้องแนะนำ: ${favoriteReactionLounge.label}`,
     }
   }
   if (recommendedRoom === "preview" && favoritePreviewLounge) {
     return {
       roomType: favoritePreviewLounge.id,
-      title: `Recommended Room: ${favoritePreviewLounge.label} Preview`,
+      title: `ห้องแนะนำ: ${favoritePreviewLounge.label}`,
     }
   }
   return {
     roomType: recommendedRoom,
     title:
       timelinePhase === "live"
-        ? "Recommended Room: Main Room"
+        ? "ห้องแนะนำ: ห้องหลัก"
         : timelinePhase === "full_time"
-          ? "Recommended Room: Reactions"
-          : "Recommended Room: Fans Preview",
+          ? "ห้องแนะนำ: ห้องหลังเกม"
+          : "ห้องแนะนำ: ห้องพรีวิว",
   }
 }
 
@@ -628,7 +628,7 @@ function getKickoffCountdownLabel(fixture: CommunityMatchRoomFixture) {
   if (!kickoff) return ""
   const remaining = kickoff - Date.now()
   if (remaining <= 0) return ""
-  return `Kickoff in ${formatDuration(remaining)}`
+  return `เริ่มแข่งในอีก ${formatDuration(remaining)}`
 }
 
 function getTemporaryRoomNotice(room: MatchRoomChannel, nowMs: number) {
@@ -701,11 +701,11 @@ function getStatusTone(status: string, isFinished?: boolean) {
 }
 
 function getSummaryStatusLabel(summary?: CommunityMatchRoomResponse["summary"]) {
-  if (!summary) return "Template"
-  if (summary.isStale || summary.status === "stale") return "Stale"
-  if (summary.source === "ai" && summary.status === "generated") return "Generated"
-  if (summary.status === "failed") return "Template fallback"
-  return summary.source === "template" ? "Template" : "Fallback"
+  if (!summary) return "ยังไม่มีสรุป"
+  if (summary.isStale || summary.status === "stale") return "รอสรุปใหม่"
+  if (summary.source === "ai" && summary.status === "generated") return "พร้อมแล้ว"
+  if (summary.status === "failed") return "ใช้สรุปสำรอง"
+  return summary.source === "template" ? "สรุปต้นแบบ" : "สรุปสำรอง"
 }
 
 function selectReactionTeamSummary(summary: CommunityMatchRoomResponse["summary"] | undefined, side: TeamReactionLoungeSide | null) {
@@ -716,7 +716,7 @@ function selectReactionTeamSummary(summary: CommunityMatchRoomResponse["summary"
 function getSummaryHistoryActionLabel(action: string) {
   const labels: Record<string, string> = {
     initial_generate: "สร้างครั้งแรก",
-    regenerate: "Regenerate",
+    regenerate: "สร้างใหม่",
     auto_mark_stale: "ทำเครื่องหมาย stale",
     fallback_generated: "ใช้ template fallback",
     generation_failed: "Generate ล้มเหลว",
@@ -2190,11 +2190,11 @@ function MatchHero({
             window.location.assign(`${window.location.pathname}?${params.toString()}`)
           }}
           className="mt-5 flex w-full flex-wrap items-center justify-between gap-3 rounded-[24px] border border-primary/25 bg-primary/10 p-4 text-left transition hover:border-primary/50 hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 motion-reduce:transition-none"
-          aria-label="Open recommended room"
+          aria-label="เปิดห้องแนะนำ"
         >
           <span>
-            <span className="block text-sm font-semibold text-primary">Your favorite team is playing.</span>
-            <span className="mt-1 block text-sm text-muted-foreground">{recommendation.title}. You can still choose Main Room, Tactical Room or any other room.</span>
+            <span className="block text-sm font-semibold text-primary">ทีมโปรดของคุณกำลังแข่งขัน</span>
+            <span className="mt-1 block text-sm text-muted-foreground">{recommendation.title}. คุณยังเลือกห้องหลัก ห้องแท็กติก หรือห้องอื่นได้เสมอ</span>
           </span>
           <ChevronRight className="h-5 w-5 text-primary" />
         </button>
@@ -2217,29 +2217,29 @@ function MatchHero({
       <div className="mt-5 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-[12px] border border-border bg-muted p-3">
           <CalendarClock className="mb-2 h-4 w-4 text-primary" />
-          <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">Kickoff</span>
+          <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">เวลาแข่ง</span>
           <span className="mt-1 block font-semibold text-foreground">{formatKickoff(fixture)}</span>
         </div>
         <div className="rounded-[12px] border border-border bg-muted p-3">
           <MessageCircle className="mb-2 h-4 w-4 text-primary" />
-          <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">Messages</span>
+          <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">ข้อความ</span>
           <span className="mt-1 block font-semibold text-foreground">{messageCount}</span>
         </div>
         <div className="rounded-[12px] border border-border bg-muted p-3">
           <Users className="mb-2 h-4 w-4 text-primary" />
-          <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">Followers</span>
+          <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">ผู้ติดตาม</span>
           <span className="mt-1 block font-semibold text-foreground">{stats?.followers || 0}</span>
         </div>
         <div className="rounded-[12px] border border-border bg-muted p-3">
           <Trophy className="mb-2 h-4 w-4 text-primary" />
-          <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">Polls / Summary</span>
+          <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">โหวต / สรุป</span>
           <span className="mt-1 block font-semibold text-foreground">{stats?.polls || 0} polls · {getSummaryStatusLabel(summary)}</span>
         </div>
       </div>
 
       <div className="mt-3 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-[12px] border border-border bg-muted p-3">
-          <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">League</span>
+          <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">ลีก</span>
           <span className="mt-1 block font-semibold text-foreground">พรีเมียร์ลีก</span>
         </div>
         <div className="rounded-[12px] border border-border bg-muted p-3">
@@ -2321,18 +2321,18 @@ function MatchCommunityExperience({
           <div className="grid gap-3 md:grid-cols-2">
             <div className="rounded-[12px] border border-border bg-muted p-4">
               <div className="flex items-center justify-between gap-2">
-                <h3 className="font-bold">Smart Recommendation</h3>
-                <Badge variant="outline" className="rounded-full border-primary/25 text-primary">Non-forcing</Badge>
+                <h3 className="font-bold">ห้องแนะนำอัจฉริยะ</h3>
+                <Badge variant="outline" className="rounded-full border-primary/25 text-primary">ไม่บังคับ</Badge>
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">{recommendation?.title || "Recommended Room: Main Room"}</p>
+              <p className="mt-2 text-sm text-muted-foreground">{recommendation?.title || "ห้องแนะนำ: ห้องหลัก"}</p>
               <Button type="button" onClick={() => onOpenRoom(safeRecommendedRoom as ConversationRoomId)} className="mt-4 rounded-[12px]">
                 เปิดห้องที่แนะนำ
               </Button>
             </div>
             <div className="rounded-[12px] border border-border bg-muted p-4">
               <div className="flex items-center justify-between gap-2">
-                <h3 className="font-bold">Community Milestones</h3>
-                {pulse.hasSummary ? <Badge variant="outline" className="rounded-full border-primary/25 text-primary">Summary ready</Badge> : null}
+                <h3 className="font-bold">หมุดหมายชุมชน</h3>
+                {pulse.hasSummary ? <Badge variant="outline" className="rounded-full border-primary/25 text-primary">สรุปพร้อมแล้ว</Badge> : null}
               </div>
               {milestones.length ? (
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -2341,7 +2341,7 @@ function MatchCommunityExperience({
                   ))}
                 </div>
               ) : (
-                <p className="mt-2 text-sm text-muted-foreground">Community milestones will appear as fans join the match discussion.</p>
+                <p className="mt-2 text-sm text-muted-foreground">หมุดหมายของชุมชนจะแสดงเมื่อมีแฟนบอลเข้าร่วมพูดคุยมากขึ้น</p>
               )}
             </div>
           </div>
@@ -3395,7 +3395,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                           </div>
                           <h2 className="mt-3 text-3xl font-bold text-foreground">สรุปเกมโดย AI</h2>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            {data?.summary?.generatedAt ? `Generated: ${new Date(data.summary.generatedAt).toLocaleString("th-TH")}` : MATCH_HUB_EMPTY_STATES.summary}
+                            {data?.summary?.generatedAt ? `สร้างเมื่อ: ${new Date(data.summary.generatedAt).toLocaleString("th-TH")}` : MATCH_HUB_EMPTY_STATES.summary}
                           </p>
                         </div>
                         {data?.summaryPermissions?.canRegenerate ? (
@@ -3406,7 +3406,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                             </Button>
                             <Button type="button" onClick={() => void handleRegenerateSummary()} disabled={regeneratingSummary} className="rounded-full">
                               {regeneratingSummary ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                              Refresh
+                              สร้างใหม่
                             </Button>
                           </div>
                         ) : null}
@@ -3786,15 +3786,40 @@ function TacticalRoomContextPanel({
 
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <div className="rounded-2xl border border-border bg-surface-2 p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Formation / Lineup</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">แผนการเล่น / รายชื่อ</p>
           {context.lineups.length ? (
-            <div className="mt-2 space-y-2 text-sm text-muted-foreground">
+            <div className="mt-2 space-y-3 text-sm text-muted-foreground">
               {context.lineups.map((lineup) => (
-                <p key={`${lineup.teamName}-${lineup.formation}-${lineup.manager}`}>
-                  <span className="font-semibold text-foreground">{lineup.teamName || getMatchTitle(fixture)}</span>
-                  {lineup.formation ? ` · ${lineup.formation}` : ""}
-                  {lineup.manager ? ` · ${lineup.manager}` : ""}
-                </p>
+                <div key={`${lineup.teamName}-${lineup.formation}-${lineup.manager}`} className="rounded-xl border border-border bg-card p-3">
+                  <p className="font-semibold text-foreground">{lineup.teamName || getMatchTitle(fixture)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {lineup.formation ? `แผน: ${lineup.formation}` : "ยังไม่มีแผน"}{lineup.manager ? ` · โค้ช: ${lineup.manager}` : ""}
+                  </p>
+                  {lineup.startXI?.length ? (
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold text-foreground">11 ตัวจริง</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {lineup.startXI.map((player) => (
+                          <span key={`${lineup.teamName}-xi-${player.number}-${player.name}`} className="rounded-full border border-border bg-surface-2 px-2 py-1 text-xs text-foreground">
+                            {player.number ? `${player.number} ` : ""}{player.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {lineup.substitutes?.length ? (
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold text-foreground">ตัวสำรอง</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {lineup.substitutes.map((player) => (
+                          <span key={`${lineup.teamName}-sub-${player.number}-${player.name}`} className="rounded-full border border-border bg-surface-2 px-2 py-1 text-xs text-muted-foreground">
+                            {player.number ? `${player.number} ` : ""}{player.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
               ))}
             </div>
           ) : (
@@ -3803,37 +3828,38 @@ function TacticalRoomContextPanel({
         </div>
 
         <div className="rounded-2xl border border-border bg-surface-2 p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Tactical Match Context</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">บริบทแท็กติกของแมตช์</p>
           {context.hasProviderData ? (
             <div className="mt-2 space-y-2 text-sm text-muted-foreground">
-              {context.substitutions.slice(0, 3).map((event) => <p key={event.id}>Substitution {event.minute ? `${event.minute}'` : ""} {event.player || event.team || ""}</p>)}
-              {context.cards.slice(0, 3).map((event) => <p key={event.id}>{event.type === "red_card" ? "Red Card" : "Yellow Card"} {event.minute ? `${event.minute}'` : ""} {event.player || event.team || ""}</p>)}
-              {context.formationChanges.slice(0, 2).map((event) => <p key={event.id}>Formation Change {event.minute ? `${event.minute}'` : ""} {event.detail || ""}</p>)}
+              {context.substitutions.slice(0, 3).map((event) => <p key={event.id}>เปลี่ยนตัว {event.minute ? `${event.minute}'` : ""} {event.player || event.team || ""}</p>)}
+              {context.cards.slice(0, 3).map((event) => <p key={event.id}>{event.type === "red_card" ? "ใบแดง" : "ใบเหลือง"} {event.minute ? `${event.minute}'` : ""} {event.player || event.team || ""}</p>)}
+              {context.formationChanges.slice(0, 2).map((event) => <p key={event.id}>เปลี่ยนแผน {event.minute ? `${event.minute}'` : ""} {event.detail || ""}</p>)}
+              {!context.substitutions.length && !context.cards.length && !context.formationChanges.length ? <p>มีข้อมูลผังนักเตะจากผู้ให้บริการแล้ว</p> : null}
             </div>
           ) : (
-            <p className="mt-2 text-sm text-muted-foreground">ไม่มีข้อมูลจากผู้ให้บริการ</p>
+            <p className="mt-2 text-sm text-muted-foreground">ยังไม่มีข้อมูลจากผู้ให้บริการ</p>
           )}
         </div>
       </div>
 
       <div className="mt-4 rounded-2xl border border-border bg-surface-2 p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="font-semibold text-foreground">Tactical Threads</p>
+          <p className="font-semibold text-foreground">หัวข้อวิเคราะห์แท็กติก</p>
           <Button type="button" variant="outline" onClick={onOpenThreads} className="rounded-full border-border">
             สร้างหัวข้อวิเคราะห์
           </Button>
         </div>
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
           <div className="rounded-xl border border-border bg-card p-3 text-sm">
-            <p className="text-xs text-muted-foreground">Pinned Tactical Thread</p>
+            <p className="text-xs text-muted-foreground">หัวข้อปักหมุด</p>
             <p className="mt-1 line-clamp-1 font-semibold text-foreground">{pinnedThread?.title || "-"}</p>
           </div>
           <div className="rounded-xl border border-border bg-card p-3 text-sm">
-            <p className="text-xs text-muted-foreground">Official Tactical Thread</p>
+            <p className="text-xs text-muted-foreground">หัวข้อทางการ</p>
             <p className="mt-1 line-clamp-1 font-semibold text-foreground">{officialThread?.title || "-"}</p>
           </div>
           <div className="rounded-xl border border-border bg-card p-3 text-sm">
-            <p className="text-xs text-muted-foreground">Community Tactical Threads</p>
+            <p className="text-xs text-muted-foreground">หัวข้อจากคอมมูนิตี้</p>
             <p className="mt-1 font-semibold text-foreground">{threads.length}</p>
           </div>
         </div>
@@ -3962,18 +3988,18 @@ function MatchRoomConversation({
     : isTacticalRoom
     ? `${TACTICAL_ROOM_COPY.intro}: ${TACTICAL_ROOM_COPY.description}`
     : activePreviewLounge
-    ? `You're talking with ${activePreviewLounge.teamName} supporters before kickoff.`
+    ? `คุณกำลังคุยกับแฟนบอล ${activePreviewLounge.teamName} ก่อนเริ่มการแข่งขัน`
     : activeReactionLounge
-      ? `Share your reaction with fellow ${activeReactionLounge.teamName} supporters after full time.`
+      ? `แชร์ความเห็นหลังเกมกับแฟนบอล ${activeReactionLounge.teamName} หลังจบการแข่งขัน`
     : ""
   const emptyStateText = isMainRoom
     ? MAIN_ROOM_COPY.emptyTitle
     : isTacticalRoom
     ? TACTICAL_ROOM_COPY.emptyTitle
     : activePreviewLounge
-    ? `Start the conversation with fellow ${activePreviewLounge.teamName} supporters.`
+    ? `เริ่มบทสนทนากับแฟนบอล ${activePreviewLounge.teamName} ได้เลย`
     : activeReactionLounge
-      ? `Be the first ${activeReactionLounge.teamName} supporter to share a reaction.`
+      ? `เป็นแฟนบอล ${activeReactionLounge.teamName} คนแรกที่แชร์ความเห็นหลังเกม`
     : MATCH_HUB_EMPTY_STATES.room
   const [clockNow, setClockNow] = useState(Date.now())
   const refreshRef = useRef<string>("")
@@ -4076,16 +4102,6 @@ function MatchRoomConversation({
               </div>
             ) : null}
             {roomNotice ? <TemporaryRoomNotice notice={roomNotice} onGoMain={() => onChangeRoom("main")} /> : null}
-            {isTacticalRoom && tacticalContext ? (
-              <TacticalRoomContextPanel
-                fixture={fixture}
-                context={tacticalContext}
-                threads={tacticalThreads}
-                phase={timelinePhase}
-                onOpenThreads={onOpenTacticalThreads}
-              />
-            ) : null}
-            {activeReactionLounge ? <ReactionTeamSummaryCard summary={data?.summary} teamSummary={reactionTeamSummary} lounge={activeReactionLounge} onOpenSummary={() => onOpenView("summary")} /> : null}
             {matchEvents.length ? <SystemMatchEvents events={matchEvents} /> : null}
 
             {messagesError ? (
@@ -4376,7 +4392,7 @@ function RoomNavButton({
   const disabled = Boolean(channel && !channel.canRead && !channel.canPost)
   const isTeamPreview = room.id === "preview_home" || room.id === "preview_away"
   const isTeamReaction = room.id === "post_match_home" || room.id === "post_match_away"
-  const badge = (isTeamPreview && channel?.state === "upcoming") || (isTeamReaction && channel?.state === "unavailable") ? "OPENING SOON" : getRoomHubBadge(channel)
+  const badge = (isTeamPreview && channel?.state === "upcoming") || (isTeamReaction && channel?.state === "unavailable") ? "ใกล้เปิด" : getRoomHubBadge(channel)
   const badgeClass =
     badge === "OPEN" || badge === "LIVE"
       ? active
@@ -4415,7 +4431,7 @@ function RoomNavButton({
       </span>
       <span className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
         <span className={cn("rounded-full px-2 py-0.5", active ? "bg-primary-foreground/15 text-primary-foreground/80" : "bg-muted text-muted-foreground")}>
-          {isTeamReaction && channel?.state === "unavailable" ? "เปิดหลังจบเกม" : getRoomAvailabilityText(channel, clockNow)}
+          {isTeamReaction && channel?.state === "unavailable" ? "เปิดหลังจบการแข่งขัน" : getRoomAvailabilityText(channel, clockNow)}
         </span>
         <span className={cn("rounded-full px-2 py-0.5", active ? "bg-primary-foreground/15 text-primary-foreground/80" : "bg-muted text-muted-foreground")}>
           {activityCount} messages
@@ -4487,10 +4503,10 @@ function DateDivider({ label }: { label: string }) {
 }
 
 function getMatchEventLabel(event: TimelineMatchEvent) {
-  if (event.type === "goal") return "Goal"
-  if (event.type === "yellow_card") return "Yellow Card"
-  if (event.type === "red_card") return "Red Card"
-  return "Substitution"
+  if (event.type === "goal") return "ประตู"
+  if (event.type === "yellow_card") return "ใบเหลือง"
+  if (event.type === "red_card") return "ใบแดง"
+  return "เปลี่ยนตัว"
 }
 
 function SystemMatchEvents({ events }: { events: TimelineMatchEvent[] }) {
@@ -4500,7 +4516,7 @@ function SystemMatchEvents({ events }: { events: TimelineMatchEvent[] }) {
     <div className={cn("mb-4 rounded-2xl border border-border bg-surface-2 p-4", layout.className)} aria-label={MATCH_TIMELINE_COPY.eventsTitle}>
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-sm font-semibold text-foreground">{MATCH_TIMELINE_COPY.eventsTitle}</p>
-        <Badge variant="outline" className="rounded-full border-border text-[10px] text-muted-foreground">Verified fixture data</Badge>
+        <Badge variant="outline" className="rounded-full border-border text-[10px] text-muted-foreground">ข้อมูลยืนยันจากแมตช์</Badge>
       </div>
       <div className="space-y-2">
         {events.map((event) => (
@@ -4764,7 +4780,7 @@ function RoomComposer({
       ) : (
         <div className="rounded-[24px] border border-border bg-card p-3">
           {room.roomType === "tactics" && onSelectTacticalTopic ? (
-            <div className="mb-2 flex flex-wrap gap-2" aria-label="Tactical quick topics">
+            <div className="mb-2 flex flex-wrap gap-2" aria-label="หัวข้อด่วนห้องแท็กติก">
               {TACTICAL_QUICK_TOPICS.map((topic) => (
                 <Button
                   key={topic.id}
@@ -4817,12 +4833,12 @@ function RoomComposer({
               className="max-h-36 min-h-11 resize-none rounded-2xl border-border bg-input-background px-4 py-3"
               aria-label={`พิมพ์ข้อความใน ${roomTitle}`}
             />
-            <Button type="button" onClick={onSend} disabled={sending || !draft.trim()} className="h-11 shrink-0 rounded-2xl px-4">
+            <Button type="button" onClick={onSend} disabled={sending || !draft.trim() || (room.roomType === "tactics" && !selectedTacticalTopic)} className="h-11 shrink-0 rounded-2xl px-4">
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               <span className="sr-only">ส่งข้อความ</span>
             </Button>
           </div>
-          <p className="mt-2 px-1 text-[11px] text-muted-foreground">{helperText || MAIN_ROOM_COPY.enterHint}</p>
+          <p className="mt-2 px-1 text-[11px] text-muted-foreground">{room.roomType === "tactics" && !selectedTacticalTopic ? "เลือกหัวข้อก่อนส่งข้อความ" : helperText || MAIN_ROOM_COPY.enterHint}</p>
         </div>
       )}
     </div>

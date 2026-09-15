@@ -62,6 +62,7 @@ const userActionOptions: Array<{ label: string; value: UserActionChoice; moderat
 export default function AdminCommunityModerationPage() {
   const [items, setItems] = useState<ModerationItem[]>([])
   const [mediaPreviewUrls, setMediaPreviewUrls] = useState<Record<string, string>>({})
+  const [brokenImageUrls, setBrokenImageUrls] = useState<Record<string, true>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [query, setQuery] = useState("")
@@ -71,6 +72,32 @@ export default function AdminCommunityModerationPage() {
   const [actingId, setActingId] = useState<string | null>(null)
   const [selectedUserActionItem, setSelectedUserActionItem] = useState<ModerationItem | null>(null)
   const [selectedUserAction, setSelectedUserAction] = useState<UserActionChoice>("warn")
+
+  function normalizeItem(input: ModerationItem): ModerationItem {
+    return {
+      ...input,
+      id: String(input?.id || ""),
+      sourceId: String(input?.sourceId || ""),
+      contentType: input?.contentType || "post",
+      status: input?.status || "pending_review",
+      publishStatus: input?.publishStatus ? String(input.publishStatus) : undefined,
+      provider: String(input?.provider || "local"),
+      preview: String(input?.preview || ""),
+      imageUrl: input?.imageUrl ? String(input.imageUrl) : undefined,
+      mediaNotes: Array.isArray(input?.mediaNotes) ? input.mediaNotes.map((note) => String(note)) : [],
+      ocrTextPreview: input?.ocrTextPreview ? String(input.ocrTextPreview) : undefined,
+      qrPreview: Array.isArray(input?.qrPreview) ? input.qrPreview.map((value) => String(value)) : [],
+      reasons: Array.isArray(input?.reasons) ? input.reasons.map((reason) => String(reason)) : [],
+      createdAt: String(input?.createdAt || ""),
+      timeAgo: String(input?.timeAgo || "-"),
+      author: {
+        id: String(input?.author?.id || ""),
+        name: String(input?.author?.name || "Unknown user"),
+        avatar: String(input?.author?.avatar || ""),
+      },
+      repeatOffenses: Number(input?.repeatOffenses || 0),
+    }
+  }
 
   async function loadQueue() {
     const token = getAuthToken()
@@ -91,7 +118,7 @@ export default function AdminCommunityModerationPage() {
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
       })
-      const normalizedItems = response.items.filter((item) => {
+      const normalizedItems = response.items.map(normalizeItem).filter((item) => {
         if (typeFilter !== "all" && item.contentType !== typeFilter) return false
         if (statusFilter !== "all" && item.status !== statusFilter) return false
         return true
@@ -201,7 +228,8 @@ export default function AdminCommunityModerationPage() {
   }
 
   function getRenderableImageUrl(item: ModerationItem) {
-    return mediaPreviewUrls[item.id] || item.imageUrl || ""
+    const url = mediaPreviewUrls[item.id] || item.imageUrl || ""
+    return brokenImageUrls[url] ? "" : url
   }
 
   return (
@@ -265,7 +293,7 @@ export default function AdminCommunityModerationPage() {
                     <div className="flex min-w-0 gap-3">
                       <Avatar>
                         <AvatarImage src={item.author.avatar || "/placeholder.svg"} />
-                        <AvatarFallback>{item.author.name.slice(0, 1)}</AvatarFallback>
+                        <AvatarFallback>{(item.author.name || "?").slice(0, 1)}</AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
@@ -312,7 +340,16 @@ export default function AdminCommunityModerationPage() {
                         ) : null}
                         {getRenderableImageUrl(item) ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={getRenderableImageUrl(item)} alt="Moderation preview" className="mt-2 h-36 w-28 rounded-xl object-cover" />
+                          <img
+                            src={getRenderableImageUrl(item)}
+                            alt="Moderation preview"
+                            className="mt-2 h-36 w-28 rounded-xl object-cover"
+                            onError={(event) => {
+                              const failedUrl = event.currentTarget.currentSrc || event.currentTarget.src
+                              if (!failedUrl) return
+                              setBrokenImageUrls((current) => ({ ...current, [failedUrl]: true }))
+                            }}
+                          />
                         ) : null}
                       </div>
                     </div>

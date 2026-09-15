@@ -15,6 +15,7 @@
     "moderation:test-image": "node scripts/moderation-test-image.js",
     "moderation:test-retry": "node scripts/moderation-test-retry.js",
     "cleanup:temporary-match-rooms": "node scripts/cleanup-temporary-match-rooms.js",
+    "payments:cleanup-daypass": "node scripts/cleanup-prediction-daypass.js",
     "start": "next start",
     "seed:admins": "node scripts/seed-admins.js",
     "test:moderation": "node scripts/run-moderation-tests.js",

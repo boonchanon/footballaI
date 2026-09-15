@@ -10,8 +10,18 @@ const { env } = require("./config/env")
 const { startFootballDataCron } = require("./cron/football-data.cron")
 
 async function start() {
-  await connectDatabase()
-  startFootballDataCron()
+  let databaseReady = false
+
+  try {
+    await connectDatabase()
+    databaseReady = true
+  } catch (error) {
+    console.warn("Database connection unavailable, continuing with limited routes:", error.message || error)
+  }
+
+  if (databaseReady) {
+    startFootballDataCron()
+  }
 
   app.listen(env.port, () => {
     console.log(`API listening on port ${env.port}`)

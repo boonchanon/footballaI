@@ -236,6 +236,14 @@ export async function POST(request: NextRequest) {
 
     const now = new Date()
     const expiresAt = order.targetType === "daypass" ? new Date(now.getTime() + 24 * 60 * 60 * 1000) : null
+    const creditAmount =
+      order.productCode === "prediction_5_matches"
+        ? 5
+        : order.productCode === "prediction_15_matches"
+          ? 15
+          : order.productCode === "prediction_tournament"
+            ? 40
+            : null
 
     order.status = "paid"
     order.slipImageUrl = slip.name || ""
@@ -260,8 +268,8 @@ export async function POST(request: NextRequest) {
         metadata: {
           paymentProvider: "thunder",
           verificationRef: effectiveRef,
-          creditsLimit: order.productCode === "prediction_5_matches" ? 5 : order.productCode === "prediction_15_matches" ? 15 : null,
-          remainingCredits: order.productCode === "prediction_5_matches" ? 5 : order.productCode === "prediction_15_matches" ? 15 : null,
+          creditsLimit: creditAmount,
+          remainingCredits: creditAmount,
           unlockedFixtureIds: [],
         },
       })

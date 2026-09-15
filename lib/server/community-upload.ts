@@ -50,6 +50,9 @@ function getApprovedStorageRoot() {
   if (process.env.COMMUNITY_APPROVED_STORAGE_DIR?.trim()) {
     return process.env.COMMUNITY_APPROVED_STORAGE_DIR.trim()
   }
+  if (process.env.VERCEL?.trim()) {
+    return path.join(os.tmpdir(), "community-moderation", "approved")
+  }
   const defaultPath = path.join(process.cwd(), "public", "uploads", "community")
   return existsSync(defaultPath) ? defaultPath : path.join(os.tmpdir(), "community-moderation", "approved")
 }
@@ -193,6 +196,14 @@ export async function readPendingFile(relativeKey: string) {
     return fetchCloudinaryAssetBuffer(relativeKey)
   }
   const absolutePath = resolveSafePath(getPendingStorageRoot(), relativeKey)
+  return readFile(absolutePath)
+}
+
+export async function readApprovedFile(relativeKey: string) {
+  if (parseCloudinaryAssetKey(relativeKey)) {
+    return fetchCloudinaryAssetBuffer(relativeKey)
+  }
+  const absolutePath = resolveSafePath(getApprovedStorageRoot(), relativeKey)
   return readFile(absolutePath)
 }
 

@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
   const timeout = setTimeout(() => controller.abort(), 55000)
 
   try {
-    const response = await fetch(`${FOOTBALL_PREDICTION_API_BASE_URL}/predict-match`, {
+    const response = await fetch(`${FOOTBALL_PREDICTION_API_BASE_URL}/predict`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
