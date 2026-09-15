@@ -77,12 +77,13 @@ test("room message validation helpers should require valid room type and match m
   assert.equal(Boolean(buildRoomMessageMetadata({ matchId: "match-1", roomType: "preview" }).matchId), true)
 })
 
-test("permanent room states should stay open for normal matches", () => {
+test("permanent room states should follow their configured availability windows", () => {
   const match = fixture()
   assert.equal(getRoomState(match, "main", new Date("2026-07-31T09:00:00Z")).state, "open")
-  assert.equal(getRoomState(match, "tactics", new Date("2026-07-31T09:00:00Z")).state, "open")
+  assert.equal(getRoomState(match, "tactics", new Date("2026-07-31T09:00:00Z")).state, "upcoming")
+  assert.equal(getRoomState(match, "tactics", new Date("2026-07-31T11:00:00Z")).state, "open")
   assert.equal(canReadRoom(match, "main", new Date("2026-07-31T09:00:00Z")), true)
-  assert.equal(canPostToRoom(match, "tactics", new Date("2026-07-31T09:00:00Z")), true)
+  assert.equal(canPostToRoom(match, "tactics", new Date("2026-07-31T11:00:00Z")), true)
 })
 
 test("preview room should move from upcoming to open and close when match starts", () => {
@@ -90,7 +91,7 @@ test("preview room should move from upcoming to open and close when match starts
   assert.equal(getRoomState(match, "preview", new Date("2026-07-31T10:30:00Z")).state, "upcoming")
   assert.equal(getRoomState(match, "preview", new Date("2026-07-31T11:10:00Z")).state, "open")
   assert.equal(getRoomState(match, "preview", new Date("2026-07-31T11:55:00Z")).state, "closing")
-  assert.equal(getRoomState(match, "preview", new Date("2026-07-31T12:00:01Z")).state, "archived")
+  assert.equal(getRoomState(match, "preview", new Date("2026-07-31T12:00:01Z")).state, "closed")
 })
 
 test("post-match room should open only after finished and close after configured window", () => {
@@ -98,10 +99,10 @@ test("post-match room should open only after finished and close after configured
     fixture: { id: "match-1", status: { short: "FT" }, date: "2026-07-31T12:00:00Z" },
     goals: { home: 2, away: 1 },
   })
-  assert.equal(getRoomState(match, "post_match", new Date("2026-07-31T11:00:00Z")).state, "unavailable")
+  assert.equal(getRoomState(match, "post_match", new Date("2026-07-31T11:00:00Z")).state, "open")
   assert.equal(getRoomState(match, "post_match", new Date("2026-07-31T13:55:00Z")).state, "open")
   assert.equal(getRoomState(match, "post_match", new Date("2026-07-31T14:40:00Z")).state, "closing")
-  assert.equal(getRoomState(match, "post_match", new Date("2026-07-31T14:46:00Z")).state, "archived")
+  assert.equal(getRoomState(match, "post_match", new Date("2026-07-31T14:46:00Z")).state, "closed")
 })
 
 test("postponed and cancelled matches should not open temporary rooms", () => {
@@ -209,7 +210,7 @@ test("auto room availability should keep provider lifecycle while demo phases us
   const livePhase = getMatchDemoRoomAvailabilityPhase({ enabled: true, effectivePhase: "live" })
   const fullTimePhase = getMatchDemoRoomAvailabilityPhase({ enabled: true, effectivePhase: "full_time" })
 
-  assert.equal(getRoomState(finished, "post_match", now, autoPhase).state, "archived")
+  assert.equal(getRoomState(finished, "post_match", now, autoPhase).state, "closed")
   assert.equal(getRoomState(finished, "preview", now, preMatchPhase).canPost, true)
   assert.equal(getRoomState(finished, "post_match", now, preMatchPhase).canPost, false)
   assert.equal(getRoomState(finished, "main", now, livePhase).canPost, true)
@@ -281,7 +282,7 @@ test("home and away preview lounge messages should remain isolated by existing r
   assert.equal(publishedVisible(awayPreview), false)
 })
 
-test("team reaction lounge lifecycle should open only after finished status and archive after the post-match window", () => {
+test("team reaction lounge lifecycle should open only after finished status and close after the post-match window", () => {
   const notFinished = fixture({
     fixture: { id: "match-1", status: { short: "NS" }, date: "2026-07-31T12:00:00Z" },
   })
@@ -295,7 +296,7 @@ test("team reaction lounge lifecycle should open only after finished status and 
   assert.equal(getRoomState(finished, "post_match", new Date("2026-07-31T13:50:00Z")).state, "open")
   assert.equal(canPostToRoom(finished, "post_match", new Date("2026-07-31T13:50:00Z")), true)
   assert.equal(getRoomState(finished, "post_match", new Date("2026-07-31T14:40:00Z")).state, "closing")
-  assert.equal(getRoomState(finished, "post_match", new Date("2026-07-31T14:46:00Z")).state, "archived")
+  assert.equal(getRoomState(finished, "post_match", new Date("2026-07-31T14:46:00Z")).state, "closed")
 })
 
 test("team reaction lounge messages should remain isolated from feed, preview, main, and tactical rooms", () => {
@@ -316,7 +317,7 @@ test("team reaction lounge messages should remain isolated from feed, preview, m
 })
 
 test("tactical room identity and quick topics should stay centralized", () => {
-  assert.equal(TACTICAL_ROOM_COPY.title, "Tactical Room")
+  assert.equal(TACTICAL_ROOM_COPY.title, "ห้องแท็กติก")
   assert.match(TACTICAL_ROOM_COPY.description, /แผนการเล่น/)
   assert.equal(TACTICAL_ROOM_COPY.missingProviderData, "ยังไม่มีข้อมูลแผนการเล่นจากผู้ให้บริการ")
   assert.deepEqual(TACTICAL_QUICK_TOPICS.map((topic) => topic.id), [
@@ -341,7 +342,7 @@ test("tactical quick topic validation and normalization should reject client inj
   assert.equal(buildTacticalTopicTag("bad-topic"), "")
   assert.equal(extractTacticalTopicFromTags(["match-tactical:manager"]), "manager")
   assert.equal(extractTacticalTopicFromTags(["match-preview:home"]), null)
-  assert.equal(getTacticalQuickTopicLabel("defence"), "Defence")
+  assert.equal(getTacticalQuickTopicLabel("defence"), "เกมรับ")
 })
 
 test("tactical context should render formation data only when provider supplies it", () => {
@@ -375,9 +376,9 @@ test("tactical context should prioritize substitutions, cards, and formation cha
   assert.equal(context.substitutions.length, 1)
   assert.equal(context.cards.length, 1)
   assert.equal(context.formationChanges.length, 1)
-  assert.deepEqual(getTacticalPhaseFocus("pre_match"), ["Formation", "Lineup"])
-  assert.deepEqual(getTacticalPhaseFocus("live"), ["Substitution", "แท็กติก"])
-  assert.deepEqual(getTacticalPhaseFocus("full_time"), ["Analysis Threads", "AI Overall Summary"])
+  assert.deepEqual(getTacticalPhaseFocus("pre_match"), ["แผนการเล่น", "รายชื่อ 11 ตัวจริง"])
+  assert.deepEqual(getTacticalPhaseFocus("live"), ["เปลี่ยนตัว", "แท็กติกสด"])
+  assert.deepEqual(getTacticalPhaseFocus("full_time"), ["วิเคราะห์หลังเกม", "สรุปภาพรวม AI"])
 })
 
 test("tactical messages should stay isolated by room type and optional topic tag", () => {
@@ -396,16 +397,16 @@ test("tactical messages should stay isolated by room type and optional topic tag
 
 test("tactical threads should reuse existing thread category", () => {
   assert.equal(COMMUNITY_THREAD_CATEGORY_LABELS.tactics, "แท็กติก")
-  assert.equal(getTacticalQuickTopicLabel("player"), "Player")
+  assert.equal(getTacticalQuickTopicLabel("player"), "นักเตะ")
 })
 
 test("main room copy, date divider, and deleted parent placeholder should stay centralized", () => {
-  assert.equal(MAIN_ROOM_COPY.title, "Main Room")
-  assert.equal(MAIN_ROOM_COPY.intro, "Everyone joins here.")
-  assert.equal(MAIN_ROOM_COPY.description, "General discussion about this match.")
-  assert.equal(MAIN_ROOM_COPY.deletedParent, "Original message is no longer available.")
-  assert.equal(getMainRoomDateDividerLabel("2026-08-02T04:00:00Z", new Date("2026-08-02T10:00:00Z")), "Today")
-  assert.equal(getMainRoomDateDividerLabel("2026-08-01T04:00:00Z", new Date("2026-08-02T10:00:00Z")), "Yesterday")
+  assert.equal(MAIN_ROOM_COPY.title, "ห้องหลัก")
+  assert.equal(MAIN_ROOM_COPY.intro, "ทุกคนมารวมคุยกันที่นี่")
+  assert.equal(MAIN_ROOM_COPY.description, "ห้องสนทนากลางสำหรับคุยทุกเรื่องของแมตช์นี้")
+  assert.equal(MAIN_ROOM_COPY.deletedParent, "ข้อความต้นฉบับไม่พร้อมใช้งานแล้ว")
+  assert.equal(getMainRoomDateDividerLabel("2026-08-02T04:00:00Z", new Date("2026-08-02T10:00:00Z")), "วันนี้")
+  assert.equal(getMainRoomDateDividerLabel("2026-08-01T04:00:00Z", new Date("2026-08-02T10:00:00Z")), "เมื่อวาน")
 })
 
 test("chat bubble layout should align own messages right and incoming messages left", () => {
