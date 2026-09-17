@@ -4,6 +4,7 @@ import { requireAuthUser } from "@/lib/server/auth"
 import { connectDatabase } from "@/lib/server/db"
 import { PaymentEntitlement } from "@/lib/server/models"
 import { findPremierLeaguePrediction } from "@/lib/server/premier-league-predictions"
+import { consumeToken } from "@/lib/server/tokens"
 
 function isEntitlementActive(item: any, now: Date) {
   if (!item?.active) return false
@@ -69,6 +70,11 @@ export async function POST(request: NextRequest) {
           creditEntitlementToConsume = entitlement
         }
       }
+    }
+
+    if (!unlocked && !creditEntitlementToConsume) {
+      const tokenTransaction = await consumeToken(user._id.toString(), `prediction-unlock:premier:${fixtureId}`, { fixtureId })
+      unlocked = Boolean(tokenTransaction)
     }
 
     if (!unlocked && !creditEntitlementToConsume) {

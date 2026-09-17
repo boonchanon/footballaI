@@ -92,6 +92,7 @@ type AccessEntitlement = {
 }
 
 type PaymentStateResponse = {
+  tokenBalance?: number
   promptpay: {
     id: string
     accountName: string
@@ -198,6 +199,23 @@ function getStatusTone(fixture: Fixture) {
   if (fixture.status.isFinished) return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
   if (fixture.status.isLive) return "border-red-500/30 bg-red-500/10 text-red-300"
   return "border-white/10 bg-white/5 text-slate-300"
+}
+
+function getWeekSummary(matches: Fixture[]) {
+  const finished = matches.filter((fixture) => fixture.status.isFinished).length
+  const live = matches.filter((fixture) => fixture.status.isLive).length
+  const firstDate = matches[0]?.date
+  const lastDate = matches[matches.length - 1]?.date
+  const dateFormatter = new Intl.DateTimeFormat("th-TH", { day: "numeric", month: "short" })
+
+  return {
+    finished,
+    live,
+    isComplete: matches.length > 0 && finished === matches.length,
+    dateLabel: firstDate
+      ? `${dateFormatter.format(new Date(firstDate))}${lastDate && lastDate !== firstDate ? ` - ${dateFormatter.format(new Date(lastDate))}` : ""}`
+      : "รอกำหนดวันแข่ง",
+  }
 }
 
 function getConfidenceTone(value: number | null) {
@@ -329,11 +347,11 @@ export default function AIPredictionPageClient() {
   const remainingCredits = activeEntitlements.reduce((sum, item) => {
     if (!item.active || item.targetType !== "credits" || item.targetId !== "prediction-access") return sum
     return sum + (typeof item.metadata?.remainingCredits === "number" ? item.metadata.remainingCredits : 0)
-  }, 0)
+  }, Number(paymentState?.tokenBalance || 0))
   const totalCreditLimit = activeEntitlements.reduce((sum, item) => {
     if (!item.active || item.targetType !== "credits" || item.targetId !== "prediction-access") return sum
     return sum + (typeof item.metadata?.creditsLimit === "number" ? item.metadata.creditsLimit : 0)
-  }, 0)
+  }, Number(paymentState?.tokenBalance || 0))
   const accessibleMatchesCount = hasDayPass ? (fixturesData?.totalMatches || fixtures.length) : unlockedFixtureIds.length
 
   const selectedPrediction = selectedFixture ? revealedPredictions[selectedFixture.id] ?? null : null
@@ -498,8 +516,13 @@ export default function AIPredictionPageClient() {
                 </div>
               </div>
 
-              <div ref={weekStripRef} className="grid auto-cols-[190px] grid-flow-col gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div ref={weekStripRef} className="grid auto-cols-[248px] grid-flow-col gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {weeks.map((item) => (
+                  (() => {
+                    const summary = getWeekSummary(item.matches)
+                    const progress = item.matches.length ? Math.round((summary.finished / item.matches.length) * 100) : 0
+
+                    return (
                   <button
                     key={item.week}
                     type="button"
@@ -508,16 +531,38 @@ export default function AIPredictionPageClient() {
                       setSelectedMatchId(item.matches[0]?.id || null)
                     }}
                     className={cn(
-                      "rounded-[24px] border px-4 py-4 text-left transition",
+                      "group relative overflow-hidden rounded-[24px] border px-4 py-4 text-left transition duration-200",
                       item.week === selectedWeek
-                        ? "border-primary bg-primary text-[#09110b] shadow-[0_0_0_1px_rgba(184,255,0,0.14)]"
-                        : "border-white/10 bg-white/[0.03] text-slate-200 hover:border-white/20 hover:bg-white/[0.05]",
+                        ? "border-primary bg-primary text-[#09110b] shadow-[0_0_0_1px_rgba(184,255,0,0.14),0_16px_34px_rgba(184,255,0,0.08)]"
+                        : "border-white/10 bg-white/[0.03] text-slate-200 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-white/[0.06]",
                     )}
                   >
-                    <p className="text-[11px] uppercase tracking-[0.22em] opacity-65">Week</p>
-                    <p className="mt-2 text-[30px] font-semibold leading-none">{item.week}</p>
-                    <p className="mt-3 text-sm opacity-75">{item.matches.length} คู่</p>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.22em] opacity-60">Matchweek</p>
+                        <p className="mt-1 text-3xl font-black leading-none">{String(item.week).padStart(2, "0")}</p>
+                      </div>
+                      <span className={cn(
+                        "rounded-full border px-2.5 py-1 text-[11px] font-bold",
+                        item.week === selectedWeek ? "border-[#09110b]/20 bg-[#09110b]/10" : summary.isComplete ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-200" : summary.live ? "border-red-400/25 bg-red-400/10 text-red-200" : "border-white/10 bg-white/5 text-slate-300",
+                      )}>
+                        {summary.isComplete ? "จบแล้ว" : summary.live ? "กำลังแข่ง" : "กำลังจะถึง"}
+                      </span>
+                    </div>
+                    <div className="mt-4 flex items-center gap-2 text-xs opacity-75">
+                      <CalendarDays className="h-3.5 w-3.5" />
+                      <span>{summary.dateLabel}</span>
+                    </div>
+                    <div className="mt-4 flex items-center justify-between text-xs font-semibold opacity-80">
+                      <span>{summary.finished}/{item.matches.length} คู่จบแล้ว</span>
+                      <span>{progress}%</span>
+                    </div>
+                    <div className={cn("mt-2 h-1.5 overflow-hidden rounded-full", item.week === selectedWeek ? "bg-[#09110b]/15" : "bg-white/10")}>
+                      <div className={cn("h-full rounded-full", item.week === selectedWeek ? "bg-[#09110b]/55" : "bg-primary")} style={{ width: `${progress}%` }} />
+                    </div>
                   </button>
+                    )
+                  })()
                 ))}
               </div>
             </section>
@@ -672,7 +717,7 @@ export default function AIPredictionPageClient() {
                                 "ดูผลทำนาย"
                               ) : (
                                 <>
-                                  ปลดล็อก 1 เหรียญ
+                                  {selectedFixture.status.isFinished ? "ดูผลทำนายย้อนหลัง 1 เหรียญ" : "ปลดล็อก 1 เหรียญ"}
                                   <Lock className="ml-2 h-4 w-4" />
                                 </>
                               )}
@@ -686,6 +731,16 @@ export default function AIPredictionPageClient() {
                           <div className="rounded-[24px] border border-rose-500/30 bg-rose-500/10 p-4 text-rose-100">
                             <p className="font-semibold">ปลดล็อกคู่นี้ไม่สำเร็จ</p>
                             <p className="mt-1 text-sm text-rose-100/80">{revealError}</p>
+                          </div>
+                        ) : null}
+
+                        {selectedFixture.status.isFinished && selectedFixture.goals.home != null && selectedFixture.goals.away != null ? (
+                          <div className="rounded-[24px] border border-emerald-500/25 bg-emerald-500/10 p-4 text-center">
+                            <p className="text-sm font-semibold text-emerald-200">ผลการแข่งขันจริง • จบแล้ว</p>
+                            <p className="mt-1 text-3xl font-black text-white">
+                              {selectedFixture.goals.home} - {selectedFixture.goals.away}
+                            </p>
+                            {!selectedPrediction ? <p className="mt-2 text-sm text-slate-300">ผลทำนาย AI ก่อนแข่งยังถูกล็อกอยู่</p> : null}
                           </div>
                         ) : null}
 

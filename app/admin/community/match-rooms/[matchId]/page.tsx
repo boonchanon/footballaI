@@ -40,6 +40,8 @@ type AdminMatchRoomItem = {
 type AdminMatchRoomDetailResponse = {
   fixture: { id: string; homeTeam: string; awayTeam: string; status: string; kickoff: string; dateThai: string; venue: string }
   channels: Array<{ roomType: string; state: string; opensAt?: string | null; closesAt?: string | null; archiveAt?: string | null; isArchived: boolean }>
+  previewTeam?: "home" | "away"
+  reactionTeam?: "home" | "away"
   demoOverride?: {
     providerPhase: "pre_match" | "live" | "full_time"
     effectivePhase: "pre_match" | "live" | "full_time"
@@ -79,6 +81,7 @@ export default function AdminMatchRoomDetailPage({ params }: { params: Promise<{
   const [data, setData] = useState<AdminMatchRoomDetailResponse | null>(null)
   const [tab, setTab] = useState("overview")
   const [page, setPage] = useState(1)
+  const [teamSide, setTeamSide] = useState<"home" | "away">("home")
   const [reason, setReason] = useState("")
   const [demoPhase, setDemoPhase] = useState<"auto" | "pre_match" | "live" | "full_time">("auto")
   const [demoReason, setDemoReason] = useState("")
@@ -101,12 +104,16 @@ export default function AdminMatchRoomDetailPage({ params }: { params: Promise<{
       return
     }
     const query = new URLSearchParams({ tab, page: String(page), limit: "20" })
+    if (tab === "preview") query.set("previewTeam", teamSide)
+    if (tab === "post_match") query.set("reactionTeam", teamSide)
     setLoading(true)
     try {
       const response = await fetchJson<AdminMatchRoomDetailResponse>(`/admin/community/match-rooms/${matchId}?${query.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       setData(response)
+      if (tab === "preview" && response.previewTeam) setTeamSide(response.previewTeam)
+      if (tab === "post_match" && response.reactionTeam) setTeamSide(response.reactionTeam)
       setDemoPhase(response.demoOverride?.overridePhase || "auto")
       setError("")
     } catch (loadError) {
@@ -118,7 +125,7 @@ export default function AdminMatchRoomDetailPage({ params }: { params: Promise<{
 
   useEffect(() => {
     void load()
-  }, [matchId, tab, page])
+  }, [matchId, tab, page, teamSide])
 
   async function submitAction(action: string, item?: AdminMatchRoomItem, roomType?: string) {
     if (!matchId) return
@@ -330,6 +337,16 @@ export default function AdminMatchRoomDetailPage({ params }: { params: Promise<{
           <CardHeader>
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <CardTitle>{tabs.find((item) => item.id === tab)?.label}</CardTitle>
+              {fixture && (tab === "preview" || tab === "post_match") ? (
+                <div className="flex gap-2">
+                  <Button type="button" variant={teamSide === "home" ? "default" : "outline"} onClick={() => setTeamSide("home")}>
+                    {fixture.homeTeam}
+                  </Button>
+                  <Button type="button" variant={teamSide === "away" ? "default" : "outline"} onClick={() => setTeamSide("away")}>
+                    {fixture.awayTeam}
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </CardHeader>
           <CardContent className="space-y-3">

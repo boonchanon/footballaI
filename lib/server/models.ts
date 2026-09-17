@@ -131,6 +131,7 @@ const userSchema =
       resetPasswordOtpAttempts: { type: Number, default: 0 },
       resetPasswordToken: { type: String, default: "" },
       resetPasswordExpiresAt: { type: Date, default: null },
+      tokenBalance: { type: Number, default: 0, min: 0 },
       moderationState: {
         warningsCount: { type: Number, default: 0 },
         postingRestrictedUntil: { type: Date, default: null },
@@ -187,6 +188,10 @@ if (models.User && !models.User.schema.path("moderationState")) {
       lastActionAt: { type: Date, default: null },
     },
   })
+}
+
+if (models.User && !models.User.schema.path("tokenBalance")) {
+  models.User.schema.add({ tokenBalance: { type: Number, default: 0, min: 0 } })
 }
 
 if (models.User && !models.User.schema.path("favoriteTeamIds")) {
@@ -942,6 +947,8 @@ const paymentOrderSchema =
       currency: { type: String, default: "THB" },
       status: { type: String, enum: paymentOrderStatusValues, default: "pending", index: true },
       paymentProvider: { type: String, default: "thunder" },
+        paymentProvider: { type: String, default: "easyslip" },
+        paymentProvider: { type: String, default: "easyslip" },
       targetType: { type: String, enum: ["credits", "daypass", "subscription"], required: true },
       targetId: { type: String, default: "", index: true },
       planInterval: { type: String, default: "month" },
@@ -993,6 +1000,23 @@ const paymentEntitlementSchema =
       amount: { type: Number, required: true, min: 1 },
       active: { type: Boolean, default: true, index: true },
       expiresAt: { type: Date, default: null, index: true },
+      metadata: { type: Schema.Types.Mixed, default: {} },
+    },
+    { timestamps: true },
+  )
+
+const tokenTransactionSchema =
+  models.TokenTransaction?.schema ||
+  new Schema(
+    {
+      user: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+      amount: { type: Number, required: true, min: 1 },
+      balanceAfter: { type: Number, required: true, min: 0 },
+      type: { type: String, enum: ["welcome_bonus", "purchase", "admin_grant", "prediction_unlock"], required: true, index: true },
+      description: { type: String, required: true, trim: true },
+      idempotencyKey: { type: String, required: true, unique: true, index: true },
+      order: { type: Schema.Types.ObjectId, ref: "PaymentOrder", default: null, index: true },
+      actorAdmin: { type: Schema.Types.ObjectId, ref: "Admin", default: null },
       metadata: { type: Schema.Types.Mixed, default: {} },
     },
     { timestamps: true },
@@ -1217,6 +1241,7 @@ export const ModerationLog = models.ModerationLog || model("ModerationLog", mode
 export const Prediction = models.Prediction || model("Prediction", predictionSchema)
 export const PaymentOrder = models.PaymentOrder || model("PaymentOrder", paymentOrderSchema)
 export const PaymentEntitlement = models.PaymentEntitlement || model("PaymentEntitlement", paymentEntitlementSchema)
+export const TokenTransaction = models.TokenTransaction || model("TokenTransaction", tokenTransactionSchema)
 export const Subscription = models.Subscription || model("Subscription", subscriptionSchema)
 export const PremierLeagueFixture = models.PremierLeagueFixture || model("PremierLeagueFixture", premierLeagueFixtureSchema)
 export const PremierLeagueTeam = models.PremierLeagueTeam || model("PremierLeagueTeam", premierLeagueTeamSchema)

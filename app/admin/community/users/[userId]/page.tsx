@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import type React from "react"
 import Link from "next/link"
-import { ArrowLeft, Ban, CheckCircle, Clock, ShieldAlert, TriangleAlert } from "lucide-react"
+import { ArrowLeft, Ban, CheckCircle, Clock, Coins, ShieldAlert, TriangleAlert } from "lucide-react"
 
 import {
   AdminActionDialog,
@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { fetchJson } from "@/lib/api-client"
 
@@ -43,6 +44,7 @@ type DetailResponse = {
     bio: string
     moderationState: ModerationState
     communityStats: { posts: number; comments: number; pollVotes: number; matchRoomPosts: number; followedMatchRooms: number; reportsAgainst: number }
+    tokenBalance: number
   }
   posts: Array<{ id: string; title: string; contentType: string; status: string; moderationStatus: string; reportsCount: number; timeAgo: string }>
   reportsAgainst: Array<{ id: string; reason: string; targetType: string; status: string; timeAgo: string }>
@@ -66,6 +68,7 @@ export default function AdminCommunityUserDetailPage({ params }: { params: Promi
   const [loading, setLoading] = useState(true)
   const [acting, setActing] = useState("")
   const [error, setError] = useState("")
+  const [tokenAmount, setTokenAmount] = useState("5")
 
   useEffect(() => {
     void params.then((value) => setUserId(value.userId))
@@ -96,7 +99,12 @@ export default function AdminCommunityUserDetailPage({ params }: { params: Promi
     try {
       await fetchJson(`/admin/community/users/${data.user.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ action: pendingAction.action, reason: reason.trim(), duration }),
+        body: JSON.stringify({
+          action: pendingAction.action,
+          reason: reason.trim(),
+          duration,
+          ...(pendingAction.action === "grant_tokens" ? { amount: Number(tokenAmount), idempotencyKey: crypto.randomUUID() } : {}),
+        }),
       })
       setPendingAction(null)
       setReason("")
@@ -171,6 +179,7 @@ export default function AdminCommunityUserDetailPage({ params }: { params: Promi
                 { label: "Room posts", value: data.user.communityStats.matchRoomPosts, icon: ShieldAlert as StatIcon, tone: "info" as const },
                 { label: "Reports", value: data.user.communityStats.reportsAgainst, icon: TriangleAlert as StatIcon, tone: "pending" as const },
                 { label: "Warnings", value: data.user.moderationState.warningsCount, icon: Clock as StatIcon, tone: "restricted" as const },
+                { label: "Token", value: data.user.tokenBalance, icon: Coins as StatIcon, tone: "active" as const },
               ].map((item) => <AdminStatCard key={item.label} label={item.label} value={item.value} icon={item.icon} tone={item.tone} />)}
             </div>
 
@@ -213,6 +222,13 @@ export default function AdminCommunityUserDetailPage({ params }: { params: Promi
               <div>
                 <p className="font-semibold">Moderation Actions</p>
                 <p className="text-sm text-muted-foreground">ทุก action ต้องมี reason และบันทึก audit</p>
+              </div>
+              <Button className="w-full justify-start" variant="outline" disabled={Boolean(acting)} onClick={() => openAction({ action: "grant_tokens", title: "เพิ่ม Token ให้ผู้ใช้", confirmLabel: "เพิ่ม Token", impact: `ยอดปัจจุบัน ${data.user.tokenBalance} Token` })}>
+                <Coins className="mr-2 h-4 w-4" />เพิ่ม Token
+              </Button>
+              <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-3">
+                <label className="text-sm font-medium" htmlFor="token-amount">จำนวน Token</label>
+                <Input id="token-amount" type="number" min={1} max={100000} value={tokenAmount} onChange={(event) => setTokenAmount(event.target.value)} />
               </div>
               <Button className="w-full justify-start" variant="outline" disabled={Boolean(acting)} onClick={() => openAction({ action: "warn", title: "Warn Community User", confirmLabel: "Warn User", impact: "ส่งคำเตือนให้ผู้ใช้ โดยไม่ปิดสิทธิ์การใช้งาน Community" })}>
                 <TriangleAlert className="mr-2 h-4 w-4" />Warn

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 
 import { getMatchDemoRoomAvailabilityPhase } from "@/lib/match-demo-override"
+import { normalizeTeamPreviewSide, normalizeTeamReactionSide } from "@/lib/match-preview-lounges"
 import {
   buildAdminPollFilter,
   buildAdminRoomMessageFilter,
@@ -140,6 +141,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const searchParams = request.nextUrl.searchParams
     const tab = normalizeAdminMatchRoomContentTab(searchParams.get("tab"))
     const roomType = normalizeMatchRoomType(searchParams.get("roomType") || (["main", "tactics", "preview", "post_match"].includes(tab) ? tab : "main"))
+    const previewTeam = normalizeTeamPreviewSide(searchParams.get("previewTeam")) || "home"
+    const reactionTeam = normalizeTeamReactionSide(searchParams.get("reactionTeam")) || "home"
     const { page, limit, skip } = parsePagination(searchParams)
     const overview = await getOverview(matchId)
     const demoOverride = await getMatchDemoOverrideState(matchId, fixture)
@@ -148,7 +151,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     let items: any[] = []
     let total = 0
     if (tab === "main" || tab === "tactics" || tab === "preview" || tab === "post_match") {
-      const filter = buildAdminRoomMessageFilter(matchId, tab)
+      const filter = buildAdminRoomMessageFilter(matchId, tab, { previewTeam, reactionTeam })
       if (!filter) return errorResponse("Invalid room type", 422)
       const [rows, count] = await Promise.all([
         CommunityPost.find(filter).populate("author", "name avatar role").sort({ createdAt: -1 }).skip(skip).limit(limit),
@@ -221,6 +224,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       overview,
       tab,
       roomType,
+      previewTeam,
+      reactionTeam,
       items,
       pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
     })

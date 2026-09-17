@@ -1,4 +1,5 @@
 import { type AdminRole } from "@/lib/admin-access"
+import { buildTeamPreviewLoungeTag, buildTeamReactionLoungeTag, normalizeTeamPreviewSide, normalizeTeamReactionSide } from "@/lib/match-preview-lounges"
 
 import { MATCH_ROOM_TYPES, normalizeMatchRoomType, type MatchRoomType } from "./community-room-conversation"
 
@@ -61,15 +62,33 @@ export function isTemporaryMatchRoomType(roomType: unknown): roomType is Extract
   return roomType === "preview" || roomType === "post_match"
 }
 
-export function buildAdminRoomMessageFilter(matchId: string, roomType: unknown) {
+export function buildAdminRoomMessageFilter(
+  matchId: string,
+  roomType: unknown,
+  options?: { previewTeam?: unknown; reactionTeam?: unknown },
+) {
   const normalizedRoomType = normalizeMatchRoomType(roomType)
   if (!normalizedRoomType) return null
-  return {
+  const filter: Record<string, unknown> = {
     matchId,
     roomType: normalizedRoomType,
     isRoomMessage: true,
     contentType: "room_message",
   }
+
+  if (normalizedRoomType === "preview") {
+    const previewTeam = normalizeTeamPreviewSide(options?.previewTeam)
+    if (!previewTeam) return null
+    filter.tags = buildTeamPreviewLoungeTag(previewTeam)
+  }
+
+  if (normalizedRoomType === "post_match") {
+    const reactionTeam = normalizeTeamReactionSide(options?.reactionTeam)
+    if (!reactionTeam) return null
+    filter.tags = buildTeamReactionLoungeTag(reactionTeam)
+  }
+
+  return filter
 }
 
 export function buildAdminThreadFilter(matchId: string) {

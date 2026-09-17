@@ -10,6 +10,7 @@ import {
   Bookmark,
   CalendarDays,
   Camera,
+  Coins,
   Edit,
   Heart,
   Images,
@@ -197,6 +198,10 @@ export function ProfilePage() {
   const { data: activityData, mutate: mutateActivity } = useSWR(
     token ? ["/users/me/activity", token] : null,
     ([url, authToken]) => authorizedFetcher<any>(url, authToken),
+  )
+  const { data: tokenData } = useSWR(
+    token ? ["/tokens/me", token] : null,
+    ([url, authToken]) => authorizedFetcher<{ balance: number; transactions: Array<{ id: string; amount: number; balanceAfter: number; type: string; description: string; order?: { productName: string; amount: number; currency: string; status: string } | null; createdAt: string }> }>(url, authToken),
   )
 
   const stableUserId = user?.id || profileData?.user?.id || ""
@@ -1099,6 +1104,22 @@ export function ProfilePage() {
                       <span className="min-w-0 truncate text-sm">{team.title}</span>
                     </div>
                   )) : currentUser.favoriteTeam ? <p className="text-sm">{currentUser.favoriteTeam}</p> : <p className="text-sm text-muted-foreground">ยังไม่มีทีมโปรด</p>}
+                </div>
+              </section>
+              <section className={`${panelClass} p-4`}>
+                <div className="flex items-center justify-between">
+                  <h2 className="flex items-center gap-2 text-sm font-semibold"><Coins className="h-4 w-4 text-primary" /> Token</h2>
+                  <span className="text-xl font-bold text-primary">{tokenData?.balance ?? 0}</span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">ยอดคงเหลือสำหรับปลดล็อกผลลัพธ์</p>
+                <div className="mt-3 space-y-2">
+                  {tokenData?.transactions?.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between border-t border-border/60 pt-2 text-xs">
+                      <div className="min-w-0 pr-3"><p className="truncate">{item.order?.productName || item.description}</p><p className="text-muted-foreground">{new Date(item.createdAt).toLocaleDateString("th-TH")}{item.order ? ` • ${item.order.amount} ${item.order.currency} • ${item.order.status}` : ""}</p></div>
+                      <span className={`shrink-0 font-semibold ${item.type === "prediction_unlock" ? "text-red-600" : "text-emerald-600"}`}>{item.type === "prediction_unlock" ? "-" : "+"}{item.amount}</span>
+                    </div>
+                  ))}
+                  {!tokenData?.transactions?.length ? <p className="text-xs text-muted-foreground">ยังไม่มีประวัติ Token</p> : null}
                 </div>
               </section>
               <section className={`${panelClass} p-4`}>

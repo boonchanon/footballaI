@@ -1,6 +1,6 @@
 import { Footer } from "@/components/footer"
 import { Navigation } from "@/components/navigation"
-import { WorldcupPredictionPaymentPage } from "@/components/worldcup-prediction-payment-page"
+import { PredictionPaymentPage } from "@/components/prediction-payment-page"
 import { WorldcupSubnav } from "@/components/worldcup-subnav"
 
 type PaymentRoutePageProps = {
@@ -22,7 +22,7 @@ export default async function WorldCupPredictionPaymentRoute({ searchParams }: P
         <div className="container mx-auto px-4 pt-8">
           <WorldcupSubnav />
         </div>
-        <WorldcupPredictionPaymentPage
+        <PredictionPaymentPage
           round={params.round}
           fixtureId={params.fixtureId}
           home={params.home}

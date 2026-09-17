@@ -11,6 +11,7 @@ import {
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, getTimeAgoThai, ok, parsePagination } from "@/lib/server/http"
 import { Comment, CommunityPost, CommunityReport, ModerationLog, User } from "@/lib/server/models"
+import { addTokens } from "@/lib/server/tokens"
 
 const USER_ACTIONS = new Set<UserModerationAction>(["warn", "restrict", "clear_restriction", "suspend", "unsuspend", "ban", "unban"])
 
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const { userId } = await params
     const { limit } = parsePagination(request.nextUrl.searchParams)
 
-    const user = await User.findById(userId).select("name email avatar favoriteTeam role bio moderationState communityStats followedMatchRooms createdAt")
+    const user = await User.findById(userId).select("name email avatar favoriteTeam role bio moderationState communityStats followedMatchRooms tokenBalance createdAt")
     if (!user) return errorResponse("User not found", 404)
 
     const [posts, commentsCount, reportsAgainst, history] = await Promise.all([
@@ -87,6 +88,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         avatar: user.avatar || "",
         favoriteTeam: user.favoriteTeam || "",
         role: user.role || "user",
+        tokenBalance: Number(user.tokenBalance || 0),
         bio: user.bio || "",
         createdAt: user.createdAt,
         moderationState: mapModerationState(user),
@@ -136,6 +138,26 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const action = String(body.action || "").trim() as UserModerationAction
     const reason = sanitizeReason(body.reason)
     const duration = normalizeRestrictionDuration(body.duration)
+
+    if (action === "grant_tokens") {
+      const amount = Number(body.amount)
+      if (!Number.isInteger(amount) || amount <= 0 || amount > 100000) return errorResponse("จำนวน Token ไม่ถูกต้อง", 422)
+      if (reason.length < 6) return errorResponse("Reason is required", 422)
+      const user = await User.findById(userId).select("name email tokenBalance")
+      if (!user) return errorResponse("User not found", 404)
+      const idempotencyKey = String(body.idempotencyKey || request.headers.get("x-idempotency-key") || "").trim()
+      if (!idempotencyKey) return errorResponse("Idempotency key is required", 422)
+      const transaction = await addTokens({
+        userId,
+        amount,
+        type: "admin_grant",
+        description: reason,
+        idempotencyKey: `admin-grant:${idempotencyKey}`,
+        actorAdminId: admin._id.toString(),
+        metadata: { reason, actorRole: admin.role },
+      })
+      return ok({ success: true, transaction, tokenBalance: Number((await User.findById(userId).select("tokenBalance").lean())?.tokenBalance || 0) })
+    }
 
     if (!USER_ACTIONS.has(action)) return errorResponse("Invalid action", 422)
     if (reason.length < 6) return errorResponse("Reason is required", 422)

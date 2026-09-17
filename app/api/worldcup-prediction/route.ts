@@ -4,6 +4,7 @@ import { FOOTBALL_PREDICTION_API_BASE_URL, parsePredictionResponse } from "@/lib
 import { requireAuthUser } from "@/lib/server/auth"
 import { connectDatabase } from "@/lib/server/db"
 import { PaymentEntitlement } from "@/lib/server/models"
+import { consumeToken } from "@/lib/server/tokens"
 
 export const maxDuration = 60
 
@@ -87,6 +88,11 @@ export async function POST(req: NextRequest) {
           creditEntitlementToConsume = entitlement
         }
       }
+    }
+
+    if (!unlocked && !creditEntitlementToConsume) {
+      const tokenTransaction = await consumeToken(user._id.toString(), `prediction-unlock:worldcup:${fixtureId}`, { fixtureId })
+      unlocked = Boolean(tokenTransaction)
     }
 
     if (!unlocked && !creditEntitlementToConsume) {

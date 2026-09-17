@@ -143,6 +143,13 @@ type RoundOption = {
 }
 
 type ActualOutcomeStatus = "correct" | "incorrect" | "pending" | "unavailable"
+type ActualOutcomeDetail =
+  | "exact"
+  | "winner-only"
+  | "score-side-swapped"
+  | "wrong"
+  | "pending"
+  | "unavailable"
 
 type PredictionAuditEntry = {
   fixtureId: string
@@ -246,8 +253,12 @@ const predictionAuditByRound: Record<FixtureRoundKey, PredictionAuditEntry[]> = 
     { fixtureId: "wc26-sf-fra-esp", predictedResult: "Away win", predictedScore: "0-1", actualScore: "0-2", actualWinner: "away" },
     { fixtureId: "wc26-sf-eng-arg", predictedResult: "Home win", predictedScore: "1-0", actualScore: "1-2", actualWinner: "away" },
   ],
-  thirdplace: [],
-  final: [],
+  thirdplace: [
+    { fixtureId: "wc26-3p-fra-eng", predictedResult: "Home win", predictedScore: "2-1", actualScore: "1-2", actualWinner: "away" },
+  ],
+  final: [
+    { fixtureId: "wc26-final-esp-arg", predictedResult: "Away win", predictedScore: "1-2", actualScore: "2-1", actualWinner: "home" },
+  ],
 }
 
 type PredictionApiResponse = {
@@ -385,11 +396,50 @@ function getPredictionOutcomeStatus(entry: PredictionAuditEntry): ActualOutcomeS
   return "incorrect"
 }
 
+function normalizeScorePair(score: string) {
+  const match = score.match(/(\d+)\s*-\s*(\d+)/)
+  if (!match) return null
+  return {
+    home: Number(match[1]),
+    away: Number(match[2]),
+  }
+}
+
+function getPredictionOutcomeDetail(entry: PredictionAuditEntry): ActualOutcomeDetail {
+  const status = getPredictionOutcomeStatus(entry)
+  if (status === "pending") return "pending"
+  if (status === "unavailable") return "unavailable"
+
+  const predicted = normalizeScorePair(entry.predictedScore)
+  const actual = normalizeScorePair(entry.actualScore)
+
+  if (predicted && actual) {
+    if (predicted.home === actual.home && predicted.away === actual.away) {
+      return "exact"
+    }
+    if (predicted.home === actual.away && predicted.away === actual.home) {
+      return "score-side-swapped"
+    }
+  }
+
+  if (status === "correct") return "winner-only"
+  return "wrong"
+}
+
 function getPredictionStatusLabel(status: ActualOutcomeStatus) {
   if (status === "correct") return "ทายถูก"
   if (status === "incorrect") return "ทายผิด"
   if (status === "unavailable") return "ข้อมูลไม่ครบ"
   return "ยังไม่แข่ง"
+}
+
+function getPredictionDetailLabel(detail: ActualOutcomeDetail) {
+  if (detail === "exact") return "ทายสกอร์ตรง"
+  if (detail === "winner-only") return "ทายทีมชนะถูก"
+  if (detail === "score-side-swapped") return "สกอร์ตรงแต่ผิดฝั่ง"
+  if (detail === "wrong") return "ทายผิด"
+  if (detail === "unavailable") return "ข้อมูลไม่ครบ"
+  return "รอผล"
 }
 
 function getPredictionStatusTone(status: ActualOutcomeStatus) {
@@ -485,11 +535,70 @@ export function WorldcupPredictionPanel() {
           const fixture = activeFixtures.find((item) => item.id === entry.fixtureId)
           if (!fixture) return null
           const status = getPredictionOutcomeStatus(entry)
-          return { fixture, entry, status }
+          const detail = getPredictionOutcomeDetail(entry)
+          return { fixture, entry, status, detail }
         })
-        .filter(Boolean) as Array<{ fixture: FeaturedFixture; entry: PredictionAuditEntry; status: ActualOutcomeStatus }>,
+        .filter(Boolean) as Array<{ fixture: FeaturedFixture; entry: PredictionAuditEntry; status: ActualOutcomeStatus; detail: ActualOutcomeDetail }>,
     [activeFixtures, activeRound],
   )
+
+  const tournamentAuditByRound = useMemo(
+    () =>
+      roundOptions
+        .filter((option) => option.enabled)
+        .map((option) => {
+          const fixtures = fixturesByRound[option.key]
+          const items = predictionAuditByRound[option.key]
+            .map((entry) => {
+              const fixture = fixtures.find((item) => item.id === entry.fixtureId)
+              if (!fixture) return null
+              const status = getPredictionOutcomeStatus(entry)
+              const detail = getPredictionOutcomeDetail(entry)
+              return { fixture, entry, status, detail }
+            })
+            .filter(Boolean) as Array<{ fixture: FeaturedFixture; entry: PredictionAuditEntry; status: ActualOutcomeStatus; detail: ActualOutcomeDetail }>
+
+          const played = items.filter((item) => item.status === "correct" || item.status === "incorrect")
+          const correct = played.filter((item) => item.status === "correct").length
+          const pending = items.filter((item) => item.status === "pending").length
+          const unavailable = items.filter((item) => item.status === "unavailable").length
+
+          return {
+            round: option,
+            items,
+            summary: {
+              total: items.length,
+              played: played.length,
+              correct,
+              incorrect: played.length - correct,
+              pending,
+              unavailable,
+              accuracy: played.length > 0 ? Math.round((correct / played.length) * 100) : 0,
+            },
+          }
+        }),
+    [],
+  )
+
+  const tournamentAuditSummary = useMemo(() => {
+    const totals = tournamentAuditByRound.reduce(
+      (accumulator, item) => {
+        accumulator.total += item.summary.total
+        accumulator.played += item.summary.played
+        accumulator.correct += item.summary.correct
+        accumulator.incorrect += item.summary.incorrect
+        accumulator.pending += item.summary.pending
+        accumulator.unavailable += item.summary.unavailable
+        return accumulator
+      },
+      { total: 0, played: 0, correct: 0, incorrect: 0, pending: 0, unavailable: 0 },
+    )
+
+    return {
+      ...totals,
+      accuracy: totals.played > 0 ? Math.round((totals.correct / totals.played) * 100) : 0,
+    }
+  }, [tournamentAuditByRound])
 
   const auditSummary = useMemo(() => {
     const played = activePredictionAudit.filter((item) => item.status === "correct" || item.status === "incorrect")
@@ -730,7 +839,7 @@ export function WorldcupPredictionPanel() {
         home: form.home_team,
         away: form.away_team,
       })
-      router.push(`/worldcup-2026/predictions/payment?${paymentQuery.toString()}`)
+      router.push(`/payment?${paymentQuery.toString()}`)
       return
     }
 
@@ -784,20 +893,20 @@ export function WorldcupPredictionPanel() {
     <section className="relative overflow-hidden border-t border-border py-14">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(184,255,0,0.06),transparent_28%),linear-gradient(180deg,#121212_0%,#1a1a1a_100%)]" />
 
-      <div className="relative container mx-auto px-4">
+        <div className="relative container mx-auto px-4">
         <div className="mx-auto mb-10 max-w-4xl text-center">
           <Badge variant="outline" className="mb-5 border-primary/30 bg-primary/10 px-4 py-1.5 text-primary">
             <Brain className="mr-2 h-3.5 w-3.5" />
-            Prediction Studio
+            Tournament Recap
           </Badge>
           <h2 className="text-4xl font-display leading-tight md:text-6xl">
-            World Cup Knockout Predictions
+            สรุปผลทำนายฟุตบอลโลก 2026
             <span className="block bg-gradient-to-r from-white via-zinc-200 to-primary bg-clip-text text-transparent">
-              เลือกรอบ แล้วค่อยเลือกคู่
+              ทัวร์นาเมนต์สิ้นสุดแล้ว
             </span>
           </h2>
           <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-muted-foreground md:text-lg">
-            รองรับตั้งแต่รอบ 32 ทีม, รอบ 16 ทีม, รอบ 8 ทีม, รอบ 4 ทีม, ชิงอันดับ 3 ไปจนถึงนัดชิงในหน้าเดียว
+            หน้านี้ปิดการทำนายและการปลดล็อกผลแล้ว เหลือเฉพาะหน้าสรุปว่าระบบทายถูกหรือผิดในแต่ละรอบตั้งแต่รอบ 32 ทีมจนถึงนัดชิงชนะเลิศ
           </p>
         </div>
 
@@ -822,61 +931,35 @@ export function WorldcupPredictionPanel() {
         </div>
 
         <div className="mb-6">
-          <Card className="w-full max-w-[460px] overflow-hidden border-primary/20 bg-[linear-gradient(135deg,rgba(184,255,0,0.07),rgba(255,255,255,0.015))] shadow-[0_18px_40px_rgba(0,0,0,0.16)]">
+          <Card className="overflow-hidden border-amber-400/20 bg-[linear-gradient(135deg,rgba(250,204,21,0.08),rgba(255,255,255,0.02))] shadow-[0_18px_40px_rgba(0,0,0,0.16)]">
             <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <Badge className="bg-primary text-primary-foreground">เครดิตทำนาย</Badge>
-                    {!hasDayPass ? (
-                      <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
-                        {remainingCredits} / {totalCreditLimit}
-                      </Badge>
-                    ) : null}
+                    <Badge className="bg-amber-400 text-black">Tournament Ended</Badge>
+                    <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
+                      Accuracy รวม {tournamentAuditSummary.accuracy}%
+                    </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {hasDayPass ? "แพ็กไม่จำกัด ใช้งานได้ทุกคู่" : "หลอดการใช้เครดิต"}
+                  <p className="text-sm text-muted-foreground">
+                    ตอนนี้ระบบปิดฟังก์ชันทำนายแล้ว ผู้ใช้จะไม่สามารถกดดูผลใหม่หรือซื้อสิทธิ์ปลดล็อกในหน้านี้ได้
                   </p>
                 </div>
-                <p className="shrink-0 text-sm font-semibold text-primary">
-                  {hasDayPass ? "ไม่จำกัด" : `${usedCredits}/${Math.max(totalCreditLimit, 0)}`}
-                </p>
-              </div>
-
-              <Progress
-                value={hasDayPass ? 100 : creditProgressValue}
-                className={cn(
-                  "mt-3 h-2.5 bg-white/10",
-                  hasDayPass && "[&_[data-slot=progress-indicator]]:bg-emerald-400",
-                  !hasDayPass && "[&_[data-slot=progress-indicator]]:bg-primary",
-                )}
-              />
-
-              <div className="mt-3 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                <span>{hasDayPass ? `ปลดล็อกแล้ว ${totalKnockoutMatches} คู่` : "เริ่มต้น"}</span>
-                <span>{hasDayPass ? "พร้อมทุกคู่" : `เหลือ ${remainingCredits} เครดิต`}</span>
-              </div>
-              <Button
-                type="button"
-                onClick={() => {
-                  const paymentQuery = new URLSearchParams({
-                    round: activeRound,
-                    fixtureId: selectedFixtureId,
-                    home: form.home_team,
-                    away: form.away_team,
-                  })
-                  router.push(`/worldcup-2026/predictions/payment?${paymentQuery.toString()}`)
-                }}
-                className="mt-4 h-[72px] w-full rounded-[18px] bg-primary px-4 text-left text-primary-foreground hover:bg-primary/90"
-              >
-                <div className="flex w-full items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold">เติมเครดิต</p>
-                    <p className="mt-1 text-[11px] text-primary-foreground/80">ไปหน้าซื้อแพ็ก</p>
+                <div className="grid gap-3 md:min-w-[420px] md:grid-cols-3">
+                  <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
+                    <p className="text-xs text-muted-foreground">ทายถูก</p>
+                    <p className="mt-2 text-2xl font-semibold">{tournamentAuditSummary.correct}</p>
                   </div>
-                  <Sparkles className="h-5 w-5 shrink-0" />
+                  <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
+                    <p className="text-xs text-muted-foreground">ทายผิด</p>
+                    <p className="mt-2 text-2xl font-semibold">{tournamentAuditSummary.incorrect}</p>
+                  </div>
+                  <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
+                    <p className="text-xs text-muted-foreground">ใช้วัดได้</p>
+                    <p className="mt-2 text-2xl font-semibold">{tournamentAuditSummary.played}/{tournamentAuditSummary.total}</p>
+                  </div>
                 </div>
-              </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -884,13 +967,13 @@ export function WorldcupPredictionPanel() {
         <div className="grid gap-6 xl:grid-cols-[460px_minmax(0,1fr)]">
           <Card className="overflow-hidden border-border/70 bg-card/90 shadow-[0_24px_60px_rgba(0,0,0,0.2)]">
             <CardHeader className="border-b border-border/60 pb-5">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <CardTitle className="text-2xl">Upcoming Matches</CardTitle>
-                  <p className="mt-1 text-sm text-muted-foreground">{activeRoundMeta.label} • เลือกคู่ที่อยากดู แล้วค่อยโหลดผลทำนาย</p>
-                </div>
-                <Badge className="bg-primary text-primary-foreground">{activeFixtures.length} คู่</Badge>
-              </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <CardTitle className="text-2xl">Tournament Matches</CardTitle>
+                      <p className="mt-1 text-sm text-muted-foreground">{activeRoundMeta.label} • เลือกคู่เพื่อดูว่าผลทำนายเดิมตรงกับผลจริงหรือไม่</p>
+                    </div>
+                    <Badge className="bg-primary text-primary-foreground">{activeFixtures.length} คู่</Badge>
+                  </div>
             </CardHeader>
 
             <CardContent className="p-0">
@@ -900,10 +983,8 @@ export function WorldcupPredictionPanel() {
                   const fixtureFinished = auditItem ? auditItem.status !== "pending" : isFixturePast(fixture.dateLabel)
                   const fixturePredictedCorrect = auditItem?.status === "correct"
                   const isSelected = selectedFixtureId === fixture.id
-                  const isUnlocked = hasDayPass || unlockedFixtureIds.includes(fixture.id)
-                  const canUnlockNow = !isUnlocked && remainingCredits > 0
                   const isPremiumFixture = activeRound === "thirdplace" || activeRound === "final"
-                  const isLocked = isPremiumFixture && !isUnlocked
+                  const isLocked = false
 
                   return (
                     <AccordionItem
@@ -925,12 +1006,9 @@ export function WorldcupPredictionPanel() {
                                   <CheckCircle2 className="mr-1 h-3 w-3" />
                                   ทายถูก
                                 </Badge>
-                              ) : isUnlocked ? (
-                                <Badge className="bg-primary text-primary-foreground">ปลดล็อกแล้ว</Badge>
-                              ) : isLocked ? (
-                                <Badge variant="outline" className="border-zinc-500/50 bg-zinc-500/10 text-zinc-300">
-                                  <Lock className="mr-1 h-3 w-3" />
-                                  ล็อก
+                              ) : auditItem ? (
+                                <Badge variant="outline" className="border-white/10 bg-white/5 text-slate-300">
+                                  สรุปผลแล้ว
                                 </Badge>
                               ) : null}
                             </div>
@@ -952,13 +1030,9 @@ export function WorldcupPredictionPanel() {
                           </div>
 
                           <p className="mt-3 text-center text-xs uppercase tracking-[0.18em] text-muted-foreground">{fixture.dateLabel}</p>
-                          {isLocked ? (
-                            <p className="mt-3 text-center text-xs text-zinc-400">
-                              {canUnlockNow ? "ใช้เครดิตปลดล็อกคู่นี้ได้" : "คู่นี้ยังถูกล็อกอยู่ ต้องซื้อแพ็กเกจก่อน"}
-                            </p>
-                          ) : fixtureFinished ? (
+                          {fixtureFinished ? (
                             <p className="mt-3 text-center text-xs text-emerald-300">
-                              คู่ที่ผ่านมาแล้ว เปิดดูสรุปผลการแข่งขันได้
+                              คู่ที่ผ่านมาแล้ว เปิดดูผลสรุปการทำนายได้
                             </p>
                           ) : null}
                         </div>
@@ -987,14 +1061,17 @@ export function WorldcupPredictionPanel() {
                               <Button type="button" onClick={() => handleFixtureSelect(fixture)} className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90">
                                 เลือกคู่นี้
                               </Button>
-                              <Button type="button" variant="outline" onClick={handlePredict} disabled={loading || (fixtureFinished && !isPremiumFixture)} className="rounded-full">
-                                {loading && selectedFixtureId === fixture.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                                {fixtureFinished && !isPremiumFixture ? "แข่งจบแล้ว" : isUnlocked ? "ดูผลทำนาย" : canUnlockNow ? "ใช้เครดิตปลดล็อก" : "ซื้อก่อนดูผล"}
+                              <Button type="button" variant="outline" disabled className="rounded-full">
+                                <Lock className="mr-2 h-4 w-4" />
+                                ทัวร์นาเมนต์สิ้นสุดแล้ว
                               </Button>
                             </div>
 
                             {auditItem ? (
                               <div className="mt-4 rounded-[20px] border border-border/60 bg-card/70 p-4">
+                                {(() => {
+                                  const AuditStatusIcon = getPredictionStatusIcon(auditItem.status)
+                                  return (
                                 <div className="flex flex-wrap items-start justify-between gap-3">
                                   <div>
                                     <p className="text-xs text-muted-foreground">สรุปผลการแข่งขัน</p>
@@ -1002,22 +1079,31 @@ export function WorldcupPredictionPanel() {
                                       {fixture.home_team} {auditItem.entry.actualScore} {fixture.away_team}
                                     </p>
                                     <p className="mt-1 text-sm text-muted-foreground">
-                                      {auditItem.status === "correct"
-                                        ? "ผลทำนายตรงกับผลจริง"
-                                        : auditItem.status === "incorrect"
-                                          ? "มีผลจริงแล้ว สามารถย้อนดูคำตอบที่ทำนายไว้ได้ด้านล่าง"
-                                          : auditItem.status === "unavailable"
-                                            ? "มีผลจริง แต่ข้อมูลทำนายไม่ครบ"
-                                            : "กำลังรอผลการแข่งขัน"}
+                                      {auditItem.detail === "exact"
+                                        ? "ทายผลและสกอร์ตรงกับผลจริง"
+                                        : auditItem.detail === "winner-only"
+                                          ? "ทายทีมชนะถูก แต่สกอร์ยังไม่ตรง"
+                                          : auditItem.detail === "score-side-swapped"
+                                            ? "ตัวเลขสกอร์ตรง แต่ทายกลับฝั่งกับผลจริง"
+                                            : auditItem.status === "incorrect"
+                                              ? "มีผลจริงแล้ว สามารถย้อนดูคำตอบที่ทำนายไว้ได้ด้านล่าง"
+                                              : auditItem.status === "unavailable"
+                                                ? "มีผลจริง แต่ข้อมูลทำนายไม่ครบ"
+                                                : "กำลังรอผลการแข่งขัน"}
                                     </p>
                                   </div>
-                                  {auditItem.status === "correct" ? (
-                                    <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">
-                                      <CheckCircle2 className="h-3.5 w-3.5" />
-                                      พรีดิกถูก
-                                    </div>
-                                  ) : null}
+                                  <div
+                                    className={cn(
+                                      "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold",
+                                      getPredictionStatusTone(auditItem.status),
+                                    )}
+                                  >
+                                    <AuditStatusIcon className="h-3.5 w-3.5" />
+                                    {getPredictionDetailLabel(auditItem.detail)}
+                                  </div>
                                 </div>
+                                  )
+                                })()}
 
                                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                                   <div className="rounded-2xl border border-border/60 bg-background/60 p-3">
@@ -1050,181 +1136,127 @@ export function WorldcupPredictionPanel() {
           </Card>
 
           <div className="space-y-6">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Prediction Error</AlertTitle>
-                <AlertDescription>{friendlyError}</AlertDescription>
-              </Alert>
-            )}
-
-            {!result && !error && (
-              <Card className="border-border/70 bg-card/90">
-                <CardContent className="flex min-h-[420px] flex-col items-center justify-center px-6 py-10 text-center">
-                  <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-[28px] bg-primary/10 text-primary">
-                    <Target className="h-10 w-10" />
+            <Card className="border-border/70 bg-card/90">
+              <CardContent className="p-6">
+                <div className="rounded-[28px] border border-amber-400/20 bg-amber-400/10 p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="max-w-2xl">
+                      <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-1.5 text-sm text-amber-200">
+                        <Lock className="h-4 w-4" />
+                        Tournament Closed
+                      </div>
+                      <h3 className="text-3xl font-display leading-tight text-white md:text-4xl">ระบบทำนายฟุตบอลโลก 2026 ปิดแล้ว</h3>
+                      <p className="mt-3 text-sm leading-7 text-slate-300 md:text-base">
+                        หลังจบทัวร์นาเมนต์ หน้านี้จะไม่เปิดให้กดทำนายหรือปลดล็อกผลเพิ่มอีกต่อไป และเปลี่ยนเป็นหน้ารีแคปว่าระบบทำผลงานได้ดีแค่ไหนในแต่ละรอบแทน
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-black/20 px-5 py-4">
+                      <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Overall Accuracy</p>
+                      <p className="mt-2 text-4xl font-semibold text-primary">{tournamentAuditSummary.accuracy}%</p>
+                      <p className="mt-2 text-sm text-slate-300">ทายถูก {tournamentAuditSummary.correct} จาก {tournamentAuditSummary.played} คู่</p>
+                    </div>
                   </div>
-                  <p className="text-2xl font-semibold">รอผลทำนาย</p>
-                  <p className="mt-3 max-w-md text-sm leading-7 text-muted-foreground">
-                    เลือกคู่จากรายการด้านซ้าย แล้วกดทำนายเพื่อเปิดผลวิเคราะห์ของแมตช์นั้น
+                </div>
+
+                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                  {tournamentAuditByRound.map((item) => (
+                    <div key={item.round.key} className="rounded-[22px] border border-border/60 bg-background/60 p-5">
+                      <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">{item.round.label}</p>
+                      <p className="mt-3 text-2xl font-semibold">
+                        ถูก {item.summary.correct}/{item.summary.played || item.summary.total} คู่
+                      </p>
+                      <p className="mt-2 text-sm text-primary">Accuracy {item.summary.accuracy}%</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-6 rounded-[22px] border border-border/60 bg-background/60 p-5">
+                  <p className="text-sm font-semibold text-white">คู่ที่เลือกตอนนี้: {form.home_team} vs {form.away_team}</p>
+                  <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                    ระบบจะแสดงเฉพาะผลสรุปว่าเดิมทายอะไรไว้ และผลจริงออกมาอย่างไรในส่วนล่างของหน้า ไม่เปิดการ generate prediction ใหม่แล้ว
                   </p>
-                </CardContent>
-              </Card>
-            )}
-
-            {result && (
-              <div className="space-y-6">
-                <Card className="overflow-hidden border-primary/20 bg-[linear-gradient(135deg,rgba(184,255,0,0.08),rgba(255,255,255,0.03))]">
-                  <CardContent className="p-7">
-                    <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-4 py-1.5 text-sm text-primary">
-                      <WandSparkles className="h-4 w-4" />
-                      AI Summary
-                    </div>
-                    <h3 className="text-3xl font-display leading-tight md:text-5xl">{result.officialPrediction}</h3>
-                    <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground md:text-base">{getResultTone(result.officialPrediction)}</p>
-                    <div className="mt-6 grid gap-3 md:grid-cols-3">
-                      <div className="rounded-2xl border border-border/60 bg-card/80 px-4 py-4">
-                        <p className="text-xs text-muted-foreground">Round</p>
-                        <p className="mt-1 font-semibold">{activeRoundMeta.label}</p>
-                      </div>
-                      <div className="rounded-2xl border border-border/60 bg-card/80 px-4 py-4">
-                        <p className="text-xs text-muted-foreground">{result.resultLabel}</p>
-                        <p className="mt-1 text-xl font-semibold">{result.officialPrediction}</p>
-                      </div>
-                      <div className="rounded-2xl border border-border/60 bg-card/80 px-4 py-4">
-                        <p className="text-xs text-muted-foreground">Confidence</p>
-                        <p className="mt-1 text-xl font-semibold">{result.confidence == null ? "-" : formatConfidence(result.confidence)}</p>
-                        <p className="text-xs text-primary">{result.confidenceLabel}</p>
-                      </div>
-                      <div className="rounded-2xl border border-border/60 bg-card/80 px-4 py-4 md:col-span-3">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div>
-                            <p className="text-xs text-muted-foreground">Match</p>
-                            <p className="mt-1 font-semibold">{form.home_team} vs {form.away_team}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs text-muted-foreground">{result.scoreLabel}</p>
-                            <p className="mt-1 font-semibold">{result.predictedScore}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-border/70 bg-card/90">
-                  <CardHeader>
-                    <CardTitle className="text-xl">Win Probabilities</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-5">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">{form.home_team}</span>
-                        <span className="font-semibold">{formatProbability(result.homeProbability)}</span>
-                      </div>
-                      <div className="h-3 overflow-hidden rounded-full bg-muted">
-                        <div className="h-full bg-foreground/80" style={{ width: `${result.homeProbability ?? 0}%` }} />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Draw</span>
-                        <span className="font-semibold">{formatProbability(result.drawProbability)}</span>
-                      </div>
-                      <div className="h-3 overflow-hidden rounded-full bg-muted">
-                        <div className="h-full bg-border" style={{ width: `${result.drawProbability ?? 0}%` }} />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">{form.away_team}</span>
-                        <span className="font-semibold text-primary">{formatProbability(result.awayProbability)}</span>
-                      </div>
-                      <div className="h-3 overflow-hidden rounded-full bg-muted">
-                        <div className="h-full bg-primary" style={{ width: `${result.awayProbability ?? 0}%` }} />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-border/70 bg-card/90">
-                  <CardHeader>
-                    <CardTitle className="text-xl">Model Comparison</CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid gap-4 md:grid-cols-3">
-                    {result.comparison.map((model) => (
-                      <div key={model.key} className="rounded-[22px] border border-border/60 bg-background/60 p-4">
-                        <p className="text-sm text-muted-foreground">{model.label}</p>
-                        <p className="mt-2 text-xl font-semibold">{model.prediction}</p>
-                        <p className="mt-2 text-sm text-muted-foreground">Score: {model.score}</p>
-                        <p className="mt-2 text-sm text-muted-foreground">Consensus: {getConsensusSummary(result.comparison)}</p>
-                        <div className="mt-4 space-y-2 text-sm">
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Home</span>
-                            <span>{formatProbability(model.homeProbability)}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Draw</span>
-                            <span>{formatProbability(model.drawProbability)}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Away</span>
-                            <span>{formatProbability(model.awayProbability)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-
-                <Card className="border-border/70 bg-card/90">
-                  <CardHeader>
-                    <CardTitle className="text-xl">All Models</CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid gap-4 md:grid-cols-2">
-                    {result.models.length > 0 ? (
-                      result.models.map((model, index) => (
-                        <div key={`${pickStringValue(model, "name") || "model"}-${index}`} className="rounded-[22px] border border-border/60 bg-background/60 p-4">
-                          <div className="flex items-center justify-between gap-3">
-                            <p className="font-semibold">{pickStringValue(model, "name") || `Model ${index + 1}`}</p>
-                            <Badge variant="outline">{formatConfidence(pickNumberValue(model, "confidence"))}</Badge>
-                          </div>
-                          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                            <div>
-                              <p className="text-xs text-muted-foreground">Predicted result</p>
-                              <p className="mt-1 font-semibold">{pickStringValue(model, "predicted_result") || "-"}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Predicted score</p>
-                              <p className="mt-1 font-semibold">{pickStringValue(model, "predicted_score") || "-"}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Home win</p>
-                              <p className="mt-1 font-semibold">{formatApiProbability(pickNumberValue(model, "home_win_prob") ?? undefined)}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Draw</p>
-                              <p className="mt-1 font-semibold">{formatApiProbability(pickNumberValue(model, "draw_prob") ?? undefined)}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Away win</p>
-                              <p className="mt-1 font-semibold">{formatApiProbability(pickNumberValue(model, "away_win_prob") ?? undefined)}</p>
-                            </div>
-                          </div>
-                          <p className="mt-4 text-sm leading-6 text-muted-foreground">{pickStringValue(model, "notes") || "No notes from this model"}</p>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-muted-foreground">ยังไม่มีข้อมูล model comparison จาก API</p>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
 
         <div className="mt-8">
+          <Card className="mb-8 border-border/70 bg-card/90">
+            <CardHeader className="border-b border-border/60 pb-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="text-2xl">สรุปผลทำนายทั้งทัวร์นาเมนต์</CardTitle>
+                  <p className="mt-1 text-sm text-muted-foreground">อ้างอิงผลจริงตั้งแต่รอบ 32 ทีมจนถึงรอบล่าสุดที่มีผลแข่งแล้ว</p>
+                </div>
+                <Badge className="bg-primary text-primary-foreground">ทายถูก {tournamentAuditSummary.correct}/{tournamentAuditSummary.played}</Badge>
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-6 p-6">
+              <div className="grid gap-4 md:grid-cols-4">
+                <div className="rounded-[22px] border border-border/60 bg-background/60 p-4">
+                  <p className="text-xs text-muted-foreground">ความแม่นยำรวม</p>
+                  <p className="mt-2 text-3xl font-semibold text-primary">{tournamentAuditSummary.accuracy}%</p>
+                  <p className="mt-2 text-sm text-muted-foreground">นับเฉพาะคู่ที่มีผลจริงแล้ว</p>
+                </div>
+                <div className="rounded-[22px] border border-border/60 bg-background/60 p-4">
+                  <p className="text-xs text-muted-foreground">ทายถูกทั้งหมด</p>
+                  <p className="mt-2 text-3xl font-semibold">{tournamentAuditSummary.correct}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">ผู้ชนะตรงกับผลจริง</p>
+                </div>
+                <div className="rounded-[22px] border border-border/60 bg-background/60 p-4">
+                  <p className="text-xs text-muted-foreground">ทายผิดทั้งหมด</p>
+                  <p className="mt-2 text-3xl font-semibold">{tournamentAuditSummary.incorrect}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">ผลทำนายสวนกับผลจริง</p>
+                </div>
+                <div className="rounded-[22px] border border-border/60 bg-background/60 p-4">
+                  <p className="text-xs text-muted-foreground">รอผล / ข้อมูลไม่ครบ</p>
+                  <p className="mt-2 text-3xl font-semibold">{tournamentAuditSummary.pending + tournamentAuditSummary.unavailable}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">คู่ที่ยังไม่แข่งหรือยังไม่มีผลจริง</p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-2">
+                {tournamentAuditByRound.map((item) => (
+                  <div key={item.round.key} className="rounded-[24px] border border-border/60 bg-background/60 p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Tournament Round</p>
+                        <h3 className="mt-2 text-xl font-semibold">{item.round.label}</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          ใช้วัดได้ {item.summary.played}/{item.summary.total} คู่
+                        </p>
+                      </div>
+                      <div className={cn("inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold", item.summary.played > 0 ? "border-primary/30 bg-primary/10 text-primary" : "border-border/60 bg-muted/40 text-muted-foreground")}>
+                        Accuracy {item.summary.accuracy}%
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid gap-3 sm:grid-cols-4">
+                      <div className="rounded-2xl border border-border/60 bg-card/70 p-4">
+                        <p className="text-xs text-muted-foreground">ทายถูก</p>
+                        <p className="mt-2 text-2xl font-semibold">{item.summary.correct}</p>
+                      </div>
+                      <div className="rounded-2xl border border-border/60 bg-card/70 p-4">
+                        <p className="text-xs text-muted-foreground">ทายผิด</p>
+                        <p className="mt-2 text-2xl font-semibold">{item.summary.incorrect}</p>
+                      </div>
+                      <div className="rounded-2xl border border-border/60 bg-card/70 p-4">
+                        <p className="text-xs text-muted-foreground">รอผล</p>
+                        <p className="mt-2 text-2xl font-semibold">{item.summary.pending}</p>
+                      </div>
+                      <div className="rounded-2xl border border-border/60 bg-card/70 p-4">
+                        <p className="text-xs text-muted-foreground">ข้อมูลไม่ครบ</p>
+                        <p className="mt-2 text-2xl font-semibold">{item.summary.unavailable}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="border-border/70 bg-card/90">
             <CardHeader className="border-b border-border/60 pb-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1287,6 +1319,7 @@ export function WorldcupPredictionPanel() {
                           <p className="text-xs text-muted-foreground">Prediction</p>
                           <p className="mt-2 font-semibold">{entry.predictedResult}</p>
                           <p className="mt-1 text-sm text-muted-foreground">Score: {entry.predictedScore}</p>
+                          <p className="mt-2 text-sm text-primary">{getPredictionDetailLabel(getPredictionOutcomeDetail(entry))}</p>
                         </div>
                         <div className="rounded-2xl border border-border/60 bg-card/70 p-4">
                           <p className="text-xs text-muted-foreground">Actual</p>
@@ -1307,4 +1340,3 @@ export function WorldcupPredictionPanel() {
     </section>
   )
 }
-

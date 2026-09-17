@@ -133,7 +133,15 @@ async function fetchAllSportsApi(params: Record<string, string>) {
   if (payload?.success === 1) {
     return []
   }
-  throw new Error(payload?.error || "AllSportsAPI returned an invalid response")
+  const providerError = Array.isArray(payload?.result)
+    ? payload.result.find((item: any) => item && typeof item === "object" && (item.msg || item.message || item.error))
+    : null
+  throw new Error(
+    providerError?.msg ||
+      providerError?.message ||
+      providerError?.error ||
+      (typeof payload?.error === "string" && payload.error !== "1" ? payload.error : "AllSportsAPI returned an invalid response"),
+  )
 }
 
 function getTimeZoneOffsetMs(date: Date, timeZone: string) {

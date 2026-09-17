@@ -4,7 +4,7 @@ import { requireAuthUser } from "@/lib/server/auth"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, ok } from "@/lib/server/http"
 import { PaymentEntitlement, PaymentOrder } from "@/lib/server/models"
-import { getThunderConfig } from "@/lib/server/thunder"
+import { getEasySlipConfig } from "@/lib/server/easyslip"
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,12 +23,13 @@ export async function GET(request: NextRequest) {
         .lean(),
     ])
 
-    const thunder = getThunderConfig()
+    const easyslip = getEasySlipConfig()
 
     return ok({
+      tokenBalance: Number(user.tokenBalance || 0),
       promptpay: {
-        id: thunder.promptpayId,
-        accountName: thunder.accountName,
+        id: easyslip.promptpayId,
+        accountName: easyslip.accountName,
       },
       orders: orders.map((order: any) => ({
         id: order._id.toString(),

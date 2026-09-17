@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       amount: product.price,
       currency: "THB",
       status: "pending",
-      paymentProvider: "thunder",
+      paymentProvider: "easyslip",
       targetType: product.targetType,
       targetId,
     })

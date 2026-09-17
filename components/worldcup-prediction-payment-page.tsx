@@ -63,6 +63,9 @@ type WorldcupPredictionPaymentPageProps = {
   fixtureId?: string
   home?: string
   away?: string
+  backHref?: string
+  backLabel?: string
+  targetId?: string
 }
 
 function getPaymentErrorMeta(message: string) {
@@ -212,6 +215,9 @@ export function WorldcupPredictionPaymentPage({
   fixtureId = "",
   home = "France",
   away = "Spain",
+  backHref = "/worldcup-2026/predictions",
+  backLabel = "กลับไปหน้าทำนาย",
+  targetId = "worldcup-2026",
 }: WorldcupPredictionPaymentPageProps) {
   const publicPromptPayId = process.env.NEXT_PUBLIC_PROMPTPAY_ID?.trim() || ""
   const publicPromptPayName = process.env.NEXT_PUBLIC_PROMPTPAY_NAME?.trim() || "FootballAI"
@@ -238,7 +244,7 @@ export function WorldcupPredictionPaymentPage({
     if (selectedPackage.targetType === "credits") {
       return selectedPackage.credits ? `ปลดล็อกได้ ${selectedPackage.credits} คู่` : "แพ็กเกจเครดิต"
     }
-    return "ปลดล็อกครบทุกคู่ของทัวร์นาเมนต์"
+    return "ปลดล็อกครบทุกคู่ของรายการ"
   }, [selectedPackage])
 
   const qrPayload = currentOrder ? buildPromptPayPayload(promptpayId, currentOrder.amount) : ""
@@ -275,7 +281,7 @@ export function WorldcupPredictionPaymentPage({
         headers: { Authorization: `Bearer ${authToken}` },
       })
       setPaymentState(data)
-      setCurrentOrder(data.orders.find((item) => item.status === "pending") ?? null)
+      setCurrentOrder(data.orders.find((item) => item.status === "pending" && item.targetId === targetId) ?? null)
     } catch (error) {
       const rawMessage = error instanceof Error ? error.message : "โหลดข้อมูลการชำระเงินไม่สำเร็จ"
       setPaymentError(getPaymentErrorMeta(rawMessage).description)
@@ -302,7 +308,7 @@ export function WorldcupPredictionPaymentPage({
       const data = await fetchJson<{ order: AccessOrder }>("/payments/create-order", {
         method: "POST",
         headers: { Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify({ productCode, targetId: "worldcup-2026" }),
+        body: JSON.stringify({ productCode, targetId }),
       })
 
       setCurrentOrder(data.order)
@@ -401,9 +407,9 @@ export function WorldcupPredictionPaymentPage({
   return (
     <section className="container mx-auto px-4 py-8 md:py-10">
       <div className="mb-6">
-        <Button variant="ghost" onClick={() => router.push("/worldcup-2026/predictions")} className="rounded-full">
+        <Button variant="ghost" onClick={() => router.push(backHref)} className="rounded-full">
           <ArrowLeft className="mr-2 h-4 w-4" />
-          กลับไปหน้าทำนาย
+          {backLabel}
         </Button>
       </div>
 
@@ -432,7 +438,7 @@ export function WorldcupPredictionPaymentPage({
                 <div className="rounded-[24px] border border-white/8 bg-white/[0.04] p-4">
                   <p className="text-xs uppercase tracking-[0.22em] text-white/45">สิทธิ์ที่เลือก</p>
                   <p className="mt-2 text-lg font-semibold">{targetLabel}</p>
-                  <p className="text-sm text-white/60">ราคา 5 บาทต่อแพ็กเกจ</p>
+                  <p className="text-sm text-white/60">ราคาเริ่มต้น 5 บาท</p>
                 </div>
               </div>
             </CardContent>
@@ -634,15 +640,15 @@ export function WorldcupPredictionPaymentPage({
               <div className="mt-4 space-y-3 text-sm leading-7 text-muted-foreground">
                 <p>1. แพ็ก 5 คู่ ใช้ปลดล็อกผลทำนายได้ 5 แมตช์</p>
                 <p>2. แพ็ก 15 คู่ ใช้ปลดล็อกผลทำนายได้ 15 แมตช์</p>
-                <p>3. แพ็กทั้งทัวร์ ใช้ดูผลทำนายได้ครบทุกคู่ในรายการเดียว</p>
+                <p>3. แพ็กทั้งรายการ ใช้ดูผลทำนายได้ครบทุกคู่ในรายการเดียว</p>
                 <p>4. ระบบจะตรวจทั้งยอดเงิน ความถูกต้องของผู้รับ และข้อมูลอ้างอิงจากสลิปก่อนปลดล็อก</p>
               </div>
               <div className="mt-6 flex gap-3">
                 <Link
-                  href="/worldcup-2026/predictions"
+                  href={backHref}
                   className="inline-flex items-center rounded-full border border-border px-4 py-2 text-sm text-muted-foreground transition hover:border-primary/30 hover:text-foreground"
                 >
-                  กลับไปหน้าทำนาย
+                  {backLabel}
                 </Link>
                 <div className="inline-flex items-center rounded-full border border-primary/15 bg-primary/8 px-4 py-2 text-sm text-primary">
                   <Sparkles className="mr-2 h-4 w-4" />

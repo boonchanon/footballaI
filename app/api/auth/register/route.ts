@@ -4,6 +4,7 @@ import { signToken, sanitizeUser } from "@/lib/server/auth"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, ok } from "@/lib/server/http"
 import { User } from "@/lib/server/models"
+import { addTokens } from "@/lib/server/tokens"
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
@@ -66,6 +67,14 @@ export async function POST(request: NextRequest) {
       avatar,
       favoriteTeam,
       bio,
+    })
+
+    await addTokens({
+      userId: user._id.toString(),
+      amount: 5,
+      type: "welcome_bonus",
+      description: "โบนัสสมัครสมาชิกใหม่",
+      idempotencyKey: `welcome_bonus:${user._id.toString()}`,
     })
 
     return ok(
