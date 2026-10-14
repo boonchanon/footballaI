@@ -1,615 +1,167 @@
 "use client"
 
-import { useState } from "react"
-import Image from "next/image"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ChangeEvent, useEffect, useRef, useState } from "react"
+import { AlertCircle, Check, Cpu, ExternalLink, FileText, FileVideo, Loader2, RotateCcw, Sparkles, Upload, Video } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Activity,
-  Link2,
-  Upload,
-  Trash2,
-  Eye,
-  Plus,
-  ImageIcon,
-  X,
-  CheckCircle2,
-  Search,
-} from "lucide-react"
+import { Progress } from "@/components/ui/progress"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { buildHeatmapJobFormData, getHeatmapQuality, getHeatmapResultView } from "@/lib/heatmap-analysis"
+import { HeatmapPublishingWorkspace } from "@/components/admin/heatmap-publishing-workspace"
 
-interface HeatmapEntry {
-  id: number
-  player: string
-  team: string
-  match: string
-  date: string
-  sourceType: "link" | "file"
-  imageUrl: string
-  fileName?: string
-  status: "active" | "draft"
+type JobStatus = "queued" | "running" | "complete" | "failed"
+type Job = { id: string; status: JobStatus; phase?: string; detail?: string; error_detail?: string; result?: string; review?: string; log?: string; metadata?: Record<string, unknown>; quality_summary?: Record<string, unknown>; total_frames?: number; valid_gameplay_frames?: number; invalid_scenes?: number; fresh_valid_calibration_frames?: number; usable_heatmap_records?: number }
+type UiState = "idle" | "uploading" | "processing" | "complete" | "error"
+
+// Keep browser requests same-origin. The route proxy uses VIDEO_ANALYSIS_API_BASE_URL
+// server-side, so an admin browser never needs a service running on 127.0.0.1:8001.
+const API_BASE_URL = "/api/video-analysis"
+const MAX_ANALYSIS_FRAMES = 10000
+
+function assetUrl(path?: string) {
+  if (!path) return undefined
+  return /^https?:\/\//i.test(path) ? path : `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`
 }
 
-const initialEntries: HeatmapEntry[] = [
-  {
-    id: 1,
-    player: "Erling Haaland",
-    team: "Manchester City",
-    match: "Man City vs Liverpool",
-    date: "15 Jan 2026",
-    sourceType: "link",
-    imageUrl: "/premier-league-match-action-shot.jpg",
-    status: "active",
-  },
-  {
-    id: 2,
-    player: "Mohamed Salah",
-    team: "Liverpool",
-    match: "Man City vs Liverpool",
-    date: "15 Jan 2026",
-    sourceType: "file",
-    imageUrl: "/premier-league-player-action-shot.jpg",
-    fileName: "salah_heatmap_jan15.png",
-    status: "active",
-  },
-  {
-    id: 3,
-    player: "Bukayo Saka",
-    team: "Arsenal",
-    match: "Arsenal vs Chelsea",
-    date: "12 Jan 2026",
-    sourceType: "link",
-    imageUrl: "/premier-league-match-intense.jpg",
-    status: "draft",
-  },
-  {
-    id: 4,
-    player: "Cole Palmer",
-    team: "Chelsea",
-    match: "Arsenal vs Chelsea",
-    date: "12 Jan 2026",
-    sourceType: "file",
-    imageUrl: "/premier-league-goal-moment.jpg",
-    fileName: "palmer_heatmap_jan12.png",
-    status: "active",
-  },
-]
+async function readJsonBody(response: Response) {
+  const text = await response.text()
+  if (!text.trim()) return null
+  try { return JSON.parse(text) as { id?: string; detail?: string; error_detail?: string } }
+  catch { return null }
+}
 
 export default function AdminHeatmapPage() {
-  const [entries, setEntries] = useState<HeatmapEntry[]>(initialEntries)
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [previewEntry, setPreviewEntry] = useState<HeatmapEntry | null>(null)
+  const [file, setFile] = useState<File | null>(null)
+  const [stage, setStage] = useState("mvp")
+  const [device, setDevice] = useState("auto")
+  const [frames, setFrames] = useState("250")
+  const [startSeconds, setStartSeconds] = useState("0")
+  const [job, setJob] = useState<Job | null>(null)
+  const [state, setState] = useState<UiState>("idle")
+  const [error, setError] = useState("")
+  const pollFailures = useRef(0)
 
-  // Form states
-  const [sourceType, setSourceType] = useState<"link" | "file">("link")
-  const [linkUrl, setLinkUrl] = useState("")
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [filePreview, setFilePreview] = useState<string | null>(null)
-  const [formPlayer, setFormPlayer] = useState("")
-  const [formTeam, setFormTeam] = useState("")
-  const [formMatch, setFormMatch] = useState("")
-  const [formStatus, setFormStatus] = useState<"active" | "draft">("active")
+  useEffect(() => {
+    void fetch(`${API_BASE_URL}/healthz`).catch(() => undefined)
+  }, [])
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setSelectedFile(file)
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setFilePreview(reader.result as string)
+  const isBusy = state === "uploading" || state === "processing"
+  const quality = getHeatmapQuality(
+  job?.quality_summary ??
+  job?.metadata ??
+  (job
+    ? {
+        total_frames: job.total_frames,
+        valid_gameplay_frames: job.valid_gameplay_frames,
+        invalid_scenes: job.invalid_scenes,
+        fresh_valid_calibration_frames: job.fresh_valid_calibration_frames,
+        usable_heatmap_records: job.usable_heatmap_records,
       }
-      reader.readAsDataURL(file)
+    : undefined)
+)
+  const resultView = getHeatmapResultView(quality)
+
+  useEffect(() => {
+    if (!job?.id || state !== "processing") return
+
+    let cancelled = false
+    const poll = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/jobs/${job.id}`, { cache: "no-store" })
+        const next = (await response.json()) as Job
+        if (!response.ok) throw new Error(next.error_detail || `Heatmap API returned ${response.status}`)
+        if (cancelled) return
+        pollFailures.current = 0
+        setJob(next)
+        if (next.status === "complete") setState("complete")
+        if (next.status === "failed") {
+          setError(next.error_detail || "Video analysis failed")
+          setState("error")
+        }
+      } catch (cause) {
+        pollFailures.current += 1
+        if (pollFailures.current >= 5 && !cancelled) {
+          setError(cause instanceof Error ? cause.message : "Could not reach the Heatmap API")
+          setState("error")
+        }
+      }
+    }
+
+    void poll()
+    const timer = window.setInterval(() => void poll(), 1500)
+    return () => { cancelled = true; window.clearInterval(timer) }
+  }, [job?.id, state])
+
+  function chooseFile(event: ChangeEvent<HTMLInputElement>) {
+    const next = event.target.files?.[0]
+    if (!next) return
+    if (!/\.(mp4|mov|avi|mkv)$/i.test(next.name)) {
+      setError("Only MP4, MOV, AVI, and MKV files are supported")
+      setState("error")
+      return
+    }
+    setFile(next)
+    setJob(null)
+    setError("")
+    setState("idle")
+  }
+
+  async function startJob() {
+    if (!file || isBusy) return
+    const maxFrames = Number(frames)
+    const selectedStartSeconds = Number(startSeconds)
+    if (!Number.isInteger(maxFrames) || maxFrames < 1 || maxFrames > MAX_ANALYSIS_FRAMES) {
+      setError(`Max frames must be an integer between 1 and ${MAX_ANALYSIS_FRAMES}`)
+      setState("error")
+      return
+    }
+
+    if (!Number.isFinite(selectedStartSeconds) || selectedStartSeconds < 0) {
+      setError("ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â§ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â²ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â£ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â´ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¹Ã¢â‚¬Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â§ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â´ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â£ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â²ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â°ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â«ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¦Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â­ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂºÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â±ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â§ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â±ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¹Ã¢â‚¬Â  0 ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â§ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â´ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â²ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚ÂµÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¶ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âº")
+      setState("error")
+      return
+    }
+
+    setState("uploading")
+    setError("")
+    setJob(null)
+    const body = buildHeatmapJobFormData(file, { stage, device, maxFrames, startSeconds: selectedStartSeconds })
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/jobs`, { method: "POST", body })
+      const created = await readJsonBody(response)
+      if (response.status === 413) throw new Error("ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€¦Ã‚Â¸ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¦Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â§ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â´ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚ÂµÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â­ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â«ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¹Ã¢â‚¬Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â´ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â²ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚ÂµÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¹Ã¢â‚¬Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â£ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â°ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â£ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â­ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â£ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â±ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€¦Ã‚Â¡")
+      if (!response.ok) throw new Error(created?.error_detail || created?.detail || "ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¹Ã¢â‚¬Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚ÂªÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â²ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â²ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â£ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€¦Ã‚Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â·ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¹Ã¢â‚¬Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â­ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¹Ã¢â‚¬Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â­ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â£ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â´ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â²ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â£ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â§ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â´ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â£ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â²ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â°ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â«ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¦Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â§ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â´ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚ÂµÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â­ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°")
+      if (!created?.id) throw new Error("ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¹Ã¢â‚¬Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚ÂªÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â²ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â²ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â£ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€¦Ã‚Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â·ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¹Ã¢â‚¬Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â­ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¹Ã¢â‚¬Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â­ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â£ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â´ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â²ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â£ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â§ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â´ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â£ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â²ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â°ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â«ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¦Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â§ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â´ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚ÂµÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â­ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°")
+      setJob({ id: created.id, status: "queued", phase: "Queued", detail: "Job was submitted to the Heatmap API" })
+      setState("processing")
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Video upload failed")
+      setState("error")
     }
   }
 
-  const handleAddEntry = () => {
-    if (!formPlayer || !formTeam || !formMatch) return
-    if (sourceType === "link" && !linkUrl) return
-    if (sourceType === "file" && !selectedFile) return
+  function retry() { setJob(null); setError(""); setState("idle") }
+  const phase = state === "uploading" ? "Uploading video" : job?.phase || "Starting analysis"
+  const hasHeatmap = resultView === "ready" && Boolean(job?.result)
 
-    const newEntry: HeatmapEntry = {
-      id: Date.now(),
-      player: formPlayer,
-      team: formTeam,
-      match: formMatch,
-      date: new Date().toLocaleDateString("en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
-      sourceType,
-      imageUrl: sourceType === "link" ? linkUrl : (filePreview || ""),
-      fileName: sourceType === "file" ? selectedFile?.name : undefined,
-      status: formStatus,
-    }
+  return <div className="mx-auto max-w-7xl space-y-6 pb-10">
+    <div className="flex flex-col gap-4 border-b border-border pb-6 lg:flex-row lg:items-end lg:justify-between"><div><div className="mb-2 flex items-center gap-2 text-sm text-primary"><Sparkles className="h-4 w-4" />AI MATCH INTELLIGENCE</div><h1 className="text-3xl font-bold tracking-tight">Video Analysis</h1><p className="mt-1 text-muted-foreground">Upload a match video to generate player tracking and a heatmap automatically.</p></div>{state === "complete" && <Badge className="w-fit bg-emerald-500/15 px-3 py-1.5 text-emerald-600 hover:bg-emerald-500/15"><Check className="mr-1.5 h-4 w-4" />Analysis complete</Badge>}</div>
 
-    setEntries((prev) => [newEntry, ...prev])
-    resetForm()
-  }
+    <Card className="overflow-hidden border-primary/20"><CardHeader className="border-b bg-muted/20"><CardTitle className="flex items-center gap-2"><Video className="h-5 w-5 text-primary" />Analysis settings</CardTitle><CardDescription>Send a video directly to the configured Heatmap API.</CardDescription></CardHeader><CardContent className="grid gap-6 p-6 lg:grid-cols-[1.25fr_.75fr]">
+      <label className={`flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition-colors ${file ? "border-primary bg-primary/5" : "border-border hover:border-primary/60"}`}><input type="file" accept="video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,.mkv" onChange={chooseFile} className="sr-only" disabled={isBusy} />{file ? <><FileVideo className="mb-3 h-7 w-7 text-primary" /><p className="max-w-full truncate font-semibold">{file.name}</p><p className="mt-1 text-sm text-muted-foreground">{(file.size / 1024 / 1024).toFixed(1)} MB</p></> : <><Upload className="mb-3 h-7 w-7 text-muted-foreground" /><p className="font-semibold">Choose a video file</p><p className="mt-1 text-sm text-muted-foreground">MP4, MOV, AVI, MKV</p></>}</label>
+      <div className="grid content-center gap-4 sm:grid-cols-2 lg:grid-cols-1"><div className="space-y-2"><Label>Stage</Label><Select value={stage} onValueChange={setStage} disabled={isBusy}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="mvp">MVP</SelectItem><SelectItem value="calibrate">Calibrate</SelectItem><SelectItem value="full">Full</SelectItem></SelectContent></Select></div><div className="space-y-2"><Label>Device</Label><Select value={device} onValueChange={setDevice} disabled={isBusy}><SelectTrigger><Cpu className="mr-2 h-4 w-4 text-muted-foreground" /><SelectValue /></SelectTrigger><SelectContent><SelectItem value="auto">Auto</SelectItem><SelectItem value="cpu">CPU</SelectItem><SelectItem value="cuda">CUDA</SelectItem></SelectContent></Select></div><div className="space-y-2"><Label htmlFor="start-seconds">Start analysis time (seconds)</Label><Input id="start-seconds" type="number" min="0" step="0.1" value={startSeconds} onChange={(event) => setStartSeconds(event.target.value)} disabled={isBusy} /><p className="text-xs text-muted-foreground">Skip ads, intro, replay, or close-up footage.</p></div><div className="space-y-2"><Label htmlFor="max-frames">Frames to analyze</Label><Input id="max-frames" type="number" min="1" max={MAX_ANALYSIS_FRAMES} value={frames} onChange={(event) => setFrames(event.target.value)} disabled={isBusy} /><p className="text-xs text-muted-foreground">Analyze up to {MAX_ANALYSIS_FRAMES.toLocaleString()} frames.</p></div></div>
+      <div className="flex items-center gap-3 lg:col-span-2"><Button size="lg" onClick={startJob} disabled={!file || isBusy} className="min-w-52">{isBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}Upload and start</Button></div>
+    </CardContent></Card>
 
-  const resetForm = () => {
-    setShowAddForm(false)
-    setSourceType("link")
-    setLinkUrl("")
-    setSelectedFile(null)
-    setFilePreview(null)
-    setFormPlayer("")
-    setFormTeam("")
-    setFormMatch("")
-    setFormStatus("active")
-  }
+    {isBusy && <Card className="border-primary/30"><CardContent className="p-6"><div className="flex gap-3"><Loader2 className="mt-0.5 h-5 w-5 animate-spin text-primary" /><div className="min-w-0 flex-1"><div className="flex justify-between gap-2"><p className="font-semibold">{phase}</p><Badge variant="secondary">{job?.status || "uploading"}</Badge></div><p className="mt-1 text-sm text-muted-foreground">{job?.detail || "Sending video to the analysis service"}</p><Progress value={state === "uploading" ? 20 : job?.status === "queued" ? 35 : 65} className="mt-4 h-2" /><p className="mt-3 text-xs text-muted-foreground">Polling every 1.5 seconds</p></div></div></CardContent></Card>}
 
-  const handleDelete = (id: number) => {
-    setEntries((prev) => prev.filter((e) => e.id !== id))
-    if (previewEntry?.id === id) setPreviewEntry(null)
-  }
+    {state === "error" && <Card className="border-destructive/40 bg-destructive/[.03]"><CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between"><div className="flex gap-3"><AlertCircle className="mt-0.5 h-5 w-5 text-destructive" /><div><p className="font-semibold">Video analysis could not be completed</p><p className="text-sm text-muted-foreground">{error}</p>{job?.log && <a className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline" href={assetUrl(job.log)} target="_blank" rel="noreferrer"><FileText className="h-4 w-4" />Open log</a>}</div></div><Button variant="outline" onClick={retry}><RotateCcw className="mr-2 h-4 w-4" />Try again</Button></CardContent></Card>}
 
-  const filteredEntries = entries.filter(
-    (entry) =>
-      entry.player.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      entry.match.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      entry.team.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-
-  return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-            {"จัดการ Heatmap"}
-          </h1>
-          <p className="text-muted-foreground">
-            {"เพิ่ม Heatmap ด้วยลิงก์รูปภาพ หรืออัปโหลดไฟล์รูปภาพ"}
-          </p>
-        </div>
-        <Button onClick={() => setShowAddForm(true)} disabled={showAddForm}>
-          <Plus className="h-4 w-4 mr-2" />
-          {"เพิ่ม Heatmap"}
-        </Button>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-primary/10 rounded-lg">
-                <ImageIcon className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{entries.length}</p>
-                <p className="text-sm text-muted-foreground">{"Heatmap ทั้งหมด"}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-green-500/10 rounded-lg">
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">
-                  {entries.filter((e) => e.status === "active").length}
-                </p>
-                <p className="text-sm text-muted-foreground">{"เผยแพร่แล้ว"}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-yellow-500/10 rounded-lg">
-                <Activity className="h-5 w-5 text-yellow-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">
-                  {entries.filter((e) => e.status === "draft").length}
-                </p>
-                <p className="text-sm text-muted-foreground">{"แบบร่าง"}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Add Heatmap Form */}
-      {showAddForm && (
-        <Card className="border-primary/30">
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2 text-foreground">
-                  <Plus className="h-5 w-5" />
-                  {"เพิ่ม Heatmap ใหม่"}
-                </CardTitle>
-                <CardDescription>
-                  {"เลือกวิธีเพิ่มรูปภาพ Heatmap: ลิงก์ หรือ อัปโหลดไฟล์"}
-                </CardDescription>
-              </div>
-              <Button variant="ghost" size="icon" onClick={resetForm}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Player Info */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label className="text-foreground">{"ชื่อนักเตะ"}</Label>
-                <Input
-                  placeholder="เช่น Erling Haaland"
-                  value={formPlayer}
-                  onChange={(e) => setFormPlayer(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-foreground">{"ทีม"}</Label>
-                <Select value={formTeam} onValueChange={setFormTeam}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="เลือกทีม" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Manchester City">Manchester City</SelectItem>
-                    <SelectItem value="Liverpool">Liverpool</SelectItem>
-                    <SelectItem value="Arsenal">Arsenal</SelectItem>
-                    <SelectItem value="Chelsea">Chelsea</SelectItem>
-                    <SelectItem value="Manchester United">Manchester United</SelectItem>
-                    <SelectItem value="Tottenham">Tottenham</SelectItem>
-                    <SelectItem value="Newcastle">Newcastle</SelectItem>
-                    <SelectItem value="Aston Villa">Aston Villa</SelectItem>
-                    <SelectItem value="Brighton">Brighton</SelectItem>
-                    <SelectItem value="West Ham">West Ham</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-foreground">{"แมตช์"}</Label>
-                <Input
-                  placeholder="เช่น Man City vs Liverpool"
-                  value={formMatch}
-                  onChange={(e) => setFormMatch(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Source Type Toggle */}
-            <div className="space-y-3">
-              <Label className="text-foreground">
-                {"วิธีเพิ่มรูปภาพ (เลือกอย่างใดอย่างหนึ่ง)"}
-              </Label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSourceType("link")
-                    setSelectedFile(null)
-                    setFilePreview(null)
-                  }}
-                  className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${
-                    sourceType === "link"
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/30"
-                  }`}
-                >
-                  <div
-                    className={`p-2.5 rounded-lg ${
-                      sourceType === "link"
-                        ? "bg-primary/20 text-primary"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    <Link2 className="h-5 w-5" />
-                  </div>
-                  <div className="text-left">
-                    <p className={`font-medium ${sourceType === "link" ? "text-primary" : "text-foreground"}`}>
-                      {"ลิงก์ URL"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {"วาง URL รูปภาพจากภายนอก"}
-                    </p>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSourceType("file")
-                    setLinkUrl("")
-                  }}
-                  className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${
-                    sourceType === "file"
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/30"
-                  }`}
-                >
-                  <div
-                    className={`p-2.5 rounded-lg ${
-                      sourceType === "file"
-                        ? "bg-primary/20 text-primary"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    <Upload className="h-5 w-5" />
-                  </div>
-                  <div className="text-left">
-                    <p className={`font-medium ${sourceType === "file" ? "text-primary" : "text-foreground"}`}>
-                      {"อัปโหลดไฟล์"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {"อัปโหลดไฟล์ PNG, JPG, WEBP"}
-                    </p>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Input based on source type */}
-            {sourceType === "link" ? (
-              <div className="space-y-3">
-                <Label className="text-foreground">{"URL รูปภาพ"}</Label>
-                <Input
-                  placeholder="https://example.com/heatmap.png"
-                  value={linkUrl}
-                  onChange={(e) => setLinkUrl(e.target.value)}
-                  type="url"
-                />
-                {linkUrl && (
-                  <div className="mt-3 rounded-xl overflow-hidden border border-border bg-muted/30">
-                    <div className="p-2 bg-muted/50 flex items-center gap-2 text-xs text-muted-foreground">
-                      <Eye className="h-3.5 w-3.5" />
-                      {"ตัวอย่างรูปภาพ"}
-                    </div>
-                    <div className="relative w-full aspect-video">
-                      <Image
-                        src={linkUrl}
-                        alt="Heatmap preview"
-                        fill
-                        className="object-contain"
-                        onError={(e) => {
-                          ;(e.target as HTMLImageElement).style.display = "none"
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <Label className="text-foreground">{"เลือกไฟล์รูปภาพ"}</Label>
-                <div className="relative">
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={handleFileChange}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                  />
-                  <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/50 transition-colors">
-                    <Upload className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-                    <p className="font-medium text-foreground">
-                      {selectedFile ? selectedFile.name : "คลิกหรือลากไฟล์มาวางที่นี่"}
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {"PNG, JPG, WEBP (สูงสุด 10MB)"}
-                    </p>
-                  </div>
-                </div>
-                {filePreview && (
-                  <div className="mt-3 rounded-xl overflow-hidden border border-border bg-muted/30">
-                    <div className="p-2 bg-muted/50 flex items-center justify-between text-xs text-muted-foreground">
-                      <span className="flex items-center gap-2">
-                        <Eye className="h-3.5 w-3.5" />
-                        {"ตัวอย่างรูปภาพ"}
-                      </span>
-                      <span>{selectedFile?.name}</span>
-                    </div>
-                    <div className="relative w-full aspect-video">
-                      <Image
-                        src={filePreview}
-                        alt="File preview"
-                        fill
-                        className="object-contain"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Status + Submit */}
-            <div className="flex items-end gap-4">
-              <div className="space-y-2">
-                <Label className="text-foreground">{"สถานะ"}</Label>
-                <Select value={formStatus} onValueChange={(v: "active" | "draft") => setFormStatus(v)}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">{"เผยแพร่"}</SelectItem>
-                    <SelectItem value="draft">{"แบบร่าง"}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex-1" />
-              <Button variant="outline" onClick={resetForm}>
-                {"ยกเลิก"}
-              </Button>
-              <Button
-                onClick={handleAddEntry}
-                disabled={
-                  !formPlayer ||
-                  !formTeam ||
-                  !formMatch ||
-                  (sourceType === "link" && !linkUrl) ||
-                  (sourceType === "file" && !selectedFile)
-                }
-              >
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                {"บันทึก Heatmap"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="ค้นหาชื่อนักเตะ, ทีม, หรือแมตช์..."
-          className="pl-9"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </div>
-
-      {/* Image Preview Modal */}
-      {previewEntry && (
-        <div
-          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
-          onClick={() => setPreviewEntry(null)}
-        >
-          <div
-            className="relative max-w-4xl w-full bg-card rounded-2xl overflow-hidden border border-border"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <div>
-                <h3 className="font-semibold text-foreground">{previewEntry.player}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {previewEntry.match} - {previewEntry.date}
-                </p>
-              </div>
-              <Button variant="ghost" size="icon" onClick={() => setPreviewEntry(null)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="relative w-full aspect-video bg-muted">
-              <Image
-                src={previewEntry.imageUrl}
-                alt={`Heatmap - ${previewEntry.player}`}
-                fill
-                className="object-contain"
-              />
-            </div>
-            <div className="p-4 flex items-center gap-3 text-sm text-muted-foreground">
-              {previewEntry.sourceType === "link" ? (
-                <Badge variant="outline" className="gap-1">
-                  <Link2 className="h-3 w-3" />
-                  {"ลิงก์"}
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="gap-1">
-                  <Upload className="h-3 w-3" />
-                  {"ไฟล์: "}{previewEntry.fileName}
-                </Badge>
-              )}
-              <Badge
-                variant="outline"
-                className={
-                  previewEntry.status === "active"
-                    ? "bg-green-500/10 text-green-500 border-green-500/20"
-                    : "bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
-                }
-              >
-                {previewEntry.status === "active" ? "เผยแพร่" : "แบบร่าง"}
-              </Badge>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Heatmap Entries Grid */}
-      {filteredEntries.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredEntries.map((entry) => (
-            <Card key={entry.id} className="overflow-hidden group">
-              {/* Image Thumbnail */}
-              <div
-                className="relative w-full aspect-video bg-muted cursor-pointer"
-                onClick={() => setPreviewEntry(entry)}
-              >
-                <Image
-                  src={entry.imageUrl}
-                  alt={`Heatmap - ${entry.player}`}
-                  fill
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                  <Eye className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-                {/* Source Badge */}
-                <div className="absolute top-2 left-2">
-                  {entry.sourceType === "link" ? (
-                    <Badge className="bg-blue-500/80 text-white border-0 gap-1 text-xs">
-                      <Link2 className="h-3 w-3" />
-                      {"URL"}
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-orange-500/80 text-white border-0 gap-1 text-xs">
-                      <Upload className="h-3 w-3" />
-                      {"FILE"}
-                    </Badge>
-                  )}
-                </div>
-                {/* Status Badge */}
-                <div className="absolute top-2 right-2">
-                  <Badge
-                    className={`border-0 text-xs ${
-                      entry.status === "active"
-                        ? "bg-green-500/80 text-white"
-                        : "bg-yellow-500/80 text-white"
-                    }`}
-                  >
-                    {entry.status === "active" ? "เผยแพร่" : "แบบร่าง"}
-                  </Badge>
-                </div>
-              </div>
-
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-foreground truncate">{entry.player}</p>
-                    <p className="text-sm text-muted-foreground truncate">{entry.team}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {entry.match} - {entry.date}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive flex-shrink-0"
-                    onClick={() => handleDelete(entry.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <ImageIcon className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-            <p className="text-muted-foreground">
-              {searchQuery ? "ไม่พบ Heatmap ที่ตรงกับการค้นหา" : "ยังไม่มี Heatmap ในระบบ"}
-            </p>
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  )
+    {false && state === "complete" && job && <section className="space-y-6"><div className="grid gap-6 2xl:grid-cols-[1fr_.72fr]"><Card className="overflow-hidden"><CardHeader className="flex-row items-center justify-between space-y-0 border-b"><div><CardTitle>Tracking review</CardTitle><CardDescription>{job.detail || "Review video generated by the analysis service"}</CardDescription></div><Badge variant="secondary">complete</Badge></CardHeader><CardContent className="p-0"><div className="aspect-video bg-slate-950">{job.review ? <video src={assetUrl(job.review)} controls className="h-full w-full object-contain" /> : <div className="flex h-full items-center justify-center text-sm text-slate-300">No review video was returned.</div>}</div>{job.review && <div className="flex justify-end p-4"><Button variant="outline" size="sm" asChild><a href={assetUrl(job.review)} target="_blank" rel="noreferrer"><ExternalLink className="mr-2 h-4 w-4" />Open review video</a></Button></div>}</CardContent></Card><Card className="border-primary/20 bg-gradient-to-br from-primary/[.06] via-background to-background"><CardHeader><CardTitle>Analysis summary</CardTitle><CardDescription>Job {job.id}</CardDescription></CardHeader><CardContent className="space-y-3 text-sm"><div className="rounded-lg border bg-background/70 p-3"><p className="text-muted-foreground">Stage</p><p className="mt-1 font-medium capitalize">{stage}</p></div><div className="rounded-lg border bg-background/70 p-3"><p className="text-muted-foreground">Processing device</p><p className="mt-1 font-medium uppercase">{device}</p></div><div className="rounded-lg border bg-background/70 p-3"><p className="text-muted-foreground">Max frames</p><p className="mt-1 font-medium">{frames}</p></div><div className="rounded-lg border bg-background/70 p-3"><p className="text-muted-foreground">Total / valid gameplay / invalid scenes</p><p className="mt-1 font-medium">{quality.totalFrames ?? "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â"} / {quality.validGameplayFrames ?? "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â"} / {quality.invalidScenes ?? "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â"}</p></div><div className="rounded-lg border bg-background/70 p-3"><p className="text-muted-foreground">Fresh calibration / usable records</p><p className="mt-1 font-medium">{quality.freshValidCalibrationFrames ?? "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â"} / {quality.usableHeatmapRecords ?? "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â"}</p></div></CardContent></Card></div><Card className="overflow-hidden border-primary/25 shadow-sm"><CardHeader className="border-b bg-muted/30"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><CardTitle>Heatmap</CardTitle><CardDescription>Interactive movement map for job {job.id}</CardDescription></div>{hasHeatmap && <Button variant="outline" size="sm" asChild><a href={assetUrl(job.result)} target="_blank" rel="noreferrer"><ExternalLink className="mr-2 h-4 w-4" />Open full screen</a></Button>}</div></CardHeader><CardContent className="bg-muted/10 p-2 sm:p-4">{hasHeatmap ? <div className="overflow-hidden rounded-xl border bg-background shadow-inner"><iframe title="Heatmap result" src={assetUrl(job.result)} className="h-[680px] w-full bg-background sm:h-[760px]" /></div> : <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center"><AlertCircle className="mb-3 h-6 w-6 text-amber-500" /><p className="font-medium">ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¹Ã¢â‚¬Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€¦Ã‚Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¹Ã¢â‚¬Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â§ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â²ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚ÂªÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â²ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚ÂµÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¹Ã¢â‚¬Â  calibrate ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€¦Ã‚Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¹Ã¢â‚¬Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â§ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚ÂµÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¹Ã¢â‚¬Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â·ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â­ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â</p><p className="mt-1 text-sm text-muted-foreground">ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â­ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â´ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¹Ã¢â‚¬Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â§ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â²ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â£ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â´ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¹Ã¢â‚¬Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â§ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â´ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â£ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â²ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â°ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â«ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¦Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â·ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¹Ã¢â‚¬Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â­ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â²ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â©ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â²/intro ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â«ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â£ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â·ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â­ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â´ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¹Ã¢â‚¬Â ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â£ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â°ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â°ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â§ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â²ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â§ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â´ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â£ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â²ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â°ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â«ÃƒÆ’Ã‚Â Ãƒâ€šÃ‚Â¹Ãƒâ€¦Ã¢â‚¬â„¢</p></div>}</CardContent></Card></section>}
+    {job?.status === "complete" && <HeatmapPublishingWorkspace jobId={job.id} review={assetUrl(job.review)} result={hasHeatmap ? assetUrl(job.result) : undefined} jobStatus={job.status} />}
+  </div>
 }

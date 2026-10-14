@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Search, Shield, UserPlus, Users } from "lucide-react"
+import { Coins, Search, Shield, UserPlus, Users } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -11,6 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { fetchJson } from "@/lib/api-client"
 import { getAuthToken } from "@/lib/auth-client"
 
@@ -55,6 +58,11 @@ export default function UsersPage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [tokenUser, setTokenUser] = useState<AdminUserItem | null>(null)
+  const [tokenAmount, setTokenAmount] = useState("5")
+  const [tokenReason, setTokenReason] = useState("")
+  const [grantingTokens, setGrantingTokens] = useState(false)
+  const [tokenError, setTokenError] = useState("")
 
   useEffect(() => {
     const token = getAuthToken()
@@ -83,6 +91,45 @@ export default function UsersPage() {
   }, [searchQuery, roleFilter, statusFilter])
 
   const totalAccounts = useMemo(() => summary.users + summary.admins, [summary])
+
+  function openTokenDialog(user: AdminUserItem) {
+    setTokenUser(user)
+    setTokenAmount("5")
+    setTokenReason("")
+    setTokenError("")
+  }
+
+  async function grantTokens() {
+    if (!tokenUser) return
+    const amount = Number(tokenAmount)
+    if (!Number.isInteger(amount) || amount <= 0 || amount > 100000) {
+      setTokenError("จำนวน Token ต้องเป็นจำนวนเต็มระหว่าง 1 ถึง 100,000")
+      return
+    }
+    if (tokenReason.trim().length < 6) {
+      setTokenError("กรุณาระบุเหตุผลอย่างน้อย 6 ตัวอักษร")
+      return
+    }
+
+    setGrantingTokens(true)
+    setTokenError("")
+    try {
+      await fetchJson(`/admin/community/users/${tokenUser.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          action: "grant_tokens",
+          amount,
+          reason: tokenReason.trim(),
+          idempotencyKey: crypto.randomUUID(),
+        }),
+      })
+      setTokenUser(null)
+    } catch (grantError) {
+      setTokenError(grantError instanceof Error ? grantError.message : "เพิ่ม Token ไม่สำเร็จ")
+    } finally {
+      setGrantingTokens(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -175,13 +222,14 @@ export default function UsersPage() {
                 <TableHead>สถานะ</TableHead>
                 <TableHead>ประเภท</TableHead>
                 <TableHead>วันที่สร้าง</TableHead>
+                <TableHead className="text-right">จัดการ</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading
                 ? Array.from({ length: 6 }).map((_, index) => (
                     <TableRow key={index}>
-                      <TableCell colSpan={5}>
+                      <TableCell colSpan={6}>
                         <Skeleton className="h-10 w-full" />
                       </TableCell>
                     </TableRow>
@@ -212,12 +260,43 @@ export default function UsersPage() {
                       </TableCell>
                       <TableCell>{item.type === "admin" ? "แอดมิน" : "ผู้ใช้"}</TableCell>
                       <TableCell>{new Date(item.joinDate).toLocaleDateString("th-TH")}</TableCell>
+                      <TableCell className="text-right">
+                        {item.type === "user" ? (
+                          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => openTokenDialog(item)}>
+                            <Coins className="h-3.5 w-3.5" />เพิ่ม Token
+                          </Button>
+                        ) : null}
+                      </TableCell>
                     </TableRow>
                   ))}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={Boolean(tokenUser)} onOpenChange={(open) => !open && !grantingTokens && setTokenUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>เพิ่ม Token ให้ผู้ใช้</DialogTitle>
+            <DialogDescription>{tokenUser ? `${tokenUser.name} (${tokenUser.email})` : ""}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="token-amount">จำนวน Token</Label>
+              <Input id="token-amount" type="number" min="1" max="100000" step="1" value={tokenAmount} onChange={(event) => setTokenAmount(event.target.value)} disabled={grantingTokens} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="token-reason">เหตุผล</Label>
+              <Textarea id="token-reason" value={tokenReason} onChange={(event) => setTokenReason(event.target.value)} placeholder="เช่น รางวัลกิจกรรมประจำสัปดาห์" disabled={grantingTokens} />
+            </div>
+            {tokenError ? <p className="text-sm text-destructive">{tokenError}</p> : null}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTokenUser(null)} disabled={grantingTokens}>ยกเลิก</Button>
+            <Button onClick={() => void grantTokens()} disabled={grantingTokens}>{grantingTokens ? "กำลังเพิ่ม..." : "ยืนยันเพิ่ม Token"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -206,8 +206,13 @@
     color: var(--color-primary-foreground);
   }
 
+  /* The heatmap renderer has transparent pixels outside its density layer. */
+  canvas[class~="border-emerald-200"] {
+    background: #f8faf9;
+  }
+
 @media (min-width: 1280px) {
-  body.has-app-sidebar {
+body.has-app-sidebar {
     padding-left: 88px;
   }
 }

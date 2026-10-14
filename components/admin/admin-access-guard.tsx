@@ -13,12 +13,9 @@ export function AdminAccessGuard({ children }: { children: React.ReactNode }) {
   const isLoginPage = pathname === "/admin/login"
 
   useEffect(() => {
-    if (isLoginPage) {
-      if (isLoggedIn && isAdminRole(user?.role)) {
-        router.replace(getDefaultAdminRoute(user.role))
-      }
-      return
-    }
+    // Always allow /admin/login. A regular user token can contain an admin-looking
+    // role but is not an Admin JWT (type: "admin") accepted by server APIs.
+    if (isLoginPage) return
 
     if (!isLoggedIn || !isAdminRole(user?.role)) {
       router.replace("/admin/login")

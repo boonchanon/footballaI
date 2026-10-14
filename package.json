@@ -24,7 +24,8 @@
     "test:polls": "node scripts/run-poll-tests.js",
     "test:temporary-rooms": "node scripts/run-temporary-room-tests.js",
     "test:room-conversation": "node scripts/run-room-conversation-tests.js",
-    "test:threads": "node scripts/run-thread-tests.js"
+    "test:threads": "node scripts/run-thread-tests.js",
+    "test:heatmap-analysis": "node scripts/run-heatmap-analysis-tests.js"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "latest",

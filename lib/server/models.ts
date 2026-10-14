@@ -946,9 +946,7 @@ const paymentOrderSchema =
       amount: { type: Number, required: true, min: 1 },
       currency: { type: String, default: "THB" },
       status: { type: String, enum: paymentOrderStatusValues, default: "pending", index: true },
-      paymentProvider: { type: String, default: "thunder" },
-        paymentProvider: { type: String, default: "easyslip" },
-        paymentProvider: { type: String, default: "easyslip" },
+      paymentProvider: { type: String, default: "easyslip" },
       targetType: { type: String, enum: ["credits", "daypass", "subscription"], required: true },
       targetId: { type: String, default: "", index: true },
       planInterval: { type: String, default: "month" },
@@ -1222,6 +1220,35 @@ if (!models.CommunityPost) {
   communityPostSchema.index({ replyToPost: 1, createdAt: 1 })
 }
 
+const publishedHeatmapSchema =
+  models.PublishedHeatmap?.schema ||
+  new Schema(
+    {
+      sourceJobId: { type: String, required: true, trim: true, index: true },
+      sourceSceneId: { type: String, default: "", trim: true },
+      sourceTrackIds: { type: [String], required: true, default: [] },
+      playerName: { type: String, required: true, trim: true, index: true },
+      shirtNumber: { type: String, default: "", trim: true },
+      playerTeam: { type: String, required: true, trim: true, index: true },
+      homeTeam: { type: String, default: "", trim: true },
+      awayTeam: { type: String, default: "", trim: true },
+      competition: { type: String, default: "", trim: true },
+      season: { type: String, default: "", trim: true },
+      matchDate: { type: Date, default: null, index: true },
+      heatmapImageUrl: { type: String, default: "" },
+      heatmapImageData: { type: String, default: "" },
+      status: { type: String, enum: ["draft", "published"], default: "draft", index: true },
+      publishedAt: { type: Date, default: null },
+    },
+    { timestamps: true },
+  )
+
+if (!models.PublishedHeatmap) {
+  publishedHeatmapSchema.index({ status: 1, matchDate: -1 })
+  publishedHeatmapSchema.index({ playerName: 1, playerTeam: 1 })
+}
+const heatmapMatchSchema = models.HeatmapMatch?.schema || new Schema({ homeTeam: { type: String, required: true, trim: true }, awayTeam: { type: String, required: true, trim: true }, matchDate: { type: Date, required: true }, competition: { type: String, default: "" }, season: { type: String, default: "" } }, { timestamps: true })
+
 export const User = models.User || model("User", userSchema)
 export const Admin = models.Admin || model("Admin", adminSchema)
 export const Favorite = models.Favorite || model("Favorite", favoriteSchema)
@@ -1252,3 +1279,5 @@ export const CommunityMatchSummary =
   models.CommunityMatchSummary || model("CommunityMatchSummary", communityMatchSummarySchema)
 export const CommunityMatchSummaryHistory =
   models.CommunityMatchSummaryHistory || model("CommunityMatchSummaryHistory", communityMatchSummaryHistorySchema)
+export const PublishedHeatmap = models.PublishedHeatmap || model("PublishedHeatmap", publishedHeatmapSchema)
+export const HeatmapMatch = models.HeatmapMatch || model("HeatmapMatch", heatmapMatchSchema)

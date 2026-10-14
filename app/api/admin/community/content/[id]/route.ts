@@ -4,7 +4,7 @@ import { requireAdminRoles } from "@/lib/server/auth"
 import { createModerationLog } from "@/lib/server/content-moderation"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, ok } from "@/lib/server/http"
-import { Comment, CommunityPost, CommunityReport, CommunityStory, PostLike } from "@/lib/server/models"
+import { Comment, CommunityMedia, CommunityPost, CommunityReport, CommunityStory, PostLike } from "@/lib/server/models"
 
 const ACTIONS = new Set(["hide", "unhide", "pin", "unpin", "official", "unofficial", "delete"])
 

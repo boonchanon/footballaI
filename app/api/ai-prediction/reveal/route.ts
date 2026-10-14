@@ -36,6 +36,13 @@ export async function POST(request: NextRequest) {
     await connectDatabase()
     const user = await requireAuthUser(request)
     const now = new Date()
+    const availablePrediction = await findPremierLeaguePrediction({ fixtureDate, homeTeam, awayTeam, homeName, awayName })
+
+    // Check the source data before consuming an entitlement or Token.
+    if (!availablePrediction) {
+      console.warn("[ai-prediction/reveal] prediction not found", { fixtureId, fixtureDate, homeTeam, awayTeam, homeName, awayName })
+      return NextResponse.json({ error: "prediction_not_found", message: "Prediction data was not found for this fixture" }, { status: 404 })
+    }
 
     const entitlements = await PaymentEntitlement.find({
       user: user._id,

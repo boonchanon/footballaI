@@ -3687,7 +3687,7 @@ function ReactionTeamSummaryCard({
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <Badge variant="outline" className={cn("rounded-full border-border text-[10px]", badge === "Stale" ? "border-amber-500/30 text-amber-700 dark:text-amber-200" : "text-primary")}>
+          <Badge variant="outline" className={cn("rounded-full border-border text-[10px]", badge === "รอสรุปใหม่" ? "border-amber-500/30 text-amber-700 dark:text-amber-200" : "text-primary")}>
             {badge}
           </Badge>
           <Button type="button" variant="ghost" onClick={onOpenSummary} className="h-8 rounded-full px-3 text-xs">

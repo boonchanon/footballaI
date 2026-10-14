@@ -712,12 +712,7 @@ export function WorldcupPredictionPanel() {
     setSelectedPackageCode(productCode)
 
     try {
-      const targetId =
-        product.targetType === "match"
-          ? selectedFixtureId
-          : product.targetType === "round"
-            ? activeRound
-            : "worldcup-2026"
+      const targetId = "worldcup-2026"
 
       const data = await fetchJson<{ order: AccessOrder }>("/payments/create-order", {
         method: "POST",

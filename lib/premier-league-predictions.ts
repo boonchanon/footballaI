@@ -94,7 +94,8 @@ export function normalizeTeamName(value: string) {
     .trim()
     .replace(/\s+/g, " ")
 
-  return TEAM_NAME_ALIASES[normalized] || normalized
+  const withoutClubSuffix = normalized.replace(/\s+(?:football club|fc|afc)$/i, "").trim()
+  return TEAM_NAME_ALIASES[withoutClubSuffix] || withoutClubSuffix
 }
 
 export function getPredictionLookupKey(date: string, homeTeam: string, awayTeam: string) {

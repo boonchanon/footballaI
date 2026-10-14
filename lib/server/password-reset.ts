@@ -105,3 +105,47 @@ export async function sendTokenReceiptEmail({
   })
   return true
 }
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character] || character)
+}
+
+export async function sendAdminTokenGrantEmail({
+  email,
+  name,
+  tokenAmount,
+  tokenBalance,
+  reason,
+}: {
+  email: string
+  name: string
+  tokenAmount: number
+  tokenBalance: number
+  reason: string
+}) {
+  const gmailUser = process.env.GMAIL_USER?.trim()
+  const gmailAppPassword = process.env.GMAIL_APP_PASSWORD?.trim()
+  const appName = process.env.APP_NAME || "FootballAI"
+  if (!gmailUser || !gmailAppPassword || !email.trim()) return false
+
+  const transporter = nodemailer.createTransport({ service: "gmail", auth: { user: gmailUser, pass: gmailAppPassword } })
+  await transporter.sendMail({
+    from: `${appName} <${gmailUser}>`,
+    to: email,
+    subject: `${appName}: คุณได้รับ Token เพิ่ม ${tokenAmount} Token`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#202020;line-height:1.5">
+        <h2>${escapeHtml(appName)}</h2>
+        <p>เรียนคุณ ${escapeHtml(name || email)}</p>
+        <p>ผู้ดูแลระบบได้เพิ่ม <strong>${tokenAmount} Token</strong> ให้บัญชีของคุณเรียบร้อยแล้ว</p>
+        <table style="width:100%;border-collapse:collapse;margin:20px 0">
+          <tr><td style="padding:8px;border-bottom:1px solid #ddd">Token ที่ได้รับ</td><td style="padding:8px;border-bottom:1px solid #ddd;text-align:right">${tokenAmount}</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #ddd">ยอด Token คงเหลือ</td><td style="padding:8px;border-bottom:1px solid #ddd;text-align:right">${tokenBalance}</td></tr>
+          <tr><td style="padding:8px">เหตุผล</td><td style="padding:8px;text-align:right">${escapeHtml(reason)}</td></tr>
+        </table>
+        <p>คุณสามารถตรวจสอบยอดคงเหลือและประวัติ Token ได้จากหน้าโปรไฟล์</p>
+      </div>
+    `,
+  })
+  return true
+}

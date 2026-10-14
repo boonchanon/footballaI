@@ -1,0 +1,5 @@
+import { NextRequest } from "next/server"
+import { connectDatabase } from "@/lib/server/db"
+import { ok, parsePagination } from "@/lib/server/http"
+import { PublishedHeatmap } from "@/lib/server/models"
+export async function GET(request:NextRequest){await connectDatabase();const {page,limit,skip}=parsePagination(request.nextUrl.searchParams),[items,total]=await Promise.all([PublishedHeatmap.find({status:"published"}).select("playerName shirtNumber playerTeam homeTeam awayTeam competition season matchDate heatmapImageUrl heatmapImageData publishedAt").sort({publishedAt:-1}).skip(skip).limit(limit),PublishedHeatmap.countDocuments({status:"published"})]);return ok({items:items.map((x:any)=>({id:x._id.toString(),playerName:x.playerName,shirtNumber:x.shirtNumber,playerTeam:x.playerTeam,homeTeam:x.homeTeam,awayTeam:x.awayTeam,competition:x.competition,season:x.season,matchDate:x.matchDate,heatmapImageUrl:x.heatmapImageUrl,heatmapImageData:x.heatmapImageData,publishedAt:x.publishedAt})),pagination:{page,limit,total,totalPages:Math.max(1,Math.ceil(total/limit))}})}

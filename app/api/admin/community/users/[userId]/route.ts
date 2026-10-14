@@ -10,7 +10,8 @@ import {
 } from "@/lib/server/content-moderation"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, getTimeAgoThai, ok, parsePagination } from "@/lib/server/http"
-import { Comment, CommunityPost, CommunityReport, ModerationLog, User } from "@/lib/server/models"
+import { Comment, CommunityPost, CommunityReport, ModerationLog, TokenTransaction, User } from "@/lib/server/models"
+import { sendAdminTokenGrantEmail } from "@/lib/server/password-reset"
 import { addTokens } from "@/lib/server/tokens"
 
 const USER_ACTIONS = new Set<UserModerationAction>(["warn", "restrict", "clear_restriction", "suspend", "unsuspend", "ban", "unban"])
@@ -147,16 +148,26 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (!user) return errorResponse("User not found", 404)
       const idempotencyKey = String(body.idempotencyKey || request.headers.get("x-idempotency-key") || "").trim()
       if (!idempotencyKey) return errorResponse("Idempotency key is required", 422)
+      const transactionKey = `admin-grant:${idempotencyKey}`
+      const existingTransaction = await TokenTransaction.findOne({ idempotencyKey: transactionKey }).select("_id").lean()
       const transaction = await addTokens({
         userId,
         amount,
         type: "admin_grant",
         description: reason,
-        idempotencyKey: `admin-grant:${idempotencyKey}`,
+        idempotencyKey: transactionKey,
         actorAdminId: admin._id.toString(),
         metadata: { reason, actorRole: admin.role },
       })
-      return ok({ success: true, transaction, tokenBalance: Number((await User.findById(userId).select("tokenBalance").lean())?.tokenBalance || 0) })
+      const tokenBalance = Number((await User.findById(userId).select("tokenBalance").lean())?.tokenBalance || 0)
+      if (!existingTransaction) {
+        try {
+          await sendAdminTokenGrantEmail({ email: user.email || "", name: user.name || "", tokenAmount: amount, tokenBalance, reason })
+        } catch (emailError) {
+          console.error("[admin/grant-tokens] notification email failed", { userId, emailError })
+        }
+      }
+      return ok({ success: true, transaction, tokenBalance })
     }
 
     if (!USER_ACTIONS.has(action)) return errorResponse("Invalid action", 422)

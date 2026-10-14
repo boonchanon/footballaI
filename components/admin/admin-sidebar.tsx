@@ -97,6 +97,10 @@ const sidebarLinks: SidebarLink[] = [
     href: "/admin/heatmap",
     icon: Activity,
     section: "heatmap",
+    subLinks: [
+      { title: "Video Analysis", href: "/admin/heatmap" },
+      { title: "Heatmap Library", href: "/admin/heatmap/library" },
+    ],
   },
   {
     title: "AI ทำนายผล",
