@@ -7,6 +7,7 @@ import {
   type PremierLeagueSeasonCatalogEntry,
 } from "@/lib/season"
 import { getFootballApiConfig, getFootballTeamsApiConfig } from "@/lib/server/app-settings"
+import { resolveTeamLogo } from "@/lib/team-logos"
 
 const API_BASE_URL = (process.env.API_BASE_URL || process.env.ALLSPORTS_API_BASE_URL || "https://apiv2.allsportsapi.com/football/").replace(/\/+$/, "")
 const API_KEY = process.env.API_KEY || process.env.ALLSPORTS_API_KEY || ""
@@ -248,8 +249,8 @@ function mapFixture(item: any) {
   const awayTeamId = item.match_awayteam_id || item.away_team_key || item.team_away_key || item.away_id || ""
   const homeTeamName = item.match_hometeam_name || item.event_home_team || item.home_team_name || item.home_name || ""
   const awayTeamName = item.match_awayteam_name || item.event_away_team || item.away_team_name || item.away_name || ""
-  const homeLogo = item.team_home_badge || item.match_hometeam_logo || item.event_home_team_logo || item.home_team_logo || ""
-  const awayLogo = item.team_away_badge || item.match_awayteam_logo || item.event_away_team_logo || item.away_team_logo || ""
+  const homeLogo = resolveTeamLogo(homeTeamId, item.team_home_badge || item.match_hometeam_logo || item.event_home_team_logo || item.home_team_logo)
+  const awayLogo = resolveTeamLogo(awayTeamId, item.team_away_badge || item.match_awayteam_logo || item.event_away_team_logo || item.away_team_logo)
   const venueName = item.match_stadium || item.stadium || item.event_stadium || item.venue_name || "สนามแข่งขัน"
   const directHomeScore =
     toScoreNumber(item.match_hometeam_score) ??
@@ -342,7 +343,7 @@ function mapStanding(item: any) {
       id: String(item.team_id || item.team_key || item.teamId || ""),
       name: item.team_name || item.name || item.standing_team || "",
       nameEn: item.team_name || item.name || item.standing_team || "",
-      logo: item.team_badge || item.team_logo || item.logo || "",
+      logo: resolveTeamLogo(item.team_id || item.team_key || item.teamId, item.team_badge || item.team_logo || item.logo),
     },
     all: {
       played,
@@ -362,7 +363,7 @@ function mapStanding(item: any) {
 function mapTeam(item: any) {
   const teamId = item.team_key || item.team_id || item.id || ""
   const teamName = item.team_name || item.name || ""
-  const teamLogo = item.team_badge || item.team_logo || item.logo || ""
+  const teamLogo = resolveTeamLogo(teamId, item.team_badge || item.team_logo || item.logo)
   const venueName = item.venue_name || item.stadium_name || item.team_stadium || ""
   const venueCity = item.venue_city || item.team_city || ""
   const venueCapacity = Number(item.venue_capacity || item.team_stadium_capacity || 0) || 0
@@ -857,13 +858,13 @@ function mapCachedFixture(doc: any) {
         id: String(doc.homeTeam?.id || ""),
         name: String(doc.homeTeam?.name || ""),
         nameEn: String(doc.homeTeam?.nameEn || doc.homeTeam?.name || ""),
-        logo: String(doc.homeTeam?.logo || ""),
+        logo: resolveTeamLogo(doc.homeTeam?.id, doc.homeTeam?.logo),
       },
       away: {
         id: String(doc.awayTeam?.id || ""),
         name: String(doc.awayTeam?.name || ""),
         nameEn: String(doc.awayTeam?.nameEn || doc.awayTeam?.name || ""),
-        logo: String(doc.awayTeam?.logo || ""),
+        logo: resolveTeamLogo(doc.awayTeam?.id, doc.awayTeam?.logo),
       },
     },
     goals: {
@@ -885,7 +886,7 @@ function mapCachedTeam(doc: any) {
     id: String(doc.externalId || ""),
     name: String(doc.name || ""),
     nameEn: String(doc.nameEn || doc.name || ""),
-    logo: String(doc.logo || ""),
+    logo: resolveTeamLogo(doc.externalId, doc.logo),
     country: String(doc.country || ""),
     league: String(doc.league || ""),
     founded: typeof doc.founded === "number" ? doc.founded : null,

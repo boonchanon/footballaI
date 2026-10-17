@@ -78,6 +78,14 @@ type CsvPrediction = {
 
 type RevealedMap = Record<string, CsvPrediction>
 
+type PredictionLean = { home: number | null; draw: number | null; away: number | null; outcome: "home" | "draw" | "away" | null }
+
+type PredictionInsights = {
+  leans: Record<string, PredictionLean>
+  record: { week: number; correct: number; total: number }[]
+  season: { correct: number; total: number }
+}
+
 type AccessEntitlement = {
   id: string
   productCode: string
@@ -232,6 +240,23 @@ function getTeamInitials(name: string) {
   return (words.length > 1 ? words.slice(0, 2).map((word) => word[0]).join("") : words[0]?.slice(0, 3) ?? "?").toUpperCase()
 }
 
+function LeanBar({ lean, homeName, awayName }: { lean: PredictionLean; homeName: string; awayName: string }) {
+  if (lean.home == null || lean.draw == null || lean.away == null) return null
+  const total = lean.home + lean.draw + lean.away || 1
+  const label = lean.outcome === "home" ? `AI เอียงไปทาง ${homeName}` : lean.outcome === "away" ? `AI เอียงไปทาง ${awayName}` : "AI มองว่าสูสี"
+
+  return (
+    <div className="mt-4" aria-label={label}>
+      <div className="flex h-1.5 overflow-hidden rounded-full bg-border dark:bg-white/10">
+        <div className="h-full bg-primary" style={{ width: `${(lean.home / total) * 100}%` }} />
+        <div className="h-full bg-foreground/25 dark:bg-white/25" style={{ width: `${(lean.draw / total) * 100}%` }} />
+        <div className="h-full bg-sky-500/70" style={{ width: `${(lean.away / total) * 100}%` }} />
+      </div>
+      <p className="mt-1.5 text-xs font-semibold text-muted-foreground dark:text-slate-400">{label} · ปลดล็อกเพื่อดูตัวเลขและสกอร์</p>
+    </div>
+  )
+}
+
 function TeamLogo({ team, className }: { team: { name: string; nameEn?: string; logo?: string }; className?: string }) {
   const [failed, setFailed] = useState(false)
   const name = team.nameEn || team.name
@@ -294,6 +319,7 @@ export default function AIPredictionPageClient() {
     "/football/fixtures?type=all&limit=380",
     backendFetcher,
   )
+  const { data: insights } = useSWR<PredictionInsights>("/ai-prediction/insights", backendFetcher, { revalidateOnFocus: false })
 
   const [paymentState, setPaymentState] = useState<PaymentStateResponse | null>(null)
   const [paymentLoading, setPaymentLoading] = useState(false)
@@ -576,6 +602,12 @@ export default function AIPredictionPageClient() {
                 <div>
                   <p className="text-sm text-muted-foreground dark:text-slate-300">เลือกสัปดาห์การแข่งขัน</p>
                   <p className="mt-1 text-xs text-muted-foreground dark:text-slate-500">ทุกคู่ในหน้านี้ต้องใช้เหรียญปลดล็อกก่อนดูผลทำนาย</p>
+                  {insights?.season.total ? (
+                    <p className="mt-3 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                      <Trophy className="h-3.5 w-3.5" />
+                      ผลงาน AI ฤดูกาลนี้: ทายผลถูก {insights.season.correct}/{insights.season.total} นัด
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex gap-2">
                   <Button type="button" variant="outline" size="icon" onClick={() => scrollWeekStrip("left")} className="rounded-full border-border dark:border-white/10 bg-surface-2 dark:bg-white/[0.03]">
@@ -592,6 +624,7 @@ export default function AIPredictionPageClient() {
                   (() => {
                     const summary = getWeekSummary(item.matches)
                     const progress = item.matches.length ? Math.round((summary.finished / item.matches.length) * 100) : 0
+                    const weekRecord = insights?.record.find((entry) => entry.week === item.week && entry.total > 0)
 
                     return (
                   <button
@@ -632,6 +665,9 @@ export default function AIPredictionPageClient() {
                     <div className={cn("mt-2 h-1.5 overflow-hidden rounded-full", item.week === selectedWeek ? "bg-[#09110b]/15" : "bg-border dark:bg-white/10")}>
                       <div className={cn("h-full rounded-full", item.week === selectedWeek ? "bg-[#09110b]/55" : "bg-primary")} style={{ width: `${progress}%` }} />
                     </div>
+                    {weekRecord ? (
+                      <p className="mt-3 text-xs font-bold">AI ทายถูก {weekRecord.correct}/{weekRecord.total}</p>
+                    ) : null}
                   </button>
                     )
                   })()
@@ -648,7 +684,7 @@ export default function AIPredictionPageClient() {
                       <p className="mt-1 text-sm text-muted-foreground dark:text-slate-400">เลือกแมตช์ทางซ้ายเพื่อดูผลทำนายของคู่นั้น</p>
                     </div>
                     <div className="rounded-full border border-border dark:border-white/10 bg-surface-2 dark:bg-white/5 px-3 py-1 text-sm text-muted-foreground dark:text-slate-300">
-                      {(activeWeek?.matches || []).length} matches
+                      {(activeWeek?.matches || []).length} คู่
                     </div>
                   </div>
                 </CardHeader>
@@ -701,6 +737,14 @@ export default function AIPredictionPageClient() {
                                 {fixture.goals.away != null ? <p className="text-xs text-muted-foreground dark:text-slate-400">Score {fixture.goals.away}</p> : null}
                               </div>
                             </div>
+
+                            {!fixture.status.isFinished && insights?.leans[fixture.id] ? (
+                              <LeanBar
+                                lean={insights.leans[fixture.id]}
+                                homeName={getDisplayTeamName(fixture.teams.home.nameEn || fixture.teams.home.name)}
+                                awayName={getDisplayTeamName(fixture.teams.away.nameEn || fixture.teams.away.name)}
+                              />
+                            ) : null}
 
                             <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground dark:text-slate-400">
                               <span className="inline-flex items-center gap-1.5">
