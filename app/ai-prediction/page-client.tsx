@@ -73,6 +73,7 @@ type CsvPrediction = {
   catboostPredictedScore: string
   xgboostPredictedScore: string
   poissonPredictedScore: string
+  topScores?: { score: string; probability: number | null }[]
 }
 
 type RevealedMap = Record<string, CsvPrediction>
@@ -226,11 +227,43 @@ function getConfidenceTone(value: number | null) {
   return "text-slate-400"
 }
 
-function SupportingModelRow({ label, value }: { label: string; value: string }) {
+function TopScoresCard({ topScores, headline, prediction }: { topScores: NonNullable<CsvPrediction["topScores"]>; headline: string; prediction: CsvPrediction }) {
+  const hasProbabilities = topScores.every((item) => item.probability != null)
+  const ordered = hasProbabilities ? [...topScores].sort((a, b) => (b.probability ?? 0) - (a.probability ?? 0)) : topScores
+  const maxProbability = Math.max(...ordered.map((item) => item.probability ?? 0), 0.0001)
+
   return (
-    <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-      <span className="text-sm text-slate-400">{label}</span>
-      <span className="text-base font-semibold text-white">{value || "-"}</span>
+    <div className="rounded-[28px] border border-white/10 bg-[#0e171a] p-5">
+      <p className="text-lg font-semibold text-white">สกอร์ที่มีโอกาสมากที่สุด</p>
+      <div className="mt-4 space-y-3">
+        {ordered.map((item) => (
+          <div key={item.score}>
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-2 text-xl font-black text-white">
+                {item.score}
+                {item.score === headline ? (
+                  <Badge variant="outline" className="rounded-full border-primary/40 text-[10px] text-primary">หลัก</Badge>
+                ) : null}
+              </span>
+              <span className="text-base font-semibold text-slate-300">{formatPercent(item.probability)}</span>
+            </div>
+            {item.probability != null ? (
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+                <div className="h-full rounded-full bg-primary" style={{ width: `${(item.probability / maxProbability) * 100}%` }} />
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+      {prediction.homeWin != null && prediction.draw != null && prediction.awayWin != null ? (
+        <p className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-200">
+          โอกาสรวมตามผล: เจ้าบ้านชนะ {formatPercent(prediction.homeWin)} · เสมอ {formatPercent(prediction.draw)} · ทีมเยือนชนะ {formatPercent(prediction.awayWin)}
+        </p>
+      ) : null}
+      <p className="mt-3 text-xs leading-6 text-slate-400">
+        ผลทำนายเลือกจากโอกาสรวมที่สูงที่สุด ผลชนะกระจายอยู่หลายสกอร์ (1-0, 2-0, 2-1, ...) แต่ละสกอร์จึงดูน้อย ส่วนผลเสมอรวมอยู่ใน 1-1 และ 0-0 เป็นหลัก
+        สกอร์ &quot;หลัก&quot; คือสกอร์ที่น่าจะเกิดที่สุดในบรรดาสกอร์ที่ตรงกับผลทำนาย และสกอร์เป๊ะมักเกิดจริงเพียงราว 10%
+      </p>
     </div>
   )
 }
@@ -752,6 +785,10 @@ export default function AIPredictionPageClient() {
                               <p className="mt-2 text-base text-primary">ผลทำนาย: {selectedPrediction.predictedResult}</p>
                             </div>
 
+                            {selectedPrediction.topScores?.length ? (
+                              <TopScoresCard topScores={selectedPrediction.topScores} headline={selectedPrediction.ensemblePredictedScore} prediction={selectedPrediction} />
+                            ) : null}
+
                             {finishedSummary ? (
                               <div className={cn("rounded-[24px] border p-4", finishedSummary.tone)}>
                                 <p className="text-base font-bold">{finishedSummary.label}</p>
@@ -809,16 +846,6 @@ export default function AIPredictionPageClient() {
                                 </div>
                               </div>
                             </div>
-
-                            <div className="space-y-3 rounded-[28px] border border-white/10 bg-[#0e171a] p-5">
-                              <div className="flex items-center gap-2 text-lg font-semibold text-white">
-                                <BrainCircuit className="h-5 w-5 text-primary" />
-                                มุมมองจากโมเดลรอง
-                              </div>
-                              <SupportingModelRow label="CatBoost" value={selectedPrediction.catboostPredictedScore} />
-                              <SupportingModelRow label="XGBoost" value={selectedPrediction.xgboostPredictedScore} />
-                              <SupportingModelRow label="Poisson" value={selectedPrediction.poissonPredictedScore} />
-                            </div>
                           </>
                         ) : (
                           <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-6 text-center">
@@ -831,7 +858,7 @@ export default function AIPredictionPageClient() {
                             <p className="mt-2 text-sm leading-7 text-slate-400">
                               {selectedUnlocked
                                 ? "ถ้าเพิ่งปลดล็อก ระบบจะโหลดผลทำนายของคู่นี้ขึ้นที่นี่"
-                                : "กดปุ่มปลดล็อก 1 เหรียญเพื่อดูสกอร์ที่คาด ความมั่นใจ เปอร์เซ็นต์ชนะ และมุมมองจากแต่ละโมเดล"}
+                                : "กดปุ่มปลดล็อก 1 เหรียญเพื่อดูสกอร์ที่คาด ความมั่นใจ เปอร์เซ็นต์ชนะ และสกอร์ที่มีโอกาสมากที่สุด"}
                             </p>
                           </div>
                         )}

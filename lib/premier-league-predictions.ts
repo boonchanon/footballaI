@@ -11,6 +11,7 @@ export type CsvPrediction = {
   catboostPredictedScore: string
   xgboostPredictedScore: string
   poissonPredictedScore: string
+  topScores: { score: string; probability: number | null }[]
 }
 
 const TEAM_NAME_ALIASES: Record<string, string> = {
@@ -132,5 +133,20 @@ export function parsePredictionCsv(csvText: string) {
     catboostPredictedScore: normalizeScoreText(row.catboost_predicted_score || "-"),
     xgboostPredictedScore: normalizeScoreText(row.xgboost_predicted_score || "-"),
     poissonPredictedScore: normalizeScoreText(row.poisson_predicted_score || "-"),
+    topScores: parseTopScores(row.top_scores, row.top_scores_probabilities),
   }))
+}
+
+function parseTopScores(scores = "", probabilities = "") {
+  const probabilityValues = probabilities.split("|")
+  return scores
+    .split("|")
+    .map((score, index) => {
+      const probability = Number(probabilityValues[index])
+      return {
+        score: normalizeScoreText(score),
+        probability: probabilityValues[index] && Number.isFinite(probability) ? probability : null,
+      }
+    })
+    .filter((item) => /^\d+-\d+$/.test(item.score))
 }

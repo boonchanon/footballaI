@@ -32,23 +32,12 @@ export async function findPremierLeaguePrediction(input: {
     if (found) return found
   }
 
-  // Fixture feeds can represent an evening kickoff in UTC while the UI presents
-  // its local calendar date. Accept a one-day boundary difference only when the
-  // two teams still match exactly after normalization.
-  const inputHome = getDisplayTeamName(input.homeTeam)
-  const inputAway = getDisplayTeamName(input.awayTeam)
-  const fixtureTime = Date.parse(`${input.fixtureDate}T00:00:00Z`)
-  if (Number.isFinite(fixtureTime)) {
-    const closeDateMatch = predictions.find((item) => {
-      const predictionTime = Date.parse(`${item.fixtureDate}T00:00:00Z`)
-      return (
-        Number.isFinite(predictionTime) &&
-        Math.abs(predictionTime - fixtureTime) === 24 * 60 * 60 * 1000 &&
-        getPredictionLookupKey("", item.homeTeam, item.awayTeam) === getPredictionLookupKey("", inputHome, inputAway)
-      )
-    })
-    if (closeDateMatch) return closeDateMatch
-  }
-
-  return null
+  // Each home/away pairing occurs once per season, so the teams alone identify the
+  // fixture when it was rescheduled or the feed reports a UTC date shift.
+  const pairKeys = new Set([
+    getPredictionLookupKey("", input.homeTeam, input.awayTeam),
+    getPredictionLookupKey("", getDisplayTeamName(input.homeTeam), getDisplayTeamName(input.awayTeam)),
+    ...(input.homeName && input.awayName ? [getPredictionLookupKey("", input.homeName, input.awayName)] : []),
+  ])
+  return predictions.find((item) => pairKeys.has(getPredictionLookupKey("", item.homeTeam, item.awayTeam))) ?? null
 }
