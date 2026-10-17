@@ -67,7 +67,7 @@ export default function WorldCupPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <WorldCupPopup storageKey="footballai-worldcup-popup-worldcup-seen" />
+      <WorldCupPopup storageKey="footballai-premier-league-popup-worldcup-seen" />
       <Navigation />
 
       <main className="pt-16">

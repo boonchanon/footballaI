@@ -125,7 +125,7 @@ function StatCard({
     `}
     >
       <Icon className={`w-5 h-5 mb-2 ${highlight ? "text-primary" : "text-muted-foreground"}`} />
-      <div className={`text-2xl font-bold ${highlight ? "text-primary" : "text-foreground"}`}>{value}</div>
+      <div className={`font-ai-data text-2xl font-bold ${highlight ? "text-primary" : "text-foreground"}`}>{value}</div>
       <div className="text-xs text-muted-foreground mt-1">{label}</div>
     </div>
   )
@@ -143,7 +143,7 @@ function MatchItem({ match, onSelect }: { match: any; onSelect: () => void }) {
           <div className="text-xs text-muted-foreground mb-2">{match.date}</div>
           <div className="flex items-center gap-3">
             <span className="font-medium text-sm">{match.home}</span>
-            <span className="text-lg font-bold text-primary px-2 py-0.5 bg-primary/10 rounded">{match.score}</span>
+            <span className="font-score text-lg font-bold text-primary px-2 py-0.5 bg-primary/10 rounded">{match.score}</span>
             <span className="font-medium text-sm">{match.away}</span>
           </div>
           <div className="text-xs text-muted-foreground mt-2">{match.stadium}</div>
@@ -289,7 +289,7 @@ export default function HeatmapPage() {
             <Badge variant="outline" className="mb-4 border-primary/50 text-primary">
               PLAYER ANALYTICS
             </Badge>
-            <h1 className="text-4xl md:text-6xl font-display tracking-tight mb-4">
+            <h1 className="font-ai-display text-4xl md:text-6xl tracking-tight mb-4">
               PLAYER <span className="text-primary">HEATMAP</span>
             </h1>
             <p className="text-muted-foreground text-lg leading-relaxed">
@@ -319,11 +319,11 @@ export default function HeatmapPage() {
               <div className="space-y-6">
                 {/* Player Header */}
                 <div className="flex items-start gap-4 p-6 rounded-2xl bg-gradient-to-br from-card to-card/50 border border-border/50">
-                  <div className="w-20 h-20 rounded-xl bg-primary/20 flex items-center justify-center text-3xl font-bold text-primary">
+                  <div className="w-20 h-20 rounded-xl bg-primary/20 flex items-center justify-center font-football text-3xl font-bold text-primary">
                     {heatmapData.player.number}
                   </div>
                   <div className="flex-1">
-                    <h2 className="text-2xl font-bold mb-1">{heatmapData.player.name}</h2>
+                    <h2 className="font-football text-2xl font-bold mb-1">{heatmapData.player.name}</h2>
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <span>{heatmapData.player.position}</span>
                       <span className="w-1 h-1 rounded-full bg-muted-foreground" />
@@ -366,7 +366,7 @@ export default function HeatmapPage() {
                       <div key={i} className="space-y-2">
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">{zone.zone}</span>
-                          <span className="font-bold text-primary">{zone.percentage}%</span>
+                          <span className="font-ai-data font-bold text-primary">{zone.percentage}%</span>
                         </div>
                         <div className="h-3 bg-muted/50 rounded-full overflow-hidden">
                           <div
@@ -412,7 +412,7 @@ export default function HeatmapPage() {
             {selectedMatch && (
               <DialogDescription className="flex items-center gap-2 pt-2">
                 <span>{selectedMatch.home}</span>
-                <span className="font-bold text-primary">{selectedMatch.score}</span>
+                <span className="font-score font-bold text-primary">{selectedMatch.score}</span>
                 <span>{selectedMatch.away}</span>
               </DialogDescription>
             )}
@@ -451,7 +451,7 @@ export default function HeatmapPage() {
                   {selectedTeam &&
                     playersByTeam[selectedTeam]?.map((player) => (
                       <SelectItem key={player.id} value={player.id}>
-                        <span className="font-mono text-primary mr-2">#{player.number}</span>
+                        <span className="font-football text-primary mr-2">#{player.number}</span>
                         {player.name}
                         <span className="text-muted-foreground ml-2 text-xs">({player.position})</span>
                       </SelectItem>

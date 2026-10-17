@@ -81,7 +81,7 @@ export default function StandingsPage() {
             <>
               <Card className="overflow-hidden border-border/50">
                 <div className="overflow-x-auto">
-                  <table className="w-full">
+                  <table className="w-full font-table">
                     <thead className="border-b border-border bg-muted/50">
                       <tr className="text-sm text-muted-foreground">
                         <th className="w-16 px-4 py-4 text-left font-medium">อันดับ</th>
@@ -107,7 +107,7 @@ export default function StandingsPage() {
                         >
                           <td className="px-4 py-4">
                             <div
-                              className={`flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold ${
+                              className={`flex h-8 w-8 items-center justify-center rounded-lg font-status text-sm font-bold ${
                                 i < 4
                                   ? "bg-primary text-primary-foreground"
                                   : i === 4
@@ -134,7 +134,7 @@ export default function StandingsPage() {
                                 <div className="h-8 w-8 rounded-full bg-muted" />
                               )}
                               <div>
-                                <span className="font-semibold">{team.team}</span>
+                                <span className="font-football font-semibold">{team.team}</span>
                                 {team.teamEn && team.teamEn !== team.team && (
                                   <p className="text-xs text-muted-foreground">{team.teamEn}</p>
                                 )}
@@ -159,7 +159,7 @@ export default function StandingsPage() {
                             {team.gd > 0 ? `+${team.gd}` : team.gd}
                           </td>
                           <td className="px-4 py-4 text-center">
-                            <span className="text-lg font-bold text-primary">{team.points}</span>
+                            <span className="font-ai-data text-lg font-bold text-primary">{team.points}</span>
                           </td>
                           <td className="px-4 py-4">
                             <div className="flex items-center justify-center gap-1">
@@ -167,7 +167,7 @@ export default function StandingsPage() {
                                 team.form.map((result: string, j: number) => (
                                   <div
                                     key={j}
-                                    className={`flex h-6 w-6 items-center justify-center rounded-md text-xs font-bold ${
+                                    className={`flex h-6 w-6 items-center justify-center rounded-md font-status text-xs font-bold ${
                                       result === "W"
                                         ? "bg-green-500 text-white"
                                         : result === "D"

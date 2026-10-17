@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useWhoAmI } from "@/components/games/use-who-am-i"
+import { WhoChallenge } from "@/components/games/who-challenge"
+import { WHO_TIMES, WHO_MODE_LABELS } from "@/lib/games/who-am-i"
 import { Navigation } from "@/components/navigation"
 import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
@@ -20,285 +22,41 @@ import {
   Lightbulb,
   Shield,
   Sparkles,
+  Route,
+  BarChart3,
 } from "lucide-react"
-
-// --- Types ---
-interface PlayerChallenge {
-  id: number
-  clues: string[]
-  answer: string
-  options: string[]
-}
-
-// --- Data: 12 Premier League player challenges with 6 clues each ---
-const allChallenges: PlayerChallenge[] = [
-  {
-    id: 1,
-    clues: [
-      "ผมเกิดในทวีปยุโรปตอนเหนือ",
-      "ผมเป็นกองหน้าตัวเป้าที่สูงกว่า 190 ซม.",
-      "พ่อของผมเคยเป็นนักฟุตบอลอาชีพเช่นกัน",
-      "ผมเคยเล่นให้ดอร์ทมุนด์ก่อนมาพรีเมียร์ลีก",
-      "ผมทำลายสถิติผู้ทำประตูสูงสุดในฤดูกาลเดียวของพรีเมียร์ลีก",
-      "ผมเล่นให้แมนเชสเตอร์ ซิตี้ หมายเลข 9",
-    ],
-    answer: "เออร์ลิง ฮาแลนด์",
-    options: ["เออร์ลิง ฮาแลนด์", "อเล็กซานเดอร์ อิซัค", "อีวาน โทนี่", "โดมินิค โซลันเก้"],
-  },
-  {
-    id: 2,
-    clues: [
-      "ผมเกิดในทวีปแอฟริกา",
-      "ผมเป็นผู้เล่นที่เร็วที่สุดคนหนึ่งในพรีเมียร์ลีก",
-      "ผมเคยเล่นให้ทีมในลีกอิตาลี ซีรีอา A ก่อน",
-      "ผมทำประตูในนัดชิงชนะเลิศแชมเปียนส์ลีก",
-      "ผมเป็นดาวซัลโวพรีเมียร์ลีกหลายสมัย",
-      "ผมเล่นปีกขวาให้ลิเวอร์พูล หมายเลข 11",
-    ],
-    answer: "โมฮาเหม็ด ซาลาห์",
-    options: ["โมฮาเหม็ด ซาลาห์", "ซาดิโอ มาเน่", "ริยาด มาห์เรซ", "นิโกลัส เปเป้"],
-  },
-  {
-    id: 3,
-    clues: [
-      "ผมเกิดในประเทศอังกฤษ",
-      "ผมเริ่มต้นอาชีพในอะคาเดมีของทีมยักษ์ใหญ่สีฟ้า",
-      "ผมย้ายสโมสรเพราะต้องการโอกาสลงเล่นตัวจริง",
-      "ผมเป็นที่รู้จักจากท่าดีใจ 'Cold Palmer'",
-      "ผมเคยทำ 4 ประตูในครึ่งหลังเกมเดียวในพรีเมียร์ลีก",
-      "ผมเล่นให้เชลซี หมายเลข 20",
-    ],
-    answer: "โคล พาล์มเมอร์",
-    options: ["โคล พาล์มเมอร์", "ฟิล โฟเดน", "มาร์คัส แรชฟอร์ด", "แจ็ค กรีลิช"],
-  },
-  {
-    id: 4,
-    clues: [
-      "ผมเกิดในกรุงลอนดอน",
-      "ผมเป็นผลผลิตจากอะคาเดมีของสโมสรที่ผมเล่นอยู่",
-      "ผมเคยได้รับเลือกเป็นนักเตะยอดเยี่ยมของพรีเมียร์ลีก",
-      "ผมเป็นปีกที่ชอบตัดเข้าในจากฝั่งขวา",
-      "ผมเล่นให้ทีมชาติอังกฤษตั้งแต่อายุน้อยมาก",
-      "ผมสวมเสื้อหมายเลข 7 ของอาร์เซนอล",
-    ],
-    answer: "บูคาโย ซาก้า",
-    options: ["บูคาโย ซาก้า", "เอมิล สมิธ โรว์", "เรียส เนลสัน", "เอ็ดดี้ เอ็นเคเทียห์"],
-  },
-  {
-    id: 5,
-    clues: [
-      "ผมเกิดในประเทศเบลเยียม",
-      "ผมเป็นมิดฟิลด์ที่โด่งดังเรื่องการส่งบอลยาว",
-      "ผมเคยทำแอสซิสต์มากที่สุดในฤดูกาลเดียวของพรีเมียร์ลีก",
-      "ผมเคยเล่นให้โวล์ฟสบวร์กในบุนเดสลีกา",
-      "ผมเป็นกัปตันทีมชาติของผม",
-      "ผมเล่นให้แมนเชสเตอร์ ซิตี้ หมายเลข 17",
-    ],
-    answer: "เควิน เดอ บรอยน์",
-    options: ["เควิน เดอ บรอยน์", "เอเดน อาซาร์", "ยูริ ทีเลอม็องส์", "เลอันโดร ทรอสซาร์ด"],
-  },
-  {
-    id: 6,
-    clues: [
-      "ผมเกิดในประเทศสวีเดน",
-      "ผมเป็นกองหน้าที่เล่นอยู่ทางเหนือของอังกฤษ",
-      "ผมเคยเล่นให้เรอัล โซเซียดาดในลาลีกา",
-      "ผมมีความสูงเกิน 190 ซม. และเป็นสตไรเกอร์ตัวเป้า",
-      "ผมเป็นจ่าฝูงดาวซัลโวของทีมหลายฤดูกาลติด",
-      "ผมเล่นให้นิวคาสเซิล ยูไนเต็ด",
-    ],
-    answer: "อเล็กซานเดอร์ อิซัค",
-    options: ["อเล็กซานเดอร์ อิซัค", "เออร์ลิง ฮาแลนด์", "วิกเตอร์ ยอเรสโก", "ราสมุส ฮอยลุนด์"],
-  },
-  {
-    id: 7,
-    clues: [
-      "ผมเกิดในโปรตุเกส",
-      "ผมเป็นมิดฟิลด์ตัวรุก ที่ชอบยิงจากนอกกรอบ",
-      "ผมเคยเล่นให้สปอร์ติ้ง ลิสบอน ก่อนมาพรีเมียร์ลีก",
-      "ผมเป็นกัปตันทีมและเป็นที่รักของแฟนบอล",
-      "ผมขึ้นชื่อเรื่องลูกยิงฟรีคิก",
-      "ผมเล่นให้แมนเชสเตอร์ ยูไนเต็ด หมายเลข 8",
-    ],
-    answer: "บรูโน แฟร์นันเดส",
-    options: ["บรูโน แฟร์นันเดส", "แบร์นาร์โด ซิลวา", "เปโดร เนโต้", "ดิโอโก้ โชต้า"],
-  },
-  {
-    id: 8,
-    clues: [
-      "ผมเกิดในประเทศอังกฤษ",
-      "ผมเป็นกองกลางตัวรับ ที่มีพลังงานสูงมาก",
-      "ผมเคยเล่นให้เวสต์แฮม ยูไนเต็ด ก่อนย้ายทีม",
-      "ผมย้ายทีมด้วยค่าตัวสูงเป็นสถิติของสโมสรใหม่",
-      "ผมเล่นทั้งกองกลางและแนวรับได้",
-      "ผมเล่นให้อาร์เซนอล หมายเลข 41",
-    ],
-    answer: "เดคแลน ไรซ์",
-    options: ["เดคแลน ไรซ์", "โทมัส ปาร์เตย์", "คาเลบ ฮาเวิร์ทซ", "มาร์ติน โอเดการ์ด"],
-  },
-  {
-    id: 9,
-    clues: [
-      "ผมเกิดในเกาหลีใต้",
-      "ผมเป็นกองหน้าที่มีความเร็วสูงมาก",
-      "ผมเคยเล่นให้ฮัมบูร์กและไบเออร์ เลเวอร์คูเซน",
-      "ผมเป็นกัปตันทีมชาติของผม",
-      "ผมเป็นผู้ทำประตูชาวเอเชียสูงสุดในประวัติศาสตร์พรีเมียร์ลีก",
-      "ผมเล่นให้สเปอร์ส หมายเลข 7",
-    ],
-    answer: "ซน ฮึง-มิน",
-    options: ["ซน ฮึง-มิน", "ฮวัง ฮี-ชาน", "อี คัง-อิน", "คิม มิน-แจ"],
-  },
-  {
-    id: 10,
-    clues: [
-      "ผมเกิดในทวีปอเมริกาใต้",
-      "ผมเป็นกองหลังตัวกลางที่ดุดัน",
-      "ผมเคยเล่นในลีกอิตาลี ซีรีอา A",
-      "ผมเป็นที่รู้จักจากการเข้าสกัดที่รุนแรง",
-      "ผมเป็นแกนหลักของแนวรับทีมชาติอาร์เจนตินา",
-      "ผมเล่นให้สเปอร์ส หมายเลข 17",
-    ],
-    answer: "คริสเตียน โรเมโร",
-    options: ["คริสเตียน โรเมโร", "ลิซานโดร มาร์ติเนซ", "เอมิลิอาโน มาร์ติเนซ", "อเล็กซิส แม็ค อัลลิสเตอร์"],
-  },
-  {
-    id: 11,
-    clues: [
-      "ผมเกิดในประเทศอังกฤษ",
-      "ผมเป็นมิดฟิลด์ตัวรุกที่ผ่านอะคาเดมีของทีมที่ผมเล่นอยู่",
-      "ผมเคยถูกปล่อยไปเล่นยืมให้หลายสโมสร",
-      "ผมเพิ่งคว้ารางวัลนักเตะยอดเยี่ยมของ PFA",
-      "ผมเป็นดาวรุ่งแห่งปีของพรีเมียร์ลีก",
-      "ผมเล่นให้แมนเชสเตอร์ ซิตี้ หมายเลข 47",
-    ],
-    answer: "ฟิล โฟเดน",
-    options: ["ฟิล โฟเดน", "โคล พาล์มเมอร์", "แจ็ค กรีลิช", "เมสัน เมาท์"],
-  },
-  {
-    id: 12,
-    clues: [
-      "ผมเกิดในนอร์เวย์",
-      "ผมเป็นมิดฟิลด์ตัวรุกที่สร้างสรรค์เกมรุก",
-      "ผมเคยเล่นให้เรอัล มาดริด ตอนเป็นเยาวชน",
-      "ผมย้ายมาจากเรอัล โซเซียดาด",
-      "ผมเป็นกัปตันทีมตั้งแต่อายุยังน้อย",
-      "ผมเล่นให้อาร์เซนอล หมายเลข 8",
-    ],
-    answer: "มาร์ติน โอเดการ์ด",
-    options: ["มาร์ติน โอเดการ์ด", "เจมส์ แมดดิสัน", "บรูโน แฟร์นันเดส", "เควิน เดอ บรอยน์"],
-  },
-]
 
 // --- Difficulty Config ---
 const difficultyConfig = {
-  easy: { label: "ง่าย", time: 420, color: "text-emerald-500", bg: "bg-emerald-500", border: "border-emerald-500/30" },
-  medium: { label: "ปานกลาง", time: 300, color: "text-amber-500", bg: "bg-amber-500", border: "border-amber-500/30" },
-  hard: { label: "ยาก", time: 180, color: "text-red-500", bg: "bg-red-500", border: "border-red-500/30" },
+  easy: { label: "ง่าย", time: WHO_TIMES.easy, color: "text-emerald-500", bg: "bg-emerald-500", border: "border-emerald-500/30" },
+  medium: { label: "ปานกลาง", time: WHO_TIMES.medium, color: "text-amber-500", bg: "bg-amber-500", border: "border-amber-500/30" },
+  hard: { label: "ยาก", time: WHO_TIMES.hard, color: "text-red-500", bg: "bg-red-500", border: "border-red-500/30" },
 } as const
 
 type Difficulty = keyof typeof difficultyConfig
 
-// --- Helper: shuffle array ---
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
-}
-
-// --- Component ---
 export default function WhoAmIPage() {
-  const [difficulty, setDifficulty] = useState<Difficulty | null>(null)
-  const [challenges, setChallenges] = useState<PlayerChallenge[]>([])
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [revealedClues, setRevealedClues] = useState(1)
-  const [selected, setSelected] = useState<string | null>(null)
-  const [answered, setAnswered] = useState(false)
-  const [score, setScore] = useState(0)
-  const [results, setResults] = useState<{ correct: boolean; answer: string; selected: string }[]>([])
-  const [timeLeft, setTimeLeft] = useState(0)
-  const [gameOver, setGameOver] = useState(false)
-  const [shuffledOptions, setShuffledOptions] = useState<string[]>([])
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  const currentChallenge = challenges[currentIndex]
-  const totalChallenges = 6
-
-  // Start game
-  const startGame = useCallback((d: Difficulty) => {
-    setDifficulty(d)
-    const shuffled = shuffle(allChallenges).slice(0, totalChallenges)
-    setChallenges(shuffled)
-    setCurrentIndex(0)
-    setRevealedClues(1)
-    setSelected(null)
-    setAnswered(false)
-    setScore(0)
-    setResults([])
-    setTimeLeft(difficultyConfig[d].time)
-    setGameOver(false)
-    setShuffledOptions(shuffle(shuffled[0].options))
-  }, [])
-
-  // Timer
-  useEffect(() => {
-    if (difficulty && !gameOver) {
-      timerRef.current = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            clearInterval(timerRef.current!)
-            setGameOver(true)
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
-      return () => {
-        if (timerRef.current) clearInterval(timerRef.current)
-      }
-    }
-  }, [difficulty, gameOver])
-
-  // Update shuffled options on challenge change
-  useEffect(() => {
-    if (currentChallenge) {
-      setShuffledOptions(shuffle(currentChallenge.options))
-    }
-  }, [currentChallenge])
-
-  const handleRevealClue = () => {
-    if (currentChallenge && revealedClues < currentChallenge.clues.length) {
-      setRevealedClues((prev) => prev + 1)
-    }
-  }
-
-  const handleAnswer = (option: string) => {
-    if (answered || gameOver) return
-    setSelected(option)
-    setAnswered(true)
-
-    const isCorrect = option === currentChallenge.answer
-    // Score: more points for fewer clues revealed
-    const clueBonus = Math.max(0, 7 - revealedClues)
-    const pointsEarned = isCorrect ? 10 + clueBonus * 5 : 0
-    setScore((prev) => prev + pointsEarned)
-    setResults((prev) => [...prev, { correct: isCorrect, answer: currentChallenge.answer, selected: option }])
-  }
-
-  const handleNext = () => {
-    if (currentIndex + 1 >= totalChallenges) {
-      setGameOver(true)
-      if (timerRef.current) clearInterval(timerRef.current)
-    } else {
-      setCurrentIndex((prev) => prev + 1)
-      setRevealedClues(1)
-      setSelected(null)
-      setAnswered(false)
-    }
-  }
+  const { session, busy, error, needsLogin, resultVisible, timeLeft, startGame, handleAnswer, handleRevealClue, handleNext, reset, retry } = useWhoAmI()
+  const difficulty = session?.difficulty ?? null
+  const currentChallenge = session?.currentQuestion
+  const ModeIcon = currentChallenge?.mode === "career" ? Route : currentChallenge?.mode === "stats" ? BarChart3 : User
+  const currentIndex = session?.currentIndex ?? 0
+  const revealedClues = session?.revealedClues ?? 1
+  const results = session?.answers ?? []
+  const currentAnswer = results.find(result => result.questionId === currentChallenge?.id)
+  const selected = currentAnswer?.selected ?? null
+  const answered = session?.answered ?? false
+  const score = session?.score ?? 0
+  const totalChallenges = session?.totalQuestions ?? 6
+  const shuffledOptions = currentChallenge?.options ?? []
+  const gameOver = session?.status === "completed" && resultVisible
+  const notice = (busy || error || needsLogin) && (
+    <div className="container mx-auto px-4 py-3" aria-live="polite">
+      {busy && <p className="text-sm text-muted-foreground">กำลังบันทึกหรือโหลดเกม...</p>}
+      {needsLogin ? <p className="text-sm">กรุณาเข้าสู่ระบบเพื่อเล่นและบันทึกคะแนน <Link href="/login" className="text-primary underline">เข้าสู่ระบบ</Link></p>
+        : error ? <div role="alert" className="flex items-center gap-3 text-sm text-destructive"><span>{error}</span><Button variant="outline" onClick={retry} disabled={busy}>ลองอีกครั้ง</Button></div> : null}
+    </div>
+  )
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60)
@@ -317,6 +75,7 @@ export default function WhoAmIPage() {
     return (
       <div className="min-h-screen bg-background">
         <Navigation />
+        {notice}
         <div className="border-b border-border bg-muted/20">
           <div className="container mx-auto px-4 py-6">
             <Link href="/games" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4">
@@ -353,7 +112,11 @@ export default function WhoAmIPage() {
                 <Card
                   key={key}
                   className={`border-border/50 hover:${config.border} transition-all cursor-pointer group`}
-                  onClick={() => startGame(key)}
+                  role="button"
+                  tabIndex={busy ? -1 : 0}
+                  aria-disabled={busy}
+                  onKeyDown={event => { if (!busy && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); void startGame(key) } }}
+                  onClick={() => { if (!busy) void startGame(key) }}
                 >
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
@@ -423,7 +186,7 @@ export default function WhoAmIPage() {
   // Game over / results screen
   if (gameOver) {
     const answeredCount = results.length
-    const correctCount = results.filter((r) => r.correct).length
+    const correctCount = session?.correctCount ?? 0
     const accuracy = answeredCount > 0 ? Math.round((correctCount / answeredCount) * 100) : 0
     const grade =
       accuracy >= 90 ? "S" : accuracy >= 70 ? "A" : accuracy >= 50 ? "B" : accuracy >= 30 ? "C" : "D"
@@ -441,6 +204,7 @@ export default function WhoAmIPage() {
     return (
       <div className="min-h-screen bg-background">
         <Navigation />
+        {notice}
         <div className="container mx-auto px-4 py-12">
           <div className="max-w-2xl mx-auto">
             <Card className="border-primary/30">
@@ -449,7 +213,7 @@ export default function WhoAmIPage() {
                   <Trophy className="w-10 h-10 text-primary" />
                 </div>
                 <h2 className="text-3xl font-display mb-2">
-                  {timeLeft <= 0 ? "หมดเวลา!" : "จบเกม!"}
+                  {session?.timedOut ? "หมดเวลา!" : "จบเกม!"}
                 </h2>
                 <p className="text-muted-foreground mb-6">
                   คุณตอบถูก {correctCount} จาก {answeredCount} ข้อ
@@ -505,11 +269,11 @@ export default function WhoAmIPage() {
                 </div>
 
                 <div className="flex flex-wrap justify-center gap-3">
-                  <Button onClick={() => startGame(difficulty)} className="gap-2">
+                  <Button disabled={busy} onClick={() => startGame(difficulty)} className="gap-2">
                     <RotateCcw className="w-4 h-4" />
                     เล่นอีกครั้ง ({difficultyConfig[difficulty].label})
                   </Button>
-                  <Button variant="outline" className="bg-transparent gap-2" onClick={() => setDifficulty(null)}>
+                  <Button variant="outline" className="bg-transparent gap-2" disabled={busy} onClick={reset}>
                     เปลี่ยนระดับ
                   </Button>
                   <Button asChild variant="outline" className="bg-transparent gap-1">
@@ -529,6 +293,7 @@ export default function WhoAmIPage() {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
+        {notice}
 
       {/* Timer bar - sticky at top */}
       <div className="sticky top-16 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50">
@@ -570,44 +335,21 @@ export default function WhoAmIPage() {
             <CardContent className="p-6 md:p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                  <User className="w-6 h-6 text-amber-500" />
+                  <ModeIcon className="w-6 h-6 text-amber-500" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-display">Who Am I?</h2>
+                  <h2 className="text-xl font-display">{WHO_MODE_LABELS[currentChallenge?.mode ?? "clues"]}</h2>
                   <p className="text-xs text-muted-foreground">
                     เปิดคำใบ้แล้ว {revealedClues}/{currentChallenge?.clues.length || 6} ข้อ
                   </p>
                 </div>
               </div>
 
-              {/* Clues */}
-              <div className="space-y-3 mb-6">
-                {currentChallenge?.clues.map((clue, i) => (
-                  <div
-                    key={i}
-                    className={`flex items-start gap-3 p-3 rounded-lg transition-all ${
-                      i < revealedClues
-                        ? "bg-primary/5 border border-primary/20"
-                        : "bg-muted/30 border border-border/50"
-                    }`}
-                  >
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
-                      i < revealedClues ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-                    }`}>
-                      {i + 1}
-                    </div>
-                    {i < revealedClues ? (
-                      <p className="text-sm leading-relaxed pt-0.5">{clue}</p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground pt-0.5 italic">{"???  ???  ???  ???"}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
+              {currentChallenge && <WhoChallenge question={currentChallenge} />}
 
               {/* Reveal button */}
               {!answered && currentChallenge && revealedClues < currentChallenge.clues.length && (
-                <Button variant="outline" className="w-full bg-transparent gap-2 mb-6" onClick={handleRevealClue}>
+                <Button variant="outline" className="w-full bg-transparent gap-2 mb-6" disabled={busy || needsLogin || timeLeft <= 0} onClick={handleRevealClue}>
                   <Eye className="w-4 h-4" />
                   เปิดคำใบ้ถัดไป (คำใบ้ที่ {revealedClues + 1})
                 </Button>
@@ -619,7 +361,7 @@ export default function WhoAmIPage() {
                   <p className="text-xs text-muted-foreground">
                     ตอบตอนนี้จะได้{" "}
                     <span className="text-primary font-semibold">
-                      {10 + Math.max(0, 7 - revealedClues) * 5} แต้ม
+                      {session?.availablePoints ?? 0} แต้ม
                     </span>
                   </p>
                 </div>
@@ -648,7 +390,7 @@ export default function WhoAmIPage() {
                       variant="outline"
                       className={`h-auto py-3 px-4 rounded-lg transition-all justify-start text-left ${buttonStyle}`}
                       onClick={() => handleAnswer(option)}
-                      disabled={answered}
+                      disabled={answered || busy || needsLogin || timeLeft <= 0}
                     >
                       <div className="flex items-center gap-2">
                         {answered && isCorrectAnswer && <CheckCircle2 className="w-4 h-4 shrink-0" />}
@@ -664,15 +406,15 @@ export default function WhoAmIPage() {
               {/* Result feedback */}
               {answered && (
                 <div className={`mt-6 p-4 rounded-lg text-center ${
-                  selected === currentChallenge?.answer
+                  currentAnswer?.correct
                     ? "bg-emerald-500/10 border border-emerald-500/20"
                     : "bg-red-500/10 border border-red-500/20"
                 }`}>
-                  {selected === currentChallenge?.answer ? (
+                  {currentAnswer?.correct ? (
                     <>
                       <p className="text-emerald-500 font-semibold">ถูกต้อง!</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        +{10 + Math.max(0, 7 - revealedClues) * 5} แต้ม (ใช้คำใบ้ {revealedClues} ข้อ)
+                        +{currentAnswer?.points ?? 0} แต้ม (ใช้คำใบ้ {revealedClues} ข้อ)
                       </p>
                     </>
                   ) : (
@@ -690,7 +432,7 @@ export default function WhoAmIPage() {
 
           {/* Next button */}
           {answered && (
-            <Button size="lg" className="w-full h-14 rounded-xl shadow-lg shadow-primary/20 gap-2 text-lg" onClick={handleNext}>
+            <Button size="lg" className="w-full h-14 rounded-xl shadow-lg shadow-primary/20 gap-2 text-lg" disabled={busy || needsLogin} onClick={handleNext}>
               {currentIndex + 1 >= totalChallenges ? (
                 <>
                   <Trophy className="w-5 h-5" />

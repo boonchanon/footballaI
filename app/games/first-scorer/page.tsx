@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import { useFirstScorer } from "@/components/games/use-first-scorer"
+import { canSelectScorer } from "@/lib/games/first-scorer"
 import { Navigation } from "@/components/navigation"
 import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
@@ -15,61 +17,27 @@ import {
   Timer,
   Trophy,
   ChevronRight,
+  ChevronLeft,
   Send,
   Search,
 } from "lucide-react"
 
-const matches = [
-  {
-    id: 1,
-    home: "แมนเชสเตอร์ ซิตี้",
-    away: "ลิเวอร์พูล",
-    homeLogo: "/manchester-city-logo.png",
-    awayLogo: "/liverpool-logo.png",
-    date: "วันเสาร์ 15 ก.พ. 2026",
-    time: "23:30",
-    league: "Premier League",
-    players: [
-      { id: "p1", name: "Erling Haaland", team: "แมนซิตี้", position: "ST", img: "/players/haaland.webp" },
-      { id: "p2", name: "Phil Foden", team: "แมนซิตี้", position: "MF", img: "/erling-haaland-celebration.png" },
-      { id: "p3", name: "Kevin De Bruyne", team: "แมนซิตี้", position: "MF", img: "/kevin-de-bruyne-action.png" },
-      { id: "p4", name: "Mohamed Salah", team: "ลิเวอร์พูล", position: "FW", img: "/mohamed-salah-action.png" },
-      { id: "p5", name: "Darwin Nunez", team: "ลิเวอร์พูล", position: "ST", img: "/salah-liverpool-team.jpg" },
-      { id: "p6", name: "Diogo Jota", team: "ลิเวอร์พูล", position: "FW", img: "/liverpool-football-match.jpg" },
-    ],
-  },
-  {
-    id: 2,
-    home: "อาร์เซนอล",
-    away: "เชลซี",
-    homeLogo: "/arsenal-logo.png",
-    awayLogo: "/chelsea-football-club-crest.png",
-    date: "วันอาทิตย์ 16 ก.พ. 2026",
-    time: "00:00",
-    league: "Premier League",
-    players: [
-      { id: "p7", name: "Bukayo Saka", team: "อาร์เซนอล", position: "FW", img: "/players/saka.webp" },
-      { id: "p8", name: "Declan Rice", team: "อาร์เซนอล", position: "MF", img: "/players/rice.jpg" },
-      { id: "p9", name: "Kai Havertz", team: "อาร์เซนอล", position: "FW", img: "/arsenal-player-saka.jpg" },
-      { id: "p10", name: "Cole Palmer", team: "เชลซี", position: "MF", img: "/players/palmer.webp" },
-      { id: "p11", name: "Nicolas Jackson", team: "เชลซี", position: "ST", img: "/chelsea-football-transfer.jpg" },
-      { id: "p12", name: "Noni Madueke", team: "เชลซี", position: "FW", img: "/palmer-chelsea-team.jpg" },
-    ],
-  },
-]
-
 export default function FirstScorerPage() {
-  const [selections, setSelections] = useState<Record<number, string>>({})
-  const [submitted, setSubmitted] = useState(false)
-  const [searchTerms, setSearchTerms] = useState<Record<number, string>>({})
+  const { matches, isLoading, error, retry, retryPlayers, week, weekOffset, setWeekOffset, nextWeekOffset } = useFirstScorer()
+  const [selections, setSelections] = useState<Record<string, string>>({})
+  const [confirmed, setConfirmed] = useState("")
+  const [searchTerms, setSearchTerms] = useState<Record<string, string>>({})
+  const openMatches = matches.filter(match => match.openForPrediction)
+  const currentSelection = JSON.stringify(openMatches.map(match => [match.id, selections[match.id] || ""]))
+  const predictedCount = matches.filter(match => canSelectScorer(match, selections[match.id], Date.now())).length
+  const allPredicted = !error && openMatches.length > 0 && predictedCount === openMatches.length
+  const submitted = allPredicted && confirmed === currentSelection
 
-  const handleSelect = (matchId: number, playerId: string) => {
-    if (submitted) return
+  const handleSelect = (matchId: string, playerId: string) => {
+    const match = matches.find(item => item.id === matchId)
+    if (submitted || error || !match || !canSelectScorer(match, playerId, Date.now())) return
     setSelections((prev) => ({ ...prev, [matchId]: playerId }))
   }
-
-  const predictedCount = Object.keys(selections).length
-  const allPredicted = predictedCount === matches.length
 
   return (
     <div className="min-h-screen bg-background">
@@ -90,10 +58,10 @@ export default function FirstScorerPage() {
               <Zap className="w-7 h-7 text-sky-500" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl md:text-3xl font-display">ทายคนยิงประตูแรก</h1>
                 <Badge className="bg-sky-500/10 text-sky-500 border-sky-500/20 text-xs">
-                  +50 แต้ม/ข้อ
+                  ทดลองทาย
                 </Badge>
               </div>
               <p className="text-muted-foreground text-sm mt-1">
@@ -109,23 +77,23 @@ export default function FirstScorerPage() {
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-muted-foreground">
-              ทายแล้ว {predictedCount}/{matches.length} แมตช์
+              ทายแล้ว {predictedCount}/{openMatches.length} แมตช์ที่เปิดให้ทาย
             </span>
             {submitted ? (
               <Badge className="bg-sky-500/10 text-sky-500 border-sky-500/20">
                 <CheckCircle2 className="w-3 h-3 mr-1" />
-                ส่งคำตอบแล้ว
+                ยืนยันตัวเลือกแล้ว
               </Badge>
             ) : (
               <span className="text-sm text-primary font-medium">
-                +{predictedCount * 50} แต้มที่อาจได้
+                ยังไม่สะสมคะแนน
               </span>
             )}
           </div>
           <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
             <div
               className="h-full bg-sky-500 rounded-full transition-all duration-500"
-              style={{ width: `${(predictedCount / matches.length) * 100}%` }}
+              style={{ width: `${openMatches.length ? (predictedCount / openMatches.length) * 100 : 0}%` }}
             />
           </div>
         </div>
@@ -134,13 +102,31 @@ export default function FirstScorerPage() {
       {/* Matches */}
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-3xl mx-auto space-y-6">
-          {matches.map((match) => {
+          <div className="flex flex-wrap items-center justify-between gap-3" aria-label="เลือกสัปดาห์แข่งขัน">
+            <div className="min-w-0">
+              <h2 className="font-semibold">โปรแกรมประจำสัปดาห์</h2>
+              <p className="text-sm text-muted-foreground" aria-live="polite">{week?.label || "กำลังโหลด..."}</p>
+              <p className="text-xs text-muted-foreground mt-1">จันทร์–อาทิตย์ · เวลาไทย{!isLoading && !error ? ` · ${matches.length} คู่` : ""}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" aria-label="สัปดาห์ก่อนหน้า" title="สัปดาห์ก่อนหน้า" onClick={() => setWeekOffset(offset => offset - 1)}><ChevronLeft className="w-4 h-4" /></Button>
+              <Button variant="outline" disabled={weekOffset === 0} onClick={() => setWeekOffset(0)}>สัปดาห์นี้</Button>
+              <Button variant="outline" size="icon" aria-label="สัปดาห์ถัดไป" title="สัปดาห์ถัดไป" onClick={() => setWeekOffset(offset => offset + 1)}><ChevronRight className="w-4 h-4" /></Button>
+            </div>
+          </div>
+          {isLoading ? <p role="status">กำลังโหลดโปรแกรมแข่งขัน...</p>
+            : error ? <div role="alert">โหลดโปรแกรมแข่งขันไม่สำเร็จ <Button variant="outline" onClick={retry}>ลองอีกครั้ง</Button></div>
+            : matches.length === 0 ? <div className="space-y-3">
+              <p className="text-muted-foreground">ไม่พบโปรแกรมแข่งขันในข้อมูลของสัปดาห์นี้</p>
+              {nextWeekOffset !== null && <Button variant="outline" onClick={() => setWeekOffset(nextWeekOffset)}>ไปสัปดาห์ถัดไปที่มีแมตช์ <ChevronRight className="w-4 h-4" /></Button>}
+            </div> : null}
+          {!isLoading && !error && matches.map((match) => {
             const selected = selections[match.id]
             const search = searchTerms[match.id] || ""
             const filteredPlayers = match.players.filter(
               (p) =>
                 p.name.toLowerCase().includes(search.toLowerCase()) ||
-                p.team.includes(search)
+                p.team.toLowerCase().includes(search.toLowerCase())
             )
 
             return (
@@ -152,8 +138,8 @@ export default function FirstScorerPage() {
               >
                 <CardContent className="p-0">
                   {/* Match header */}
-                  <div className="px-5 py-3 border-b border-border/50 flex items-center justify-between bg-muted/30">
-                    <div className="flex items-center gap-3">
+                  <div className="px-5 py-3 border-b border-border/50 flex flex-wrap gap-3 items-center justify-between bg-muted/30">
+                    <div className="flex flex-wrap items-center gap-3">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-muted/50 flex items-center justify-center overflow-hidden">
                           <Image src={match.homeLogo || "/placeholder.svg"} alt={match.home} width={24} height={24} className="object-contain" />
@@ -175,12 +161,19 @@ export default function FirstScorerPage() {
                   </div>
 
                   <div className="p-5">
+                    <p className="text-xs text-muted-foreground mb-2">{match.league} · {match.date}</p>
+                    {!match.openForPrediction ? <Badge variant="outline">{match.statusLabel}</Badge> : <>
+                    <p className="text-xs text-muted-foreground mb-4">รายชื่อนักเตะจาก API ของทีม ยังไม่ใช่รายชื่อผู้ลงสนามที่ยืนยันแล้ว</p>
+                    {match.playersLoading ? <p role="status" className="mb-4">กำลังโหลดรายชื่อนักเตะ...</p>
+                      : match.playersError ? <div role="alert" className="mb-4">โหลดรายชื่อนักเตะไม่สำเร็จ <Button variant="outline" onClick={retryPlayers}>ลองอีกครั้ง</Button></div>
+                      : !match.playersReady ? <p className="text-muted-foreground mb-4">ยังไม่มีรายชื่อนักเตะครบทั้งสองทีม</p> : null}
                     {/* Search */}
                     <div className="relative mb-4">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <input
                         type="text"
                         placeholder="ค้นหานักเตะ..."
+                        aria-label={`ค้นหานักเตะ ${match.home} vs ${match.away}`}
                         value={search}
                         onChange={(e) =>
                           setSearchTerms((prev) => ({
@@ -189,16 +182,20 @@ export default function FirstScorerPage() {
                           }))
                         }
                         className="w-full h-10 pl-10 pr-4 rounded-lg bg-muted/50 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
-                        disabled={submitted}
+                        disabled={submitted || !match.playersReady}
                       />
                     </div>
 
                     {/* Player grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {filteredPlayers.map((player) => (
+                    {match.playersReady && filteredPlayers.length === 0 && <p className="text-sm text-muted-foreground">ไม่พบนักเตะที่ตรงกับการค้นหา</p>}
+                    <div className="grid grid-cols-1 min-[400px]:grid-cols-2 sm:grid-cols-3 gap-3 max-h-96 overflow-y-auto">
+                      {match.playersReady && filteredPlayers.map((player) => (
                         <button
                           key={player.id}
                           type="button"
+                          disabled={submitted}
+                          aria-pressed={selected === player.id}
+                          aria-label={`${player.name} (${player.team})`}
                           className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
                             selected === player.id
                               ? "border-sky-500 bg-sky-500/10"
@@ -213,11 +210,12 @@ export default function FirstScorerPage() {
                               width={40}
                               height={40}
                               className="object-cover w-full h-full"
+                              onError={event => { event.currentTarget.onerror = null; event.currentTarget.src = "/placeholder.svg" }}
                             />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-sm font-medium truncate">{player.name}</p>
-                            <p className="text-[10px] text-muted-foreground">
+                            <p className="text-sm font-medium break-words">{player.name}</p>
+                            <p className="text-[10px] text-muted-foreground break-words">
                               {player.team} &middot; {player.position}
                             </p>
                           </div>
@@ -227,6 +225,7 @@ export default function FirstScorerPage() {
                         </button>
                       ))}
                     </div>
+                    </>}
                   </div>
                 </CardContent>
               </Card>
@@ -234,17 +233,20 @@ export default function FirstScorerPage() {
           })}
         </div>
 
-        {!submitted && (
+        {!submitted && !isLoading && !error && openMatches.length > 0 && (
           <div className="max-w-3xl mx-auto mt-8">
             <Button
               size="lg"
               className="w-full h-14 rounded-xl shadow-lg shadow-primary/20 gap-2 text-lg"
               disabled={!allPredicted}
-              onClick={() => setSubmitted(true)}
+              onClick={() => {
+                if (openMatches.length > 0 && openMatches.every(match => canSelectScorer(match, selections[match.id], Date.now()))) setConfirmed(currentSelection)
+              }}
             >
               <Send className="w-5 h-5" />
-              {allPredicted ? "ส่งคำตอบทั้งหมด" : `เลือกให้ครบ ${matches.length} แมตช์`}
+              {allPredicted ? "ยืนยันตัวเลือก" : `เลือกให้ครบ ${openMatches.length} แมตช์`}
             </Button>
+            <p className="text-xs text-muted-foreground text-center mt-3">ตัวเลือกอยู่เฉพาะหน้านี้ ยังไม่บันทึกลงบัญชีหรือคิดคะแนน</p>
           </div>
         )}
 
@@ -255,11 +257,12 @@ export default function FirstScorerPage() {
                 <div className="w-16 h-16 rounded-full bg-sky-500/10 flex items-center justify-center mx-auto mb-4">
                   <Trophy className="w-8 h-8 text-sky-500" />
                 </div>
-                <h3 className="text-2xl font-display mb-2">ส่งคำตอบเรียบร้อย!</h3>
+                <h3 className="text-2xl font-display mb-2">ยืนยันตัวเลือกแล้ว</h3>
                 <p className="text-muted-foreground mb-6">
-                  รอลุ้นว่านักเตะที่คุณเลือกจะยิงประตูแรกหรือไม่
+                  ตัวเลือกอยู่เฉพาะหน้านี้ ยังไม่บันทึกลงบัญชีหรือคิดคะแนน
                 </p>
                 <div className="flex flex-wrap justify-center gap-3">
+                  <Button variant="outline" onClick={() => setConfirmed("")}>แก้ไขตัวเลือก</Button>
                   <Button asChild variant="outline" className="bg-transparent gap-1">
                     <Link href="/games/quiz">
                       ไปเล่นควิซ <ChevronRight className="w-4 h-4" />

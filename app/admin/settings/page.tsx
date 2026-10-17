@@ -197,7 +197,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-lime-500/30 bg-lime-500/5">
+      <Card className="border-primary/30 bg-primary/5">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Database className="h-5 w-5" />
@@ -216,7 +216,7 @@ export default function SettingsPage() {
             <Button
               onClick={() => void syncFiveSeasons()}
               disabled={loading || saving || syncingHistorical}
-              className="bg-lime-500 text-slate-950 hover:bg-lime-400"
+              className="bg-primary text-primary-foreground hover:bg-primary-hover"
             >
               <RefreshCw className={`mr-2 h-4 w-4 ${syncingHistorical ? "animate-spin" : ""}`} />
               {syncingHistorical ? "กำลัง Sync 5 Seasons..." : "Sync 5 Seasons"}

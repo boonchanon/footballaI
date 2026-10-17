@@ -139,7 +139,7 @@ export function RegisterForm() {
       <Card className="overflow-hidden border-border/70 bg-card/90 shadow-[0_30px_80px_rgba(114,95,57,0.14)] backdrop-blur dark:shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
         <CardContent className="grid p-0 lg:grid-cols-[0.98fr_1.02fr]">
           <div className="relative hidden overflow-hidden border-r border-border/70 lg:block">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(229,184,48,0.18),transparent_35%),radial-gradient(circle_at_80%_20%,rgba(185,28,28,0.12),transparent_28%),linear-gradient(180deg,#f8f3ea_0%,#efe5d2_100%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(229,184,48,0.22),transparent_35%),radial-gradient(circle_at_80%_20%,rgba(185,28,28,0.22),transparent_28%),linear-gradient(180deg,#0b0b0e_0%,#050507_100%)]" />
+            <div className="absolute inset-0 bg-background dark:bg-[radial-gradient(circle_at_top_left,rgba(229,184,48,0.22),transparent_35%),radial-gradient(circle_at_80%_20%,rgba(185,28,28,0.22),transparent_28%),linear-gradient(180deg,#0b0b0e_0%,#050507_100%)]" />
             <div className="absolute inset-0 bg-[linear-gradient(130deg,transparent_0%,rgba(255,255,255,0.04)_35%,transparent_70%)]" />
             <div className="relative flex h-full flex-col justify-between p-10">
               <div>

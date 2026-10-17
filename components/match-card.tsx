@@ -26,7 +26,7 @@ export function MatchCard({ homeTeam, awayTeam, time, league }: MatchCardProps) 
             <div className="w-12 h-12 bg-muted rounded-full" />
             <span className="font-display text-lg">{homeTeam}</span>
           </div>
-          <span className="text-2xl font-bold text-muted-foreground">VS</span>
+          <span className="font-football text-2xl font-bold text-muted-foreground">VS</span>
           <div className="flex items-center gap-3">
             <span className="font-display text-lg">{awayTeam}</span>
             <div className="w-12 h-12 bg-muted rounded-full" />

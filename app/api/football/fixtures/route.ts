@@ -26,6 +26,8 @@ export async function GET(request: Request) {
       data,
       fixtures: data.map((fixture: any) => ({
         id: fixture.id,
+        homeTeamId: fixture.teams.home.id,
+        awayTeamId: fixture.teams.away.id,
         homeTeam: fixture.teams.home.nameEn,
         awayTeam: fixture.teams.away.nameEn,
         homeTeamThai: fixture.teams.home.name,

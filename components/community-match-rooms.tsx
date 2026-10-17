@@ -857,13 +857,13 @@ function MatchRoomMiniCard({
                   </Badge>
                 ) : null}
               </div>
-              <p className="truncate text-sm font-semibold text-foreground">{fixture.homeTeam}</p>
-              <p className="truncate text-sm font-semibold text-foreground">{fixture.awayTeam}</p>
+              <p className="truncate font-football text-sm font-semibold text-foreground">{fixture.homeTeam}</p>
+              <p className="truncate font-football text-sm font-semibold text-foreground">{fixture.awayTeam}</p>
             </div>
           </div>
           <div className="text-right">
-            <p className="rounded-2xl bg-muted px-3 py-1 text-xl font-black leading-none text-primary">{getScoreLabel(fixture)}</p>
-            <Badge variant="outline" className={cn("mt-2 rounded-full px-2 py-0.5 text-[10px]", getStatusTone(fixture.status, fixture.isFinished))}>
+            <p className="rounded-2xl bg-muted px-3 py-1 font-score text-xl font-black leading-none text-primary">{getScoreLabel(fixture)}</p>
+            <Badge variant="outline" className={cn("mt-2 rounded-full px-2 py-0.5 font-status text-[10px]", getStatusTone(fixture.status, fixture.isFinished))}>
               {getStatusLabel(fixture.status, fixture.isFinished)}
             </Badge>
           </div>
@@ -1102,19 +1102,19 @@ function PremierMatchCard({
   return (
     <div className="theme-surface min-w-[240px] flex-1 rounded-xl border p-3.5 transition hover:border-primary/35 hover:bg-primary/10">
       <div className="mb-3 flex items-center justify-between">
-        <span className={cn("text-sm font-bold", displayState === "live" ? "text-primary" : "text-muted-foreground")}>{displayState === "live" ? getFixtureMinuteLabel(fixture) : formatKickoff(fixture)}</span>
-        {displayState === "live" ? <Badge className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] text-white hover:bg-red-500">LIVE</Badge> : null}
+        <span className={cn("font-status text-sm font-bold", displayState === "live" ? "text-primary" : "text-muted-foreground")}>{displayState === "live" ? getFixtureMinuteLabel(fixture) : formatKickoff(fixture)}</span>
+        {displayState === "live" ? <Badge className="rounded-full bg-red-500 px-2 py-0.5 font-status text-[10px] text-white hover:bg-red-500">LIVE</Badge> : null}
       </div>
       <Link href={`/community/matches/${fixture.id}`} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60">
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
           <div className="min-w-0 text-center">
             <TeamLogo src={fixture.homeLogo} name={fixture.homeTeam} />
-            <p className="mt-2 truncate text-sm">{fixture.homeTeam}</p>
+            <p className="mt-2 truncate font-football text-sm">{fixture.homeTeam}</p>
           </div>
-          <p className="text-center text-2xl font-black">{getScoreLabel(fixture)}</p>
+          <p className="text-center font-score text-2xl font-black">{getScoreLabel(fixture)}</p>
           <div className="min-w-0 text-center">
             <TeamLogo src={fixture.awayLogo} name={fixture.awayTeam} />
-            <p className="mt-2 truncate text-sm">{fixture.awayTeam}</p>
+            <p className="mt-2 truncate font-football text-sm">{fixture.awayTeam}</p>
           </div>
         </div>
         <div className="mt-3 space-y-1.5 text-center text-xs text-muted-foreground">
@@ -1214,8 +1214,8 @@ function MatchEventsPanel({ fixture, events }: { fixture: CommunityMatchRoomFixt
             <span className="mt-1 block truncate text-xs">{fixture.homeTeam}</span>
           </div>
           <div className="text-center">
-            <p className="text-3xl font-black leading-none">{getScoreLabel(fixture)}</p>
-            <p className="mt-1 text-xs font-bold text-primary">{events[0]?.minute ? `${events[0].minute}'` : getHubMatchStatusLabel(fixture)}</p>
+            <p className="font-score text-3xl font-black leading-none">{getScoreLabel(fixture)}</p>
+            <p className="mt-1 font-status text-xs font-bold text-primary">{events[0]?.minute ? `${events[0].minute}'` : getHubMatchStatusLabel(fixture)}</p>
           </div>
           <div className="min-w-0 text-center">
             <TeamLogo src={fixture.awayLogo} name={fixture.awayTeam} size="sm" />
@@ -1785,7 +1785,7 @@ export function MatchRoomsDirectory() {
                 <Trophy className="h-5 w-5 text-primary" />
               </div>
               <div className="min-w-0 opacity-0 transition-opacity duration-150 group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100 motion-reduce:transition-none">
-                <p className="font-black leading-tight">MATCH HUB</p>
+                <p className="font-football font-black leading-tight">MATCH HUB</p>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Premier League</p>
               </div>
             </Link>
@@ -2203,13 +2203,13 @@ function MatchHero({
       <div className="mt-7 grid items-center gap-4 rounded-[12px] border border-border bg-surface-2 p-4 sm:grid-cols-[1fr_auto_1fr]">
         <div className="flex items-center gap-4">
           <TeamLogo src={fixture.homeLogo} name={fixture.homeTeam} size="lg" />
-          <p className="text-xl font-bold text-foreground sm:text-2xl">{fixture.homeTeam}</p>
+          <p className="font-football text-xl font-bold text-foreground sm:text-2xl">{fixture.homeTeam}</p>
         </div>
-        <div className="rounded-[12px] bg-card/92 px-7 py-4 text-center text-4xl font-black text-primary" aria-label={`Score ${getScoreLabel(fixture)}`}>
+        <div className="rounded-[12px] bg-card/92 px-7 py-4 text-center font-score text-4xl font-black text-primary" aria-label={`Score ${getScoreLabel(fixture)}`}>
           {getScoreLabel(fixture)}
         </div>
         <div className="flex items-center justify-end gap-4 text-right">
-          <p className="text-xl font-bold text-foreground sm:text-2xl">{fixture.awayTeam}</p>
+          <p className="font-football text-xl font-bold text-foreground sm:text-2xl">{fixture.awayTeam}</p>
           <TeamLogo src={fixture.awayLogo} name={fixture.awayTeam} size="lg" />
         </div>
       </div>
@@ -2352,8 +2352,8 @@ function MatchCommunityExperience({
         <Card className="rounded-[12px] border border-border bg-card/88 shadow-[0_10px_28px_rgba(0,0,0,0.10)]">
           <CardContent className="p-5">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-lg font-bold">Match Highlights</h2>
-              <Badge variant="outline" className="rounded-full border-border">{highlights.length}</Badge>
+              <h2 className="font-football text-lg font-bold">Match Highlights</h2>
+              <Badge variant="outline" className="rounded-full border-border font-ai-data">{highlights.length}</Badge>
             </div>
             {highlights.length ? (
               <div className="mt-3 space-y-2">
@@ -2373,7 +2373,7 @@ function MatchCommunityExperience({
         <Card className="rounded-[12px] border border-border bg-card/88 shadow-[0_10px_28px_rgba(0,0,0,0.10)]">
           <CardContent className="p-5">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-lg font-bold">Trending Discussions</h2>
+              <h2 className="font-editorial text-lg font-bold">Trending Discussions</h2>
               <Button type="button" variant="ghost" onClick={onOpenThreads} className="h-8 rounded-full px-3 text-xs">เปิด</Button>
             </div>
             {threads.length ? (
@@ -3129,10 +3129,10 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                       <CardContent className="space-y-3 p-5">
                         <div className="flex items-center gap-2 text-primary">
                           <Sparkles className="h-5 w-5" />
-                          <h2 className="text-xl font-bold text-foreground">AI Summary Preview</h2>
+                          <h2 className="font-ai-display text-xl font-bold text-foreground">AI Summary Preview</h2>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/10 text-primary">{getSummaryStatusLabel(data?.summary)}</Badge>
+                          <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/10 font-status text-primary">{getSummaryStatusLabel(data?.summary)}</Badge>
                           {data?.summary?.isStale ? <Badge variant="outline" className="rounded-full border-amber-500/30 text-amber-700 dark:text-amber-200">ข้อมูลมีการอัปเดต</Badge> : null}
                         </div>
                         <h3 className="text-2xl font-semibold">{data?.summary?.headline || MATCH_HUB_EMPTY_STATES.summary}</h3>
@@ -3144,7 +3144,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                     <Card className="rounded-[28px] border-border bg-card">
                       <CardContent className="p-5">
                         <div className="flex flex-wrap items-center justify-between gap-3">
-                          <h2 className="text-xl font-bold">Discussion ล่าสุด</h2>
+                          <h2 className="font-editorial text-xl font-bold">Discussion ล่าสุด</h2>
                           <Button asChild variant="outline" className="rounded-full border-border bg-card">
                             <Link href={`/community?matchId=${encodeURIComponent(fixture.id)}&compose=1`}>เริ่มโพสต์</Link>
                           </Button>
@@ -3167,7 +3167,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                   <aside className="space-y-5">
                     <Card className="rounded-[28px] border-border bg-card">
                       <CardContent className="p-5">
-                        <h2 className="text-lg font-bold">Thread preview</h2>
+                        <h2 className="font-editorial text-lg font-bold">Thread preview</h2>
                         {threads[0] ? (
                           <div className="mt-4 space-y-2 rounded-2xl border border-border bg-surface-2 p-4">
                             <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] text-primary">{(threads[0] as any).threadCategoryLabel || "ทั่วไป"}</Badge>
@@ -3181,7 +3181,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
                     </Card>
                     <Card className="rounded-[28px] border-border bg-card">
                       <CardContent className="p-5">
-                        <h2 className="text-lg font-bold">Poll preview</h2>
+                        <h2 className="font-editorial text-lg font-bold">Poll preview</h2>
                         {polls[0]?.poll ? <p className="mt-3 text-sm text-muted-foreground">{polls[0].poll.question}</p> : <p className="mt-3 text-sm text-muted-foreground">{MATCH_HUB_EMPTY_STATES.polls}</p>}
                         <Button type="button" variant="outline" onClick={() => changeTab("polls")} className="mt-4 rounded-full border-border">ดู Poll</Button>
                       </CardContent>
@@ -4877,7 +4877,7 @@ function MatchRoomInfoPanel({
         <h3 className="mt-2 text-lg font-bold">{getMatchTitle(fixture)}</h3>
         <div className="mt-4 flex items-center justify-between rounded-2xl border border-border bg-surface-2 p-3">
           <span className="text-sm text-muted-foreground">{getStatusLabel(fixture.status, fixture.isFinished)}</span>
-          <span className="rounded-xl bg-primary px-3 py-1 text-lg font-black text-primary-foreground">{getScoreLabel(fixture)}</span>
+          <span className="rounded-xl bg-primary px-3 py-1 font-score text-lg font-black text-primary-foreground">{getScoreLabel(fixture)}</span>
         </div>
         <div className="mt-3 space-y-2 text-sm text-muted-foreground">
           <p>เวลา: {fixture.dateThai || "-"}</p>
@@ -4889,7 +4889,7 @@ function MatchRoomInfoPanel({
       <div className="rounded-[24px] border border-primary/20 bg-primary/8 p-4">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-bold">Match Activity</h3>
-          <Badge variant="outline" className="rounded-full border-primary/25 text-primary">{effectivePhase === "live" ? "LIVE HUB" : effectivePhase === "full_time" ? "FULL TIME" : "PRE MATCH"}</Badge>
+          <Badge variant="outline" className="rounded-full border-primary/25 font-status text-primary">{effectivePhase === "live" ? "LIVE HUB" : effectivePhase === "full_time" ? "FULL TIME" : "PRE MATCH"}</Badge>
         </div>
         {timelineSignals.length ? (
           <div className="mt-3 flex flex-wrap gap-2">

@@ -121,6 +121,9 @@ async function fetchAllSportsApi(params: Record<string, string>) {
   }
 
   const payload = await response.json()
+  if (payload?.error && String(payload.error) !== "0") {
+    throw new Error("Football data provider rejected the request. Check the API account status.")
+  }
   if (Array.isArray(payload?.result)) {
     return payload.result
   }

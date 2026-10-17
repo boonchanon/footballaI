@@ -38,7 +38,7 @@ type DashboardData = {
 
 const statCards = [
   { key: "totalUsers", title: "ผู้ใช้ทั้งหมด", icon: Users, color: "text-cyan-400" },
-  { key: "totalPosts", title: "โพสต์คอมมูนิตี้", icon: Newspaper, color: "text-lime-400" },
+  { key: "totalPosts", title: "โพสต์คอมมูนิตี้", icon: Newspaper, color: "text-primary" },
   { key: "pendingReports", title: "รายงานรอตรวจ", icon: Shield, color: "text-amber-400" },
   { key: "totalPredictions", title: "การทำนาย AI", icon: TrendingUp, color: "text-fuchsia-400" },
 ] as const

@@ -62,7 +62,7 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#efe6ee] p-4 text-foreground">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4 text-foreground">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(180,255,60,0.16),transparent_32%),radial-gradient(circle_at_bottom,rgba(0,0,0,0.12),transparent_35%)]" />
 
       <Card className="relative z-10 w-full max-w-md border-border/80 bg-card text-card-foreground shadow-2xl">
