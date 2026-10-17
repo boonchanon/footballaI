@@ -3,8 +3,10 @@
 import { Navigation } from "@/components/navigation"
 import { Footer } from "@/components/footer"
 import Link from "next/link"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel"
 import { Badge } from "@/components/ui/badge"
 import {
   Brain,
@@ -28,7 +30,6 @@ import { NewsFeed } from "@/components/news-feed"
 import useSWR from "swr"
 import Image from "next/image"
 import { HeroBackground } from "@/components/hero-background"
-import { WorldCupPopup } from "@/components/worldcup-popup"
 import { getPageSourcePolicy } from "@/lib/content-sources"
 import { PREMIER_LEAGUE_DATA_SEASON } from "@/lib/season"
 
@@ -67,6 +68,33 @@ function resolvePlayerPhoto(playerId?: string, fallbackPhoto?: string) {
 }
 
 export default function Home() {
+  const [matchCarouselApi, setMatchCarouselApi] = useState<CarouselApi>()
+  const [matchHovered, setMatchHovered] = useState(false)
+  const [matchFocused, setMatchFocused] = useState(false)
+
+  useEffect(() => {
+    if (!matchCarouselApi || matchHovered || matchFocused) return
+
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)")
+    let dragging = false
+    const onPointerDown = () => { dragging = true }
+    const onPointerUp = () => { dragging = false }
+    matchCarouselApi.on("pointerDown", onPointerDown)
+    matchCarouselApi.on("pointerUp", onPointerUp)
+
+    const timer = window.setInterval(() => {
+      if (!document.hidden && !reducedMotion.matches && !dragging && matchCarouselApi.scrollSnapList().length > 1) {
+        matchCarouselApi.scrollNext()
+      }
+    }, 5000)
+
+    return () => {
+      window.clearInterval(timer)
+      matchCarouselApi.off("pointerDown", onPointerDown)
+      matchCarouselApi.off("pointerUp", onPointerUp)
+    }
+  }, [matchCarouselApi, matchHovered, matchFocused])
+
   const sourcePolicy = getPageSourcePolicy("home")
   const { data: fixturesData } = useSWR("/api/football/fixtures?type=upcoming&limit=6", fetcher)
   const { data: topScorersData } = useSWR("/api/football/topscorers", fetcher)
@@ -169,24 +197,23 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      <WorldCupPopup storageKey="footballai-worldcup-popup-home-seen" />
       <Navigation />
 
       <section className="relative flex min-h-[78vh] items-center overflow-hidden">
         <HeroBackground />
 
-        <div className="container relative z-10 mx-auto max-w-[1320px] px-4 py-12 md:py-16">
-          <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_480px] xl:grid-cols-[minmax(0,1fr)_520px]">
-            <div className="space-y-6">
+        <div className="container relative z-10 mx-auto max-w-[1320px] px-4 py-16 sm:px-6 md:py-20 xl:px-8">
+          <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px] xl:gap-16">
+            <div className="min-w-0 space-y-8">
               <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-xs font-medium text-primary backdrop-blur-sm md:text-sm">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
                 {PREMIER_LEAGUE_DATA_SEASON.marketingLabel}
               </div>
 
-              <h1 className="text-4xl font-display leading-[0.98] tracking-tight text-foreground md:text-5xl xl:text-[5rem]">
-                วิเคราะห์ฟุตบอล
+              <h1 className="text-4xl font-display leading-[1.25] tracking-normal text-foreground md:text-5xl xl:text-[4rem]">
+                ฟุตบอลหนึ่งเกม
                 <br />
-                <span className="text-primary">ด้วยพลัง AI</span>
+                <span className="text-primary">มีอะไรมากกว่าแค่สกอร์</span>
               </h1>
 
               <p className="max-w-lg text-base leading-8 text-muted-foreground md:text-lg">
@@ -209,7 +236,7 @@ export default function Home() {
                 </Button>
               </div>
 
-              <div className="grid grid-cols-3 gap-4 border-t border-border/50 pt-6 md:max-w-xl">
+              <div className="grid grid-cols-3 gap-4 border-t border-border/50 pt-8 md:max-w-xl">
                 <div>
                   <p className="text-2xl font-display text-primary md:text-3xl">93.7%</p>
                   <p className="text-xs text-muted-foreground md:text-sm">ความแม่นยำ AI</p>
@@ -225,7 +252,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="space-y-3 lg:max-w-[520px] lg:justify-self-end">
+            <div className="min-w-0 w-full space-y-3 lg:justify-self-end">
               {liveMatches.length > 0 && (
                 <div className="mb-3">
                   <div className="mb-2 flex items-center gap-2">
@@ -254,7 +281,7 @@ export default function Home() {
                 </div>
               )}
 
-              <Card className="border-border/50 bg-card/80 shadow-xl backdrop-blur-md">
+              <Card className="hero-upcoming-matches border-border/50 bg-card/80 shadow-xl backdrop-blur-md">
                 <CardContent className="p-5 md:p-6">
                   <div className="mb-5 flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -281,25 +308,42 @@ export default function Home() {
 
                   <div className="space-y-3">
                     {upcomingMatches.length > 0 ? (
-                      upcomingMatches.map((match: any, i: number) => (
-                        <Link key={i} href={`/ai-prediction?fixture=${match.fixtureId}`} className="block rounded-lg bg-muted/50 p-3.5 transition-colors hover:bg-muted">
+                      <Carousel
+                        opts={{ align: "start", loop: upcomingMatches.length > 1 }}
+                        setApi={setMatchCarouselApi}
+                        aria-label="แมตช์ที่กำลังจะมาถึง"
+                        className="min-w-0"
+                        onMouseEnter={() => setMatchHovered(true)}
+                        onMouseLeave={() => setMatchHovered(false)}
+                        onFocusCapture={() => setMatchFocused(true)}
+                        onBlurCapture={(event) => {
+                          if (!event.currentTarget.contains(event.relatedTarget)) setMatchFocused(false)
+                        }}
+                      >
+                        <CarouselContent>
+                      {upcomingMatches.map((match: any, i: number) => (
+                        <CarouselItem key={match.fixtureId ?? i} aria-label={`${i + 1} / ${upcomingMatches.length}`}>
+                        <Link href={`/ai-prediction?fixture=${match.fixtureId}`} className="block rounded-lg bg-muted/50 p-3.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary">
                           <div className="mb-2 flex items-center justify-between">
-                            <div className="flex flex-1 items-center gap-2">
+                            <div className="flex min-w-0 flex-1 items-center gap-2">
                               {match.homeLogo && <Image src={match.homeLogo || "/placeholder.svg"} alt="" width={24} height={24} className="rounded-full" />}
                               <span className="truncate text-sm font-medium">{match.home}</span>
                             </div>
                             <span className="px-2 text-xs text-muted-foreground">vs</span>
-                            <div className="flex flex-1 items-center justify-end gap-2">
+                            <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
                               <span className="truncate text-sm font-medium">{match.away}</span>
                               {match.awayLogo && <Image src={match.awayLogo || "/placeholder.svg"} alt="" width={24} height={24} className="rounded-full" />}
                             </div>
                           </div>
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                             <span>{match.time}</span>
                             <span className="text-primary">ทำนายผล →</span>
                           </div>
                         </Link>
-                      ))
+                        </CarouselItem>
+                      ))}
+                        </CarouselContent>
+                      </Carousel>
                     ) : (
                       <div className="flex items-center justify-center py-8 text-muted-foreground">
                         <Loader2 className="mr-2 h-5 w-5 animate-spin" />

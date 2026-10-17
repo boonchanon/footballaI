@@ -83,12 +83,12 @@ export function HeroBackground() {
       ))}
 
       {/* Animated Gradient Overlays */}
-      <div className="absolute inset-0 bg-gradient-to-r from-background via-background/85 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent" />
+      <div className="hero-overlay-horizontal absolute inset-0 bg-gradient-to-r from-background via-background/85 to-transparent" />
+      <div className="hero-overlay-bottom absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent" />
       
       {/* Animated scan line effect */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(184,255,0,0.035)_50%)] dark:bg-[linear-gradient(transparent_50%,rgba(255,255,255,0.03)_50%)] bg-[length:100%_4px] animate-scan-lines" />
+        <div className="hero-scan-lines absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(184,255,0,0.035)_50%)] dark:bg-[linear-gradient(transparent_50%,rgba(255,255,255,0.03)_50%)] bg-[length:100%_4px] animate-scan-lines" />
       </div>
 
       {/* Glowing accent based on current slide */}
@@ -159,12 +159,14 @@ export function HeroBackground() {
                     : "w-1.5 hover:w-3"
                 }`}
                 aria-label={`Go to slide ${index + 1}: ${slide.name}`}
+                aria-current={index === currentIndex ? "true" : undefined}
+                data-hero-progress=""
               >
                 <div 
                   className={`absolute inset-0 rounded-full transition-colors ${
                     slide.type === "player" 
                       ? index === currentIndex 
-                        ? "bg-primary" 
+                        ? "bg-brand-accent"
                         : "bg-primary/30 group-hover:bg-primary/50"
                       : index === currentIndex
                         ? "bg-foreground/80"

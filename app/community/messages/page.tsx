@@ -502,16 +502,16 @@ export default function CommunityMessagesPage() {
                                               </div>
                                             )}
                                             <div className="min-w-0">
-                                              <p className={cn("text-[11px]", isMine ? "text-white/70" : "text-muted-foreground")}>
+                                              <p className={cn("text-[11px]", isMine ? "text-primary-foreground/90" : "text-muted-foreground")}>
                                                 {message.sharedItem.type === "post" ? "โพสต์จากคอมมูนิตี้" : message.sharedItem.source || "ข่าวฟุตบอล"}
                                               </p>
                                               <p className="line-clamp-2 text-sm font-medium">{message.sharedItem.title}</p>
                                               {message.sharedItem.description ? (
-                                                <p className={cn("mt-1 line-clamp-3 text-xs leading-5", isMine ? "text-white/80" : "text-muted-foreground")}>
+                                                <p className={cn("mt-1 line-clamp-3 text-xs leading-5", isMine ? "text-primary-foreground/90" : "text-muted-foreground")}>
                                                   {message.sharedItem.description}
                                                 </p>
                                               ) : null}
-                                              <p className={cn("mt-1 truncate text-[11px]", isMine ? "text-white/70" : "text-muted-foreground")}>
+                                              <p className={cn("mt-1 truncate text-[11px]", isMine ? "text-primary-foreground/90" : "text-muted-foreground")}>
                                                 {message.sharedItem.url}
                                               </p>
                                             </div>

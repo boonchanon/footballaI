@@ -71,8 +71,9 @@ function PanelNavLink({
       href={href}
       aria-label={label}
       title={label}
+      aria-current={active ? "page" : undefined}
       className={cn(
-        "flex font-medium transition-all",
+        "football-nav-link flex font-medium transition-all",
         compact
           ? cn(
               "h-12 items-center overflow-hidden rounded-[16px]",
@@ -293,7 +294,7 @@ export function Navigation({ isLoggedIn = false, userName, variant = "page" }: N
                 <>
                   <Link
                     href="/profile"
-                    className="inline-flex items-center justify-center rounded-[10px] bg-primary px-2 py-2 text-[11px] font-semibold text-primary-foreground shadow-[0_8px_22px_rgba(184,255,0,0.18)] transition hover:bg-primary/90"
+                    className="inline-flex items-center justify-center rounded-[10px] bg-primary px-2 py-2 text-[11px] font-semibold text-primary-foreground shadow-[0_8px_22px_rgba(184,255,0,0.18)] transition hover:bg-primary-hover"
                   >
                     Open Profile
                   </Link>
@@ -319,7 +320,7 @@ export function Navigation({ isLoggedIn = false, userName, variant = "page" }: N
                   </Link>
                   <Link
                     href="/register"
-                    className="inline-flex items-center justify-center rounded-[10px] bg-primary px-2 py-2 text-[11px] font-semibold text-primary-foreground shadow-[0_8px_22px_rgba(184,255,0,0.18)] transition hover:bg-primary/90"
+                    className="inline-flex items-center justify-center rounded-[10px] bg-primary px-2 py-2 text-[11px] font-semibold text-primary-foreground shadow-[0_8px_22px_rgba(184,255,0,0.18)] transition hover:bg-primary-hover"
                   >
                     Register
                   </Link>

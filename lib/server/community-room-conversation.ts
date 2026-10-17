@@ -16,6 +16,9 @@ export type MatchRoomType = (typeof MATCH_ROOM_TYPES)[number]
 export type MatchRoomContentType = (typeof MATCH_ROOM_CONTENT_TYPES)[number]
 export type MatchRoomStateName = "unavailable" | "upcoming" | "open" | "closing" | "closed" | "archived"
 export type TemporaryRoomActivityState = "none" | "preview_open" | "preview_closing" | "post_match_open" | "post_match_closing"
+export type MatchRoomStateOptions = {
+  demoOverrideExpiresAt?: Date | string | null
+}
 
 export const DEFAULT_PREVIEW_ROOM_MINUTES = 60
 export const DEFAULT_POST_ROOM_MINUTES = 60
@@ -87,7 +90,13 @@ function resolveFinishedAt(match: MatchRoomFixture | null, now: Date) {
   return fallbackFinishedAt && fallbackFinishedAt <= now ? fallbackFinishedAt : now
 }
 
-export function getRoomState(match: MatchRoomFixture | null, roomTypeInput: unknown, nowInput: Date = new Date(), effectivePhase: MatchDemoOverridePhase = "auto") {
+export function getRoomState(
+  match: MatchRoomFixture | null,
+  roomTypeInput: unknown,
+  nowInput: Date = new Date(),
+  effectivePhase: MatchDemoOverridePhase = "auto",
+  options: MatchRoomStateOptions = {},
+) {
   const roomType = normalizeMatchRoomType(roomTypeInput)
   const now = normalizeDate(nowInput) || new Date()
   const config = getMatchRoomTimingConfig()
@@ -102,7 +111,7 @@ export function getRoomState(match: MatchRoomFixture | null, roomTypeInput: unkn
   }
 
   if (isMatchDemoOverrideEnabled(effectivePhase)) {
-    return getDemoOverrideRoomState(match, roomType, now, config, kickoff, effectivePhase)
+    return getDemoOverrideRoomState(match, roomType, now, config, kickoff, effectivePhase, options)
   }
 
   if (roomType === "main" || roomType === "tactics") {
@@ -163,14 +172,16 @@ function getDemoOverrideRoomState(
   config: ReturnType<typeof getMatchRoomTimingConfig>,
   kickoff: Date | null,
   effectivePhase: Exclude<MatchDemoOverridePhase, "auto">,
+  options: MatchRoomStateOptions = {},
 ) {
   if (roomType === "main" || roomType === "tactics") {
     return buildState(roomType, "open", now, null, null, false)
   }
 
   if (effectivePhase === "pre_match") {
-    const opensAt = subtractMinutes(kickoff, config.previewRoomMinutes) || now
-    const closesAt = kickoff || addMinutes(now, config.previewRoomMinutes)
+    const overrideExpiresAt = normalizeDate(options.demoOverrideExpiresAt)
+    const opensAt = now
+    const closesAt = overrideExpiresAt || kickoff || addMinutes(now, config.previewRoomMinutes)
     if (roomType === "preview") return buildState(roomType, "open", now, opensAt, closesAt, true, closesAt, addDays(closesAt, config.retentionDays))
     return buildState(roomType, "unavailable", now, null, null, true, null, null)
   }
@@ -184,7 +195,7 @@ function getDemoOverrideRoomState(
   }
 
   const providerFinishedAt = resolveFinishedAt(match, now) || now
-  const closesAt = addMinutes(providerFinishedAt, config.postRoomMinutes)
+  const closesAt = normalizeDate(options.demoOverrideExpiresAt) || addMinutes(providerFinishedAt, config.postRoomMinutes)
   if (roomType === "post_match") return buildState(roomType, "open", now, providerFinishedAt, closesAt, true, closesAt, addDays(closesAt, config.retentionDays))
   const previewClosesAt = kickoff || providerFinishedAt
   return buildState(roomType, "closed", now, subtractMinutes(previewClosesAt, config.previewRoomMinutes), previewClosesAt, true, previewClosesAt, addDays(previewClosesAt, config.retentionDays))
@@ -217,30 +228,49 @@ function buildState(
   }
 }
 
-export function getMatchRoomChannels(match: MatchRoomFixture | null, now: Date = new Date(), effectivePhase: MatchDemoOverridePhase = "auto") {
-  return MATCH_ROOM_TYPES.map((roomType) => getRoomState(match, roomType, now, effectivePhase))
+export function getMatchRoomChannels(match: MatchRoomFixture | null, now: Date = new Date(), effectivePhase: MatchDemoOverridePhase = "auto", options: MatchRoomStateOptions = {}) {
+  return MATCH_ROOM_TYPES.map((roomType) => getRoomState(match, roomType, now, effectivePhase, options))
 }
 
-export function getVisibleMatchRoomChannels(match: MatchRoomFixture | null, now: Date = new Date(), viewerRole?: string | null, effectivePhase: MatchDemoOverridePhase = "auto") {
+export function getVisibleMatchRoomChannels(
+  match: MatchRoomFixture | null,
+  now: Date = new Date(),
+  viewerRole?: string | null,
+  effectivePhase: MatchDemoOverridePhase = "auto",
+  options: MatchRoomStateOptions = {},
+) {
   const canViewArchive = canManageCommunityAdmin(viewerRole)
-  return getMatchRoomChannels(match, now, effectivePhase).filter((channel) => canViewArchive || !channel.isArchived)
+  return getMatchRoomChannels(match, now, effectivePhase, options).filter((channel) => canViewArchive || !channel.isArchived)
 }
 
-export function canReadRoom(match: MatchRoomFixture | null, roomType: unknown, now: Date = new Date(), viewerRole?: string | null, effectivePhase: MatchDemoOverridePhase = "auto") {
-  const state = getRoomState(match, roomType, now, effectivePhase)
+export function canReadRoom(
+  match: MatchRoomFixture | null,
+  roomType: unknown,
+  now: Date = new Date(),
+  viewerRole?: string | null,
+  effectivePhase: MatchDemoOverridePhase = "auto",
+  options: MatchRoomStateOptions = {},
+) {
+  const state = getRoomState(match, roomType, now, effectivePhase, options)
   return state.canRead || canManageCommunityAdmin(viewerRole)
 }
 
-export function canPostToRoom(match: MatchRoomFixture | null, roomType: unknown, now: Date = new Date(), effectivePhase: MatchDemoOverridePhase = "auto") {
-  return getRoomState(match, roomType, now, effectivePhase).canPost
+export function canPostToRoom(match: MatchRoomFixture | null, roomType: unknown, now: Date = new Date(), effectivePhase: MatchDemoOverridePhase = "auto", options: MatchRoomStateOptions = {}) {
+  return getRoomState(match, roomType, now, effectivePhase, options).canPost
 }
 
-export function shouldArchiveRoom(match: MatchRoomFixture | null, roomType: unknown, now: Date = new Date(), effectivePhase: MatchDemoOverridePhase = "auto") {
-  return getRoomState(match, roomType, now, effectivePhase).isArchived
+export function shouldArchiveRoom(match: MatchRoomFixture | null, roomType: unknown, now: Date = new Date(), effectivePhase: MatchDemoOverridePhase = "auto", options: MatchRoomStateOptions = {}) {
+  return getRoomState(match, roomType, now, effectivePhase, options).isArchived
 }
 
-export function getTemporaryRoomActivityState(match: MatchRoomFixture | null, roomTypeInput: unknown, now: Date = new Date(), effectivePhase: MatchDemoOverridePhase = "auto"): TemporaryRoomActivityState {
-  const room = getRoomState(match, roomTypeInput, now, effectivePhase)
+export function getTemporaryRoomActivityState(
+  match: MatchRoomFixture | null,
+  roomTypeInput: unknown,
+  now: Date = new Date(),
+  effectivePhase: MatchDemoOverridePhase = "auto",
+  options: MatchRoomStateOptions = {},
+): TemporaryRoomActivityState {
+  const room = getRoomState(match, roomTypeInput, now, effectivePhase, options)
   if (!room.isTemporary || (room.state !== "open" && room.state !== "closing")) return "none"
   if (room.roomType === "preview") return room.state === "closing" ? "preview_closing" : "preview_open"
   if (room.roomType === "post_match") return room.state === "closing" ? "post_match_closing" : "post_match_open"

@@ -84,7 +84,7 @@ export function PlayerRadarChart({
                 key={index}
                 points={getHexagonPoints(maxRadius * scale)}
                 fill="none"
-                stroke="hsl(var(--border))"
+                stroke="var(--color-border-strong)"
                 strokeWidth="1"
                 strokeDasharray="3,3"
                 opacity={0.3}
@@ -102,7 +102,7 @@ export function PlayerRadarChart({
                   y1={cy}
                   x2={x}
                   y2={y}
-                  stroke="hsl(var(--border))"
+                  stroke="var(--color-border-strong)"
                   strokeWidth="1"
                   strokeDasharray="3,3"
                   opacity={0.3}
@@ -112,8 +112,8 @@ export function PlayerRadarChart({
 
             <defs>
               <linearGradient id="realMetricRadarGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#c6ff00" />
-                <stop offset="100%" stopColor="#16a34a" />
+                <stop offset="0%" stopColor="var(--color-brand-accent)" />
+                <stop offset="100%" stopColor="var(--color-primary)" />
               </linearGradient>
             </defs>
 
@@ -121,7 +121,7 @@ export function PlayerRadarChart({
               points={getDataPoints()}
               fill="url(#realMetricRadarGradient)"
               fillOpacity="0.55"
-              stroke="#b7ff00"
+              stroke="var(--color-primary)"
               strokeWidth="2.5"
             />
 
@@ -130,7 +130,7 @@ export function PlayerRadarChart({
               const radius = metric.normalized * maxRadius
               const x = cx + radius * Math.cos(angle)
               const y = cy + radius * Math.sin(angle)
-              return <circle key={index} cx={x} cy={y} r="4.5" fill="#b7ff00" stroke="white" strokeWidth="2" />
+              return <circle key={index} cx={x} cy={y} r="4.5" fill="var(--color-brand-accent)" stroke="var(--color-primary)" strokeWidth="2" />
             })}
 
             {safeMetrics.map((metric, index) => {

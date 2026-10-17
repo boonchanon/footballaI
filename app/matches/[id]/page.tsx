@@ -506,10 +506,10 @@ export default function MatchDetailPage() {
           <Card className="border-border/50 shadow-lg">
             <CardHeader className="space-y-4">
               <div className="flex items-center justify-between">
-                <Badge variant="secondary" className="text-sm">
+                <Badge variant="secondary" className="font-status text-sm">
                   FT
                 </Badge>
-                <Badge variant="outline" className="text-sm">
+                <Badge variant="outline" className="font-status text-sm">
                   นัดที่ {match.round}
                 </Badge>
               </div>
@@ -521,9 +521,9 @@ export default function MatchDetailPage() {
                   <h2 className="text-xl font-display lg:text-2xl">{match.homeTeam}</h2>
                 </div>
                 <div className="flex items-center gap-5">
-                  <span className="text-4xl font-bold text-primary lg:text-5xl">{match.homeScore}</span>
-                  <span className="text-2xl font-bold text-muted-foreground lg:text-3xl">-</span>
-                  <span className="text-4xl font-bold text-destructive lg:text-5xl">{match.awayScore}</span>
+                  <span className="font-score text-4xl font-bold text-primary lg:text-5xl">{match.homeScore}</span>
+                  <span className="font-score text-2xl font-bold text-muted-foreground lg:text-3xl">-</span>
+                  <span className="font-score text-4xl font-bold text-destructive lg:text-5xl">{match.awayScore}</span>
                 </div>
                 <div className="flex flex-1 items-center justify-end gap-4">
                   <h2 className="text-right text-xl font-display lg:text-2xl">{match.awayTeam}</h2>

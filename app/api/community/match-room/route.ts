@@ -80,6 +80,7 @@ export async function GET(request: NextRequest) {
         : selectedDemoOverride
           ? getMatchDemoRoomAvailabilityPhase(selectedDemoOverride)
           : "auto"
+    const selectedRoomStateOptions = selectedDemoOverride?.enabled ? { demoOverrideExpiresAt: selectedDemoOverride.expiresAt } : {}
     const fixtureIds = fixtures.map((item) => item.id).filter(Boolean)
     const roomStatsEntries = fixtureIds.length
       ? await CommunityPost.aggregate([
@@ -285,7 +286,7 @@ export async function GET(request: NextRequest) {
         postMatchLounges: postMatchLoungeState[fixtureItem.id] || defaultPostMatchLounges(),
         lastVisitedAt: getMatchRoomLastVisited([...(viewer as any)?.followedMatchRooms || [], ...(viewer as any)?.recentMatchRooms || []], fixtureItem.id),
       }
-      roomStats[fixtureItem.id].activity = buildMatchRoomActivityIndicators({
+      const activityIndicators = buildMatchRoomActivityIndicators({
         latestActivityAt: roomStats[fixtureItem.id].latestActivityAt,
         latestPollAt: roomStats[fixtureItem.id].latestPollAt,
         lastVisitedAt: roomStats[fixtureItem.id].lastVisitedAt,
@@ -293,11 +294,14 @@ export async function GET(request: NextRequest) {
         isLive: ["1H", "2H", "HT", "ET", "BT", "P", "SUSP", "INT", "live", "Live", "In Progress"].includes(fixtureItem.status),
         isFinished: fixtureItem.isFinished,
       })
-      roomStats[fixtureItem.id].activity.temporaryRoom =
-        getTemporaryRoomActivityState(fixtureItem, "preview", new Date(), fixtureItem.id === fixture?.id ? selectedRoomAvailabilityPhase : "auto") !== "none"
-          ? getTemporaryRoomActivityState(fixtureItem, "preview", new Date(), fixtureItem.id === fixture?.id ? selectedRoomAvailabilityPhase : "auto")
-          : getTemporaryRoomActivityState(fixtureItem, "post_match", new Date(), fixtureItem.id === fixture?.id ? selectedRoomAvailabilityPhase : "auto")
-      const postMatchRoom = getRoomState(fixtureItem, "post_match", new Date(), fixtureItem.id === fixture?.id ? selectedRoomAvailabilityPhase : "auto")
+      const fixtureRoomPhase = fixtureItem.id === fixture?.id ? selectedRoomAvailabilityPhase : "auto"
+      const fixtureRoomOptions = fixtureItem.id === fixture?.id ? selectedRoomStateOptions : {}
+      const previewActivity = getTemporaryRoomActivityState(fixtureItem, "preview", new Date(), fixtureRoomPhase, fixtureRoomOptions)
+      roomStats[fixtureItem.id].activity = {
+        ...activityIndicators,
+        temporaryRoom: previewActivity !== "none" ? previewActivity : getTemporaryRoomActivityState(fixtureItem, "post_match", new Date(), fixtureRoomPhase, fixtureRoomOptions),
+      }
+      const postMatchRoom = getRoomState(fixtureItem, "post_match", new Date(), fixtureRoomPhase, fixtureRoomOptions)
       const favoriteSide = getFavoriteTeamSide(fixtureItem, viewer)
       for (const side of ["home", "away"] as const) {
         roomStats[fixtureItem.id].postMatchLounges[side] = {
@@ -380,7 +384,7 @@ export async function GET(request: NextRequest) {
     return ok({
       fixtures,
       fixture,
-      channels: getVisibleMatchRoomChannels(fixture, new Date(), viewer?.role, selectedRoomAvailabilityPhase),
+      channels: getVisibleMatchRoomChannels(fixture, new Date(), viewer?.role, selectedRoomAvailabilityPhase, selectedRoomStateOptions),
       demoOverride: selectedDemoOverride,
       roomStats,
       summary: await getCachedMatchRoomSummary(fixture, fanReaction),

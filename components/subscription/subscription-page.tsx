@@ -326,9 +326,9 @@ function CoinPackCard({ pack, selected }: { pack: CoinPack; selected: boolean })
       className={cn(
         "relative flex min-h-[390px] flex-col rounded-[26px] border bg-card p-5 shadow-[0_16px_48px_rgba(0,0,0,0.07)] transition lg:p-6",
         selected
-          ? "border-primary bg-[radial-gradient(circle_at_top,rgba(184,255,0,0.16),transparent_42%),var(--color-card)] shadow-[0_24px_60px_rgba(184,255,0,0.10)]"
+          ? "border-primary bg-[radial-gradient(circle_at_top,color-mix(in_srgb,var(--color-primary)_16%,transparent),transparent_42%),var(--color-card)] shadow-[0_24px_60px_rgba(184,255,0,0.10)]"
           : pack.featured
-            ? "border-primary/45 bg-[radial-gradient(circle_at_top,rgba(184,255,0,0.12),transparent_42%),var(--color-card)]"
+            ? "border-primary/45 bg-[radial-gradient(circle_at_top,color-mix(in_srgb,var(--color-primary)_12%,transparent),transparent_42%),var(--color-card)]"
             : "border-border",
       )}
     >
@@ -359,7 +359,7 @@ function CoinPackCard({ pack, selected }: { pack: CoinPack; selected: boolean })
       </div>
 
       <div className="mt-auto pt-6">
-        <Button asChild className={cn("h-12 w-full rounded-full font-black", selected ? "bg-primary text-primary-foreground hover:bg-primary/90" : "")} variant={selected ? "default" : "secondary"}>
+        <Button asChild className={cn("h-12 w-full rounded-full font-black", selected ? "bg-primary text-primary-foreground hover:bg-primary-hover" : "")} variant={selected ? "default" : "secondary"}>
           <Link href={`/payment?pack=${pack.code}#checkout`}>
             ชำระแพ็กนี้
             <ArrowRight className="ml-2 h-4 w-4" />
@@ -442,15 +442,15 @@ function CheckoutBlock({
             <div className="mt-6 grid gap-3 sm:grid-cols-3">
               <div className="rounded-[20px] border border-border bg-background/60 p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">จำนวนเหรียญ</p>
-                <p className="mt-2 text-3xl font-black text-foreground">{pack.coins}</p>
+                <p className="mt-2 font-scoreboard text-3xl font-black text-foreground">{pack.coins}</p>
               </div>
               <div className="rounded-[20px] border border-border bg-background/60 p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">ยอดชำระ</p>
-                <p className="mt-2 text-3xl font-black text-primary">฿{pack.price}</p>
+                <p className="mt-2 font-scoreboard text-3xl font-black text-primary">฿{pack.price}</p>
               </div>
               <div className="rounded-[20px] border border-border bg-background/60 p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">เหรียญคงเหลือ</p>
-                <p className="mt-2 text-3xl font-black text-foreground">{authToken ? activeCredits : "-"}</p>
+                <p className="mt-2 font-scoreboard text-3xl font-black text-foreground">{authToken ? activeCredits : "-"}</p>
               </div>
             </div>
 
@@ -462,24 +462,24 @@ function CheckoutBlock({
             ) : null}
 
             {(paymentError || paymentLoading) && (
-              <div className="mt-6 rounded-[22px] border border-rose-500/20 bg-rose-500/10 p-4 text-white">
+              <div className="mt-6 rounded-[22px] border border-rose-500/20 bg-rose-500/10 p-4 text-foreground dark:text-white">
                 <div className="flex items-start gap-3">
                   {paymentLoading ? <Loader2 className="mt-0.5 h-5 w-5 animate-spin text-primary" /> : <AlertTriangle className="mt-0.5 h-5 w-5 text-rose-300" />}
                   <div>
                     <p className="font-semibold">{paymentLoading ? "กำลังโหลดข้อมูลการชำระเงิน" : "ยังดำเนินการต่อไม่ได้"}</p>
-                    <p className="mt-1 text-sm text-white/75">{paymentLoading ? "ระบบกำลังดึงข้อมูลออเดอร์และพร้อมเพย์ล่าสุด" : paymentError}</p>
+                    <p className="mt-1 text-sm text-muted-foreground dark:text-white/75">{paymentLoading ? "ระบบกำลังดึงข้อมูลออเดอร์และพร้อมเพย์ล่าสุด" : paymentError}</p>
                   </div>
                 </div>
               </div>
             )}
 
             {successMessage ? (
-              <div className="mt-6 rounded-[22px] border border-emerald-500/20 bg-emerald-500/10 p-4 text-white">
+              <div className="mt-6 rounded-[22px] border border-emerald-500/20 bg-emerald-500/10 p-4 text-foreground dark:text-white">
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-300" />
                   <div>
                     <p className="font-semibold">ชำระเงินสำเร็จ</p>
-                    <p className="mt-1 text-sm text-white/75">{successMessage}</p>
+                    <p className="mt-1 text-sm text-muted-foreground dark:text-white/75">{successMessage}</p>
                   </div>
                 </div>
               </div>
@@ -505,7 +505,7 @@ function CheckoutBlock({
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-[18px] border border-border bg-background/60 p-4">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">ยอด</p>
-                  <p className="mt-2 text-2xl font-black text-foreground">฿{currentOrder.amount}</p>
+                  <p className="mt-2 font-scoreboard text-2xl font-black text-foreground">฿{currentOrder.amount}</p>
                 </div>
                 <div className="rounded-[18px] border border-border bg-background/60 p-4">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">สร้างเมื่อ</p>
@@ -521,7 +521,7 @@ function CheckoutBlock({
         </div>
 
         <div className="space-y-6">
-          <div className="rounded-[28px] border border-primary/20 bg-[radial-gradient(circle_at_top,rgba(184,255,0,0.14),transparent_35%),var(--color-card)] p-6 shadow-[0_24px_70px_rgba(184,255,0,0.08)]">
+          <div className="rounded-[28px] border border-primary/20 bg-[radial-gradient(circle_at_top,color-mix(in_srgb,var(--color-primary)_14%,transparent),transparent_35%),var(--color-card)] p-6 shadow-[0_24px_70px_rgba(184,255,0,0.08)]">
             <div className="flex items-center gap-3">
               <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/12 text-primary">
                 <QrCode className="h-6 w-6" />
@@ -604,7 +604,7 @@ function CheckoutBlock({
                   type="button"
                   onClick={() => void onVerifySlip()}
                   disabled={!authToken || submitting || !currentOrder || !slipFile}
-                  className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+                  className="rounded-full bg-primary text-primary-foreground hover:bg-primary-hover"
                 >
                   {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
                   อัปสลิปและตรวจสอบ
@@ -750,7 +750,7 @@ export function SubscriptionPage({ selectedPackCode }: SubscriptionPageProps) {
       setSlipFile(null)
       toast({
         className:
-          "border-primary/25 bg-[linear-gradient(180deg,rgba(184,255,0,0.18),rgba(10,14,12,0.96))] text-white shadow-[0_24px_80px_rgba(184,255,0,0.16)]",
+          "border-primary/25 bg-card text-foreground dark:bg-[linear-gradient(180deg,rgba(184,255,0,0.18),rgba(10,14,12,0.96))] dark:text-white shadow-[0_24px_80px_color-mix(in_srgb,var(--color-primary)_16%,transparent)]",
         title: "ชำระเงินสำเร็จ",
         description: message,
       })
@@ -779,7 +779,7 @@ export function SubscriptionPage({ selectedPackCode }: SubscriptionPageProps) {
   return (
     <main className="theme-page overflow-x-hidden">
       <section className="relative overflow-hidden border-b border-border">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_14%_24%,rgba(184,255,0,0.34),transparent_24%),radial-gradient(circle_at_84%_10%,rgba(184,255,0,0.12),transparent_30%),linear-gradient(115deg,var(--color-background)_0%,var(--color-background)_45%,color-mix(in_srgb,var(--color-primary)_8%,var(--color-background))_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_14%_24%,color-mix(in_srgb,var(--color-primary)_12%,transparent),transparent_24%),radial-gradient(circle_at_84%_10%,color-mix(in_srgb,var(--color-primary)_12%,transparent),transparent_30%),linear-gradient(115deg,var(--color-background)_0%,var(--color-background)_45%,color-mix(in_srgb,var(--color-primary)_8%,var(--color-background))_100%)]" />
         <div className="container relative mx-auto px-4 py-10 md:py-14 lg:min-h-[calc(100vh-72px)] lg:py-12">
           <div className="grid items-center gap-10 lg:grid-cols-[0.88fr_1.12fr] xl:gap-12">
             <div className="max-w-[700px] lg:pl-4">
@@ -795,7 +795,7 @@ export function SubscriptionPage({ selectedPackCode }: SubscriptionPageProps) {
                 ซื้อเท่าที่ใช้ เปิดดูเฉพาะคู่ที่สนใจ และเด้งเข้าบล็อกชำระเงินของแพ็กที่เลือกทันที
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-                <Button asChild className="h-12 rounded-full bg-primary px-6 font-black text-primary-foreground hover:bg-primary/90">
+                <Button asChild className="h-12 rounded-full bg-primary px-6 font-black text-primary-foreground hover:bg-primary-hover">
                   <a href="#pricing">
                     เลือกแพ็กเหรียญ
                     <Zap className="ml-2 h-4 w-4" />
@@ -894,7 +894,7 @@ export function SubscriptionPage({ selectedPackCode }: SubscriptionPageProps) {
       </section>
 
       <section className="container mx-auto px-4 pb-14 pt-8 md:pb-20 md:pt-12">
-        <div className="overflow-hidden rounded-[28px] border border-primary/25 bg-primary p-7 text-primary-foreground shadow-[0_24px_70px_rgba(184,255,0,0.16)] md:p-8">
+        <div className="overflow-hidden rounded-[28px] border border-primary/25 bg-primary p-7 text-primary-foreground shadow-[0_24px_70px_color-mix(in_srgb,var(--color-primary)_16%,transparent)] md:p-8">
           <div className="grid items-center gap-6 lg:grid-cols-[1fr_auto]">
             <div>
               <p className="font-scoreboard text-xs font-black uppercase opacity-70">FootballAI Coins</p>
