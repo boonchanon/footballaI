@@ -523,8 +523,8 @@ export default function GamesPage() {
           --games-copy: #b7c3d8;
           --games-border: rgba(255, 255, 255, 0.09);
           --games-lime: #c8ff2e;
-          --games-prompt: var(--font-prompt), system-ui, sans-serif;
-          --games-anuphan: var(--font-anuphan), system-ui, sans-serif;
+          --games-prompt: var(--font-ui);
+          --games-anuphan: var(--font-ui);
           overflow-x: clip;
           background:
             radial-gradient(circle at 50% 12%, rgba(200, 255, 46, 0.1), transparent 30rem),

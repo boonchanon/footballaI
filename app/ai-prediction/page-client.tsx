@@ -787,9 +787,9 @@ export default function AIPredictionPageClient() {
                             <p className="mt-3 font-football text-2xl font-black">{getDisplayTeamName(selectedFixture.teams.home.nameEn || selectedFixture.teams.home.name)}</p>
                           </div>
                           <div className="text-center">
-                            <p className="font-football text-5xl text-primary">VS</p>
+                            <p className="font-score text-5xl font-bold text-primary">VS</p>
                             {selectedFixture.goals.home != null && selectedFixture.goals.away != null ? (
-                              <p className="mt-3 font-score text-lg font-semibold text-foreground dark:text-white">
+                              <p className="mt-3 text-lg font-semibold tabular-nums text-foreground dark:text-white">
                                 {selectedFixture.status.isFinished ? "จบ" : selectedFixture.status.isLive ? "สกอร์สด" : "สกอร์"} {selectedFixture.goals.home}-{selectedFixture.goals.away}
                               </p>
                             ) : null}
