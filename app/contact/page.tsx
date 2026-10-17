@@ -10,7 +10,6 @@ export default function ContactPage() {
       <h2>ช่องทางหลัก</h2>
       <ul>
         <li>อีเมล: support@footballai.co.th</li>
-        <li>โทรศัพท์: 02-123-4567</li>
         <li>เวลาทำการ: 09:00 - 18:00 น.</li>
       </ul>
 

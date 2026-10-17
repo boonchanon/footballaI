@@ -193,7 +193,7 @@ function getFinishedPredictionSummary(fixture: Fixture, prediction: CsvPredictio
 function getStatusLabel(fixture: Fixture) {
   if (fixture.status.isFinished) return "จบ"
   if (fixture.status.isLive) return fixture.status.short ? `${fixture.status.short}'` : "สด"
-  return "ล็อก"
+  return "ยังไม่แข่ง"
 }
 
 function getStatusTone(fixture: Fixture) {
@@ -225,6 +225,26 @@ function getConfidenceTone(value: number | null) {
   if (normalized >= 65) return "text-primary"
   if (normalized >= 50) return "text-amber-700 dark:text-amber-300"
   return "text-muted-foreground dark:text-slate-400"
+}
+
+function getTeamInitials(name: string) {
+  const words = getDisplayTeamName(name).split(/\s+/).filter(Boolean)
+  return (words.length > 1 ? words.slice(0, 2).map((word) => word[0]).join("") : words[0]?.slice(0, 3) ?? "?").toUpperCase()
+}
+
+function TeamLogo({ team, className }: { team: { name: string; nameEn?: string; logo?: string }; className?: string }) {
+  const [failed, setFailed] = useState(false)
+  const name = team.nameEn || team.name
+  const base = "flex items-center justify-center rounded-full border border-border dark:border-white/10 bg-surface-2 dark:bg-white/5"
+
+  if (!team.logo || failed) {
+    return (
+      <div className={cn(base, "font-football font-black text-primary", className)} aria-label={name}>
+        {getTeamInitials(name)}
+      </div>
+    )
+  }
+  return <img src={team.logo} alt={name} onError={() => setFailed(true)} className={cn(base, "object-contain", className)} />
 }
 
 function TopScoresCard({ topScores, headline, prediction }: { topScores: NonNullable<CsvPrediction["topScores"]>; headline: string; prediction: CsvPrediction }) {
@@ -279,6 +299,7 @@ export default function AIPredictionPageClient() {
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [selectedWeek, setSelectedWeek] = useState<number>(1)
+  const hasPickedWeek = useRef(false)
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null)
   const [revealedPredictions, setRevealedPredictions] = useState<RevealedMap>({})
   const [revealLoadingId, setRevealLoadingId] = useState<string | null>(null)
@@ -312,6 +333,14 @@ export default function AIPredictionPageClient() {
 
   useEffect(() => {
     if (!weeks.length) return
+    if (!hasPickedWeek.current) {
+      hasPickedWeek.current = true
+      const currentWeek = weeks.find((item) => item.matches.some((fixture) => !fixture.status.isFinished)) ?? weeks[weeks.length - 1]
+      const firstOpenMatch = currentWeek.matches.find((fixture) => !fixture.status.isFinished) ?? currentWeek.matches[0]
+      setSelectedWeek(currentWeek.week)
+      setSelectedMatchId(firstOpenMatch?.id || null)
+      return
+    }
     if (!weeks.some((item) => item.week === selectedWeek)) {
       setSelectedWeek(weeks[0].week)
       setSelectedMatchId(weeks[0].matches[0]?.id || null)
@@ -443,6 +472,15 @@ export default function AIPredictionPageClient() {
     }
   }
 
+  // Keep the selected week visible, e.g. when the page opens on the current matchweek.
+  useEffect(() => {
+    const strip = weekStripRef.current
+    const card = strip?.querySelector<HTMLElement>(`[data-week="${selectedWeek}"]`)
+    if (!strip || !card) return
+    const offset = card.getBoundingClientRect().left - strip.getBoundingClientRect().left
+    strip.scrollTo({ left: strip.scrollLeft + offset - (strip.clientWidth - card.clientWidth) / 2 })
+  }, [selectedWeek, weeks.length])
+
   const scrollWeekStrip = (direction: "left" | "right") => {
     const element = weekStripRef.current
     if (!element) return
@@ -558,6 +596,7 @@ export default function AIPredictionPageClient() {
                     return (
                   <button
                     key={item.week}
+                    data-week={item.week}
                     type="button"
                     onClick={() => {
                       setSelectedWeek(item.week)
@@ -628,7 +667,7 @@ export default function AIPredictionPageClient() {
                         className={cn(
                           "w-full rounded-[28px] border p-4 text-left transition",
                           selected
-                            ? "border-primary bg-[linear-gradient(135deg,rgba(184,255,0,0.14),rgba(24,32,16,0.92))]"
+                            ? "border-primary bg-primary/10 ring-1 ring-primary/40 dark:bg-[linear-gradient(135deg,rgba(184,255,0,0.14),rgba(24,32,16,0.92))]"
                             : "border-border dark:border-white/10 bg-surface-2 dark:bg-white/[0.03] hover:border-primary/35 hover:bg-muted dark:hover:bg-white/[0.05]",
                         )}
                       >
@@ -651,7 +690,7 @@ export default function AIPredictionPageClient() {
                             </div>
 
                             <div className="grid grid-cols-[auto_1fr_auto_1fr] items-center gap-3">
-                              <img src={fixture.teams.home.logo || "/placeholder.svg"} alt={fixture.teams.home.name} className="h-11 w-11 rounded-full border border-border dark:border-white/10 bg-surface-2 dark:bg-white/5 object-contain p-1.5" />
+                              <TeamLogo key={fixture.teams.home.logo || fixture.teams.home.name} team={fixture.teams.home} className="h-11 w-11 p-1.5 text-xs" />
                               <div className="min-w-0">
                                 <p className="truncate font-football text-base font-semibold text-foreground dark:text-white">{getDisplayTeamName(fixture.teams.home.nameEn || fixture.teams.home.name)}</p>
                                 {fixture.goals.home != null ? <p className="text-xs text-muted-foreground dark:text-slate-400">Score {fixture.goals.home}</p> : null}
@@ -700,17 +739,19 @@ export default function AIPredictionPageClient() {
 
                         <div className="grid gap-5 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
                           <div className="text-center">
-                            <img src={selectedFixture.teams.home.logo || "/placeholder.svg"} alt={selectedFixture.teams.home.name} className="mx-auto h-16 w-16 rounded-full border border-border dark:border-white/10 bg-surface-2 dark:bg-white/5 object-contain p-2" />
+                            <TeamLogo key={selectedFixture.teams.home.logo || selectedFixture.teams.home.name} team={selectedFixture.teams.home} className="mx-auto h-16 w-16 p-2 text-base" />
                             <p className="mt-3 font-football text-2xl font-black">{getDisplayTeamName(selectedFixture.teams.home.nameEn || selectedFixture.teams.home.name)}</p>
                           </div>
                           <div className="text-center">
                             <p className="font-football text-5xl text-primary">VS</p>
                             {selectedFixture.goals.home != null && selectedFixture.goals.away != null ? (
-                              <p className="mt-3 font-score text-lg font-semibold text-foreground dark:text-white">สกอร์สด {selectedFixture.goals.home}-{selectedFixture.goals.away}</p>
+                              <p className="mt-3 font-score text-lg font-semibold text-foreground dark:text-white">
+                                {selectedFixture.status.isFinished ? "จบ" : selectedFixture.status.isLive ? "สกอร์สด" : "สกอร์"} {selectedFixture.goals.home}-{selectedFixture.goals.away}
+                              </p>
                             ) : null}
                           </div>
                           <div className="text-center">
-                            <img src={selectedFixture.teams.away.logo || "/placeholder.svg"} alt={selectedFixture.teams.away.name} className="mx-auto h-16 w-16 rounded-full border border-border dark:border-white/10 bg-surface-2 dark:bg-white/5 object-contain p-2" />
+                            <TeamLogo key={selectedFixture.teams.away.logo || selectedFixture.teams.away.name} team={selectedFixture.teams.away} className="mx-auto h-16 w-16 p-2 text-base" />
                             <p className="mt-3 font-football text-2xl font-black">{getDisplayTeamName(selectedFixture.teams.away.nameEn || selectedFixture.teams.away.name)}</p>
                           </div>
                         </div>
@@ -761,19 +802,19 @@ export default function AIPredictionPageClient() {
 
                       <CardContent className="space-y-5 p-6">
                         {revealError ? (
-                          <div className="rounded-[24px] border border-rose-500/30 bg-rose-500/10 p-4 text-rose-100">
+                          <div className="rounded-[24px] border border-rose-500/30 bg-rose-500/10 p-4 text-rose-700 dark:text-rose-100">
                             <p className="font-semibold">ปลดล็อกคู่นี้ไม่สำเร็จ</p>
-                            <p className="mt-1 text-sm text-rose-100/80">{revealError}</p>
+                            <p className="mt-1 text-sm text-rose-700/80 dark:text-rose-100/80">{revealError}</p>
                           </div>
                         ) : null}
 
                         {selectedFixture.status.isFinished && selectedFixture.goals.home != null && selectedFixture.goals.away != null ? (
                           <div className="rounded-[24px] border border-emerald-500/25 bg-emerald-500/10 p-4 text-center">
-                            <p className="text-sm font-semibold text-emerald-200">ผลการแข่งขันจริง • จบแล้ว</p>
-                            <p className="mt-1 text-3xl font-black text-white">
+                            <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-200">ผลการแข่งขันจริง • จบแล้ว</p>
+                            <p className="mt-1 text-3xl font-black text-foreground dark:text-white">
                               {selectedFixture.goals.home} - {selectedFixture.goals.away}
                             </p>
-                            {!selectedPrediction ? <p className="mt-2 text-sm text-slate-300">ผลทำนาย AI ก่อนแข่งยังถูกล็อกอยู่</p> : null}
+                            {!selectedPrediction ? <p className="mt-2 text-sm text-muted-foreground dark:text-slate-300">ผลทำนาย AI ก่อนแข่งยังถูกล็อกอยู่</p> : null}
                           </div>
                         ) : null}
 

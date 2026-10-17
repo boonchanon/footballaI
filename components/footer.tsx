@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Mail, MapPin, Phone, Trophy } from "lucide-react"
+import { Mail, MapPin, Trophy } from "lucide-react"
 
 export function Footer() {
   const currentYear = new Date().getFullYear()
@@ -77,10 +77,6 @@ export function Footer() {
               <li className="flex items-center gap-2">
                 <Mail className="h-4 w-4" />
                 <span>support@footballai.co.th</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Phone className="h-4 w-4" />
-                <span>02-123-4567</span>
               </li>
               <li className="flex items-start gap-2">
                 <MapPin className="mt-0.5 h-4 w-4" />

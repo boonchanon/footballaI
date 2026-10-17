@@ -96,7 +96,7 @@ export default function Home() {
   }, [matchCarouselApi, matchHovered, matchFocused])
 
   const sourcePolicy = getPageSourcePolicy("home")
-  const { data: fixturesData } = useSWR("/api/football/fixtures?type=upcoming&limit=6", fetcher)
+  const { data: fixturesData } = useSWR("/api/football/fixtures?type=upcoming&limit=20", fetcher)
   const { data: topScorersData } = useSWR("/api/football/topscorers", fetcher)
   const { data: liveData } = useSWR("/api/football/fixtures?type=live", fetcher)
   const { data: aiSnapshotData } = useSWR("/api/football/ai-snapshot", fetcher, {
@@ -107,15 +107,21 @@ export default function Home() {
   const fixtures = fixturesData?.fixtures || []
   const liveMatches = liveData?.fixtures || []
 
-  const upcomingMatches = fixtures.slice(0, 4).map((match: any) => ({
-    home: match.homeTeamThai || match.homeTeam,
-    away: match.awayTeamThai || match.awayTeam,
-    time: formatThaiKickoff(match.date),
-    homeLogo: match.homeLogo,
-    awayLogo: match.awayLogo,
-    fixtureId: match.id,
-    venue: match.venue || "สนามแข่งขัน",
-  }))
+  // The provider can stop updating (e.g. quota exhausted) and leave played matches as
+  // "upcoming"; hide anything that kicked off more than 3 hours ago.
+  const staleKickoffCutoff = Date.now() - 3 * 60 * 60 * 1000
+  const upcomingMatches = fixtures
+    .filter((match: any) => !match.date || new Date(match.date).getTime() >= staleKickoffCutoff)
+    .slice(0, 4)
+    .map((match: any) => ({
+      home: match.homeTeamThai || match.homeTeam,
+      away: match.awayTeamThai || match.awayTeam,
+      time: formatThaiKickoff(match.date),
+      homeLogo: match.homeLogo,
+      awayLogo: match.awayLogo,
+      fixtureId: match.id,
+      venue: match.venue || "สนามแข่งขัน",
+    }))
 
   const scorers = topScorersData?.players || []
   const topScorers = scorers.slice(0, 5).map((player: any) => ({

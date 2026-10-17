@@ -101,19 +101,19 @@ export default function HeatmapPage() {
           <div className="absolute -bottom-28 right-1/3 h-52 w-52 rounded-full bg-emerald-400/10 blur-3xl" />
           <div className="relative flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-primary"><Crosshair className="h-4 w-4" /> Player tracking</div>
+              <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-primary"><Crosshair className="h-4 w-4" /> ติดตามนักเตะ</div>
               <h1 className="text-3xl font-bold tracking-tight sm:text-5xl">{COPY.title}</h1>
               <p className="mt-3 max-w-xl text-muted-foreground">{COPY.subtitle}</p>
             </div>
             <div className="grid grid-cols-2 gap-2 text-center text-sm">
-              <div className="rounded-xl border bg-background/70 px-4 py-3 backdrop-blur"><strong className="block text-xl text-primary">{matches.length}</strong><span className="text-xs text-muted-foreground">Matches</span></div>
-              <div className="rounded-xl border bg-background/70 px-4 py-3 backdrop-blur"><strong className="block text-xl text-primary">{items.length}</strong><span className="text-xs text-muted-foreground">Heatmaps</span></div>
+              <div className="rounded-xl border bg-background/70 px-4 py-3 backdrop-blur"><strong className="block text-xl text-primary">{matches.length}</strong><span className="text-xs text-muted-foreground">แมตช์</span></div>
+              <div className="rounded-xl border bg-background/70 px-4 py-3 backdrop-blur"><strong className="block text-xl text-primary">{items.length}</strong><span className="text-xs text-muted-foreground">ฮีตแมพ</span></div>
             </div>
           </div>
         </div>
 
         <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Activity className="h-4 w-4 text-primary" /> Published heatmap library</div>
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Activity className="h-4 w-4 text-primary" /> คลังฮีตแมพที่เผยแพร่</div>
           <div className="relative w-full sm:max-w-sm">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={COPY.search} className="pl-9" />
@@ -137,7 +137,7 @@ export default function HeatmapPage() {
                       <span className="text-xs font-bold text-primary">VS</span>
                       <TeamMark name={match.awayTeam} />
                     </div>
-                    <div className="flex items-center justify-between border-t pt-4 text-sm"><span className="inline-flex items-center gap-2 text-muted-foreground"><Users className="h-4 w-4" />{match.heatmaps.length} players</span><span className="font-medium text-primary">View</span></div>
+                    <div className="flex items-center justify-between border-t pt-4 text-sm"><span className="inline-flex items-center gap-2 text-muted-foreground"><Users className="h-4 w-4" />{match.heatmaps.length} นักเตะ</span><span className="font-medium text-primary">ดู</span></div>
                   </div>
                 </button>
               )
@@ -147,10 +147,10 @@ export default function HeatmapPage() {
 
         {!loading && !error && selectedMatch && (
           <div className="space-y-5">
-            <button type="button" onClick={() => setSelectedMatch(null)} className="inline-flex items-center gap-2 text-sm font-medium text-primary transition hover:gap-3"><ArrowLeft className="h-4 w-4" />Back to matches</button>
+            <button type="button" onClick={() => setSelectedMatch(null)} className="inline-flex items-center gap-2 text-sm font-medium text-primary transition hover:gap-3"><ArrowLeft className="h-4 w-4" />กลับไปเลือกแมตช์</button>
             <div className="rounded-2xl border bg-card p-5 shadow-sm sm:flex sm:items-center sm:justify-between">
-              <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Match heatmaps</p><h2 className="mt-1 text-2xl font-bold">{selectedMatch.homeTeam} <span className="text-muted-foreground">vs</span> {selectedMatch.awayTeam}</h2><p className="mt-2 text-sm text-muted-foreground">Double-click a player to view the heatmap</p></div>
-              <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground sm:mt-0"><Users className="h-4 w-4 text-primary" />{selectedMatch.heatmaps.length} published players</div>
+              <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">ฮีตแมพในแมตช์นี้</p><h2 className="mt-1 text-2xl font-bold capitalize">{selectedMatch.homeTeam} <span className="text-muted-foreground">vs</span> {selectedMatch.awayTeam}</h2><p className="mt-2 text-sm text-muted-foreground">ดับเบิลคลิกที่นักเตะเพื่อดูฮีตแมพ</p></div>
+              <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground sm:mt-0"><Users className="h-4 w-4 text-primary" />{selectedMatch.heatmaps.length} นักเตะที่เผยแพร่</div>
             </div>
             <div className="grid gap-5 lg:grid-cols-2">
               <TeamHeatmapList team={selectedMatch.homeTeam} side="Home" items={homeHeatmaps} onSelect={setSelected} />
@@ -175,14 +175,14 @@ function HeatmapDetail({ item }: { item: Heatmap }) {
   const image = item.heatmapImageUrl || item.heatmapImageData
   return (
     <div className="space-y-4">
-      {image ? <img src={image} alt={`Heatmap ${item.playerName}`} className="max-h-[65vh] w-full rounded-xl border bg-white object-contain" /> : <div className="flex h-72 items-center justify-center rounded-xl border bg-muted text-muted-foreground">No heatmap image</div>}
+      {image ? <img src={image} alt={`Heatmap ${item.playerName}`} className="max-h-[65vh] w-full rounded-xl border bg-white object-contain" /> : <div className="flex h-72 items-center justify-center rounded-xl border bg-muted text-muted-foreground">ไม่มีภาพฮีตแมพ</div>}
       <dl className="grid grid-cols-2 gap-3 rounded-xl border bg-muted/30 p-4 text-sm sm:grid-cols-3">
-        <Info label="Player" value={item.playerName} />
-        <Info label="Number" value={item.shirtNumber ? `#${item.shirtNumber}` : "-"} />
+        <Info label="นักเตะ" value={item.playerName} />
+        <Info label="หมายเลข" value={item.shirtNumber ? `#${item.shirtNumber}` : "-"} />
         <Info label={COPY.team} value={item.playerTeam || "-"} />
         <Info label={COPY.match} value={`${item.homeTeam || "-"} vs ${item.awayTeam || "-"}`} />
         <Info label={COPY.date} value={item.matchDate ? new Date(item.matchDate).toLocaleDateString("th-TH") : "-"} />
-        <Info label="Competition" value={item.competition || "-"} />
+        <Info label="รายการ" value={item.competition || "-"} />
       </dl>
     </div>
   )
@@ -190,7 +190,7 @@ function HeatmapDetail({ item }: { item: Heatmap }) {
 
 function TeamMark({ name }: { name: string }) {
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "FC"
-  return <div className="min-w-0 text-center"><div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border bg-background font-bold text-primary shadow-sm">{initials}</div><p className="mt-2 max-w-28 truncate text-sm font-semibold">{name}</p></div>
+  return <div className="min-w-0 text-center"><div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border bg-background font-bold text-primary shadow-sm">{initials}</div><p className="mt-2 max-w-28 truncate text-sm font-semibold capitalize">{name}</p></div>
 }
 
 function TeamHeatmapList({ team, side, items, onSelect }: { team: string; side: "Home" | "Away"; items: Heatmap[]; onSelect: (item: Heatmap) => void }) {
@@ -200,17 +200,17 @@ function TeamHeatmapList({ team, side, items, onSelect }: { team: string; side: 
       <header className="flex items-center justify-between border-b px-5 py-4">
         <div className="flex min-w-0 items-center gap-3">
           <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border font-bold ${accent}`}>{side === "Home" ? "H" : "A"}</div>
-          <div className="min-w-0"><p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{side} team</p><h3 className="truncate font-semibold">{team}</h3></div>
+          <div className="min-w-0"><p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{side === "Home" ? "ทีมเหย้า" : "ทีมเยือน"}</p><h3 className="truncate font-semibold capitalize">{team}</h3></div>
         </div>
         <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">{items.length}</span>
       </header>
       {items.length === 0 ? (
-        <p className="p-7 text-center text-sm text-muted-foreground">No published heatmaps for this team.</p>
+        <p className="p-7 text-center text-sm text-muted-foreground">ทีมนี้ยังไม่มีฮีตแมพที่เผยแพร่</p>
       ) : (
         <div>
           {items.map((item) => (
             <button key={item.id} type="button" onDoubleClick={() => onSelect(item)} className="group flex w-full items-center justify-between border-b px-5 py-4 text-left transition hover:bg-primary/5 last:border-b-0">
-              <div className="flex items-center gap-3"><div className={`flex h-10 w-10 items-center justify-center rounded-full font-bold ${accent}`}>{item.shirtNumber || "#"}</div><div><p className="font-semibold">{item.playerName}</p><p className="mt-0.5 text-xs text-muted-foreground">Double-click to view heatmap</p></div></div>
+              <div className="flex items-center gap-3"><div className={`flex h-10 w-10 items-center justify-center rounded-full font-bold ${accent}`}>{item.shirtNumber || "#"}</div><div><p className="font-semibold">{item.playerName}</p><p className="mt-0.5 text-xs text-muted-foreground">ดับเบิลคลิกเพื่อดูฮีตแมพ</p></div></div>
               <ChevronRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
             </button>
           ))}
