@@ -244,7 +244,7 @@ export default function Home() {
 
               <div className="grid grid-cols-3 gap-4 border-t border-border/50 pt-8 md:max-w-xl">
                 <div>
-                  <p className="text-2xl font-display text-primary md:text-3xl">51%</p>
+                  <p className="text-2xl font-display text-primary md:text-3xl">50%+</p>
                   <p className="text-xs text-muted-foreground md:text-sm">ทายผลถูก (ทดสอบ 760 นัด)</p>
                 </div>
                 <div>
