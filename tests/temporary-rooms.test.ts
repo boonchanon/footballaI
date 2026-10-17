@@ -39,19 +39,24 @@ function finishedFixture(overrides: Record<string, unknown> = {}) {
   })
 }
 
-test("preview room opens 60 minutes before kickoff and archives at kickoff", () => {
+test("preview room opens 60 minutes before kickoff, closes at kickoff and archives after retention", () => {
   const match = fixture()
   assert.equal(getRoomState(match, "preview", new Date("2026-08-01T10:59:59Z")).state, "upcoming")
   assert.equal(getRoomState(match, "preview", new Date("2026-08-01T11:00:00Z")).state, "open")
   assert.equal(getRoomState(match, "preview", new Date("2026-08-01T11:59:00Z")).state, "closing")
-  assert.equal(getRoomState(match, "preview", new Date("2026-08-01T12:00:00Z")).state, "archived")
+  const closed = getRoomState(match, "preview", new Date("2026-08-01T12:00:00Z"))
+  assert.equal(closed.state, "closed")
+  assert.equal(closed.canRead, true)
+  assert.equal(closed.canPost, false)
+  assert.equal(getRoomState(match, "preview", new Date("2026-08-15T12:00:00Z")).state, "archived")
 })
 
 test("preview room closes immediately when provider status is live or finished", () => {
   const liveMatch = fixture({ fixture: { id: "match-1", status: { short: "1H" }, date: "2026-08-01T12:00:00Z" } })
   const finishedMatch = fixture({ fixture: { id: "match-1", status: { short: "FT" }, date: "2026-08-01T12:00:00Z" }, goals: { home: 1, away: 1 } })
-  assert.equal(getRoomState(liveMatch, "preview", new Date("2026-08-01T11:15:00Z")).state, "archived")
-  assert.equal(getRoomState(finishedMatch, "preview", new Date("2026-08-01T11:15:00Z")).state, "archived")
+  assert.equal(getRoomState(liveMatch, "preview", new Date("2026-08-01T11:15:00Z")).state, "closed")
+  assert.equal(getRoomState(finishedMatch, "preview", new Date("2026-08-01T11:15:00Z")).state, "closed")
+  assert.equal(canPostToRoom(liveMatch, "preview", new Date("2026-08-01T11:15:00Z")), false)
 })
 
 test("postponed and cancelled temporary rooms never open for normal users", () => {
@@ -66,34 +71,44 @@ test("post-match room uses trusted finishedAt when present", () => {
   const beforeFinished = getRoomState(match, "post_match", new Date("2026-08-01T13:49:00Z"))
   const open = getRoomState(match, "post_match", new Date("2026-08-01T13:50:00Z"))
   const stillOpen = getRoomState(match, "post_match", new Date("2026-08-01T14:49:00Z"))
-  const archived = getRoomState(match, "post_match", new Date("2026-08-01T14:51:00Z"))
+  const closed = getRoomState(match, "post_match", new Date("2026-08-01T14:51:00Z"))
+  const archived = getRoomState(match, "post_match", new Date("2026-08-15T14:50:00Z"))
   assert.equal(beforeFinished.state, "unavailable")
   assert.equal(open.state, "open")
   assert.equal(stillOpen.state, "closing")
+  assert.equal(closed.state, "closed")
+  assert.equal(closed.canPost, false)
   assert.equal(archived.state, "archived")
   assert.equal(archived.canPost, false)
 })
 
-test("post-match room falls back to server policy when finishedAt is missing", () => {
+test("post-match room opens as soon as provider marks the match finished when finishedAt is missing", () => {
   const match = fixture({ fixture: { id: "match-1", status: { short: "FT" }, date: "2026-08-01T12:00:00Z" }, goals: { home: 2, away: 2 } })
-  assert.equal(getRoomState(match, "post_match", new Date("2026-08-01T12:30:00Z")).state, "unavailable")
-  assert.equal(getRoomState(match, "post_match", new Date("2026-08-01T13:46:00Z")).state, "open")
+  const notFinished = fixture()
+  assert.equal(getRoomState(notFinished, "post_match", new Date("2026-08-01T13:46:00Z")).state, "unavailable")
+  assert.equal(getRoomState(match, "post_match", new Date("2026-08-01T12:30:00Z")).state, "open")
+  const fallback = getRoomState(match, "post_match", new Date("2026-08-01T13:46:00Z"))
+  assert.equal(fallback.state, "open")
+  assert.equal(fallback.opensAt?.toISOString(), "2026-08-01T13:45:00.000Z")
 })
 
 test("server-side room state ignores client injected timing fields", () => {
   const match = fixture()
   const clientInjected = { ...match, closesAt: "2099-01-01T00:00:00Z", remainingSeconds: 999999 }
-  assert.equal(getRoomState(clientInjected, "preview", new Date("2026-08-01T12:01:00Z")).state, "archived")
+  assert.equal(getRoomState(clientInjected, "preview", new Date("2026-08-01T12:01:00Z")).state, "closed")
   assert.equal(canPostToRoom(clientInjected, "preview", new Date("2026-08-01T12:01:00Z")), false)
 })
 
 test("archived temporary rooms are hidden from normal navigation but visible to admins", () => {
   const match = fixture()
-  const userChannels = getVisibleMatchRoomChannels(match, new Date("2026-08-01T12:01:00Z"), "user")
-  const adminChannels = getVisibleMatchRoomChannels(match, new Date("2026-08-01T12:01:00Z"), "admincommunity")
+  const archivedAt = new Date("2026-08-15T12:01:00Z")
+  const closedChannels = getVisibleMatchRoomChannels(match, new Date("2026-08-01T12:01:00Z"), "user")
+  const userChannels = getVisibleMatchRoomChannels(match, archivedAt, "user")
+  const adminChannels = getVisibleMatchRoomChannels(match, archivedAt, "admincommunity")
+  assert.equal(closedChannels.some((channel) => channel.roomType === "preview" && channel.state === "closed"), true)
   assert.equal(userChannels.some((channel) => channel.roomType === "preview"), false)
   assert.equal(adminChannels.some((channel) => channel.roomType === "preview" && channel.isArchived), true)
-  assert.equal(canReadRoom(match, "preview", new Date("2026-08-01T12:01:00Z"), "admincommunity"), true)
+  assert.equal(canReadRoom(match, "preview", archivedAt, "admincommunity"), true)
 })
 
 test("temporary room activity distinguishes open and closing windows", () => {
@@ -123,5 +138,6 @@ test("room metadata keeps retention metadata without hard delete", () => {
   assert.equal(metadata.archivedAt, null)
   assert.equal(metadata.roomClosedAt?.toISOString(), "2026-08-01T14:50:00.000Z")
   assert.equal(metadata.roomExpiresAt?.toISOString(), "2026-08-15T14:50:00.000Z")
-  assert.equal(shouldArchiveRoom(finishedFixture(), "post_match", new Date("2026-08-01T14:51:00Z")), true)
+  assert.equal(shouldArchiveRoom(finishedFixture(), "post_match", new Date("2026-08-01T14:51:00Z")), false)
+  assert.equal(shouldArchiveRoom(finishedFixture(), "post_match", new Date("2026-08-15T14:50:00Z")), true)
 })

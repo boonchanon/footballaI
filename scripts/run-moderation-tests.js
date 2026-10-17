@@ -10,11 +10,13 @@ const outDir = path.join(root, ".tmp-tests")
 rmSync(outDir, { recursive: true, force: true })
 mkdirSync(outDir, { recursive: true })
 
-const tscBin = path.join(root, "node_modules", ".bin", process.platform === "win32" ? "tsc.cmd" : "tsc")
+const tscBin = process.execPath
+const tscScript = path.join(root, "node_modules", "typescript", "bin", "tsc")
 
 const compile = spawnSync(
   tscBin,
   [
+    tscScript,
     "--outDir",
     outDir,
     "--module",

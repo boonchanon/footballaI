@@ -42,12 +42,28 @@ test("admin actions should be allowlisted and reason-gated for manual archive", 
 })
 
 test("room filters should bind targets to match and content type", () => {
-  assert.deepEqual(buildAdminRoomMessageFilter("m1", "preview"), {
+  assert.deepEqual(buildAdminRoomMessageFilter("m1", "main"), {
+    matchId: "m1",
+    roomType: "main",
+    isRoomMessage: true,
+    contentType: "room_message",
+  })
+  assert.deepEqual(buildAdminRoomMessageFilter("m1", "preview", { previewTeam: "home" }), {
     matchId: "m1",
     roomType: "preview",
     isRoomMessage: true,
     contentType: "room_message",
+    tags: "match-preview:home",
   })
+  assert.deepEqual(buildAdminRoomMessageFilter("m1", "post_match", { reactionTeam: "away" }), {
+    matchId: "m1",
+    roomType: "post_match",
+    isRoomMessage: true,
+    contentType: "room_message",
+    tags: "match-post-match:away",
+  })
+  assert.equal(buildAdminRoomMessageFilter("m1", "preview"), null)
+  assert.equal(buildAdminRoomMessageFilter("m1", "post_match", { reactionTeam: "neutral" }), null)
   assert.equal(buildAdminRoomMessageFilter("m1", "bad-room"), null)
   assert.deepEqual(buildAdminThreadFilter("m1"), { matchId: "m1", isThreadRoot: true, contentType: "thread_root" })
   assert.deepEqual(buildAdminPollFilter("m1"), { matchId: "m1", contentType: "match_poll", "poll.question": { $ne: "" } })

@@ -10,7 +10,8 @@ const outDir = path.join(root, ".tmp-admin-match-room-tests")
 rmSync(outDir, { recursive: true, force: true })
 mkdirSync(outDir, { recursive: true })
 
-const tscBin = path.join(root, "node_modules", ".bin", process.platform === "win32" ? "tsc.cmd" : "tsc")
+const tscBin = process.execPath
+const tscScript = path.join(root, "node_modules", "typescript", "bin", "tsc")
 const tsconfigPath = path.join(outDir, "tsconfig.json")
 
 writeFileSync(
@@ -32,6 +33,7 @@ writeFileSync(
       files: [
         "lib/admin-access.ts",
         "lib/match-demo-override.ts",
+        "lib/match-preview-lounges.ts",
         "lib/server/community-room-conversation.ts",
         "lib/server/admin-community-match-rooms.ts",
         "tests/admin-match-rooms.test.ts",
@@ -42,7 +44,7 @@ writeFileSync(
   ),
 )
 
-const compile = spawnSync(tscBin, ["--project", tsconfigPath], {
+const compile = spawnSync(tscBin, [tscScript, "--project", tsconfigPath], {
   cwd: root,
   stdio: "inherit",
   env: process.env,
@@ -53,7 +55,21 @@ if (compile.status !== 0) {
   process.exit(compile.status || 1)
 }
 
-const run = spawnSync("node", ["--test", path.join(outDir, "tests", "admin-match-rooms.test.js")], {
+// tsc keeps "@/..." specifiers in the emitted JS, so map them onto the compiled output at runtime.
+const aliasHookPath = path.join(outDir, "alias-hook.js")
+writeFileSync(
+  aliasHookPath,
+  `const Module = require("node:module")
+const path = require("node:path")
+const resolve = Module._resolveFilename
+Module._resolveFilename = function (request, ...rest) {
+  if (request.startsWith("@/")) request = path.join(${JSON.stringify(outDir)}, request.slice(2))
+  return resolve.call(this, request, ...rest)
+}
+`,
+)
+
+const run = spawnSync("node", ["--require", aliasHookPath, "--test", path.join(outDir, "tests", "admin-match-rooms.test.js")], {
   cwd: root,
   stdio: "inherit",
   env: process.env,

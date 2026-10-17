@@ -10,7 +10,8 @@ const outDir = path.join(root, ".tmp-match-room-tests")
 rmSync(outDir, { recursive: true, force: true })
 mkdirSync(outDir, { recursive: true })
 
-const tscBin = path.join(root, "node_modules", ".bin", process.platform === "win32" ? "tsc.cmd" : "tsc")
+const tscBin = process.execPath
+const tscScript = path.join(root, "node_modules", "typescript", "bin", "tsc")
 const tsconfigPath = path.join(outDir, "tsconfig.json")
 
 writeFileSync(
@@ -47,7 +48,7 @@ writeFileSync(
 
 const compile = spawnSync(
   tscBin,
-  ["--project", tsconfigPath],
+  [tscScript, "--project", tsconfigPath],
   {
     cwd: root,
     stdio: "inherit",
