@@ -31,6 +31,7 @@ type VideoJob = {
   stage?: string
   device?: string
   max_frames?: number
+  sample_fps?: number | null
   frames_processed?: number
   start_seconds?: number
   created_at?: number
@@ -165,7 +166,7 @@ export default function VideoLibraryPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <dl className="grid grid-cols-2 gap-2 text-sm">
-                  <div><dt className="text-muted-foreground">ตั้งค่า</dt><dd>{[job.stage, job.device].filter(Boolean).join(" · ") || "-"}</dd></div>
+                  <div><dt className="text-muted-foreground">ตั้งค่า</dt><dd>{[job.stage, job.device, job.sample_fps ? `${job.sample_fps} fps` : null].filter(Boolean).join(" · ") || "-"}</dd></div>
                   <div><dt className="text-muted-foreground">เฟรม</dt><dd>{job.frames_processed ?? job.max_frames ?? "-"}</dd></div>
                   <div><dt className="text-muted-foreground">ใช้เวลา</dt><dd>{formatDuration(job)}</dd></div>
                   <div><dt className="text-muted-foreground">ไฟล์</dt><dd>{formatSize(job.size_bytes) || (job.has_upload ? "เก็บไว้" : "-")}</dd></div>

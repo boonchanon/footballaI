@@ -33,12 +33,23 @@ export function getHeatmapResultView(quality: HeatmapQualitySummary): HeatmapRes
   return (quality.usableHeatmapRecords ?? 0) > 0 ? "ready" : "no-gameplay"
 }
 
-export function buildHeatmapJobFormData(file: Blob, settings: { stage: string; device: string; maxFrames: number; startSeconds: number }) {
+export function buildHeatmapJobFormData(
+  file: Blob,
+  settings: { stage: string; device: string; maxFrames: number; startSeconds: number; sampleFps?: number },
+) {
   const body = new FormData()
   body.append("video", file)
   body.append("stage", settings.stage)
   body.append("device", settings.device)
   body.append("max_frames", String(settings.maxFrames))
   body.append("start_seconds", String(settings.startSeconds))
+  // 0 / omitted = analyse every frame.
+  if (settings.sampleFps) body.append("sample_fps", String(settings.sampleFps))
   return body
+}
+
+// Video time covered by a job: analysed frames / analysed frames per second.
+export function coveredVideoSeconds(maxFrames: number, sampleFps: number, videoFps = 25) {
+  const rate = sampleFps > 0 ? sampleFps : videoFps
+  return maxFrames / rate
 }
