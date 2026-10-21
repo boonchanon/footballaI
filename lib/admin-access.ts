@@ -14,6 +14,12 @@ export type AdminSection =
   | "users"
   | "settings"
 
+export const ADMIN_SECTIONS: AdminSection[] = ["dashboard", "leagues", "matches", "teams", "players", "heatmap", "ai", "community", "users", "settings"]
+
+export function isAdminSection(value: unknown): value is AdminSection {
+  return typeof value === "string" && ADMIN_SECTIONS.includes(value as AdminSection)
+}
+
 export const ADMIN_ROLE_LABELS: Record<AdminRole, string> = {
   superadmin: "Super Admin",
   admin: "Admin",
