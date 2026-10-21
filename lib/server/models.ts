@@ -972,6 +972,14 @@ const paymentOrderSchema =
     { timestamps: true },
   )
 
+if (!models.PaymentOrder) {
+  // One bank slip can pay for only one order.
+  paymentOrderSchema.index(
+    { verificationRef: 1 },
+    { unique: true, partialFilterExpression: { status: "paid", verificationRef: { $type: "string", $gt: "" } } },
+  )
+}
+
 if (models.PaymentOrder) {
   const statusPath = models.PaymentOrder.schema.path("status") as any
   if (statusPath && Array.isArray(statusPath.enumValues) && !statusPath.enumValues.includes("reviewing")) {

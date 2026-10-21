@@ -1,6 +1,13 @@
 "use client"
 
+import { getAuthToken } from "@/lib/auth-client"
+
 export const ADMIN_AI_API_BASE_URL = "/api/admin-ai"
+
+function authHeaders(): Record<string, string> {
+  const token = getAuthToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
 
 type JsonRecord = Record<string, any>
 
@@ -172,6 +179,7 @@ async function fetchJson(path: string, init?: RequestInit) {
     cache: "no-store",
     headers: {
       Accept: "application/json",
+      ...authHeaders(),
       ...(init?.headers || {}),
     },
   })
@@ -296,6 +304,21 @@ export async function exportFixturePredictions(file: File, season: string): Prom
     dateRange: toStringValue(payload.date_range ?? payload.dateRange ?? payload.period, "-"),
     downloadUrl: `${ADMIN_AI_API_BASE_URL}/predictions/download/${encodeURIComponent(filename)}`,
   }
+}
+
+// Downloads go through fetch so the admin token is sent; a plain <a href> cannot carry it.
+export async function downloadAdminAiFile(url: string, filename: string) {
+  const response = await fetch(url, { cache: "no-store", headers: authHeaders() })
+  if (!response.ok) throw new Error(`ดาวน์โหลดไฟล์ไม่สำเร็จ (${response.status})`)
+  const objectUrl = URL.createObjectURL(await response.blob())
+  const anchor = document.createElement("a")
+  anchor.href = objectUrl
+  anchor.download = filename
+  anchor.rel = "noopener"
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(objectUrl)
 }
 
 export async function predictMatchPair(homeTeam: string, awayTeam: string): Promise<MatchPredictionResult> {
