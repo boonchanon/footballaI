@@ -1224,6 +1224,7 @@ const publishedHeatmapSchema =
   models.PublishedHeatmap?.schema ||
   new Schema(
     {
+      match: { type: Schema.Types.ObjectId, ref: "HeatmapMatch", index: true },
       sourceJobId: { type: String, required: true, trim: true, index: true },
       sourceSceneId: { type: String, default: "", trim: true },
       sourceTrackIds: { type: [String], required: true, default: [] },

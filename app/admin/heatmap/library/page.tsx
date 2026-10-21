@@ -21,6 +21,7 @@ type HeatmapMatch = {
 type PublishedHeatmap = {
   _id?: string
   id?: string
+  match?: string | null
   homeTeam: string
   awayTeam: string
   playerName: string
@@ -47,6 +48,7 @@ const COPY = {
   addHeatmap: "\u0e40\u0e1e\u0e34\u0e48\u0e21\u0e2e\u0e35\u0e15\u0e41\u0e21\u0e1e",
   playerName: "\u0e0a\u0e37\u0e48\u0e2d\u0e19\u0e31\u0e01\u0e40\u0e15\u0e30",
   shirtNumber: "\u0e2b\u0e21\u0e32\u0e22\u0e40\u0e25\u0e02\u0e40\u0e2a\u0e37\u0e49\u0e2d",
+  match: "\u0e41\u0e21\u0e15\u0e0a\u0e4c",
   team: "\u0e17\u0e35\u0e21\u0e02\u0e2d\u0e07\u0e19\u0e31\u0e01\u0e40\u0e15\u0e30",
   imageUrl: "\u0e25\u0e34\u0e07\u0e01\u0e4c\u0e20\u0e32\u0e1e\u0e2e\u0e35\u0e15\u0e41\u0e21\u0e1e PNG",
   uploadImage: "\u0e2d\u0e31\u0e1b\u0e42\u0e2b\u0e25\u0e14\u0e23\u0e39\u0e1b\u0e20\u0e32\u0e1e",
@@ -71,12 +73,14 @@ export default function HeatmapLibraryPage() {
   const [heatmapDialogOpen, setHeatmapDialogOpen] = useState(false)
   const [matchForm, setMatchForm] = useState({ homeTeam: "", awayTeam: "", matchDate: "" })
   const [heatmapForm, setHeatmapForm] = useState({
+    match: "",
     playerName: "",
     shirtNumber: "",
     playerTeam: "home",
     heatmapImageUrl: "",
     heatmapImageData: "",
   })
+  const formMatch = matches.find((item) => item._id === heatmapForm.match) ?? selectedMatch
 
   useEffect(() => {
     void loadMatches()
@@ -95,13 +99,9 @@ export default function HeatmapLibraryPage() {
     setSelectedMatch(match)
     try {
       const response = await fetchJson<{ items: PublishedHeatmap[] }>(
-        `/admin/heatmaps?team=${encodeURIComponent(match.homeTeam)}`,
+        `/admin/heatmaps?match=${encodeURIComponent(match._id)}`,
       )
-      setHeatmaps(
-        (response.items ?? []).filter(
-          (item) => item.homeTeam === match.homeTeam && item.awayTeam === match.awayTeam,
-        ),
-      )
+      setHeatmaps(response.items ?? [])
     } catch {
       setHeatmaps([])
     }
@@ -165,19 +165,20 @@ export default function HeatmapLibraryPage() {
 
   async function createHeatmap(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!selectedMatch) return
+    if (!selectedMatch || !formMatch) return
 
-    const playerTeam = heatmapForm.playerTeam === "away" ? selectedMatch.awayTeam : selectedMatch.homeTeam
+    const playerTeam = heatmapForm.playerTeam === "away" ? formMatch.awayTeam : formMatch.homeTeam
+    const keepInList = (item: PublishedHeatmap) => item.match === selectedMatch._id
     if (editingHeatmap) {
       const id = heatmapId(editingHeatmap)
       if (!id) return
       const response = await fetchJson<{ item: PublishedHeatmap }>(`/admin/heatmaps/${id}`, {
         method: "PATCH",
-        body: JSON.stringify({ ...heatmapForm, playerTeam }),
+        body: JSON.stringify({ ...heatmapForm, match: formMatch._id, playerTeam }),
       })
       const updated = withId(response.item)
-      setHeatmaps((current) => current.map((item) => heatmapId(item) === id ? updated : item))
-      setSelectedHeatmap(updated)
+      setHeatmaps((current) => current.map((item) => heatmapId(item) === id ? updated : item).filter(keepInList))
+      setSelectedHeatmap(keepInList(updated) ? updated : null)
       setEditingHeatmap(null)
       setHeatmapDialogOpen(false)
       return
@@ -186,29 +187,28 @@ export default function HeatmapLibraryPage() {
       method: "POST",
       body: JSON.stringify({
         ...heatmapForm,
+        match: formMatch._id,
         playerTeam,
-        sourceJobId: `manual-${selectedMatch._id}`,
+        sourceJobId: `manual-${formMatch._id}`,
         sourceTrackIds: [],
-        homeTeam: selectedMatch.homeTeam,
-        awayTeam: selectedMatch.awayTeam,
-        matchDate: selectedMatch.matchDate,
         status: "draft",
       }),
     })
-    setHeatmaps((current) => [response.item, ...current])
-    setHeatmapForm({ playerName: "", shirtNumber: "", playerTeam: "home", heatmapImageUrl: "", heatmapImageData: "" })
+    if (keepInList(response.item)) setHeatmaps((current) => [response.item, ...current])
+    setHeatmapForm({ match: "", playerName: "", shirtNumber: "", playerTeam: "home", heatmapImageUrl: "", heatmapImageData: "" })
     setHeatmapDialogOpen(false)
   }
 
   function openCreateHeatmap() {
     setEditingHeatmap(null)
-    setHeatmapForm({ playerName: "", shirtNumber: "", playerTeam: "home", heatmapImageUrl: "", heatmapImageData: "" })
+    setHeatmapForm({ match: selectedMatch?._id ?? "", playerName: "", shirtNumber: "", playerTeam: "home", heatmapImageUrl: "", heatmapImageData: "" })
     setHeatmapDialogOpen(true)
   }
 
   function openEditHeatmap(heatmap: PublishedHeatmap) {
     setEditingHeatmap(heatmap)
     setHeatmapForm({
+      match: heatmap.match ?? selectedMatch?._id ?? "",
       playerName: heatmap.playerName,
       shirtNumber: heatmap.shirtNumber ?? "",
       playerTeam: heatmap.playerTeam === selectedMatch?.awayTeam ? "away" : "home",
@@ -285,6 +285,18 @@ export default function HeatmapLibraryPage() {
           <DialogContent className="sm:max-w-xl">
             <DialogHeader><DialogTitle>{editingHeatmap ? COPY.edit : COPY.addHeatmap}</DialogTitle></DialogHeader>
             <form onSubmit={createHeatmap} className="space-y-4">
+              <Field label={COPY.match}>
+                <Select value={heatmapForm.match} onValueChange={(match) => setHeatmapForm({ ...heatmapForm, match })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {matches.map((match) => (
+                      <SelectItem key={match._id} value={match._id}>
+                        {match.homeTeam} vs {match.awayTeam} ({new Date(match.matchDate).toLocaleDateString("th-TH")})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
               <Field label={COPY.playerName}>
                 <Input required value={heatmapForm.playerName} onChange={(event) => setHeatmapForm({ ...heatmapForm, playerName: event.target.value })} />
               </Field>
@@ -296,8 +308,8 @@ export default function HeatmapLibraryPage() {
                   <Select value={heatmapForm.playerTeam} onValueChange={(playerTeam) => setHeatmapForm({ ...heatmapForm, playerTeam })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="home">{selectedMatch.homeTeam}</SelectItem>
-                      <SelectItem value="away">{selectedMatch.awayTeam}</SelectItem>
+                      <SelectItem value="home">{formMatch?.homeTeam ?? selectedMatch.homeTeam}</SelectItem>
+                      <SelectItem value="away">{formMatch?.awayTeam ?? selectedMatch.awayTeam}</SelectItem>
                     </SelectContent>
                   </Select>
                 </Field>

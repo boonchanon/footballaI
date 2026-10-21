@@ -1,4 +1,5 @@
 export type HeatmapPublishInput = {
+  match: string
   sourceJobId: string
   sourceSceneId: string
   sourceTrackIds: string[]
