@@ -99,6 +99,7 @@ const sidebarLinks: SidebarLink[] = [
     section: "heatmap",
     subLinks: [
       { title: "Video Analysis", href: "/admin/heatmap" },
+      { title: "Video Library", href: "/admin/heatmap/videos" },
       { title: "Heatmap Library", href: "/admin/heatmap/library" },
     ],
   },
