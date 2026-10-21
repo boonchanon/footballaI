@@ -249,6 +249,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return errorResponse("Post was edited elsewhere. Please refresh and try again.", 409)
     }
 
+    const title = typeof body.title === "string" ? body.title.trim() : String(post.title || "").trim()
     const content = typeof body.content === "string" ? body.content.trim() : String(post.content || "").trim()
     const category = typeof body.category === "string" ? body.category.trim() : String(post.category || "general")
     const imageMediaIds = parseMediaIdList(body.imageMediaIds, 4)
@@ -262,7 +263,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const finalPlayerIds = playerIds ?? (Array.isArray(post.playerIds) ? post.playerIds : [])
     const tags = typeof body.tags === "undefined" ? (Array.isArray(post.tags) ? post.tags : []) : parseTags(body.tags)
 
-    if (content.length < 8 || content.length > 5000) {
+    if (title.length < 4 || title.length > 180 || content.length < 8 || content.length > 5000) {
       return errorResponse("Validation failed", 422)
     }
 
@@ -297,7 +298,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     )
 
     const moderation = await moderateCommunityText({
-      title: String(post.title || ""),
+      title,
       content,
       urls: [...nextImages, ...nextVideos],
       imageUrls: nextImages,
@@ -314,7 +315,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         scores: moderation.scores,
         provider: moderation.provider,
       })
-      return errorResponse("Post rejected by moderation", 422, { reasons: moderation.reasons })
+      return errorResponse("เนื้อหามีคำไม่เหมาะสม ไม่สามารถโพสต์ได้ กรุณาแก้ไขข้อความ", 422, { reasons: moderation.reasons })
     }
 
     const finalModerationStatus = moderation.status === "approved" && hasPendingMedia ? "pending_review" : moderation.status
@@ -327,6 +328,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     if (finalModerationStatus === "pending_review" && wasPublishedVersion) {
       post.pendingRevision = {
+        title,
         content,
         category,
         tags,
@@ -394,6 +396,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       })
     }
 
+    post.title = title
     post.content = content
     post.category = category
     post.tags = tags

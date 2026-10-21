@@ -22,6 +22,10 @@ export async function PATCH(request: NextRequest) {
       return errorResponse("Current password is incorrect", 401)
     }
 
+    if (await user.comparePassword(newPassword)) {
+      return errorResponse("รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านเดิม", 422)
+    }
+
     user.password = newPassword
     await user.save()
 

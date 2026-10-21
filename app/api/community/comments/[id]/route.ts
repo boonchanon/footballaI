@@ -56,7 +56,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         scores: moderation.scores,
         provider: moderation.provider,
       })
-      return errorResponse("Comment rejected by moderation", 422, { reasons: moderation.reasons })
+      return errorResponse("ความคิดเห็นมีคำไม่เหมาะสม ไม่สามารถบันทึกได้ กรุณาแก้ไขข้อความ", 422, { reasons: moderation.reasons })
     }
 
     comment.content = content

@@ -79,6 +79,12 @@ export default function StandingsPage() {
             </Card>
           ) : (
             <>
+              {data?.usedFallback ? (
+                <div role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+                  {data.notice || "กำลังแสดงข้อมูลที่บันทึกไว้ล่าสุด"}
+                  {data.lastUpdated ? ` (อัปเดตล่าสุด ${new Date(data.lastUpdated).toLocaleString("th-TH")})` : ""}
+                </div>
+              ) : null}
               <Card className="overflow-hidden border-border/50">
                 <div className="overflow-x-auto">
                   <table className="w-full font-table">

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 
 import { formatDateThai, getTimeAgoThai } from "@/lib/sportmonks"
 import { getNewsApiConfig } from "@/lib/server/app-settings"
+import { readLastGood, saveLastGood } from "@/lib/server/last-good-cache"
 
 type NewsCategory = "match" | "transfer" | "preview" | "result" | "general"
 type NewsTopic = "premier-league" | "worldcup"
@@ -530,6 +531,36 @@ function getFallbackNews(topic: NewsTopic): NewsArticle[] {
   return topic === "worldcup" ? getWorldCupFallbackNews() : getPremierLeagueFallbackNews()
 }
 
+// When GNews fails, serve the last news that was fetched successfully; sample news is the last resort.
+async function getNewsWhenProviderFails(topic: NewsTopic) {
+  const cached = await readLastGood<NewsArticle[]>(`news:${topic}`)
+  if (cached?.value.length) {
+    return {
+      articles: cached.value.map((article) => ({ ...article, timeAgo: getTimeAgoThai(article.publishedAt) })),
+      source: "cache" as const,
+      lastUpdated: cached.updatedAt.toISOString(),
+      notice: "ไม่สามารถดึงข่าวล่าสุดได้ในขณะนี้ กำลังแสดงข่าวที่บันทึกไว้ล่าสุด",
+    }
+  }
+  return {
+    articles: getFallbackNews(topic),
+    source: "fallback" as const,
+    lastUpdated: new Date().toISOString(),
+    notice: "ไม่สามารถดึงข่าวล่าสุดได้ในขณะนี้ กำลังแสดงข่าวตัวอย่าง",
+  }
+}
+
+function buildNewsStats(articles: NewsArticle[]) {
+  return {
+    total: articles.length,
+    results: articles.filter((a) => a.category === "result").length,
+    previews: articles.filter((a) => a.category === "preview").length,
+    transfers: articles.filter((a) => a.category === "transfer").length,
+    general: articles.filter((a) => a.category === "general").length,
+    match: articles.filter((a) => a.category === "match").length,
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const topic = parseTopic(request.nextUrl.searchParams.get("topic"))
@@ -553,8 +584,10 @@ export async function GET(request: NextRequest) {
     }
 
     const realNews = await fetchRealNews(topic)
-    const articles = realNews.length > 0 ? realNews : getFallbackNews(topic)
-    const source = realNews.length > 0 ? "gnews" : "fallback"
+    if (realNews.length > 0) await saveLastGood(`news:${topic}`, realNews)
+    const fallback = realNews.length > 0 ? null : await getNewsWhenProviderFails(topic)
+    const articles = fallback ? fallback.articles : realNews
+    const lastUpdated = fallback ? fallback.lastUpdated : new Date().toISOString()
 
     const sortedArticles = articles.sort((a, b) => {
       if (a.isFeatured) return -1
@@ -565,37 +598,25 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       topic,
       articles: sortedArticles,
-      lastUpdated: new Date().toISOString(),
-      lastUpdatedThai: formatDateThai(new Date().toISOString()),
-      source,
-      stats: {
-        total: sortedArticles.length,
-        results: sortedArticles.filter((a) => a.category === "result").length,
-        previews: sortedArticles.filter((a) => a.category === "preview").length,
-        transfers: sortedArticles.filter((a) => a.category === "transfer").length,
-        general: sortedArticles.filter((a) => a.category === "general").length,
-        match: sortedArticles.filter((a) => a.category === "match").length,
-      },
+      lastUpdated,
+      lastUpdatedThai: formatDateThai(lastUpdated),
+      source: fallback ? fallback.source : "gnews",
+      ...(fallback ? { notice: fallback.notice } : {}),
+      stats: buildNewsStats(sortedArticles),
     })
   } catch (error) {
     console.error("News API error:", error)
 
     const topic = parseTopic(request.nextUrl.searchParams.get("topic"))
-    const fallbackNews = getFallbackNews(topic)
+    const fallback = await getNewsWhenProviderFails(topic)
     return NextResponse.json({
       topic,
-      articles: fallbackNews,
-      lastUpdated: new Date().toISOString(),
-      lastUpdatedThai: formatDateThai(new Date().toISOString()),
-      source: "fallback",
-      stats: {
-        total: fallbackNews.length,
-        results: fallbackNews.filter((a) => a.category === "result").length,
-        previews: fallbackNews.filter((a) => a.category === "preview").length,
-        transfers: fallbackNews.filter((a) => a.category === "transfer").length,
-        general: fallbackNews.filter((a) => a.category === "general").length,
-        match: fallbackNews.filter((a) => a.category === "match").length,
-      },
+      articles: fallback.articles,
+      lastUpdated: fallback.lastUpdated,
+      lastUpdatedThai: formatDateThai(fallback.lastUpdated),
+      source: fallback.source,
+      notice: fallback.notice,
+      stats: buildNewsStats(fallback.articles),
     })
   }
 }

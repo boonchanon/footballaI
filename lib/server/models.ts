@@ -132,6 +132,7 @@ const userSchema =
       resetPasswordToken: { type: String, default: "" },
       resetPasswordExpiresAt: { type: Date, default: null },
       tokenBalance: { type: Number, default: 0, min: 0 },
+      activityClearedAt: { type: Date, default: null },
       moderationState: {
         warningsCount: { type: Number, default: 0 },
         postingRestrictedUntil: { type: Date, default: null },
@@ -292,7 +293,15 @@ const commentSchema =
       targetType: { type: String, enum: ["match", "team", "player", "article", "prediction", "post"], required: true },
       targetId: { type: String, required: true, index: true },
       parentComment: { type: Schema.Types.ObjectId, ref: "Comment", default: null, index: true },
-      content: { type: String, required: true, trim: true, maxlength: 1000 },
+      // Soft-deleted comments clear their content, so it is only required while the comment exists.
+      content: {
+        type: String,
+        required: function (this: { isDeleted?: boolean }) {
+          return !this.isDeleted
+        },
+        trim: true,
+        maxlength: 1000,
+      },
       isApproved: { type: Boolean, default: true },
       isDeleted: { type: Boolean, default: false, index: true },
       deletedAt: { type: Date, default: null },

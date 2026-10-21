@@ -173,9 +173,18 @@ export default function HeatmapPage() {
 
 function HeatmapDetail({ item }: { item: Heatmap }) {
   const image = item.heatmapImageUrl || item.heatmapImageData
+  const [failedImage, setFailedImage] = useState("")
+  const imageFailed = Boolean(image) && failedImage === image
   return (
     <div className="space-y-4">
-      {image ? <img src={image} alt={`Heatmap ${item.playerName}`} className="max-h-[65vh] w-full rounded-xl border bg-white object-contain" /> : <div className="flex h-72 items-center justify-center rounded-xl border bg-muted text-muted-foreground">ไม่มีภาพฮีตแมพ</div>}
+      {image && !imageFailed ? (
+        <img src={image} alt={`Heatmap ${item.playerName}`} className="max-h-[65vh] w-full rounded-xl border bg-white object-contain" onError={() => setFailedImage(image)} />
+      ) : (
+        <div className="flex h-72 flex-col items-center justify-center gap-1 rounded-xl border bg-muted text-center text-muted-foreground">
+          <p>{imageFailed ? "ไม่สามารถโหลดภาพฮีตแมพได้" : "ไม่มีภาพฮีตแมพ"}</p>
+          {imageFailed ? <p className="text-xs">ไฟล์ภาพอาจถูกลบหรือย้ายไปแล้ว</p> : null}
+        </div>
+      )}
       <dl className="grid grid-cols-2 gap-3 rounded-xl border bg-muted/30 p-4 text-sm sm:grid-cols-3">
         <Info label="นักเตะ" value={item.playerName} />
         <Info label="หมายเลข" value={item.shirtNumber ? `#${item.shirtNumber}` : "-"} />

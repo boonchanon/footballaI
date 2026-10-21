@@ -21,27 +21,30 @@ export async function POST(request: NextRequest) {
     }
 
     const user = await User.findOne({ email })
+    if (!user) {
+      return errorResponse("ไม่พบอีเมลนี้ในระบบ", 404)
+    }
+
+    const otp = generateOtp()
+
+    user.resetPasswordOtpHash = hashValue(otp)
+    user.resetPasswordOtpExpiresAt = new Date(Date.now() + RESET_OTP_TTL_MS)
+    user.resetPasswordOtpAttempts = 0
+    user.resetPasswordToken = ""
+    user.resetPasswordExpiresAt = null
+    await user.save()
+
+    const sent = await sendPasswordResetOtpEmail(email, otp)
     let devOtp: string | undefined
-
-    if (user) {
-      const otp = generateOtp()
-
-      user.resetPasswordOtpHash = hashValue(otp)
-      user.resetPasswordOtpExpiresAt = new Date(Date.now() + RESET_OTP_TTL_MS)
-      user.resetPasswordOtpAttempts = 0
-      user.resetPasswordToken = ""
-      user.resetPasswordExpiresAt = null
-      await user.save()
-
-      const sent = await sendPasswordResetOtpEmail(email, otp)
-
-      if (!sent && process.env.NODE_ENV !== "production") {
-        devOtp = otp
+    if (!sent) {
+      if (process.env.NODE_ENV === "production") {
+        return errorResponse("ส่งรหัส OTP ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง", 502)
       }
+      devOtp = otp
     }
 
     return ok({
-      message: "If the email exists, an OTP has been sent.",
+      message: "ส่งรหัส OTP ไปที่อีเมลแล้ว",
       ...(devOtp ? { devOtp } : {}),
     })
   } catch (error) {

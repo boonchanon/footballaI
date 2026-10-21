@@ -3,6 +3,7 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import useSWR from "swr"
 import { motion } from "framer-motion"
 import {
@@ -34,6 +35,17 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -86,12 +98,19 @@ type ProfileStoryGroup = {
   stories: ProfileStory[]
 }
 
-function authorizedFetcher<T>(url: string, token: string) {
-  return fetch(apiUrl(url), {
+async function authorizedFetcher<T>(url: string, token: string): Promise<T> {
+  const res = await fetch(apiUrl(url), {
     headers: {
       Authorization: `Bearer ${token}`,
     },
-  }).then((res) => res.json())
+  })
+  const data = await res.json().catch(() => null)
+  if (!res.ok) {
+    const error = new Error(data?.error || "Request failed") as Error & { status?: number }
+    error.status = res.status
+    throw error
+  }
+  return data as T
 }
 
 function normalizeCoverUrl(url: string) {
@@ -130,6 +149,7 @@ function buildCoverTheme(r: number, g: number, b: number): CoverTheme {
 export function ProfilePage() {
   const { token, user, logout } = useAuthSession()
   const { toast } = useToast()
+  const router = useRouter()
   const viewedStoryIdsRef = useRef<Set<string>>(new Set())
   const [mounted, setMounted] = useState(false)
   const [avatarViewerOpen, setAvatarViewerOpen] = useState(false)
@@ -175,10 +195,24 @@ export function ProfilePage() {
   const avatarInputRef = useRef<HTMLInputElement | null>(null)
   const coverInputRef = useRef<HTMLInputElement | null>(null)
 
-  const { data: profileData, mutate: mutateProfile } = useSWR(
+  const {
+    data: profileData,
+    error: profileError,
+    isValidating: profileValidating,
+    mutate: mutateProfile,
+  } = useSWR<{ user: any }, Error & { status?: number }>(
     token ? ["/auth/me", token] : null,
-    ([url, authToken]) => authorizedFetcher<{ user: any }>(url, authToken),
+    ([url, authToken]: [string, string]) => authorizedFetcher<{ user: any }>(url, authToken),
+    { shouldRetryOnError: false },
   )
+
+  // An expired or revoked token must not keep showing the cached profile from localStorage.
+  useEffect(() => {
+    if (profileError?.status !== 401) return
+    logout()
+    toast({ title: "เซสชันหมดอายุ", description: "กรุณาเข้าสู่ระบบใหม่อีกครั้ง", variant: "destructive" })
+    router.replace("/login")
+  }, [profileError, logout, toast, router])
   const { data: favoritesData, mutate: mutateFavorites } = useSWR(
     token ? ["/favorites", token] : null,
     ([url, authToken]) => authorizedFetcher<{ items: any[] }>(url, authToken),
@@ -377,6 +411,14 @@ export function ProfilePage() {
     { label: "Polls", value: fanStats.pollVotesCount || 0 },
     { label: "Saved", value: (activityData?.saved?.articles?.length || 0) + (activityData?.saved?.posts?.length || 0) },
   ]
+  const recentActivity: Array<{ key: string; label: string; text: string; timeAgo: string; createdAt: string }> = [
+    ...(activityData?.posts || []).map((item: any) => ({ key: `post-${item.id}`, label: "โพสต์", text: item.title || item.excerpt, timeAgo: item.timeAgo, createdAt: item.createdAt })),
+    ...(activityData?.comments || []).map((item: any) => ({ key: `comment-${item.id}`, label: "คอมเมนต์", text: item.content, timeAgo: item.timeAgo, createdAt: item.createdAt })),
+    ...(activityData?.predictions || []).map((item: any) => ({ key: `prediction-${item.id}`, label: "ทำนายผล", text: `${item.homeTeam} vs ${item.awayTeam}`, timeAgo: item.timeAgo, createdAt: item.createdAt })),
+    ...Object.values(activityData?.saved || {}).flat().map((item: any) => ({ key: `saved-${item.id}`, label: "บันทึก", text: item.isAvailable === false ? `${item.title} (${item.unavailableReason})` : item.title, timeAgo: item.timeAgo, createdAt: item.createdAt })),
+  ]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 8)
 
   useEffect(() => {
     if (!ownStoryGroup?.stories?.length) {
@@ -818,6 +860,27 @@ export function ProfilePage() {
     }
   }
 
+  async function handleClearActivity() {
+    if (!token) return
+
+    try {
+      await fetchJson("/users/me/activity", {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      await mutateActivity()
+      toast({ title: "ล้างประวัติแล้ว", description: "ประวัติกิจกรรมของคุณถูกล้างเรียบร้อย" })
+    } catch (error) {
+      toast({
+        title: "ล้างประวัติไม่สำเร็จ",
+        description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
+        variant: "destructive",
+      })
+    }
+  }
+
   async function handleDeleteComment(commentId: string) {
     if (!token) return
 
@@ -837,6 +900,24 @@ export function ProfilePage() {
         variant: "destructive",
       })
     }
+  }
+
+  if (profileError && profileError.status !== 401) {
+    return (
+      <div className="px-3 pb-8 pt-4 sm:px-4 sm:pt-5 lg:px-6">
+        <div className="mx-auto max-w-[1440px]">
+          <Card className={panelClass}>
+            <CardContent className="space-y-4 py-10 text-center">
+              <p className="text-lg font-medium">โหลดข้อมูลโปรไฟล์ไม่สำเร็จ</p>
+              <p className="text-muted-foreground">เกิดข้อผิดพลาดจากเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้ง</p>
+              <Button onClick={() => void mutateProfile()} disabled={profileValidating}>
+                {profileValidating ? "กำลังโหลด..." : "ลองใหม่"}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
   }
 
   if (!currentUser) {
@@ -1120,6 +1201,35 @@ export function ProfilePage() {
                     </div>
                   ))}
                   {!tokenData?.transactions?.length ? <p className="text-xs text-muted-foreground">ยังไม่มีประวัติ Token</p> : null}
+                </div>
+              </section>
+              <section className={`${panelClass} p-4`}>
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="flex items-center gap-2 text-sm font-semibold"><CalendarDays className="h-4 w-4 text-primary" /> กิจกรรมล่าสุด</h2>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs text-destructive hover:text-destructive" disabled={!recentActivity.length}><Trash2 className="h-3.5 w-3.5" />ล้างประวัติ</Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>ล้างประวัติกิจกรรมทั้งหมด?</AlertDialogTitle>
+                        <AlertDialogDescription>ประวัติโพสต์ คอมเมนต์ ผลทำนาย และรายการที่บันทึกไว้ก่อนหน้านี้จะไม่แสดงในประวัติกิจกรรมอีก (ข้อมูลจริงจะไม่ถูกลบ)</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+                        <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={() => void handleClearActivity()}>ล้างประวัติ</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+                <div className="space-y-2">
+                  {recentActivity.map((item) => (
+                    <div key={item.key} className="border-t border-border/60 pt-2 text-xs first:border-t-0 first:pt-0">
+                      <p className="truncate"><span className="font-semibold text-primary">{item.label}</span> · {item.text}</p>
+                      <p className="text-muted-foreground">{item.timeAgo}</p>
+                    </div>
+                  ))}
+                  {!recentActivity.length ? <p className="text-xs text-muted-foreground">ยังไม่มีกิจกรรม</p> : null}
                 </div>
               </section>
               <section className={`${panelClass} p-4`}>

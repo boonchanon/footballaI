@@ -32,6 +32,8 @@ interface NewsArticle {
 interface NewsResponse {
   articles?: NewsArticle[]
   source?: string
+  notice?: string
+  lastUpdatedThai?: string
 }
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
@@ -314,6 +316,12 @@ export default function NewsPage() {
       </div>
 
       <main className="container mx-auto px-4 py-8">
+        {data?.notice && (
+          <div role="status" className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+            {data.notice}
+            {data.source === "cache" && data.lastUpdatedThai ? ` (อัปเดตล่าสุด ${data.lastUpdatedThai})` : ""}
+          </div>
+        )}
         {isLoading && (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />

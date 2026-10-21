@@ -338,6 +338,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           return errorResponse("Revision media is still pending review", 409)
         }
 
+        if (typeof revision.title === "string" && revision.title.trim()) target.title = revision.title.trim()
         target.content = String(revision.content || target.content || "")
         target.category = String(revision.category || target.category || "general")
         target.tags = Array.isArray(revision.tags) ? revision.tags : []
