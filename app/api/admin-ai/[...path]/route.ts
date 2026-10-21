@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { denyUnlessAiAdmin } from "@/lib/server/admin-ai-auth"
+
 const PREDICTION_API_BASE_URL =
   process.env.NEXT_PUBLIC_epl_PREDICTION_API_BASE_URL?.trim() ||
   "https://football-epl-prediction-api.onrender.com"
@@ -30,6 +32,9 @@ function copyResponseHeaders(source: Headers) {
 }
 
 async function proxyRequest(request: NextRequest, params: { path?: string[] }) {
+  const denied = await denyUnlessAiAdmin(request)
+  if (denied) return denied
+
   const targetUrl = buildTargetUrl(params.path ?? [], request)
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 55000)
@@ -39,6 +44,9 @@ async function proxyRequest(request: NextRequest, params: { path?: string[] }) {
     headers.delete("host")
     headers.delete("connection")
     headers.delete("content-length")
+    // The admin session is only for this app; never forward it to the prediction service.
+    headers.delete("authorization")
+    headers.delete("cookie")
 
     const upstream = await fetch(targetUrl, {
       method: request.method,

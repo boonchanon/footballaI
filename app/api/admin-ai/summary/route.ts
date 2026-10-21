@@ -1,4 +1,6 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
+
+import { denyUnlessAiAdmin } from "@/lib/server/admin-ai-auth"
 
 const PREDICTION_API_BASE_URL =
   process.env.NEXT_PUBLIC_epl_PREDICTION_API_BASE_URL?.trim() ||
@@ -83,7 +85,10 @@ async function fetchUpstreamJson(path: string) {
   return payload
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const denied = await denyUnlessAiAdmin(request)
+  if (denied) return denied
+
   try {
     const healthPayload = toRecord(await fetchUpstreamJson("/health"))
     const statusPayload = toRecord(await fetchUpstreamJson("/pipeline/status"))

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 
 import {
   deleteRawArchiveFile,
+  downloadAdminAiFile,
   exportFixturePredictions,
   fetchAdminAiSummary,
   predictMatchPair,
@@ -501,13 +502,7 @@ export default function AdminAiPage() {
         data,
       })
 
-      const anchor = document.createElement("a")
-      anchor.href = data.downloadUrl
-      anchor.download = data.filename
-      anchor.rel = "noopener"
-      document.body.appendChild(anchor)
-      anchor.click()
-      anchor.remove()
+      await downloadAdminAiFile(data.downloadUrl, data.filename)
 
       setFixtureFile(null)
       setFixtureFileInputKey((prev) => prev + 1)

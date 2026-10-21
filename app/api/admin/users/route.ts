@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 
 import { ADMIN_ROLE_LABELS, isAdminRole } from "@/lib/admin-access"
-import { requireAdminUser } from "@/lib/server/auth"
+import { requireAdminRoles } from "@/lib/server/auth"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, ok, parsePagination } from "@/lib/server/http-utils"
 import { Admin, User } from "@/lib/server/models"
@@ -16,7 +16,8 @@ function getRoleLabel(role: string) {
 export async function GET(request: NextRequest) {
   try {
     await connectDatabase()
-    await requireAdminUser(request)
+    // The users section is superadmin-only (see lib/admin-access.ts), so the API matches the page.
+    await requireAdminRoles(request, ["superadmin"])
 
     const searchParams = request.nextUrl.searchParams
     const { page, limit } = parsePagination(searchParams)
@@ -96,6 +97,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load admin users"
-    return errorResponse(message, message === "Admin authentication required" ? 401 : 500)
+    return errorResponse(message, message === "Admin authentication required" ? 401 : message === "Admin permission denied" ? 403 : 500)
   }
 }
