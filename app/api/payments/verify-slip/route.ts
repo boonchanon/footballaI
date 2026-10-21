@@ -5,6 +5,7 @@ import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, ok } from "@/lib/server/http"
 import { PaymentEntitlement, PaymentOrder } from "@/lib/server/models"
 import { getEasySlipConfig, verifyEasySlipImage } from "@/lib/server/easyslip"
+import { isRecipientVerified, matchRecipientAccount } from "@/lib/server/payment-recipient"
 import { addTokens } from "@/lib/server/tokens"
 import { sendTokenReceiptEmail } from "@/lib/server/password-reset"
 
@@ -14,31 +15,14 @@ function isReusableOrderStatus(status: string) {
   return status === "cancelled" || status === "expired"
 }
 
-function normalizeDigits(value: string) {
-  return value.replace(/\D/g, "")
+// The env flag can relax the check for local testing only; production always verifies the recipient.
+function requiresRecipientVerification() {
+  if (process.env.NODE_ENV === "production") return true
+  return process.env.EASYSLIP_REQUIRE_RECIPIENT_VERIFICATION?.trim() !== "false"
 }
 
-function normalizePromptPayDigits(value: string) {
-  const digits = normalizeDigits(value)
-  return digits.length === 12 && digits.startsWith("0066") ? `0${digits.slice(4)}` : digits
-}
-
-function normalizeName(value: string) {
-  return value.trim().toLowerCase().replace(/[^a-z0-9ก-๙]/g, "")
-}
-
-function isSameRecipient(configured: string, received: string) {
-  const left = normalizePromptPayDigits(configured)
-  const right = normalizePromptPayDigits(received)
-  if (!left || !right) return false
-  if (left === right || left.endsWith(right) || right.endsWith(left)) return true
-  return right.length >= 4 && left.slice(-4) === right.slice(-4)
-}
-
-function isSameRecipientName(configured: string, received: string) {
-  const left = normalizeName(configured)
-  const right = normalizeName(received)
-  return Boolean(left && right && (left === right || left.includes(right) || right.includes(left)))
+function isDuplicateKeyError(error: any) {
+  return error?.code === 11000 || error?.errorResponse?.code === 11000
 }
 
 export async function POST(request: NextRequest) {
@@ -69,18 +53,23 @@ export async function POST(request: NextRequest) {
     }
 
     if (!easyslip.promptpayId) return errorResponse("promptpay_not_configured", 500)
-    const hasRecipientAccount = Boolean(verified.recipientAccount)
-    const recipientAccountMatches = hasRecipientAccount && isSameRecipient(easyslip.promptpayId, verified.recipientAccount)
-    const recipientNameMatches = Boolean(easyslip.accountName && verified.recipientName) && isSameRecipientName(easyslip.accountName, verified.recipientName)
-    if (hasRecipientAccount && !recipientAccountMatches && !recipientNameMatches) {
-      return errorResponse("recipient_mismatch", 422)
-    }
-
-    if (!hasRecipientAccount && !verified.recipientName) {
-      console.warn("[payments/verify-slip] EasySlip did not return recipient fields; continuing after amount/reference validation", {
+    const recipientVerified = isRecipientVerified({
+      configuredAccount: easyslip.promptpayId,
+      configuredName: easyslip.accountName,
+      receivedAccount: verified.recipientAccount,
+      receivedName: verified.recipientName,
+    })
+    if (!recipientVerified) {
+      console.warn("[payments/verify-slip] recipient not verified", {
         orderId,
         reference: verified.reference,
+        accountMatch: matchRecipientAccount(easyslip.promptpayId, verified.recipientAccount || ""),
+        hasRecipientAccount: Boolean(verified.recipientAccount),
+        hasRecipientName: Boolean(verified.recipientName),
       })
+      if (requiresRecipientVerification()) {
+        return errorResponse("ไม่สามารถยืนยันบัญชีผู้รับเงินในสลิปได้ กรุณาตรวจสอบว่าโอนเข้าบัญชีที่ถูกต้อง หรือติดต่อแอดมิน", 422)
+      }
     }
 
     if (verified.transferredAt) {
@@ -100,14 +89,31 @@ export async function POST(request: NextRequest) {
     const expiresAt = order.targetType === "daypass" ? new Date(now.getTime() + 24 * 60 * 60 * 1000) : null
     const creditAmount = order.productCode === "prediction_5_matches" ? 5 : order.productCode === "prediction_15_matches" ? 15 : order.productCode === "prediction_tournament" ? 40 : null
 
-    order.status = "paid"
-    order.slipImageUrl = slip.name || ""
-    order.slipPayload = ""
-    order.paidAt = now
-    order.verificationRef = verified.reference
-    order.rawVerification = verified.raw
-    order.expiresAt = expiresAt
-    await order.save()
+    // Claim the order and the slip reference in one atomic write: a second request for the same order
+    // no longer matches status != "paid", and a second order using the same slip hits the partial
+    // unique index on paid orders' verificationRef.
+    let paidOrder
+    try {
+      paidOrder = await PaymentOrder.findOneAndUpdate(
+        { _id: order._id, user: user._id, status: { $ne: "paid" } },
+        {
+          $set: {
+            status: "paid",
+            slipImageUrl: slip.name || "",
+            slipPayload: "",
+            paidAt: now,
+            verificationRef: verified.reference,
+            rawVerification: verified.raw,
+            expiresAt,
+          },
+        },
+        { new: true },
+      )
+    } catch (error) {
+      if (isDuplicateKeyError(error)) return errorResponse("duplicate_slip", 409)
+      throw error
+    }
+    if (!paidOrder) return errorResponse("คำสั่งซื้อนี้ชำระเงินสำเร็จแล้ว", 409)
 
     if (creditAmount) {
       await addTokens({
@@ -141,7 +147,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    return ok({ success: true, order: { id: order._id.toString(), status: order.status, paidAt: order.paidAt, expiresAt: order.expiresAt }, message: "ชำระเงินสำเร็จและปลดล็อกสิทธิ์แล้ว" })
+    return ok({ success: true, order: { id: paidOrder._id.toString(), status: paidOrder.status, paidAt: paidOrder.paidAt, expiresAt: paidOrder.expiresAt }, message: "ชำระเงินสำเร็จและปลดล็อกสิทธิ์แล้ว" })
   } catch (error) {
     const message = error instanceof Error ? error.message : "ไม่สามารถตรวจสอบสลิปได้"
     return errorResponse(message, message === "Authentication required" ? 401 : 500)
