@@ -5,13 +5,16 @@
 
 @theme {
   --font-ui: var(--font-ibm-plex-sans-thai), 'IBM Plex Sans Thai', 'Noto Sans Thai', 'LINE Seed Sans TH', 'Sarabun', ui-sans-serif, system-ui, sans-serif;
-  --font-football: var(--font-barlow-condensed), 'Barlow Condensed', var(--font-ibm-plex-sans-thai), 'IBM Plex Sans Thai', 'Noto Sans Thai', ui-sans-serif, system-ui, sans-serif;
-  --font-score: var(--font-teko), 'Teko', var(--font-barlow-condensed), 'Barlow Condensed', var(--font-ibm-plex-sans-thai), 'IBM Plex Sans Thai', ui-sans-serif, system-ui, sans-serif;
-  --font-ai-data: var(--font-rajdhani), 'Rajdhani', var(--font-ibm-plex-sans-thai), 'IBM Plex Sans Thai', ui-sans-serif, system-ui, sans-serif;
-  --font-ai-display: var(--font-chakra-petch), 'Chakra Petch', var(--font-ibm-plex-sans-thai), 'IBM Plex Sans Thai', 'Noto Sans Thai', ui-sans-serif, system-ui, sans-serif;
-  --font-editorial: var(--font-oswald), 'Oswald', var(--font-ibm-plex-sans-thai), 'IBM Plex Sans Thai', ui-sans-serif, system-ui, sans-serif;
-  --font-table: var(--font-roboto-condensed), 'Roboto Condensed', var(--font-ibm-plex-sans-thai), 'IBM Plex Sans Thai', ui-sans-serif, system-ui, sans-serif;
-  --font-status: var(--font-saira-condensed), 'Saira Condensed', var(--font-barlow-condensed), 'Barlow Condensed', var(--font-ibm-plex-sans-thai), 'IBM Plex Sans Thai', ui-sans-serif, system-ui, sans-serif;
+  /* One family for all text (Thai and Latin). Barlow Condensed is reserved for scores
+     and big numerals via .font-score/.font-scoreboard, which only ever hold digits. */
+  --font-numeric: var(--font-barlow-condensed), 'Barlow Condensed', var(--font-ibm-plex-sans-thai), 'IBM Plex Sans Thai', ui-sans-serif, system-ui, sans-serif;
+  --font-football: var(--font-ui);
+  --font-score: var(--font-numeric);
+  --font-ai-data: var(--font-ui);
+  --font-ai-display: var(--font-ui);
+  --font-editorial: var(--font-ui);
+  --font-table: var(--font-ui);
+  --font-status: var(--font-ui);
   --font-sans: var(--font-ui);
   --font-display: var(--font-football);
   --font-sport: var(--font-football);
@@ -395,6 +398,7 @@ body.has-app-sidebar {
 
   .font-ai-data {
     font-family: var(--font-ai-data);
+    font-variant-numeric: tabular-nums;
   }
 
   .font-ai-display {
@@ -407,6 +411,7 @@ body.has-app-sidebar {
 
   .font-table {
     font-family: var(--font-table);
+    font-variant-numeric: tabular-nums;
   }
 
   .font-status {
@@ -603,8 +608,8 @@ body.has-app-sidebar {
   --games-copy: #b7c3d8;
   --games-border: rgba(255, 255, 255, 0.09);
   --games-lime: #c8ff2e;
-  --games-prompt: var(--font-prompt), system-ui, sans-serif;
-  --games-anuphan: var(--font-anuphan), system-ui, sans-serif;
+  --games-prompt: var(--font-ui);
+  --games-anuphan: var(--font-ui);
   overflow-x: clip;
   background:
     radial-gradient(circle at 50% 12%, rgba(200, 255, 46, 0.1), transparent 30rem),

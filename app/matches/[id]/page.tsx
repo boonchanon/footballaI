@@ -319,7 +319,7 @@ function mapApiEvents(events: any[], homeTeamId?: string): MatchEvent[] {
 export default function MatchDetailPage() {
   const params = useParams()
   const matchId = params.id as string
-  const { data: fixturesData } = useSWR("/api/football/fixtures?type=all", fetcher, {
+  const { data: fixturesData, error: fixturesError } = useSWR("/api/football/fixtures?type=all", fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 60000,
   })
@@ -332,86 +332,13 @@ export default function MatchDetailPage() {
     dedupingInterval: 60000,
   })
 
-  const mockMatch = {
-    id: matchId,
-    round: 28,
-    homeTeam: "แมนเชสเตอร์ ซิตี้",
-    awayTeam: "ลิเวอร์พูล",
-    homeScore: 2,
-    awayScore: 1,
-    date: "8 มี.ค. 2025",
-    time: "22:30",
-    stadium: "เอติฮัด สเตเดี้ยม",
-    attendance: "53,400",
-    referee: "ไมเคิล โอลิเวอร์",
-  }
-
-  const mockMatchEvents: MatchEvent[] = [
-    { id: "1", type: "yellow_card", minute: 29, team: "away", player: "Lewis Dunk" },
-    { id: "2", type: "yellow_card", minute: 41, team: "away", player: "Pascal Gross" },
-    { id: "3", type: "yellow_card", minute: 41, team: "home", player: "Pep Guardiola", role: "Coach" },
-    { id: "4", type: "goal", minute: 41, team: "home", player: "Erling Haaland", score: { home: 1, away: 0 }, isPenalty: true },
-    { id: "5", type: "yellow_card", minute: 53, team: "away", player: "Jan Paul van Hecke" },
-    { id: "6", type: "goal", minute: 60, team: "away", player: "Kaoru Mitoma", assist: "Yasin Ayari", score: { home: 1, away: 1 } },
-    { id: "7", type: "yellow_card", minute: 60, team: "away", player: "Maxim De Cuyper" },
-    { id: "8", type: "yellow_card", minute: 60, team: "home", player: "Gianluigi Donnarumma" },
-    { id: "9", type: "substitution", minute: 64, team: "home", playerOut: "Rodri", playerIn: "Nico Gonzalez" },
-  ]
-
-  const mockHomeLineup = {
-    formation: "4-3-3",
-    manager: { name: "เป๊ป กวาร์ดิโอล่า", nationality: "สเปน" },
-    starting: [
-      { id: 1100, name: "เอแดร์ซอน", number: 31, position: "GK", rating: 7.5 },
-      { id: 1101, name: "วอล์คเกอร์", number: 2, position: "RB", rating: 7.8 },
-      { id: 1102, name: "ดิอาส", number: 3, position: "CB", rating: 8.2 },
-      { id: 1103, name: "อาคานจี", number: 25, position: "CB", rating: 7.9 },
-      { id: 1104, name: "อาเก้", number: 21, position: "LB", rating: 7.6 },
-      { id: 1105, name: "โรดรี้", number: 16, position: "CDM", rating: 8.5 },
-      { id: 1106, name: "เดอ บรอยน์", number: 17, position: "RCM", rating: 8.8 },
-      { id: 1107, name: "กุนโดกัน", number: 19, position: "LCM", rating: 7.7 },
-      { id: 1108, name: "โฟเด้น", number: 47, position: "RW", rating: 7.9 },
-      { id: 1109, name: "ฮาแลนด์", number: 9, position: "ST", rating: 9.2, goals: 2 },
-      { id: 1110, name: "กรีลิช", number: 10, position: "LW", rating: 7.4 },
-    ] satisfies StartingPlayer[],
-    substitutes: [
-      { id: 1111, name: "ออร์เตก้า", number: 18, position: "GK" },
-      { id: 1112, name: "สโตนส์", number: 5, position: "DEF" },
-      { id: 1113, name: "คัลวิน ฟิลลิปส์", number: 6, position: "MID" },
-      { id: 1114, name: "แบร์นาโด้ ซิลวา", number: 20, position: "MID", subbedIn: 75 },
-      { id: 1115, name: "อัลวาเรซ", number: 19, position: "FWD" },
-    ] satisfies SubstitutePlayer[],
-  }
-
-  const mockAwayLineup = {
-    formation: "4-3-3",
-    manager: { name: "เจอร์เกน คล็อปป์", nationality: "เยอรมัน" },
-    starting: [
-      { id: 1200, name: "อลิสซง", number: 1, position: "GK", rating: 7.2 },
-      { id: 1201, name: "อเล็กซานเดอร์-อาร์โนลด์", number: 66, position: "RB", rating: 7.5 },
-      { id: 1202, name: "โคนาเต้", number: 5, position: "RCB", rating: 6.8 },
-      { id: 1203, name: "ฟาน ไดค์", number: 4, position: "LCB", rating: 7.3 },
-      { id: 1204, name: "โรเบิร์ตสัน", number: 26, position: "LB", rating: 7.0 },
-      { id: 1205, name: "แม็ค อัลลิสเตอร์", number: 10, position: "CDM", rating: 7.4 },
-      { id: 1206, name: "โซบอสไล", number: 8, position: "RCM", rating: 7.1 },
-      { id: 1207, name: "โจนส์", number: 17, position: "LCM", rating: 6.9 },
-      { id: 1208, name: "ซาลาห์", number: 11, position: "RW", rating: 8.1, goals: 1 },
-      { id: 1209, name: "นูนเญซ", number: 9, position: "ST", rating: 6.7 },
-      { id: 1210, name: "ดิอาซ", number: 7, position: "LW", rating: 7.2 },
-    ] satisfies StartingPlayer[],
-    substitutes: [
-      { id: 1211, name: "เคลเลเฮอร์", number: 62, position: "GK" },
-      { id: 1212, name: "ซิมิคาส", number: 21, position: "DEF" },
-      { id: 1213, name: "กราเฟนแบร์ก", number: 38, position: "MID", subbedIn: 68 },
-      { id: 1214, name: "เอลเลียตต์", number: 19, position: "MID" },
-      { id: 1215, name: "กัคโป", number: 18, position: "FWD", subbedIn: 82 },
-    ] satisfies SubstitutePlayer[],
-  }
-
   const liveFixture = (fixturesData?.data || []).find((fixture: any) => String(fixture.id) === String(matchId))
   const liveHomeLineup = mapApiLineup((lineupsData?.data || [])[0])
   const liveAwayLineup = mapApiLineup((lineupsData?.data || [])[1])
 
+  const isFinished = Boolean(liveFixture?.status?.isFinished)
+  const isLive = Boolean(liveFixture?.status?.isLive)
+  const hasScore = (isFinished || isLive) && liveFixture?.goals?.home != null && liveFixture?.goals?.away != null
   const match = liveFixture
     ? {
         id: String(liveFixture.id),
@@ -426,16 +353,17 @@ export default function MatchDetailPage() {
         attendance: "-",
         referee: "-",
       }
-    : mockMatch
+    : null
+  const statusLabel = isFinished ? "FT" : isLive ? `LIVE ${liveFixture?.status?.short || ""}`.trim() : "ยังไม่เริ่มแข่ง"
 
-  const matchEvents: MatchEvent[] =
-    eventsData?.data?.length ? mapApiEvents(eventsData.data, liveFixture?.teams?.home?.id) : mockMatchEvents
+  const matchEvents: MatchEvent[] = eventsData?.data?.length ? mapApiEvents(eventsData.data, liveFixture?.teams?.home?.id) : []
 
-  const homeLineup = liveHomeLineup || mockHomeLineup
-  const awayLineup = liveAwayLineup || mockAwayLineup
+  const homeLineup = liveHomeLineup
+  const awayLineup = liveAwayLineup
+  const hasLineups = Boolean(homeLineup?.starting.length && awayLineup?.starting.length)
 
-  const homePlayers = assignPlayersToFormation(homeLineup.starting, homeLineup.formation, "home")
-  const awayPlayers = assignPlayersToFormation(awayLineup.starting, awayLineup.formation, "away")
+  const homePlayers = homeLineup ? assignPlayersToFormation(homeLineup.starting, homeLineup.formation, "home") : []
+  const awayPlayers = awayLineup ? assignPlayersToFormation(awayLineup.starting, awayLineup.formation, "away") : []
 
   const PlayerCard = ({ player, team }: { player: PositionedPlayer; team: TeamSide }) => {
     const accent = team === "home" ? "text-primary" : "text-destructive"
@@ -493,6 +421,37 @@ export default function MatchDetailPage() {
     </Link>
   )
 
+  if (!match) {
+    const loadFailed = Boolean(fixturesError || fixturesData?.error)
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <main className="container mx-auto px-4 py-10 lg:py-12">
+          <div className="mx-auto max-w-6xl space-y-6">
+            <Link href="/matches" className="inline-flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" />
+              กลับไปหน้าแมตช์
+            </Link>
+            <Card className="border-border/50">
+              <CardContent className="py-12 text-center">
+                {!fixturesData && !fixturesError ? (
+                  <p className="text-muted-foreground">กำลังโหลดข้อมูลแมตช์...</p>
+                ) : (
+                  <>
+                    <p className="mb-2 text-lg font-medium">{loadFailed ? "ไม่สามารถโหลดข้อมูลแมตช์ได้" : "ไม่พบข้อมูลแมตช์นี้"}</p>
+                    <p className="text-muted-foreground">
+                      {loadFailed ? "แหล่งข้อมูลไม่ตอบสนอง กรุณาลองใหม่อีกครั้ง" : "แมตช์ที่คุณค้นหาอาจไม่มีอยู่หรือถูกนำออกจากโปรแกรมแข่งขันแล้ว"}
+                    </p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
@@ -507,7 +466,7 @@ export default function MatchDetailPage() {
             <CardHeader className="space-y-4">
               <div className="flex items-center justify-between">
                 <Badge variant="secondary" className="font-status text-sm">
-                  FT
+                  {statusLabel}
                 </Badge>
                 <Badge variant="outline" className="font-status text-sm">
                   นัดที่ {match.round}
@@ -520,11 +479,15 @@ export default function MatchDetailPage() {
                   </div>
                   <h2 className="text-xl font-display lg:text-2xl">{match.homeTeam}</h2>
                 </div>
-                <div className="flex items-center gap-5">
-                  <span className="font-score text-4xl font-bold text-primary lg:text-5xl">{match.homeScore}</span>
-                  <span className="font-score text-2xl font-bold text-muted-foreground lg:text-3xl">-</span>
-                  <span className="font-score text-4xl font-bold text-destructive lg:text-5xl">{match.awayScore}</span>
-                </div>
+                {hasScore ? (
+                  <div className="flex items-center gap-5">
+                    <span className="font-score text-4xl font-bold text-primary lg:text-5xl">{match.homeScore}</span>
+                    <span className="font-score text-2xl font-bold text-muted-foreground lg:text-3xl">-</span>
+                    <span className="font-score text-4xl font-bold text-destructive lg:text-5xl">{match.awayScore}</span>
+                  </div>
+                ) : (
+                  <span className="font-score text-2xl font-bold text-muted-foreground lg:text-3xl">VS</span>
+                )}
                 <div className="flex flex-1 items-center justify-end gap-4">
                   <h2 className="text-right text-xl font-display lg:text-2xl">{match.awayTeam}</h2>
                   <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-destructive/20 to-destructive/10">
@@ -580,20 +543,30 @@ export default function MatchDetailPage() {
             <TabsContent value="events" className="mt-6 space-y-6">
               <Card className="border-border/50">
                 <CardContent className="p-0">
-                  <MatchEventsTimeline
-                    events={matchEvents}
-                    homeTeam={match.homeTeam}
-                    awayTeam={match.awayTeam}
-                    halfTimeScore={{ home: 1, away: 0 }}
-                    fullTimeScore={{ home: 1, away: 1 }}
-                    firstHalfAddedTime={4}
-                    secondHalfAddedTime={5}
-                  />
+                  {matchEvents.length ? (
+                    <MatchEventsTimeline
+                      events={matchEvents}
+                      homeTeam={match.homeTeam}
+                      awayTeam={match.awayTeam}
+                      fullTimeScore={isFinished && hasScore ? { home: match.homeScore, away: match.awayScore } : undefined}
+                    />
+                  ) : (
+                    <p className="p-8 text-center text-muted-foreground">
+                      {isFinished || isLive ? "ยังไม่มีข้อมูลเหตุการณ์ของแมตช์นี้" : "การแข่งขันยังไม่เริ่ม จะแสดงเหตุการณ์เมื่อเริ่มแข่ง"}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
 
             <TabsContent value="lineup" className="mt-6">
+              {!hasLineups || !homeLineup || !awayLineup ? (
+                <Card className="border-border/50">
+                  <CardContent className="py-12 text-center text-muted-foreground">
+                    {isFinished || isLive ? "ไม่มีข้อมูลรายชื่อผู้เล่นของแมตช์นี้" : "ยังไม่ประกาศรายชื่อผู้เล่นตัวจริง จะแสดงก่อนเริ่มแข่งประมาณ 1 ชั่วโมง"}
+                  </CardContent>
+                </Card>
+              ) : (
               <Card className="overflow-hidden border-border/50 shadow-md">
                 <CardHeader className="border-b border-border/50 bg-muted/30 px-5 py-5 md:px-6 md:py-6">
                   <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -699,6 +672,7 @@ export default function MatchDetailPage() {
                   </div>
                 </CardContent>
               </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="table" className="mt-6 space-y-6">

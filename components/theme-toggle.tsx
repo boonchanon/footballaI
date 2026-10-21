@@ -19,10 +19,13 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
     setMounted(true)
   }, [])
 
+  // `theme` comes from localStorage and is unknown on the server, so render the
+  // same placeholder on both sides until mounted to avoid a hydration mismatch.
+  const selectedTheme = mounted ? theme : "dark"
   const activeTheme = mounted ? (theme === "system" ? resolvedTheme : theme) : "dark"
   const isDark = activeTheme === "dark"
-  const label = theme === "system" ? "System" : isDark ? "Dark" : "Light"
-  const Icon = theme === "system" ? Monitor : isDark ? Moon : Sun
+  const label = selectedTheme === "system" ? "System" : isDark ? "Dark" : "Light"
+  const Icon = selectedTheme === "system" ? Monitor : isDark ? Moon : Sun
   const options = [
     { value: "system", label: "System", icon: Monitor },
     { value: "light", label: "Light", icon: Sun },

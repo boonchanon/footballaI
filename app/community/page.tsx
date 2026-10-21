@@ -532,6 +532,7 @@ export default function CommunityPage() {
   const [savingPostId, setSavingPostId] = useState<string | null>(null)
   const [reportingPostId, setReportingPostId] = useState<string | null>(null)
   const [editingPost, setEditingPost] = useState<CommunityPost | null>(null)
+  const [editTitle, setEditTitle] = useState("")
   const [editContent, setEditContent] = useState("")
   const [editCategory, setEditCategory] = useState("general")
   const [editTags, setEditTags] = useState("")
@@ -1293,6 +1294,7 @@ export default function CommunityPage() {
 
   function populateEditForm(post: CommunityPost) {
     setEditingPost(post)
+    setEditTitle(post.title || "")
     setEditContent(post.content || post.excerpt || "")
     setEditCategory(post.category || "general")
     setEditTags((post.tags || []).join(", "))
@@ -1413,6 +1415,10 @@ export default function CommunityPage() {
 
   async function handleSavePostEdit() {
     if (!editingPost || !requireLogin("กรุณาเข้าสู่ระบบเพื่อบันทึกการแก้ไข")) return
+    if (editTitle.trim().length < 4) {
+      toast({ title: "หัวข้อสั้นเกินไป", description: "กรุณาใส่หัวข้ออย่างน้อย 4 ตัวอักษร", variant: "destructive" })
+      return
+    }
     if (editContent.trim().length < 8) {
       toast({ title: "เนื้อหาสั้นเกินไป", description: "กรุณาเขียนอย่างน้อย 8 ตัวอักษร", variant: "destructive" })
       return
@@ -1422,6 +1428,7 @@ export default function CommunityPage() {
     setEditConflict(false)
     try {
       const body: Record<string, unknown> = {
+        title: editTitle.trim(),
         content: editContent.trim(),
         category: editCategory,
         tags: editTags
@@ -2671,6 +2678,20 @@ export default function CommunityPage() {
                     ) : null}
                   </div>
                 ) : null}
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="text-sm font-medium text-foreground">หัวข้อโพสต์</label>
+                    <span className="text-xs text-muted-foreground">{editTitle.length}/180</span>
+                  </div>
+                  <Input
+                    value={editTitle}
+                    maxLength={180}
+                    onChange={(event) => setEditTitle(event.target.value)}
+                    className="rounded-2xl border-white/10 bg-background/70 shadow-none"
+                    placeholder="แก้ไขหัวข้อโพสต์..."
+                  />
+                </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-3">

@@ -425,7 +425,7 @@ export async function POST(request: NextRequest) {
         contentId: `auto-rejected:${title.slice(0, 24)}:${Date.now()}`,
         reasons: moderation.reasons,
       })
-      return errorResponse("Post rejected by moderation", 422, { reasons: moderation.reasons })
+      return errorResponse("เนื้อหามีคำไม่เหมาะสม ไม่สามารถโพสต์ได้ กรุณาแก้ไขข้อความ", 422, { reasons: moderation.reasons })
     }
 
     const hasPendingMedia =

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server"
 
 import { requireAuthUser } from "@/lib/server/auth"
 import { connectDatabase } from "@/lib/server/db"
+import { withFavoriteAvailability } from "@/lib/server/favorite-availability"
 import { errorResponse, ok, parsePagination } from "@/lib/server/http"
 import { Favorite } from "@/lib/server/models"
 
@@ -14,12 +15,12 @@ export async function GET(request: NextRequest) {
     const { page, limit, skip } = parsePagination(request.nextUrl.searchParams)
 
     const [items, total] = await Promise.all([
-      Favorite.find({ user: user._id }).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Favorite.find({ user: user._id }).sort({ createdAt: -1 }).skip(skip).limit(limit).lean<any[]>(),
       Favorite.countDocuments({ user: user._id }),
     ])
 
     return ok({
-      items,
+      items: await withFavoriteAvailability(items),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     })
   } catch (error) {

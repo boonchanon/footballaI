@@ -457,13 +457,14 @@ export async function moderateCommunityText(input: TextModerationInput): Promise
   if (signals.profanity) {
     reasons.push("text:profanity")
     scores.profanity = Math.min(1, 0.45 + signals.profanityCount * 0.18)
-    status = "pending_review"
-    localRiskLevel = "risky"
+    // Explicit profanity is rejected outright instead of being queued for review.
+    status = "rejected"
+    localRiskLevel = "severe"
   }
   if (signals.harassment) {
     reasons.push("text:harassment")
     scores.harassment = Math.min(1, 0.52 + signals.harassmentCount * 0.18)
-    status = "pending_review"
+    if (status === "approved") status = "pending_review"
     if (localRiskLevel === "safe") localRiskLevel = "risky"
   }
   if (signals.threat) {
