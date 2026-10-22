@@ -32,6 +32,8 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   // The admin session belongs to this app only.
   headers.delete("authorization")
   headers.delete("cookie")
+  // Node's fetch rejects "Expect: 100-continue" (curl sends it for large uploads).
+  headers.delete("expect")
   if (serviceToken) headers.set("x-service-token", serviceToken)
   // Do not remove content-length: the analysis service uses it to validate
   // multipart video uploads before it starts reading the request stream.
