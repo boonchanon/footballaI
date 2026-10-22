@@ -61,8 +61,9 @@ export function describeProgress(progress?: JobProgress | null) {
   return PROGRESS_STEP_LABELS[progress.step ?? ""] ?? ""
 }
 
-// Measured on the analysis workstation (RTX 3050 Laptop): seconds of processing per analysed
-// frame, end to end. Used only for the time estimate shown before starting a job.
+// Measured on the analysis workstation (RTX 3050 Laptop), excluding the fixed per-job overhead:
+// full resolution ~0.85 s/frame (1000 frames in 18.1 min), 1280 px ~0.77 s/frame. Used only for
+// the time estimate shown before starting a job.
 export const ANALYSIS_QUALITY_PRESETS: Record<
   AnalysisQuality,
   { label: string; description: string; sampleFps: number; maxWidth: number; secondsPerFrame: number }
@@ -72,14 +73,14 @@ export const ANALYSIS_QUALITY_PRESETS: Record<
     description: "ทุกเฟรม ความละเอียดเต็ม · ID แม่นที่สุด เหมาะกับคลิปสั้น",
     sampleFps: 0,
     maxWidth: 0,
-    secondsPerFrame: 1.6,
+    secondsPerFrame: 0.9,
   },
   medium: {
     label: "ปานกลาง",
     description: "10 เฟรม/วินาที ความละเอียดเต็ม · สมดุลระหว่างคุณภาพกับเวลา",
     sampleFps: 10,
     maxWidth: 0,
-    secondsPerFrame: 1.6,
+    secondsPerFrame: 0.9,
   },
   fast: {
     label: "เร็ว",
