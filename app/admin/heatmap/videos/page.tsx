@@ -5,6 +5,8 @@ import Link from "next/link"
 import { ArrowLeft, ExternalLink, FileVideo, Loader2, RefreshCw, Trash2 } from "lucide-react"
 
 import { getAuthToken } from "@/lib/auth-client"
+import { ANALYSIS_QUALITY_PRESETS, type AnalysisQuality, describeProgress, type JobProgress } from "@/lib/heatmap-analysis"
+import { Progress } from "@/components/ui/progress"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +34,8 @@ type VideoJob = {
   device?: string
   max_frames?: number
   sample_fps?: number | null
+  max_width?: number | null
+  quality?: string
   frames_processed?: number
   start_seconds?: number
   created_at?: number
@@ -40,6 +44,7 @@ type VideoJob = {
   review?: string
   result?: string
   has_upload?: boolean
+  progress?: JobProgress
 }
 
 const STATUS_LABEL: Record<VideoJob["status"], string> = {
@@ -166,12 +171,20 @@ export default function VideoLibraryPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <dl className="grid grid-cols-2 gap-2 text-sm">
-                  <div><dt className="text-muted-foreground">ตั้งค่า</dt><dd>{[job.stage, job.device, job.sample_fps ? `${job.sample_fps} fps` : null].filter(Boolean).join(" · ") || "-"}</dd></div>
+                  <div><dt className="text-muted-foreground">ตั้งค่า</dt><dd>{[job.quality && job.quality in ANALYSIS_QUALITY_PRESETS ? `คุณภาพ${ANALYSIS_QUALITY_PRESETS[job.quality as AnalysisQuality].label}` : null, job.stage, job.device, job.sample_fps ? `${job.sample_fps} fps` : "ทุกเฟรม"].filter(Boolean).join(" · ") || "-"}</dd></div>
                   <div><dt className="text-muted-foreground">เฟรม</dt><dd>{job.frames_processed ?? job.max_frames ?? "-"}</dd></div>
                   <div><dt className="text-muted-foreground">ใช้เวลา</dt><dd>{formatDuration(job)}</dd></div>
                   <div><dt className="text-muted-foreground">ไฟล์</dt><dd>{formatSize(job.size_bytes) || (job.has_upload ? "เก็บไว้" : "-")}</dd></div>
                 </dl>
-                {job.status !== "complete" && job.detail ? <p className="text-xs text-muted-foreground">{job.phase ? `${job.phase}: ` : ""}{job.detail}</p> : null}
+                {job.status === "running" ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-3">
+                      <Progress value={job.progress?.percent ?? 0} className="h-2 flex-1" />
+                      <span className="w-12 text-right text-sm font-semibold tabular-nums text-primary">{Math.floor(job.progress?.percent ?? 0)}%</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{describeProgress(job.progress) || job.phase}</p>
+                  </div>
+                ) : job.status !== "complete" && job.detail ? <p className="text-xs text-muted-foreground">{job.phase ? `${job.phase}: ` : ""}{job.detail}</p> : null}
                 <div className="flex flex-wrap gap-2">
                   <Button asChild size="sm">
                     <Link href={`/admin/heatmap?job=${encodeURIComponent(job.id)}`}>

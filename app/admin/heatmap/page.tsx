@@ -10,11 +10,22 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { buildHeatmapJobFormData, coveredVideoSeconds, getHeatmapQuality, getHeatmapResultView } from "@/lib/heatmap-analysis"
+import {
+  ANALYSIS_QUALITY_PRESETS,
+  type AnalysisQuality,
+  buildHeatmapJobFormData,
+  coveredVideoSeconds,
+  describeProgress,
+  estimateAnalysisSeconds,
+  type JobProgress,
+  formatDurationThai,
+  getHeatmapQuality,
+  getHeatmapResultView,
+} from "@/lib/heatmap-analysis"
 import { HeatmapPublishingWorkspace } from "@/components/admin/heatmap-publishing-workspace"
 
 type JobStatus = "queued" | "running" | "complete" | "failed"
-type Job = { id: string; status: JobStatus; phase?: string; detail?: string; error_detail?: string; result?: string; review?: string; log?: string; metadata?: Record<string, unknown>; quality_summary?: Record<string, unknown>; total_frames?: number; valid_gameplay_frames?: number; invalid_scenes?: number; fresh_valid_calibration_frames?: number; usable_heatmap_records?: number }
+type Job = { id: string; status: JobStatus; progress?: JobProgress; phase?: string; detail?: string; error_detail?: string; result?: string; review?: string; log?: string; metadata?: Record<string, unknown>; quality_summary?: Record<string, unknown>; total_frames?: number; valid_gameplay_frames?: number; invalid_scenes?: number; fresh_valid_calibration_frames?: number; usable_heatmap_records?: number }
 type UiState = "idle" | "uploading" | "processing" | "complete" | "error"
 
 // Keep browser requests same-origin. The route proxy uses VIDEO_ANALYSIS_API_BASE_URL
@@ -51,7 +62,15 @@ export default function AdminHeatmapPage() {
   const [stage, setStage] = useState("mvp")
   const [device, setDevice] = useState("auto")
   const [frames, setFrames] = useState("250")
-  const [sampleFps, setSampleFps] = useState("0")
+  const [analysisQuality, setAnalysisQuality] = useState<AnalysisQuality>("high")
+  const preset = ANALYSIS_QUALITY_PRESETS[analysisQuality]
+  const frameCount = Number(frames)
+  // Every-frame coverage depends on the clip's frame rate, so show the common 25 and 50 fps cases.
+  const coverage = !(frameCount > 0)
+    ? ""
+    : preset.sampleFps > 0
+      ? `ครอบคลุมคลิปประมาณ ${formatDurationThai(coveredVideoSeconds(frameCount, preset.sampleFps))}`
+      : `ครอบคลุมคลิปประมาณ ${formatDurationThai(coveredVideoSeconds(frameCount, 0, 25))} (25 fps) หรือ ${formatDurationThai(coveredVideoSeconds(frameCount, 0, 50))} (50 fps)`
   const [startSeconds, setStartSeconds] = useState("0")
   const [job, setJob] = useState<Job | null>(null)
   const [state, setState] = useState<UiState>("idle")
@@ -170,7 +189,15 @@ export default function AdminHeatmapPage() {
     setState("uploading")
     setError("")
     setJob(null)
-    const body = buildHeatmapJobFormData(file, { stage, device, maxFrames, startSeconds: selectedStartSeconds, sampleFps: Number(sampleFps) })
+    const body = buildHeatmapJobFormData(file, {
+      stage,
+      device,
+      maxFrames,
+      startSeconds: selectedStartSeconds,
+      sampleFps: preset.sampleFps,
+      maxWidth: preset.maxWidth,
+      quality: analysisQuality,
+    })
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/jobs`, { method: "POST", body })
@@ -196,11 +223,11 @@ export default function AdminHeatmapPage() {
 
     <Card className="overflow-hidden border-primary/20"><CardHeader className="border-b bg-muted/20"><CardTitle className="flex items-center gap-2"><Video className="h-5 w-5 text-primary" />Analysis settings</CardTitle><CardDescription>Send a video directly to the configured Heatmap API.</CardDescription></CardHeader><CardContent className="grid gap-6 p-6 lg:grid-cols-[1.25fr_.75fr]">
       <label className={`flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition-colors ${file ? "border-primary bg-primary/5" : "border-border hover:border-primary/60"}`}><input type="file" accept="video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,.mkv" onChange={chooseFile} className="sr-only" disabled={isBusy} />{file ? <><FileVideo className="mb-3 h-7 w-7 text-primary" /><p className="max-w-full truncate font-semibold">{file.name}</p><p className="mt-1 text-sm text-muted-foreground">{(file.size / 1024 / 1024).toFixed(1)} MB</p></> : <><Upload className="mb-3 h-7 w-7 text-muted-foreground" /><p className="font-semibold">Choose a video file</p><p className="mt-1 text-sm text-muted-foreground">MP4, MOV, AVI, MKV</p></>}</label>
-      <div className="grid content-center gap-4 sm:grid-cols-2 lg:grid-cols-1"><div className="space-y-2"><Label>Stage</Label><Select value={stage} onValueChange={setStage} disabled={isBusy}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="mvp">MVP</SelectItem><SelectItem value="calibrate">Calibrate</SelectItem><SelectItem value="full">Full</SelectItem></SelectContent></Select></div><div className="space-y-2"><Label>Device</Label><Select value={device} onValueChange={setDevice} disabled={isBusy}><SelectTrigger><Cpu className="mr-2 h-4 w-4 text-muted-foreground" /><SelectValue /></SelectTrigger><SelectContent><SelectItem value="auto">Auto</SelectItem><SelectItem value="cpu">CPU</SelectItem><SelectItem value="cuda">CUDA</SelectItem></SelectContent></Select></div><div className="space-y-2"><Label htmlFor="start-seconds">Start analysis time (seconds)</Label><Input id="start-seconds" type="number" min="0" step="0.1" value={startSeconds} onChange={(event) => setStartSeconds(event.target.value)} disabled={isBusy} /><p className="text-xs text-muted-foreground">Skip ads, intro, replay, or close-up footage.</p></div><div className="space-y-2"><Label htmlFor="max-frames">Frames to analyze</Label><Input id="max-frames" type="number" min="1" max={MAX_ANALYSIS_FRAMES} value={frames} onChange={(event) => setFrames(event.target.value)} disabled={isBusy} /><p className="text-xs text-muted-foreground">Analyze up to {MAX_ANALYSIS_FRAMES.toLocaleString()} frames{Number(sampleFps) > 0 && Number(frames) > 0 ? ` · ครอบคลุมคลิปประมาณ ${Math.round(coveredVideoSeconds(Number(frames), Number(sampleFps)) / 60)} นาที` : ""}.</p></div><div className="space-y-2"><Label>Analysis rate</Label><Select value={sampleFps} onValueChange={setSampleFps} disabled={isBusy}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">ทุกเฟรม (ละเอียดที่สุด แนะนำ)</SelectItem><SelectItem value="10">10 เฟรม/วินาที</SelectItem><SelectItem value="5">5 เฟรม/วินาที (คลิปยาว เร็วกว่าแต่ ID หลุดบ่อย)</SelectItem><SelectItem value="2">2 เฟรม/วินาที (เร็วที่สุด)</SelectItem></SelectContent></Select><p className="text-xs text-muted-foreground">วิเคราะห์ห่างขึ้นเร็วขึ้นมาก ฮีตแมปยังแม่น แต่การติดตามตัวผู้เล่นอาจหลุดบ่อยขึ้น</p></div></div>
+      <div className="grid content-center gap-4 sm:grid-cols-2 lg:grid-cols-1"><div className="space-y-2"><Label>Stage</Label><Select value={stage} onValueChange={setStage} disabled={isBusy}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="mvp">MVP</SelectItem><SelectItem value="calibrate">Calibrate</SelectItem><SelectItem value="full">Full</SelectItem></SelectContent></Select></div><div className="space-y-2"><Label>Device</Label><Select value={device} onValueChange={setDevice} disabled={isBusy}><SelectTrigger><Cpu className="mr-2 h-4 w-4 text-muted-foreground" /><SelectValue /></SelectTrigger><SelectContent><SelectItem value="auto">Auto</SelectItem><SelectItem value="cpu">CPU</SelectItem><SelectItem value="cuda">CUDA</SelectItem></SelectContent></Select></div><div className="space-y-2"><Label htmlFor="start-seconds">Start analysis time (seconds)</Label><Input id="start-seconds" type="number" min="0" step="0.1" value={startSeconds} onChange={(event) => setStartSeconds(event.target.value)} disabled={isBusy} /><p className="text-xs text-muted-foreground">Skip ads, intro, replay, or close-up footage.</p></div><div className="space-y-2"><Label htmlFor="max-frames">Frames to analyze</Label><Input id="max-frames" type="number" min="1" max={MAX_ANALYSIS_FRAMES} value={frames} onChange={(event) => setFrames(event.target.value)} disabled={isBusy} /><p className="text-xs text-muted-foreground">สูงสุด {MAX_ANALYSIS_FRAMES.toLocaleString()} เฟรม{coverage ? ` · ${coverage}` : ""}</p></div><div className="space-y-2 sm:col-span-2 lg:col-span-1"><Label>คุณภาพการวิเคราะห์</Label><Select value={analysisQuality} onValueChange={(value) => setAnalysisQuality(value as AnalysisQuality)} disabled={isBusy}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{(Object.keys(ANALYSIS_QUALITY_PRESETS) as AnalysisQuality[]).map((key) => <SelectItem key={key} value={key}>{ANALYSIS_QUALITY_PRESETS[key].label}</SelectItem>)}</SelectContent></Select><p className="text-xs text-muted-foreground">{preset.description}</p>{frameCount > 0 && <p className="text-xs font-medium text-foreground">ใช้เวลาประมาณ {formatDurationThai(estimateAnalysisSeconds(analysisQuality, frameCount))}</p>}</div></div>
       <div className="flex items-center gap-3 lg:col-span-2"><Button size="lg" onClick={startJob} disabled={!file || isBusy} className="min-w-52">{isBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}Upload and start</Button></div>
     </CardContent></Card>
 
-    {isBusy && <Card className="border-primary/30"><CardContent className="p-6"><div className="flex gap-3"><Loader2 className="mt-0.5 h-5 w-5 animate-spin text-primary" /><div className="min-w-0 flex-1"><div className="flex justify-between gap-2"><p className="font-semibold">{phase}</p><Badge variant="secondary">{job?.status || "uploading"}</Badge></div><p className="mt-1 text-sm text-muted-foreground">{job?.detail || "Sending video to the analysis service"}</p><Progress value={state === "uploading" ? 20 : job?.status === "queued" ? 35 : 65} className="mt-4 h-2" /><p className="mt-3 text-xs text-muted-foreground">Polling every 1.5 seconds</p></div></div></CardContent></Card>}
+    {isBusy && <Card className="border-primary/30"><CardContent className="p-6"><div className="flex gap-3"><Loader2 className="mt-0.5 h-5 w-5 animate-spin text-primary" /><div className="min-w-0 flex-1"><div className="flex justify-between gap-2"><p className="font-semibold">{phase}</p><Badge variant="secondary">{job?.status || "uploading"}</Badge></div><p className="mt-1 text-sm text-muted-foreground">{describeProgress(job?.progress) || job?.detail || "Sending video to the analysis service"}</p><div className="mt-4 flex items-center gap-3"><Progress value={state === "uploading" ? 2 : job?.progress?.percent ?? 0} className="h-2 flex-1" /><span className="w-14 text-right font-semibold tabular-nums text-primary">{state === "uploading" ? "อัปโหลด" : `${Math.floor(job?.progress?.percent ?? 0)}%`}</span></div><p className="mt-3 text-xs text-muted-foreground">อัปเดตทุก 1.5 วินาที · ปิดหน้านี้ได้ งานจะทำต่อและกลับมาดูได้ที่คลังวิดีโอ</p></div></div></CardContent></Card>}
 
     {state === "error" && <Card className="border-destructive/40 bg-destructive/[.03]"><CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between"><div className="flex gap-3"><AlertCircle className="mt-0.5 h-5 w-5 text-destructive" /><div><p className="font-semibold">Video analysis could not be completed</p><p className="text-sm text-muted-foreground">{error}</p>{job?.log && <a className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline" href={assetUrl(job.log)} target="_blank" rel="noreferrer"><FileText className="h-4 w-4" />Open log</a>}</div></div><Button variant="outline" onClick={retry}><RotateCcw className="mr-2 h-4 w-4" />Try again</Button></CardContent></Card>}
 
