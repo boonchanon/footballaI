@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { fetchJson } from "@/lib/api-client"
 import { getAuthToken } from "@/lib/auth-client"
+import { randomId } from "@/lib/browser"
 
 type AdminUserItem = {
   id: string
@@ -120,7 +121,7 @@ export default function UsersPage() {
           action: "grant_tokens",
           amount,
           reason: tokenReason.trim(),
-          idempotencyKey: crypto.randomUUID(),
+          idempotencyKey: randomId(),
         }),
       })
       setTokenUser(null)

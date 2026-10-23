@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { fetchJson } from "@/lib/api-client"
+import { randomId } from "@/lib/browser"
 
 type StatIcon = React.ComponentType<{ className?: string }>
 
@@ -103,7 +104,7 @@ export default function AdminCommunityUserDetailPage({ params }: { params: Promi
           action: pendingAction.action,
           reason: reason.trim(),
           duration,
-          ...(pendingAction.action === "grant_tokens" ? { amount: Number(tokenAmount), idempotencyKey: crypto.randomUUID() } : {}),
+          ...(pendingAction.action === "grant_tokens" ? { amount: Number(tokenAmount), idempotencyKey: randomId() } : {}),
         }),
       })
       setPendingAction(null)

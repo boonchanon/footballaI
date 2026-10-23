@@ -15,6 +15,7 @@ import { fetchJson } from "@/lib/api-client"
 import { getAuthToken } from "@/lib/auth-client"
 import { PREDICTION_ACCESS_PRODUCTS, type PredictionAccessProductCode, type PredictionAccessTargetType } from "@/lib/prediction-access"
 import { cn } from "@/lib/utils"
+import { copyText } from "@/lib/browser"
 
 type AccessOrder = {
   id: string
@@ -396,7 +397,7 @@ export function WorldcupPredictionPaymentPage({
   async function handleCopyPromptPayId() {
     if (!promptpayId) return
     try {
-      await navigator.clipboard.writeText(promptpayId)
+      if (!(await copyText(promptpayId))) throw new Error("Copy failed")
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1500)
     } catch {

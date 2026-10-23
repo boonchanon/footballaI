@@ -55,6 +55,7 @@ import { fetchJson } from "@/lib/api-client"
 import { useAuthSession } from "@/hooks/use-auth-session"
 import { cn } from "@/lib/utils"
 import { COMMUNITY_FEED_UI_TEXT, COMMUNITY_FEED_UI_TOKENS, deriveCommunityTrendingTopics } from "@/lib/community-feed-ui"
+import { copyText, isSecureBrowserContext } from "@/lib/browser"
 
 type CommunityPostMedia = {
   id: string
@@ -458,11 +459,11 @@ function getStoryCaptionSize(size: "sm" | "md" | "lg") {
 }
 
 async function shareByDevice(url: string, title: string, text: string, onCopied: () => void) {
-  if (navigator.share) {
+  if (navigator.share && isSecureBrowserContext()) {
     await navigator.share({ title, text, url })
     return
   }
-  await navigator.clipboard.writeText(url)
+  if (!(await copyText(url))) throw new Error("Copy failed")
   onCopied()
 }
 

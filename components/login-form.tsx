@@ -8,6 +8,7 @@ import { ArrowRight, Lock, LogIn, Mail, ShieldCheck, Sparkles, Trophy } from "lu
 import { useEffect, useState } from "react"
 
 import { saveAuthSession } from "@/lib/auth-client"
+import { isSecureBrowserContext } from "@/lib/browser"
 import type { AuthSession } from "@/lib/auth-client"
 import { fetchJson } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
@@ -53,6 +54,12 @@ export function LoginForm() {
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState<OauthProvider>("")
+  // Google rejects plain-http LAN addresses (e.g. http://10.x.x.x) as redirect URIs, so only
+  // offer it on https or localhost. Checked after mount to keep server and client markup equal.
+  const [googleAvailable, setGoogleAvailable] = useState(true)
+  useEffect(() => {
+    setGoogleAvailable(isSecureBrowserContext())
+  }, [])
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -172,31 +179,35 @@ export function LoginForm() {
                 </div>
                 <h2 className="font-display text-3xl text-foreground">เข้าสู่ระบบ</h2>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  เลือกเข้าสู่ระบบผ่าน Google หรือใช้อีเมลกับรหัสผ่านของคุณ
+                  {googleAvailable ? "เลือกเข้าสู่ระบบผ่าน Google หรือใช้อีเมลกับรหัสผ่านของคุณ" : "เข้าสู่ระบบด้วยอีเมลหรือเบอร์โทรกับรหัสผ่านของคุณ"}
                 </p>
               </div>
 
-              <div className="grid gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-12 w-full justify-center rounded-xl border-border/80 bg-secondary/40 text-foreground hover:bg-secondary"
-                  disabled={oauthLoading !== ""}
-                  onClick={() => handleOauthLogin("google")}
-                >
-                  <GoogleMark />
-                  <span className="ml-2">{oauthLoading === "google" ? "กำลังไปยัง Google..." : "เข้าสู่ระบบด้วย Google"}</span>
-                </Button>
-              </div>
+              {googleAvailable && (
+                <>
+                  <div className="grid gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-12 w-full justify-center rounded-xl border-border/80 bg-secondary/40 text-foreground hover:bg-secondary"
+                      disabled={oauthLoading !== ""}
+                      onClick={() => handleOauthLogin("google")}
+                    >
+                      <GoogleMark />
+                      <span className="ml-2">{oauthLoading === "google" ? "กำลังไปยัง Google..." : "เข้าสู่ระบบด้วย Google"}</span>
+                    </Button>
+                  </div>
 
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-border/80" />
-                </div>
-                <div className="relative flex justify-center text-[11px] uppercase tracking-[0.3em]">
-                  <span className="bg-card px-3 text-muted-foreground">หรือใช้อีเมล</span>
-                </div>
-              </div>
+                  <div className="relative my-6">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t border-border/80" />
+                    </div>
+                    <div className="relative flex justify-center text-[11px] uppercase tracking-[0.3em]">
+                      <span className="bg-card px-3 text-muted-foreground">หรือใช้อีเมล</span>
+                    </div>
+                  </div>
+                </>
+              )}
 
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
