@@ -100,7 +100,7 @@ New-NetFirewallRule -DisplayName "FootballAI HTTP 80" -Direction Inbound -Protoc
 ```powershell
 npm install -g pm2 pm2-windows-startup
 cd C:\footballai
-pm2 start node_modules\next\dist\bin\next --name footballai -- start -p 80
+pm2 start node_modules\next\dist\bin\next --name footballai --interpreter node -- start -p 80
 pm2 save
 pm2-startup install
 ```
