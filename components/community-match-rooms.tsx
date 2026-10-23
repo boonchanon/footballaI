@@ -99,6 +99,7 @@ import {
 } from "@/lib/match-preview-lounges"
 import { COMMUNITY_THREAD_CATEGORY_LABELS } from "@/lib/server/community-threads"
 import { cn } from "@/lib/utils"
+import { copyText } from "@/lib/browser"
 
 export type CommunityMatchRoomFixture = {
   id: string
@@ -1524,7 +1525,7 @@ function ThreadCard({
   const isOwner = Boolean(item.isOwner)
   async function copyLink() {
     const url = typeof window === "undefined" ? threadUrl : `${window.location.origin}${threadUrl}`
-    await navigator.clipboard?.writeText(url)
+    await copyText(url)
   }
   return (
     <div className="group rounded-[24px] border border-border bg-card p-4 transition hover:border-primary/35 hover:bg-accent-soft">
@@ -2825,7 +2826,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
 
   function copyRoomMessageLink(message: MatchRoomMessage) {
     const url = `${window.location.origin}${pathname}?tab=discussion&room=${roomToQuery(activeConversationRoom)}#message-${message.id}`
-    void navigator.clipboard?.writeText(url)
+    void copyText(url)
   }
 
   function jumpToRoomMessage(messageId: string) {
@@ -2851,7 +2852,7 @@ export function MatchRoomDetail({ matchId }: { matchId: string }) {
   }
 
   function copyDraftToClipboard() {
-    void navigator.clipboard?.writeText(messageDraft)
+    void copyText(messageDraft)
     setShowDraftMoveDialog(false)
   }
 
@@ -5051,7 +5052,7 @@ export function MatchRoomThreadDetail({ matchId, threadId }: { matchId: string; 
 
   async function copyThreadLink() {
     const url = typeof window === "undefined" ? "" : window.location.href
-    await navigator.clipboard?.writeText(url)
+    await copyText(url)
   }
 
   async function reportThreadDetail() {
@@ -5131,7 +5132,7 @@ export function MatchRoomThreadDetail({ matchId, threadId }: { matchId: string; 
   async function copyCommentLink(permalink?: string) {
     const suffix = permalink || ""
     const url = typeof window === "undefined" ? suffix : `${window.location.origin}/community/matches/${matchId}/threads/${threadId}${suffix}`
-    await navigator.clipboard?.writeText(url)
+    await copyText(url)
   }
 
   function renderCommentActions(item: CommunityMatchThreadDetailResponse["comments"][number] | CommunityMatchThreadDetailResponse["comments"][number]["replies"][number], parentId?: string) {

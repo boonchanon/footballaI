@@ -29,6 +29,7 @@ import { toast } from "@/hooks/use-toast"
 import { fetchJson } from "@/lib/api-client"
 import { getAuthToken } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
+import { copyText } from "@/lib/browser"
 
 type CoinPackCode = "starter" | "value" | "season"
 type ProductCode = "prediction_5_matches" | "prediction_15_matches" | "prediction_tournament"
@@ -768,7 +769,7 @@ export function SubscriptionPage({ selectedPackCode }: SubscriptionPageProps) {
     const promptpayId = paymentState?.promptpay?.id || process.env.NEXT_PUBLIC_PROMPTPAY_ID?.trim() || ""
     if (!promptpayId) return
     try {
-      await navigator.clipboard.writeText(promptpayId)
+      if (!(await copyText(promptpayId))) throw new Error("Copy failed")
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1500)
     } catch {

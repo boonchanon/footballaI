@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast"
 import { fetchJson } from "@/lib/api-client"
 import { useAuthSession } from "@/hooks/use-auth-session"
 import { cn } from "@/lib/utils"
+import { copyText, isSecureBrowserContext } from "@/lib/browser"
 
 const categories = [
   { id: "match-discussion", label: "วิเคราะห์แมตช์" },
@@ -60,11 +61,11 @@ function getRepostReference(post: any) {
 }
 
 async function shareByDevice(url: string, title: string, text: string, onCopied: () => void) {
-  if (navigator.share) {
+  if (navigator.share && isSecureBrowserContext()) {
     await navigator.share({ title, text, url })
     return
   }
-  await navigator.clipboard.writeText(url)
+  if (!(await copyText(url))) throw new Error("Copy failed")
   onCopied()
 }
 
