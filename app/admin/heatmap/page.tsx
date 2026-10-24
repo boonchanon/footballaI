@@ -31,7 +31,7 @@ type UiState = "idle" | "uploading" | "processing" | "complete" | "error"
 // Keep browser requests same-origin. The route proxy uses VIDEO_ANALYSIS_API_BASE_URL
 // server-side, so an admin browser never needs a service running on 127.0.0.1:8001.
 const API_BASE_URL = "/api/video-analysis"
-const MAX_ANALYSIS_FRAMES = 15000
+const MAX_ANALYSIS_FRAMES = 30000
 const LAST_JOB_KEY = "videoAnalysis:lastJobId"
 
 // The current job lives in the URL (?job=) and localStorage so a refresh can reopen it.
