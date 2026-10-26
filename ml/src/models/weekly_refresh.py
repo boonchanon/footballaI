@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import os
+import sys
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -115,11 +116,18 @@ def predict_row(models, home: str, away: str, date: str, basis_date: str, dc_pre
     }
 
 
+def report_progress(percent: int, message: str) -> None:
+    """One machine-readable line on stderr; prediction-service shows it while the job runs."""
+    print(f"[progress] {percent} {message}", file=sys.stderr, flush=True)
+
+
 def refresh(api_url: str, previous_path: Path, now: pd.Timestamp, model: str = "ensemble") -> dict[str, object]:
+    report_progress(2, "fetching fixtures and results from the website")
     fixtures, api_raw = fetch_fixtures(api_url)
     previous = pd.read_csv(previous_path, dtype=str, keep_default_na=False)
     previous_by_pair = {(row.home_team, row.away_team): row._asdict() for row in previous.itertuples(index=False)}
 
+    report_progress(8, "loading models and match history")
     models = load_models()
     base = models.matches.copy()
     known_teams = set(base.HomeTeam) | set(base.AwayTeam)
@@ -132,11 +140,14 @@ def refresh(api_url: str, previous_path: Path, now: pd.Timestamp, model: str = "
         raise ValueError("A 2026/27 result predates the frozen history; refusing to double count")
     models.matches = build_history(base, results)
     basis_date = now.strftime("%Y-%m-%d")
+    if model == "dixon_coles":
+        report_progress(15, "fitting Dixon-Coles team ratings")
     dc_predict = dc.fit(models.matches, pd.Timestamp(basis_date)) if model == "dixon_coles" else None
     suffix = "" if model == "ensemble" else f"_{model}"
 
     rows, refreshed, frozen = [], 0, 0
-    for fixture in fixtures.sort_values(["Kickoff", "HomeTeam"]).itertuples(index=False):
+    ordered = fixtures.sort_values(["Kickoff", "HomeTeam"])
+    for index, fixture in enumerate(ordered.itertuples(index=False), start=1):
         pair = (fixture.HomeTeam, fixture.AwayTeam)
         if fixture.Kickoff <= now:
             if pair not in previous_by_pair:
@@ -146,6 +157,8 @@ def refresh(api_url: str, previous_path: Path, now: pd.Timestamp, model: str = "
         else:
             rows.append(predict_row(models, fixture.HomeTeam, fixture.AwayTeam, fixture.Date, basis_date, dc_predict))
             refreshed += 1
+        if index % 10 == 0 or index == len(ordered):
+            report_progress(20 + int(75 * index / len(ordered)), f"predicting fixtures {index}/{len(ordered)}")
 
     api_pairs = set(zip(fixtures.HomeTeam, fixtures.AwayTeam))
     missing_from_api = [row for pair, row in previous_by_pair.items() if pair not in api_pairs]
@@ -155,11 +168,17 @@ def refresh(api_url: str, previous_path: Path, now: pd.Timestamp, model: str = "
     output = pd.DataFrame(rows, columns=columns).fillna("")
     output.sort_values(["fixture_date", "home_team"], inplace=True, kind="stable")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    out_path = OUT_DIR / f"predictions_2026_2027_asof_{basis_date}{suffix}.csv"
+    # Weekly outputs are never overwritten: a second run on the same day gets a time label.
+    label = basis_date
+    out_path = OUT_DIR / f"predictions_2026_2027_asof_{label}{suffix}.csv"
+    if out_path.exists():
+        label = f"{basis_date}_{datetime.now(timezone.utc):%H%M%S}"
+        out_path = OUT_DIR / f"predictions_2026_2027_asof_{label}{suffix}.csv"
     if out_path.exists():
         raise FileExistsError(f"{out_path.name} already exists; weekly outputs are never overwritten")
+    report_progress(96, "writing weekly output")
     output.to_csv(out_path, index=False)
-    (OUT_DIR / f"api_snapshot_{basis_date}{suffix}.json").write_bytes(api_raw)
+    (OUT_DIR / f"api_snapshot_{label}{suffix}.json").write_bytes(api_raw)
 
     manifest = dict(
         CreatedAt=datetime.now(timezone.utc).isoformat(),
@@ -181,8 +200,17 @@ def refresh(api_url: str, previous_path: Path, now: pd.Timestamp, model: str = "
         ModelHashes={name: sha(MODEL_DIR / name) for name in MODEL_FILES},
         Retraining=False,
     )
-    (OUT_DIR / f"manifest_{basis_date}{suffix}.json").write_text(json.dumps(manifest, indent=2, default=str), encoding="utf-8")
+    write_manifest(manifest)
     return manifest
+
+
+def manifest_path(manifest: dict[str, object]) -> Path:
+    output = str(manifest["Output"])
+    return OUT_DIR / ("manifest_" + output.removeprefix("predictions_2026_2027_asof_").removesuffix(".csv") + ".json")
+
+
+def write_manifest(manifest: dict[str, object]) -> None:
+    manifest_path(manifest).write_text(json.dumps(manifest, indent=2, default=str), encoding="utf-8")
 
 
 def _write_atomic(path: Path, data: bytes) -> None:
@@ -225,6 +253,7 @@ def main() -> None:
     parser.add_argument("--as-of", default=None, help="Reference time (e.g. 2026-10-26T12:00:00Z); defaults to now.")
     parser.add_argument("--publish", action="store_true",
                         help="Copy the new CSV to public/ and write public/predictions_manifest.json for the website.")
+    parser.add_argument("--result-file", type=Path, default=None, help="Also write the final manifest JSON to this file.")
     args = parser.parse_args()
     previous = args.previous or (PUBLISHED_CSV if args.publish and PUBLISHED_CSV.exists() else DEFAULT_PREVIOUS)
     now = pd.Timestamp(args.as_of) if args.as_of else pd.Timestamp.now(tz="UTC")
@@ -232,8 +261,14 @@ def main() -> None:
         now = now.tz_localize("UTC")
     manifest = refresh(args.api_url, previous, now, args.model)
     if args.publish:
+        report_progress(98, "publishing to the website")
         manifest["Published"] = publish(manifest)
-    print(json.dumps(manifest, indent=2, default=str))
+        write_manifest(manifest)
+    text = json.dumps(manifest, indent=2, default=str)
+    if args.result_file:
+        args.result_file.write_text(text, encoding="utf-8")
+    report_progress(100, "done")
+    print(text)
 
 
 if __name__ == "__main__":

@@ -40,3 +40,4 @@ storage/
 ml/.venv/
 ml/**/__pycache__/
 ml/catboost_info/
+ml/logs/

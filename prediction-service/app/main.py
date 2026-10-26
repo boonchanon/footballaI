@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, Header, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -18,6 +18,7 @@ from .pipeline import (
     run_full_pipeline,
     run_upload_pipeline_batch,
 )
+from .weekly import get_weekly_job, start_weekly_refresh, weekly_history
 
 
 app = FastAPI(title=settings.app_name)
@@ -33,8 +34,10 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def on_startup() -> None:
-    bootstrap_storage()
-    copy_existing_data_from_repo()
+    # ml/ is a tracked, byte-exact copy of the AI project; do not seed placeholder files into it.
+    bootstrap_storage(readme=not settings.uses_ml_dir)
+    if not settings.uses_ml_dir:
+        copy_existing_data_from_repo()
 
 
 @app.get("/health")
@@ -48,8 +51,26 @@ async def health() -> dict[str, object]:
             "data_dir": str(settings.data_dir),
             "raw_dir": str(settings.raw_dir),
             "export_dir": str(settings.export_dir),
+            "ml_dir": str(settings.ml_dir),
+            "ml_python": str(settings.ml_python),
         },
     }
+
+
+@app.post("/pipeline/weekly-refresh", status_code=202)
+async def pipeline_weekly_refresh(x_requested_by: str = Header(default="")) -> dict[str, object]:
+    job = start_weekly_refresh(x_requested_by.strip())
+    return {"ok": True, "job_id": job["id"], "job": job}
+
+
+@app.get("/pipeline/weekly-refresh/{job_id}")
+async def pipeline_weekly_refresh_status(job_id: str) -> dict[str, object]:
+    return {"ok": True, "job": get_weekly_job(job_id)}
+
+
+@app.get("/pipeline/weekly-history")
+async def pipeline_weekly_history() -> dict[str, object]:
+    return {"ok": True, **weekly_history()}
 
 
 @app.get("/pipeline/status")
