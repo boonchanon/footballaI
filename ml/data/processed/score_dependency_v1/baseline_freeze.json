@@ -1,0 +1,30 @@
+{
+  "experiment": "score_dependency_v1",
+  "created_utc": "2026-09-15T08:52:07.332262+00:00",
+  "baseline_exact_hits": 96,
+  "baseline_matches": 760,
+  "baseline_match_sha256": "1c7f9a78b9d972052945f806e14d252f733f872c4ecc6bdc99726d7d07269f87",
+  "phase3_rate_sha256": "eb7c2031784866e995fd4fdb246d113a0921fe27e1449e8127e92b12503b95ff",
+  "feature_version": "legacy_v1",
+  "score_grid": "0..6 per side",
+  "normalization": "divide by truncated-grid mass",
+  "lambda_source": "frozen Phase-3 xgb_home.json and xgb_away.json",
+  "phase3_artifact_sha256": {
+    "xgb_home.json": "fdca5a147997238388359c989dd22ab88fb6d5503348d181a0cf3cdb8333de75",
+    "xgb_away.json": "c8cfa763db9385e85d485f067d6aaacd9e7ebe5eb5be1e4806a74af3d46e0fa8",
+    "cat_home.cbm": "ff82d640ce44baa46bcab30d67e7f9e86596f64d8b94b43bda58728bc3167e17",
+    "cat_away.cbm": "575f84d5db91ab8bca7e67701f1130daee014228247fb8bfcf363ea1ce8649ba",
+    "metadata.joblib": "b9ae9a5196b9e9ec71c2a50b2632ba855b27e3f2708e615e8519e1cf86babda4"
+  },
+  "training_seasons": "1993/94-2022/23",
+  "validation_seasons": "2023/24",
+  "diagnostic_seasons": "2024/25-2025/26",
+  "diagnostic_dates": "2024-08-16 to 2026-05-24",
+  "test_inputs_sha256": "6d408d731695399c8ad2cda6fac66eb0d891d1bf081796ff042add927568d2d5",
+  "validation_inputs_sha256": "1dff3a9998e08ee92e463b47fbd9e988b58d3b25b1a54abb16831bf535bf80f4",
+  "code_sha256": {
+    "src\\models\\score_dependency.py": "e5c3791bc31dcb1e03b3e592544937ed9e4e3e7aee996609462f512cc2fc7827",
+    "src\\evaluation\\score_dependency_v1.py": "d38abaf5a6776cf9e5aa684edbbd46427f80b87edc424aca87472524db676971",
+    "src\\models\\ml_goal_rates_v1.py": "95c44f2d2e29e8a753c2c6b2227761971b94e3c652891c43602f771d441a5386"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "SourceSHA256": "a8f6e7e267d1790b4ebafd40db8b7afbed0064e67d67d87544674b323847be13",
+  "Phase7FeatureSHA256": "38a0ae09189fd27e9c843f41ad1cc0640f2334221e9d5b20ed36141747074e88",
+  "Phase8RankSHA256": "06a4f650bc0a5cc3849df57bde7f69818895bc7f7d36769fee2bfd29abf71976",
+  "SpecSHA256": "8dacddd813d68e7f3d1e055d2587f63da9d3e0151a859249ed5262bb2a35eca8",
+  "EnvironmentSHA256": "720a387508a452fa21609ddb9b3f465b1cd6ad074d833b2345eb0d8380805da0",
+  "Protected": {
+    "phase3": {
+      "report.json": "e0e6290a9e8c53cc73172df49a57f11740cf6c5b40051c5436a320142a1f90d5",
+      "final_report.md": "be4448fde600ad095d881983fde6889aa3f0c73e2e2c6cab177cd94c9d2be5c2"
+    },
+    "phase4": {
+      "report.json": "1452e760806af88cb9d816258646c2cdb1a13c0f8b1f61bd7ee2a34a94daf879",
+      "final_report.md": "5c2eb109dd76241184befb2d20d52385c11d3b6a1c70755160f9b9fa49f59737"
+    },
+    "phase5": {
+      "report.json": "34366230a60bda0f928df5786d5d5eb8a3133574c2c60e370c96222a117fc53f",
+      "final_report.md": "ab332eeb681f2732bef038dc4bb15e6c6f7870dc159393d1b22bbabf9052a7fc"
+    },
+    "phase6": {
+      "report.json": "f2bd619c10468179433d8ad8a6b512be2a53ed1d63a43b7d7f0c609d9f3d25d3",
+      "final_report.md": "bbd4b97877baa7179927d6bcfcca62d8e0b1e77be4a9a7c6e92f8498ad19d7bf"
+    },
+    "phase7": {
+      "report.json": "7b25ff73c3898a5348707e2cb23a60bdfba55daf1cacefd217c2abdcf64f3828",
+      "final_report.md": "4eee39e0cbc0fb37955b451feb80e2899da86e37ff01826cd85e86d45d0fa519"
+    },
+    "phase8": {
+      "report.json": "41a057eb8c6551c8baba0f1099d72779977bacc6070fc17086a50d0fafd08712",
+      "final_report.md": "226b05c7d78e3fa8d7d7e6511633c58b190b6583fda5af520fa90fc02e14eaa5"
+    }
+  },
+  "ScoreReferences": "Phase-3 independent 96/760; Phase-4 DC 99/760; Phase-7 E+DC 101/760; unchanged"
+}

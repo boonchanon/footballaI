@@ -1,0 +1,355 @@
+Date,HomeTeam,AwayTeam,Season,ActualScore,BaselineScore,DirectScore,BaselineExact,DirectExact,FlipType,DirectActualRank,BaselineActualRank
+2024-08-16,Man United,Fulham,2024/25,1-0,2-0,2-1,0,0,wrong_to_other_wrong,4,2
+2024-08-17,Everton,Brighton,2024/25,0-3,1-1,1-0,0,0,wrong_to_other_wrong,15,11
+2024-08-17,Newcastle,Southampton,2024/25,1-0,2-0,2-1,0,0,wrong_to_other_wrong,9,5
+2024-08-18,Brentford,Crystal Palace,2024/25,2-1,1-1,2-1,0,1,wrong_to_correct,1,6
+2024-08-24,Crystal Palace,West Ham,2024/25,0-2,1-1,1-0,0,0,wrong_to_other_wrong,9,11
+2024-08-24,Man City,Ipswich,2024/25,4-1,3-0,2-0,0,0,wrong_to_other_wrong,8,6
+2024-08-24,Tottenham,Everton,2024/25,4-0,2-0,1-0,0,0,wrong_to_other_wrong,10,7
+2024-08-31,Arsenal,Brighton,2024/25,1-1,2-0,2-1,0,0,wrong_to_other_wrong,5,4
+2024-08-31,Nott'm Forest,Wolves,2024/25,1-1,1-0,0-0,0,0,wrong_to_other_wrong,5,2
+2024-09-01,Chelsea,Crystal Palace,2024/25,1-1,1-0,2-0,0,0,wrong_to_other_wrong,4,3
+2024-09-01,Man United,Liverpool,2024/25,0-3,1-1,1-2,0,0,wrong_to_other_wrong,12,10
+2024-09-14,Brighton,Ipswich,2024/25,0-0,1-0,2-0,0,0,wrong_to_other_wrong,6,5
+2024-09-14,Southampton,Man United,2024/25,0-3,1-1,0-2,0,0,wrong_to_other_wrong,6,8
+2024-09-15,Tottenham,Arsenal,2024/25,0-1,1-1,1-0,0,0,wrong_to_other_wrong,4,3
+2024-09-21,Southampton,Ipswich,2024/25,1-1,1-1,1-0,1,0,correct_to_wrong,3,1
+2024-09-22,Brighton,Nott'm Forest,2024/25,2-2,1-1,1-0,0,0,wrong_to_other_wrong,12,10
+2024-09-22,Man City,Arsenal,2024/25,2-2,2-0,1-1,0,0,wrong_to_other_wrong,13,9
+2024-09-28,Chelsea,Brighton,2024/25,4-2,2-1,1-0,0,0,wrong_to_other_wrong,15,17
+2024-09-28,Newcastle,Man City,2024/25,1-1,1-2,0-1,0,0,wrong_to_other_wrong,3,3
+2024-09-28,Wolves,Liverpool,2024/25,1-2,1-1,0-3,0,0,wrong_to_other_wrong,5,3
+2024-10-05,Brentford,Wolves,2024/25,5-3,1-0,2-1,0,0,wrong_to_other_wrong,29,31
+2024-10-05,Crystal Palace,Liverpool,2024/25,0-1,1-1,0-1,0,1,wrong_to_correct,1,2
+2024-10-19,Bournemouth,Arsenal,2024/25,2-0,1-2,1-1,0,0,wrong_to_other_wrong,14,14
+2024-10-19,Man United,Brentford,2024/25,2-1,1-0,1-1,0,0,wrong_to_other_wrong,3,4
+2024-10-19,Southampton,Leicester,2024/25,2-3,1-1,1-2,0,0,wrong_to_other_wrong,11,13
+2024-10-19,Tottenham,West Ham,2024/25,4-1,2-1,2-0,0,0,wrong_to_other_wrong,12,12
+2024-10-20,Liverpool,Chelsea,2024/25,2-1,2-0,1-1,0,0,wrong_to_other_wrong,3,3
+2024-10-20,Wolves,Man City,2024/25,1-2,0-2,1-2,0,1,wrong_to_correct,1,3
+2024-10-21,Nott'm Forest,Crystal Palace,2024/25,1-0,1-1,1-0,0,1,wrong_to_correct,1,2
+2024-10-26,Aston Villa,Bournemouth,2024/25,1-1,2-1,1-0,0,0,wrong_to_other_wrong,3,2
+2024-10-26,Brighton,Wolves,2024/25,2-2,1-0,2-0,0,0,wrong_to_other_wrong,8,10
+2024-10-26,Man City,Southampton,2024/25,1-0,3-0,2-0,0,0,wrong_to_other_wrong,3,7
+2024-10-27,Chelsea,Newcastle,2024/25,2-1,1-1,1-0,0,0,wrong_to_other_wrong,4,2
+2024-11-02,Newcastle,Arsenal,2024/25,1-0,1-1,0-1,0,0,wrong_to_other_wrong,5,5
+2024-11-02,Nott'm Forest,West Ham,2024/25,3-0,1-1,1-0,0,0,wrong_to_other_wrong,10,12
+2024-11-02,Southampton,Everton,2024/25,1-0,1-1,1-0,0,1,wrong_to_correct,1,3
+2024-11-04,Fulham,Brentford,2024/25,2-1,1-1,2-1,0,1,wrong_to_correct,1,2
+2024-11-09,Brentford,Bournemouth,2024/25,3-2,1-1,1-0,0,0,wrong_to_other_wrong,13,14
+2024-11-09,Liverpool,Aston Villa,2024/25,2-0,2-0,2-1,1,0,correct_to_wrong,2,1
+2024-11-10,Man United,Leicester,2024/25,3-0,1-0,2-1,0,0,wrong_to_other_wrong,6,5
+2024-11-10,Tottenham,Ipswich,2024/25,1-2,2-0,2-1,0,0,wrong_to_other_wrong,13,10
+2024-11-23,Arsenal,Nott'm Forest,2024/25,3-0,2-0,1-0,0,0,wrong_to_other_wrong,3,3
+2024-11-23,Bournemouth,Brighton,2024/25,1-2,1-1,1-0,0,0,wrong_to_other_wrong,7,3
+2024-11-23,Everton,Brentford,2024/25,0-0,1-1,1-0,0,0,wrong_to_other_wrong,3,5
+2024-11-23,Fulham,Wolves,2024/25,1-4,1-0,1-1,0,0,wrong_to_other_wrong,22,22
+2024-11-24,Southampton,Liverpool,2024/25,2-3,1-2,0-2,0,0,wrong_to_other_wrong,12,8
+2024-11-25,Newcastle,West Ham,2024/25,0-2,1-0,1-1,0,0,wrong_to_other_wrong,14,11
+2024-11-29,Brighton,Southampton,2024/25,1-1,2-0,3-1,0,0,wrong_to_other_wrong,4,5
+2024-11-30,Nott'm Forest,Ipswich,2024/25,1-0,1-0,1-1,1,0,correct_to_wrong,2,1
+2024-11-30,West Ham,Arsenal,2024/25,2-5,1-1,0-1,0,0,wrong_to_other_wrong,26,26
+2024-11-30,Wolves,Bournemouth,2024/25,2-4,1-1,1-0,0,0,wrong_to_other_wrong,23,22
+2024-12-01,Man United,Everton,2024/25,4-0,2-1,1-1,0,0,wrong_to_other_wrong,11,10
+2024-12-01,Tottenham,Fulham,2024/25,1-1,1-1,2-0,1,0,correct_to_wrong,4,1
+2024-12-03,Ipswich,Crystal Palace,2024/25,0-1,1-1,1-0,0,0,wrong_to_other_wrong,4,3
+2024-12-04,Southampton,Chelsea,2024/25,1-5,0-1,0-2,0,0,wrong_to_other_wrong,20,19
+2024-12-07,Aston Villa,Southampton,2024/25,1-0,1-0,1-1,1,0,correct_to_wrong,2,1
+2024-12-07,Brentford,Newcastle,2024/25,4-2,1-1,0-1,0,0,wrong_to_other_wrong,22,21
+2024-12-07,Crystal Palace,Man City,2024/25,2-2,1-1,1-2,0,0,wrong_to_other_wrong,8,8
+2024-12-08,Fulham,Arsenal,2024/25,1-1,1-1,0-1,1,0,correct_to_wrong,2,1
+2024-12-08,Ipswich,Bournemouth,2024/25,1-2,1-1,1-0,0,0,wrong_to_other_wrong,4,3
+2024-12-08,Tottenham,Chelsea,2024/25,3-4,1-1,1-2,0,0,wrong_to_other_wrong,29,23
+2024-12-09,West Ham,Wolves,2024/25,2-1,1-0,1-1,0,0,wrong_to_other_wrong,2,4
+2024-12-14,Arsenal,Everton,2024/25,0-0,2-1,2-0,0,0,wrong_to_other_wrong,11,13
+2024-12-14,Newcastle,Leicester,2024/25,4-0,1-0,1-1,0,0,wrong_to_other_wrong,12,11
+2024-12-15,Brighton,Crystal Palace,2024/25,1-3,1-1,2-1,0,0,wrong_to_other_wrong,17,13
+2024-12-15,Chelsea,Brentford,2024/25,2-1,2-1,2-0,1,0,correct_to_wrong,2,1
+2024-12-15,Man City,Man United,2024/25,1-2,2-1,2-0,0,0,wrong_to_other_wrong,13,11
+2024-12-15,Southampton,Tottenham,2024/25,0-5,1-1,0-2,0,0,wrong_to_other_wrong,16,23
+2024-12-21,Aston Villa,Man City,2024/25,2-1,1-1,0-1,0,0,wrong_to_other_wrong,3,5
+2024-12-21,Crystal Palace,Arsenal,2024/25,1-5,1-1,0-1,0,0,wrong_to_other_wrong,23,20
+2024-12-22,Fulham,Southampton,2024/25,0-0,1-0,1-1,0,0,wrong_to_other_wrong,10,7
+2024-12-22,Man United,Bournemouth,2024/25,0-3,1-1,2-0,0,0,wrong_to_other_wrong,19,18
+2024-12-22,Tottenham,Liverpool,2024/25,3-6,1-1,0-0,0,0,wrong_to_other_wrong,41,41
+2024-12-26,Bournemouth,Crystal Palace,2024/25,0-0,1-1,1-0,0,0,wrong_to_other_wrong,7,9
+2024-12-26,Chelsea,Fulham,2024/25,1-2,1-0,2-0,0,0,wrong_to_other_wrong,10,10
+2024-12-26,Man City,Everton,2024/25,1-1,2-0,1-0,0,0,wrong_to_other_wrong,5,6
+2024-12-26,Newcastle,Aston Villa,2024/25,3-0,1-1,2-1,0,0,wrong_to_other_wrong,11,10
+2024-12-26,Nott'm Forest,Tottenham,2024/25,1-0,1-1,2-1,0,0,wrong_to_other_wrong,6,2
+2024-12-26,Southampton,West Ham,2024/25,0-1,1-1,1-2,0,0,wrong_to_other_wrong,8,3
+2024-12-27,Brighton,Brentford,2024/25,0-0,1-0,1-1,0,0,wrong_to_other_wrong,9,7
+2024-12-29,Everton,Nott'm Forest,2024/25,0-2,1-1,1-0,0,0,wrong_to_other_wrong,8,8
+2024-12-29,Leicester,Man City,2024/25,0-2,0-2,1-2,1,0,correct_to_wrong,2,1
+2024-12-29,West Ham,Liverpool,2024/25,0-5,1-1,0-2,0,0,wrong_to_other_wrong,20,27
+2024-12-30,Man United,Newcastle,2024/25,0-2,1-1,2-2,0,0,wrong_to_other_wrong,2,6
+2025-01-01,Brentford,Arsenal,2024/25,1-3,1-1,0-1,0,0,wrong_to_other_wrong,7,9
+2025-01-04,Aston Villa,Leicester,2024/25,2-1,1-0,2-0,0,0,wrong_to_other_wrong,2,4
+2025-01-04,Bournemouth,Everton,2024/25,1-0,1-0,1-1,1,0,correct_to_wrong,2,1
+2025-01-04,Brighton,Arsenal,2024/25,1-1,1-1,0-1,1,0,correct_to_wrong,2,1
+2025-01-04,Tottenham,Newcastle,2024/25,1-2,1-1,2-2,0,0,wrong_to_other_wrong,7,3
+2025-01-14,Chelsea,Bournemouth,2024/25,2-2,2-1,1-1,0,0,wrong_to_other_wrong,10,6
+2025-01-14,Nott'm Forest,Liverpool,2024/25,1-1,1-1,0-1,1,0,correct_to_wrong,3,1
+2025-01-15,Arsenal,Tottenham,2024/25,2-1,2-0,2-1,0,1,wrong_to_correct,1,2
+2025-01-15,Newcastle,Wolves,2024/25,3-0,1-0,2-0,0,0,wrong_to_other_wrong,3,5
+2025-01-18,Arsenal,Aston Villa,2024/25,2-2,1-0,2-1,0,0,wrong_to_other_wrong,7,10
+2025-01-18,Brentford,Liverpool,2024/25,0-2,1-1,0-2,0,1,wrong_to_correct,1,4
+2025-01-18,Newcastle,Bournemouth,2024/25,1-4,1-1,1-0,0,0,wrong_to_other_wrong,23,24
+2025-01-19,Ipswich,Man City,2024/25,0-6,0-1,1-2,0,0,wrong_to_other_wrong,27,23
+2025-01-20,Chelsea,Wolves,2024/25,3-1,1-0,2-0,0,0,wrong_to_other_wrong,6,7
+2025-01-25,Man City,Chelsea,2024/25,3-1,2-1,1-1,0,0,wrong_to_other_wrong,5,4
+2025-01-25,Southampton,Newcastle,2024/25,1-3,1-1,0-3,0,0,wrong_to_other_wrong,4,8
+2025-01-25,Wolves,Arsenal,2024/25,0-1,1-1,0-1,0,1,wrong_to_correct,1,3
+2025-01-26,Aston Villa,West Ham,2024/25,1-1,1-0,2-0,0,0,wrong_to_other_wrong,4,2
+2025-01-26,Tottenham,Leicester,2024/25,1-2,1-1,1-0,0,0,wrong_to_other_wrong,7,7
+2025-02-01,Everton,Leicester,2024/25,4-0,1-1,1-0,0,0,wrong_to_other_wrong,13,16
+2025-02-01,Ipswich,Southampton,2024/25,1-2,1-1,1-0,0,0,wrong_to_other_wrong,9,7
+2025-02-01,Newcastle,Fulham,2024/25,1-2,1-0,2-0,0,0,wrong_to_other_wrong,9,9
+2025-02-02,Arsenal,Man City,2024/25,5-1,1-1,2-1,0,0,wrong_to_other_wrong,23,28
+2025-02-14,Brighton,Chelsea,2024/25,3-0,1-1,0-1,0,0,wrong_to_other_wrong,16,16
+2025-02-15,Aston Villa,Ipswich,2024/25,1-1,2-0,2-1,0,0,wrong_to_other_wrong,3,4
+2025-02-15,Crystal Palace,Everton,2024/25,1-2,1-0,1-1,0,0,wrong_to_other_wrong,5,9
+2025-02-15,Fulham,Nott'm Forest,2024/25,2-1,1-1,2-1,0,1,wrong_to_correct,1,4
+2025-02-15,Leicester,Arsenal,2024/25,0-2,1-2,0-2,0,1,wrong_to_correct,1,3
+2025-02-15,Man City,Newcastle,2024/25,4-0,2-0,2-1,0,0,wrong_to_other_wrong,13,7
+2025-02-15,Southampton,Bournemouth,2024/25,1-3,0-1,1-2,0,0,wrong_to_other_wrong,5,8
+2025-02-22,Bournemouth,Wolves,2024/25,0-1,1-0,1-1,0,0,wrong_to_other_wrong,7,6
+2025-02-22,Everton,Man United,2024/25,2-2,1-1,1-0,0,0,wrong_to_other_wrong,9,9
+2025-02-22,Southampton,Brighton,2024/25,0-4,0-1,1-2,0,0,wrong_to_other_wrong,14,14
+2025-02-23,Man City,Liverpool,2024/25,0-2,1-1,1-0,0,0,wrong_to_other_wrong,11,9
+2025-02-23,Newcastle,Nott'm Forest,2024/25,4-3,1-1,2-1,0,0,wrong_to_other_wrong,23,24
+2025-02-25,Brighton,Bournemouth,2024/25,2-1,1-1,2-1,0,1,wrong_to_correct,1,2
+2025-02-25,Chelsea,Southampton,2024/25,4-0,2-0,1-0,0,0,wrong_to_other_wrong,7,7
+2025-02-25,Crystal Palace,Aston Villa,2024/25,4-1,1-1,2-0,0,0,wrong_to_other_wrong,18,16
+2025-02-26,Brentford,Everton,2024/25,1-1,1-0,1-1,0,1,wrong_to_correct,1,2
+2025-02-26,Liverpool,Newcastle,2024/25,2-0,2-0,2-1,1,0,correct_to_wrong,3,1
+2025-02-26,Man United,Ipswich,2024/25,3-2,1-0,2-0,0,0,wrong_to_other_wrong,13,13
+2025-02-26,Tottenham,Man City,2024/25,0-1,1-1,0-2,0,0,wrong_to_other_wrong,2,2
+2025-02-27,West Ham,Leicester,2024/25,2-0,1-0,2-0,0,1,wrong_to_correct,1,3
+2025-03-08,Crystal Palace,Ipswich,2024/25,1-0,1-0,2-0,1,0,correct_to_wrong,2,1
+2025-03-08,Nott'm Forest,Man City,2024/25,1-0,1-1,0-1,0,0,wrong_to_other_wrong,8,5
+2025-03-08,Wolves,Everton,2024/25,1-1,1-1,1-0,1,0,correct_to_wrong,2,1
+2025-03-09,Man United,Arsenal,2024/25,1-1,1-1,0-1,1,0,correct_to_wrong,2,1
+2025-03-15,Everton,West Ham,2024/25,1-1,1-0,1-1,0,1,wrong_to_correct,1,2
+2025-03-15,Man City,Brighton,2024/25,2-2,2-1,2-0,0,0,wrong_to_other_wrong,9,7
+2025-03-16,Arsenal,Chelsea,2024/25,1-0,2-1,1-0,0,1,wrong_to_correct,1,6
+2025-04-01,Arsenal,Fulham,2024/25,2-1,2-0,1-0,0,0,wrong_to_other_wrong,4,3
+2025-04-01,Nott'm Forest,Man United,2024/25,1-0,1-1,2-1,0,0,wrong_to_other_wrong,5,3
+2025-04-02,Bournemouth,Ipswich,2024/25,1-2,1-0,2-0,0,0,wrong_to_other_wrong,9,9
+2025-04-02,Brighton,Aston Villa,2024/25,0-3,1-1,2-1,0,0,wrong_to_other_wrong,17,13
+2025-04-02,Man City,Leicester,2024/25,2-0,2-0,1-0,1,0,correct_to_wrong,2,1
+2025-04-03,Chelsea,Tottenham,2024/25,1-0,2-1,1-0,0,1,wrong_to_correct,1,6
+2025-04-05,Crystal Palace,Brighton,2024/25,2-1,1-1,2-1,0,1,wrong_to_correct,1,4
+2025-04-05,Everton,Arsenal,2024/25,1-1,1-1,0-1,1,0,correct_to_wrong,2,1
+2025-04-05,West Ham,Bournemouth,2024/25,2-2,1-1,1-0,0,0,wrong_to_other_wrong,8,9
+2025-04-06,Man United,Man City,2024/25,0-0,1-1,0-0,0,1,wrong_to_correct,1,7
+2025-04-06,Tottenham,Southampton,2024/25,3-1,2-0,1-0,0,0,wrong_to_other_wrong,6,6
+2025-04-07,Leicester,Newcastle,2024/25,0-3,1-1,1-2,0,0,wrong_to_other_wrong,8,11
+2025-04-12,Arsenal,Brentford,2024/25,1-1,2-0,1-0,0,0,wrong_to_other_wrong,4,5
+2025-04-12,Brighton,Leicester,2024/25,2-2,2-0,1-0,0,0,wrong_to_other_wrong,12,11
+2025-04-12,Southampton,Aston Villa,2024/25,0-3,0-1,0-2,0,0,wrong_to_other_wrong,3,8
+2025-04-13,Chelsea,Ipswich,2024/25,2-2,2-0,3-1,0,0,wrong_to_other_wrong,13,9
+2025-04-13,Newcastle,Man United,2024/25,4-1,2-1,1-0,0,0,wrong_to_other_wrong,12,12
+2025-04-13,Wolves,Tottenham,2024/25,4-2,1-1,1-0,0,0,wrong_to_other_wrong,22,21
+2025-04-16,Newcastle,Crystal Palace,2024/25,5-0,1-1,2-1,0,0,wrong_to_other_wrong,21,21
+2025-04-19,Aston Villa,Newcastle,2024/25,4-1,1-1,2-2,0,0,wrong_to_other_wrong,15,18
+2025-04-19,West Ham,Southampton,2024/25,1-1,1-0,2-1,0,0,wrong_to_other_wrong,2,2
+2025-04-20,Fulham,Chelsea,2024/25,1-2,1-1,0-0,0,0,wrong_to_other_wrong,9,5
+2025-04-20,Ipswich,Arsenal,2024/25,0-4,1-2,0-2,0,0,wrong_to_other_wrong,9,16
+2025-04-20,Leicester,Liverpool,2024/25,0-1,1-2,0-2,0,0,wrong_to_other_wrong,3,4
+2025-04-20,Man United,Wolves,2024/25,0-1,1-0,1-1,0,0,wrong_to_other_wrong,5,6
+2025-04-23,Arsenal,Crystal Palace,2024/25,2-2,2-0,2-1,0,0,wrong_to_other_wrong,11,11
+2025-04-26,Brighton,West Ham,2024/25,3-2,1-0,2-0,0,0,wrong_to_other_wrong,12,12
+2025-04-26,Chelsea,Everton,2024/25,1-0,2-0,1-0,0,1,wrong_to_correct,1,5
+2025-04-26,Newcastle,Ipswich,2024/25,3-0,2-0,2-1,0,0,wrong_to_other_wrong,5,3
+2025-04-26,Southampton,Fulham,2024/25,1-2,1-1,0-1,0,0,wrong_to_other_wrong,5,3
+2025-05-01,Nott'm Forest,Brentford,2024/25,0-2,1-1,2-1,0,0,wrong_to_other_wrong,11,11
+2025-05-03,Aston Villa,Fulham,2024/25,1-0,2-0,2-1,0,0,wrong_to_other_wrong,4,3
+2025-05-03,Everton,Ipswich,2024/25,2-2,1-1,1-0,0,0,wrong_to_other_wrong,10,7
+2025-05-03,Leicester,Southampton,2024/25,2-0,1-1,1-0,0,0,wrong_to_other_wrong,2,9
+2025-05-04,Brentford,Man United,2024/25,4-3,1-1,2-1,0,0,wrong_to_other_wrong,23,24
+2025-05-04,Brighton,Newcastle,2024/25,1-1,1-1,0-2,1,0,correct_to_wrong,7,1
+2025-05-04,West Ham,Tottenham,2024/25,1-1,1-1,2-1,1,0,correct_to_wrong,2,1
+2025-05-10,Southampton,Man City,2024/25,0-0,0-2,0-1,0,0,wrong_to_other_wrong,8,10
+2025-05-11,Liverpool,Arsenal,2024/25,2-2,2-1,1-1,0,0,wrong_to_other_wrong,10,8
+2025-05-11,Man United,West Ham,2024/25,0-2,1-0,1-1,0,0,wrong_to_other_wrong,11,11
+2025-05-11,Newcastle,Chelsea,2024/25,2-0,1-1,1-0,0,0,wrong_to_other_wrong,5,4
+2025-05-11,Nott'm Forest,Leicester,2024/25,2-2,1-0,2-0,0,0,wrong_to_other_wrong,8,10
+2025-05-11,Tottenham,Crystal Palace,2024/25,0-2,1-1,2-1,0,0,wrong_to_other_wrong,8,9
+2025-05-16,Aston Villa,Tottenham,2024/25,2-0,2-0,1-0,1,0,correct_to_wrong,2,1
+2025-05-16,Chelsea,Man United,2024/25,1-0,2-1,1-0,0,1,wrong_to_correct,1,9
+2025-05-18,Arsenal,Newcastle,2024/25,1-0,2-1,2-0,0,0,wrong_to_other_wrong,3,6
+2025-05-18,Brentford,Fulham,2024/25,2-3,1-1,1-0,0,0,wrong_to_other_wrong,18,14
+2025-05-19,Brighton,Liverpool,2024/25,3-2,1-1,0-1,0,0,wrong_to_other_wrong,16,16
+2025-05-20,Crystal Palace,Wolves,2024/25,4-2,1-0,1-1,0,0,wrong_to_other_wrong,18,18
+2025-05-25,Bournemouth,Leicester,2024/25,2-0,1-1,1-0,0,0,wrong_to_other_wrong,3,4
+2025-05-25,Fulham,Man City,2024/25,0-2,0-2,0-1,1,0,correct_to_wrong,3,1
+2025-05-25,Liverpool,Crystal Palace,2024/25,1-1,2-1,2-0,0,0,wrong_to_other_wrong,4,2
+2025-05-25,Man United,Aston Villa,2024/25,2-0,0-1,1-1,0,0,wrong_to_other_wrong,13,8
+2025-05-25,Newcastle,Everton,2024/25,0-1,2-1,1-0,0,0,wrong_to_other_wrong,9,12
+2025-05-25,Southampton,Arsenal,2024/25,1-2,1-1,0-1,0,0,wrong_to_other_wrong,6,2
+2025-08-15,Liverpool,Bournemouth,2025/26,4-2,2-0,2-1,0,0,wrong_to_other_wrong,16,16
+2025-08-16,Brighton,Fulham,2025/26,1-1,1-1,2-0,1,0,correct_to_wrong,4,1
+2025-08-16,Wolves,Man City,2025/26,0-4,0-2,0-1,0,0,wrong_to_other_wrong,10,7
+2025-08-17,Chelsea,Crystal Palace,2025/26,0-0,1-1,1-0,0,0,wrong_to_other_wrong,5,10
+2025-08-17,Man United,Arsenal,2025/26,0-1,1-1,0-1,0,1,wrong_to_correct,1,4
+2025-08-23,Arsenal,Leeds,2025/26,5-0,2-0,3-0,0,0,wrong_to_other_wrong,9,12
+2025-08-23,Bournemouth,Wolves,2025/26,1-0,1-0,1-1,1,0,correct_to_wrong,3,1
+2025-08-23,Burnley,Sunderland,2025/26,2-0,1-0,1-1,0,0,wrong_to_other_wrong,6,5
+2025-08-24,Fulham,Man United,2025/26,1-1,1-1,1-0,1,0,correct_to_wrong,2,1
+2025-08-30,Chelsea,Fulham,2025/26,2-0,1-1,2-1,0,0,wrong_to_other_wrong,2,4
+2025-08-30,Leeds,Newcastle,2025/26,0-0,1-2,1-1,0,0,wrong_to_other_wrong,6,12
+2025-08-30,Man United,Burnley,2025/26,3-2,1-0,1-1,0,0,wrong_to_other_wrong,12,13
+2025-08-31,Brighton,Man City,2025/26,2-1,1-1,0-1,0,0,wrong_to_other_wrong,6,6
+2025-08-31,Liverpool,Arsenal,2025/26,1-0,2-1,1-1,0,0,wrong_to_other_wrong,2,4
+2025-08-31,Nott'm Forest,West Ham,2025/26,0-3,1-1,2-1,0,0,wrong_to_other_wrong,20,17
+2025-09-13,Crystal Palace,Sunderland,2025/26,0-0,1-0,2-1,0,0,wrong_to_other_wrong,8,6
+2025-09-13,Everton,Aston Villa,2025/26,0-0,1-0,2-0,0,0,wrong_to_other_wrong,2,3
+2025-09-13,Newcastle,Wolves,2025/26,1-0,1-0,1-1,1,0,correct_to_wrong,2,1
+2025-09-14,Burnley,Liverpool,2025/26,0-1,1-1,0-2,0,0,wrong_to_other_wrong,3,2
+2025-09-14,Man City,Man United,2025/26,3-0,3-1,2-0,0,0,wrong_to_other_wrong,2,3
+2025-09-20,Brighton,Tottenham,2025/26,2-2,1-1,1-0,0,0,wrong_to_other_wrong,10,7
+2025-09-20,Fulham,Brentford,2025/26,3-1,1-0,1-1,0,0,wrong_to_other_wrong,10,10
+2025-09-20,Wolves,Leeds,2025/26,1-3,1-1,1-0,0,0,wrong_to_other_wrong,13,12
+2025-09-21,Bournemouth,Newcastle,2025/26,0-0,1-1,0-0,0,1,wrong_to_correct,1,6
+2025-09-21,Sunderland,Aston Villa,2025/26,1-1,1-1,0-1,1,0,correct_to_wrong,2,1
+2025-09-27,Chelsea,Brighton,2025/26,1-3,1-0,2-0,0,0,wrong_to_other_wrong,16,15
+2025-09-28,Aston Villa,Fulham,2025/26,3-1,1-0,1-1,0,0,wrong_to_other_wrong,5,9
+2025-10-03,Bournemouth,Fulham,2025/26,3-1,1-0,1-1,0,0,wrong_to_other_wrong,6,9
+2025-10-04,Man United,Sunderland,2025/26,2-0,1-0,1-1,0,0,wrong_to_other_wrong,6,2
+2025-10-05,Aston Villa,Burnley,2025/26,2-1,2-0,2-1,0,1,wrong_to_correct,1,2
+2025-10-05,Everton,Crystal Palace,2025/26,2-1,1-1,1-0,0,0,wrong_to_other_wrong,5,5
+2025-10-05,Newcastle,Nott'm Forest,2025/26,2-0,1-1,1-0,0,0,wrong_to_other_wrong,2,4
+2025-10-18,Fulham,Arsenal,2025/26,0-1,1-2,0-1,0,1,wrong_to_correct,1,4
+2025-10-18,Sunderland,Wolves,2025/26,2-0,1-1,1-0,0,0,wrong_to_other_wrong,5,6
+2025-10-19,Liverpool,Man United,2025/26,1-2,2-1,2-0,0,0,wrong_to_other_wrong,15,14
+2025-10-19,Tottenham,Aston Villa,2025/26,1-2,1-1,1-0,0,0,wrong_to_other_wrong,5,4
+2025-10-25,Brentford,Liverpool,2025/26,3-2,1-1,0-1,0,0,wrong_to_other_wrong,15,12
+2025-10-25,Chelsea,Sunderland,2025/26,1-2,2-0,2-1,0,0,wrong_to_other_wrong,12,12
+2025-10-25,Newcastle,Fulham,2025/26,2-1,1-1,1-0,0,0,wrong_to_other_wrong,4,3
+2025-10-26,Arsenal,Crystal Palace,2025/26,1-0,2-1,2-0,0,0,wrong_to_other_wrong,3,4
+2025-10-26,Aston Villa,Man City,2025/26,1-0,1-1,1-2,0,0,wrong_to_other_wrong,5,5
+2025-10-26,Bournemouth,Nott'm Forest,2025/26,2-0,1-1,1-0,0,0,wrong_to_other_wrong,2,6
+2025-11-01,Brighton,Leeds,2025/26,3-0,1-1,2-0,0,0,wrong_to_other_wrong,5,9
+2025-11-01,Burnley,Arsenal,2025/26,0-2,1-2,0-2,0,1,wrong_to_correct,1,2
+2025-11-01,Liverpool,Aston Villa,2025/26,2-0,2-0,1-1,1,0,correct_to_wrong,4,1
+2025-11-01,Tottenham,Chelsea,2025/26,0-1,1-1,0-1,0,1,wrong_to_correct,1,2
+2025-11-03,Sunderland,Everton,2025/26,1-1,1-1,1-0,1,0,correct_to_wrong,2,1
+2025-11-08,Sunderland,Arsenal,2025/26,2-2,1-1,0-1,0,0,wrong_to_other_wrong,12,7
+2025-11-09,Aston Villa,Bournemouth,2025/26,4-0,1-1,2-1,0,0,wrong_to_other_wrong,18,14
+2025-11-09,Brentford,Newcastle,2025/26,3-1,1-1,2-1,0,0,wrong_to_other_wrong,10,9
+2025-11-09,Crystal Palace,Brighton,2025/26,0-0,1-1,2-1,0,0,wrong_to_other_wrong,8,9
+2025-11-22,Burnley,Chelsea,2025/26,0-2,0-2,0-1,1,0,correct_to_wrong,3,1
+2025-11-29,Everton,Newcastle,2025/26,1-4,1-1,2-1,0,0,wrong_to_other_wrong,21,20
+2025-11-29,Tottenham,Fulham,2025/26,1-2,1-1,1-0,0,0,wrong_to_other_wrong,3,5
+2025-11-30,Crystal Palace,Man United,2025/26,1-2,2-1,1-1,0,0,wrong_to_other_wrong,7,8
+2025-12-03,Arsenal,Brentford,2025/26,2-0,2-0,2-1,1,0,correct_to_wrong,2,1
+2025-12-03,Burnley,Crystal Palace,2025/26,0-1,0-1,1-1,1,0,correct_to_wrong,2,1
+2025-12-03,Leeds,Chelsea,2025/26,3-1,0-1,1-1,0,0,wrong_to_other_wrong,13,15
+2025-12-04,Man United,West Ham,2025/26,1-1,2-0,2-1,0,0,wrong_to_other_wrong,3,4
+2025-12-06,Aston Villa,Arsenal,2025/26,2-1,1-1,1-0,0,0,wrong_to_other_wrong,5,5
+2025-12-06,Everton,Nott'm Forest,2025/26,3-0,1-1,1-0,0,0,wrong_to_other_wrong,8,11
+2025-12-06,Leeds,Liverpool,2025/26,3-3,1-1,1-2,0,0,wrong_to_other_wrong,19,20
+2025-12-07,Brighton,West Ham,2025/26,1-1,1-1,2-1,1,0,correct_to_wrong,3,1
+2025-12-13,Arsenal,Wolves,2025/26,2-1,2-0,1-0,0,0,wrong_to_other_wrong,5,4
+2025-12-13,Burnley,Fulham,2025/26,2-3,1-1,1-2,0,0,wrong_to_other_wrong,12,13
+2025-12-13,Chelsea,Everton,2025/26,2-0,2-0,1-0,1,0,correct_to_wrong,3,1
+2025-12-14,Brentford,Leeds,2025/26,1-1,1-1,2-1,1,0,correct_to_wrong,2,1
+2025-12-14,West Ham,Aston Villa,2025/26,2-3,1-1,0-1,0,0,wrong_to_other_wrong,15,12
+2025-12-15,Man United,Bournemouth,2025/26,4-4,2-1,1-1,0,0,wrong_to_other_wrong,29,31
+2025-12-20,Everton,Arsenal,2025/26,0-1,1-1,0-1,0,1,wrong_to_correct,1,2
+2025-12-20,Newcastle,Chelsea,2025/26,2-2,1-1,1-0,0,0,wrong_to_other_wrong,8,9
+2025-12-20,Tottenham,Liverpool,2025/26,1-2,1-1,0-1,0,0,wrong_to_other_wrong,4,3
+2025-12-22,Fulham,Nott'm Forest,2025/26,1-0,1-1,1-0,0,1,wrong_to_correct,1,2
+2025-12-26,Man United,Newcastle,2025/26,1-0,1-1,2-0,0,0,wrong_to_other_wrong,3,2
+2025-12-27,Arsenal,Brighton,2025/26,2-1,2-1,2-0,1,0,correct_to_wrong,3,1
+2025-12-27,Chelsea,Aston Villa,2025/26,1-2,1-1,1-0,0,0,wrong_to_other_wrong,3,6
+2025-12-27,West Ham,Fulham,2025/26,0-1,1-0,1-1,0,0,wrong_to_other_wrong,6,4
+2025-12-28,Sunderland,Leeds,2025/26,1-1,1-1,1-0,1,0,correct_to_wrong,2,1
+2025-12-30,Arsenal,Aston Villa,2025/26,4-1,1-1,2-1,0,0,wrong_to_other_wrong,9,12
+2025-12-30,Burnley,Newcastle,2025/26,1-3,0-1,0-2,0,0,wrong_to_other_wrong,9,9
+2025-12-30,Chelsea,Bournemouth,2025/26,2-2,2-0,1-0,0,0,wrong_to_other_wrong,9,7
+2025-12-30,Man United,Wolves,2025/26,1-1,1-0,2-0,0,0,wrong_to_other_wrong,4,4
+2025-12-30,Nott'm Forest,Everton,2025/26,0-2,1-1,1-0,0,0,wrong_to_other_wrong,8,8
+2026-01-01,Brentford,Tottenham,2025/26,0-0,1-0,1-1,0,0,wrong_to_other_wrong,6,5
+2026-01-03,Brighton,Burnley,2025/26,2-0,2-0,2-1,1,0,correct_to_wrong,2,1
+2026-01-04,Everton,Brentford,2025/26,2-4,1-0,1-1,0,0,wrong_to_other_wrong,21,23
+2026-01-04,Fulham,Liverpool,2025/26,2-2,1-1,0-1,0,0,wrong_to_other_wrong,8,8
+2026-01-04,Man City,Chelsea,2025/26,1-1,2-0,1-1,0,1,wrong_to_correct,1,4
+2026-01-06,West Ham,Nott'm Forest,2025/26,1-2,1-1,1-0,0,0,wrong_to_other_wrong,7,4
+2026-01-07,Bournemouth,Tottenham,2025/26,3-2,1-0,1-1,0,0,wrong_to_other_wrong,12,13
+2026-01-07,Burnley,Man United,2025/26,2-2,1-1,0-2,0,0,wrong_to_other_wrong,5,10
+2026-01-07,Everton,Wolves,2025/26,1-1,1-0,2-0,0,0,wrong_to_other_wrong,7,3
+2026-01-07,Newcastle,Leeds,2025/26,4-3,1-0,1-1,0,0,wrong_to_other_wrong,23,23
+2026-01-17,Man United,Man City,2025/26,2-0,1-1,0-1,0,0,wrong_to_other_wrong,9,11
+2026-01-18,Aston Villa,Everton,2025/26,0-1,1-1,2-0,0,0,wrong_to_other_wrong,9,8
+2026-01-24,Fulham,Brighton,2025/26,2-1,1-1,1-0,0,0,wrong_to_other_wrong,7,5
+2026-01-25,Arsenal,Man United,2025/26,2-3,2-1,2-0,0,0,wrong_to_other_wrong,15,18
+2026-01-25,Newcastle,Aston Villa,2025/26,0-2,1-1,1-0,0,0,wrong_to_other_wrong,9,9
+2026-01-31,Chelsea,West Ham,2025/26,3-2,1-0,2-0,0,0,wrong_to_other_wrong,14,13
+2026-01-31,Leeds,Arsenal,2025/26,0-4,1-1,0-1,0,0,wrong_to_other_wrong,10,16
+2026-01-31,Liverpool,Newcastle,2025/26,4-1,2-1,1-1,0,0,wrong_to_other_wrong,13,10
+2026-02-01,Aston Villa,Brentford,2025/26,0-1,2-1,1-1,0,0,wrong_to_other_wrong,7,9
+2026-02-01,Man United,Fulham,2025/26,3-2,1-1,2-1,0,0,wrong_to_other_wrong,12,12
+2026-02-01,Tottenham,Man City,2025/26,2-2,1-1,0-1,0,0,wrong_to_other_wrong,12,10
+2026-02-02,Sunderland,Burnley,2025/26,3-0,1-0,2-0,0,0,wrong_to_other_wrong,6,7
+2026-02-07,Bournemouth,Aston Villa,2025/26,1-1,1-1,0-1,1,0,correct_to_wrong,3,1
+2026-02-07,Man United,Tottenham,2025/26,2-0,2-1,2-0,0,1,wrong_to_correct,1,3
+2026-02-08,Liverpool,Man City,2025/26,1-2,1-1,2-0,0,0,wrong_to_other_wrong,8,5
+2026-02-11,Aston Villa,Brighton,2025/26,1-0,2-0,1-0,0,1,wrong_to_correct,1,2
+2026-02-11,Crystal Palace,Burnley,2025/26,2-3,1-0,2-1,0,0,wrong_to_other_wrong,16,19
+2026-02-11,Man City,Fulham,2025/26,3-0,2-0,2-1,0,0,wrong_to_other_wrong,4,5
+2026-02-12,Brentford,Arsenal,2025/26,1-1,1-1,0-1,1,0,correct_to_wrong,2,1
+2026-02-18,Wolves,Arsenal,2025/26,2-2,1-1,0-2,0,0,wrong_to_other_wrong,9,7
+2026-02-22,Crystal Palace,Wolves,2025/26,1-0,1-0,2-0,1,0,correct_to_wrong,2,1
+2026-02-22,Nott'm Forest,Liverpool,2025/26,0-1,1-1,0-1,0,1,wrong_to_correct,1,3
+2026-02-27,Wolves,Aston Villa,2025/26,2-0,0-1,0-2,0,0,wrong_to_other_wrong,11,11
+2026-02-28,Bournemouth,Sunderland,2025/26,1-1,1-0,1-1,0,1,wrong_to_correct,1,2
+2026-02-28,Leeds,Man City,2025/26,0-1,0-1,1-1,1,0,correct_to_wrong,2,1
+2026-03-01,Brighton,Nott'm Forest,2025/26,2-1,1-1,1-0,0,0,wrong_to_other_wrong,4,2
+2026-03-01,Fulham,Tottenham,2025/26,2-1,1-1,1-0,0,0,wrong_to_other_wrong,4,3
+2026-03-01,Man United,Crystal Palace,2025/26,2-1,1-0,2-0,0,0,wrong_to_other_wrong,2,4
+2026-03-03,Bournemouth,Brentford,2025/26,0-0,1-0,1-1,0,0,wrong_to_other_wrong,6,5
+2026-03-03,Everton,Burnley,2025/26,2-0,1-0,2-0,0,1,wrong_to_correct,1,2
+2026-03-03,Wolves,Liverpool,2025/26,2-1,0-1,1-2,0,0,wrong_to_other_wrong,10,9
+2026-03-04,Brighton,Arsenal,2025/26,0-1,1-1,0-1,0,1,wrong_to_correct,1,2
+2026-03-04,Fulham,West Ham,2025/26,0-1,1-0,2-0,0,0,wrong_to_other_wrong,6,6
+2026-03-04,Man City,Nott'm Forest,2025/26,2-2,3-0,2-0,0,0,wrong_to_other_wrong,10,12
+2026-03-14,Burnley,Bournemouth,2025/26,0-0,0-1,1-1,0,0,wrong_to_other_wrong,8,5
+2026-03-14,West Ham,Man City,2025/26,1-1,0-2,0-1,0,0,wrong_to_other_wrong,3,4
+2026-03-15,Crystal Palace,Leeds,2025/26,0-0,1-1,1-0,0,0,wrong_to_other_wrong,5,6
+2026-03-15,Man United,Aston Villa,2025/26,3-1,1-0,1-1,0,0,wrong_to_other_wrong,7,9
+2026-03-16,Brentford,Wolves,2025/26,2-2,1-0,2-1,0,0,wrong_to_other_wrong,11,11
+2026-03-20,Bournemouth,Man United,2025/26,2-2,1-1,1-0,0,0,wrong_to_other_wrong,9,8
+2026-03-21,Fulham,Burnley,2025/26,3-1,1-0,2-0,0,0,wrong_to_other_wrong,7,8
+2026-03-22,Aston Villa,West Ham,2025/26,2-0,2-0,1-0,1,0,correct_to_wrong,2,1
+2026-03-22,Newcastle,Sunderland,2025/26,1-2,1-0,2-0,0,0,wrong_to_other_wrong,10,9
+2026-04-10,West Ham,Wolves,2025/26,4-0,1-0,1-1,0,0,wrong_to_other_wrong,15,14
+2026-04-11,Arsenal,Bournemouth,2025/26,1-2,2-1,2-0,0,0,wrong_to_other_wrong,15,8
+2026-04-11,Liverpool,Fulham,2025/26,2-0,2-0,2-1,1,0,correct_to_wrong,3,1
+2026-04-13,Man United,Leeds,2025/26,1-2,2-0,1-0,0,0,wrong_to_other_wrong,8,10
+2026-04-18,Chelsea,Man United,2025/26,0-1,2-1,1-1,0,0,wrong_to_other_wrong,3,9
+2026-04-19,Everton,Liverpool,2025/26,1-2,1-1,0-1,0,0,wrong_to_other_wrong,7,3
+2026-04-20,Crystal Palace,West Ham,2025/26,0-0,1-0,2-0,0,0,wrong_to_other_wrong,5,5
+2026-04-25,Liverpool,Crystal Palace,2025/26,3-1,2-0,1-1,0,0,wrong_to_other_wrong,5,6
+2026-05-01,Leeds,Burnley,2025/26,3-1,1-0,2-0,0,0,wrong_to_other_wrong,8,8
+2026-05-03,Aston Villa,Tottenham,2025/26,1-2,2-1,2-0,0,0,wrong_to_other_wrong,13,8
+2026-05-04,Chelsea,Nott'm Forest,2025/26,1-3,1-0,1-1,0,0,wrong_to_other_wrong,9,15
+2026-05-04,Everton,Man City,2025/26,3-3,1-1,0-1,0,0,wrong_to_other_wrong,18,18
+2026-05-09,Brighton,Wolves,2025/26,3-0,1-0,2-0,0,0,wrong_to_other_wrong,5,5
+2026-05-09,Liverpool,Chelsea,2025/26,1-1,2-1,2-0,0,0,wrong_to_other_wrong,4,5
+2026-05-10,Burnley,Aston Villa,2025/26,2-2,0-1,0-2,0,0,wrong_to_other_wrong,4,10
+2026-05-10,Nott'm Forest,Newcastle,2025/26,1-1,1-1,1-0,1,0,correct_to_wrong,2,1
+2026-05-10,West Ham,Arsenal,2025/26,0-1,1-1,0-1,0,1,wrong_to_correct,1,3
+2026-05-13,Man City,Crystal Palace,2025/26,3-0,2-0,2-1,0,0,wrong_to_other_wrong,4,2
+2026-05-17,Everton,Sunderland,2025/26,1-3,1-1,1-0,0,0,wrong_to_other_wrong,15,15
+2026-05-17,Man United,Nott'm Forest,2025/26,3-2,1-0,1-1,0,0,wrong_to_other_wrong,12,14
+2026-05-17,Newcastle,West Ham,2025/26,3-1,1-1,1-0,0,0,wrong_to_other_wrong,8,5
+2026-05-18,Arsenal,Burnley,2025/26,1-0,2-0,1-0,0,1,wrong_to_correct,1,2
+2026-05-19,Bournemouth,Man City,2025/26,1-1,0-1,1-1,0,1,wrong_to_correct,1,2
+2026-05-19,Chelsea,Tottenham,2025/26,2-1,2-0,1-1,0,0,wrong_to_other_wrong,3,2
+2026-05-24,Burnley,Wolves,2025/26,1-1,1-1,2-0,1,0,correct_to_wrong,6,1
+2026-05-24,Crystal Palace,Arsenal,2025/26,1-2,1-1,0-1,0,0,wrong_to_other_wrong,5,2
+2026-05-24,Liverpool,Brentford,2025/26,1-1,2-0,1-0,0,0,wrong_to_other_wrong,2,4
+2026-05-24,Man City,Aston Villa,2025/26,1-2,2-0,2-1,0,0,wrong_to_other_wrong,12,11
+2026-05-24,Nott'm Forest,Bournemouth,2025/26,1-1,1-1,1-0,1,0,correct_to_wrong,2,1

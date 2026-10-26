@@ -1,0 +1,45 @@
+{
+  "experiment": "high_score_underdispersion_audit_v1",
+  "created_utc": "2026-09-15T10:08:03.988651+00:00",
+  "test_matches": 760,
+  "feature_version": "legacy_v1",
+  "lambda_source": "frozen Phase-3 XGB",
+  "score_grid": "0..6 per side, normalized",
+  "fixed_dc_rho": -0.034189878130936914,
+  "phase3_artifact_sha256": {
+    "xgb_home.json": "fdca5a147997238388359c989dd22ab88fb6d5503348d181a0cf3cdb8333de75",
+    "xgb_away.json": "c8cfa763db9385e85d485f067d6aaacd9e7ebe5eb5be1e4806a74af3d46e0fa8",
+    "cat_home.cbm": "ff82d640ce44baa46bcab30d67e7f9e86596f64d8b94b43bda58728bc3167e17",
+    "cat_away.cbm": "575f84d5db91ab8bca7e67701f1130daee014228247fb8bfcf363ea1ce8649ba",
+    "metadata.joblib": "b9ae9a5196b9e9ec71c2a50b2632ba855b27e3f2708e615e8519e1cf86babda4"
+  },
+  "phase4_matrix_sha256": "ba3a0fe504d048b51cea1cdfa018c7fd24dee0afb7d95192b3ca3f539a4a7eb0",
+  "phase4_test_inputs_sha256": "6d408d731695399c8ad2cda6fac66eb0d891d1bf081796ff042add927568d2d5",
+  "phase5_protected_sha256": {
+    "report.json": "34366230a60bda0f928df5786d5d5eb8a3133574c2c60e370c96222a117fc53f",
+    "final_report.md": "ab332eeb681f2732bef038dc4bb15e6c6f7870dc159393d1b22bbabf9052a7fc"
+  },
+  "phase6_protected_sha256": {
+    "report.json": "f2bd619c10468179433d8ad8a6b512be2a53ed1d63a43b7d7f0c609d9f3d25d3",
+    "final_report.md": "bbd4b97877baa7179927d6bcfcca62d8e0b1e77be4a9a7c6e92f8498ad19d7bf"
+  },
+  "phase7_protected_sha256": {
+    "report.json": "7b25ff73c3898a5348707e2cb23a60bdfba55daf1cacefd217c2abdcf64f3828",
+    "final_report.md": "4eee39e0cbc0fb37955b451feb80e2899da86e37ff01826cd85e86d45d0fa519",
+    "training_manifest.json": "dccb0752013e9ad51f787f3d768e40a5f9a3d034447367a701ed52ef1dabb049",
+    "E_congestion_rates.npy": "9009379d16fa3367945f1acccd2955e75038431e2fc6ef376d2e66e135a2da2a"
+  },
+  "no_model_training": true,
+  "no_lambda_modification": true,
+  "no_score_weighting": true,
+  "fixed_total_bins": [
+    "<2.0",
+    "2.0\u20132.49",
+    "2.5\u20132.99",
+    "3.0\u20133.49",
+    "\u22653.5"
+  ],
+  "boundary_distance_definition": "distance to nearest integer lambda boundary in {1,..,6}; close if <=0.10, near if <=0.25; defined before outcome inspection",
+  "outside_grid_policy": "actual 7-0 has grid probability 0 and rank sentinel 50; oracle can route total but cannot recover missing actual cell",
+  "limitation": "760 repeatedly inspected historical fixtures; all oracle paths use actual result information and are non-deployable"
+}

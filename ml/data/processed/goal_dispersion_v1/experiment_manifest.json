@@ -1,0 +1,31 @@
+{
+  "Methods": [
+    "POISSON_RAW",
+    "NB_GLOBAL",
+    "NB_MEAN_BUCKET"
+  ],
+  "AlphaEstimator": "max(0,sum((y-mu)^2-mu)/sum(mu^2)), clipped 0..1",
+  "Variance": "mu + alpha*mu^2",
+  "MeanBuckets": [
+    0,
+    1.25,
+    2,
+    Infinity
+  ],
+  "ShrinkEquivalentN": 200,
+  "Folds": [
+    "2018/19",
+    "2019/20",
+    "2020/21",
+    "2021/22",
+    "2022/23",
+    "2023/24"
+  ],
+  "Diagnostic": [
+    "2024/25",
+    "2025/26"
+  ],
+  "DynamicSkipped": "conditional overdispersion is mild/inconsistent and per-fixture squared residual has no robust interpretable target",
+  "No2026": true,
+  "ProtectedSHA": "0afa806c8e26b9fa2a354b760128955ad40fa85b7b592bd11aa0fd3a2923f8e3"
+}

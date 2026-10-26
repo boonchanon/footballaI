@@ -1,0 +1,10 @@
+{
+  "RawSHA256": "0afa806c8e26b9fa2a354b760128955ad40fa85b7b592bd11aa0fd3a2923f8e3",
+  "CoverageSHA256": "f7afabd9b5e6b2da416cc5962aff2473d7314401d69f74498ed9d8672e47bd95",
+  "CreatedLocalDay": "2026-09-15",
+  "FutureWithKnownPriorPLResults": 10,
+  "FutureWithUnknownInterveningPLResults": 330,
+  "MechanicalPredictions": 380,
+  "RawUnchanged": true,
+  "Interpretation": "far-future forecasts are provisional snapshots; not feature-complete pre-kickoff forecasts"
+}

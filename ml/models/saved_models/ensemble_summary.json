@@ -1,0 +1,9 @@
+{
+  "rows": 760,
+  "weights": {
+    "catboost": 0.4,
+    "xgboost": 0.4,
+    "poisson": 0.2
+  },
+  "average_confidence": 0.5406730526961188
+}

@@ -1,0 +1,891 @@
+{
+  "experiment": "score_calibration_v1",
+  "created_utc": "2026-09-15T09:09:49.723611+00:00",
+  "baseline_independent_hits": 96,
+  "challenger_dc_hits": 99,
+  "feature_version": "legacy_v1",
+  "score_grid": "0..6 per side",
+  "calibration_parameters_file": "calibration_parameters.json",
+  "data_manifest_file": "data_manifest.json",
+  "best_calibration_method": "temperature",
+  "methods": {
+    "raw": {
+      "matches": 760,
+      "exact_hits": 96,
+      "exact_top1": 0.12631578947368421,
+      "top3_hits": 215,
+      "top3_exact": 0.28289473684210525,
+      "conditional_grid_nll": 2.9356819879114244,
+      "grid_supported_matches": 759,
+      "predicted_scores": {
+        "1-1": 437,
+        "2-0": 116,
+        "1-0": 115,
+        "2-1": 38,
+        "0-1": 28,
+        "0-2": 12,
+        "1-2": 10,
+        "3-0": 3,
+        "3-1": 1
+      },
+      "top1_entropy_nats": 1.315311813366174,
+      "top1_frequency_tv_distance": 0.6249999999999998,
+      "most_common_score": "1-1",
+      "most_common_count": 437,
+      "unique_scorelines": 9,
+      "count_1_1": 437,
+      "count_2_1": 38,
+      "predicted_draw_count": 437,
+      "predicted_draw_rate": 0.575,
+      "actual_draw_rate": 0.25921052631578945,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 115,
+          "correct": 9,
+          "precision": 0.0782608695652174
+        },
+        "0-1": {
+          "predicted": 28,
+          "correct": 4,
+          "precision": 0.14285714285714285
+        },
+        "1-1": {
+          "predicted": 437,
+          "correct": 57,
+          "precision": 0.13043478260869565
+        },
+        "2-0": {
+          "predicted": 116,
+          "correct": 18,
+          "precision": 0.15517241379310345
+        },
+        "0-2": {
+          "predicted": 12,
+          "correct": 3,
+          "precision": 0.25
+        },
+        "2-1": {
+          "predicted": 38,
+          "correct": 5,
+          "precision": 0.13157894736842105
+        },
+        "1-2": {
+          "predicted": 10,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 3,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "3-1": {
+          "predicted": 1,
+          "correct": 0,
+          "precision": 0.0
+        }
+      }
+    },
+    "dc": {
+      "matches": 760,
+      "exact_hits": 99,
+      "exact_top1": 0.13026315789473683,
+      "top3_hits": 228,
+      "top3_exact": 0.3,
+      "conditional_grid_nll": 2.9345691794808966,
+      "grid_supported_matches": 759,
+      "predicted_scores": {
+        "1-1": 507,
+        "2-0": 122,
+        "1-0": 67,
+        "2-1": 29,
+        "0-2": 12,
+        "0-1": 12,
+        "1-2": 7,
+        "3-0": 3,
+        "3-1": 1
+      },
+      "top1_entropy_nats": 1.107178172291833,
+      "top1_frequency_tv_distance": 0.6618421052631577,
+      "most_common_score": "1-1",
+      "most_common_count": 507,
+      "unique_scorelines": 9,
+      "count_1_1": 507,
+      "count_2_1": 29,
+      "predicted_draw_count": 507,
+      "predicted_draw_rate": 0.6671052631578948,
+      "actual_draw_rate": 0.25921052631578945,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 67,
+          "correct": 5,
+          "precision": 0.07462686567164178
+        },
+        "0-1": {
+          "predicted": 12,
+          "correct": 3,
+          "precision": 0.25
+        },
+        "1-1": {
+          "predicted": 507,
+          "correct": 66,
+          "precision": 0.1301775147928994
+        },
+        "2-0": {
+          "predicted": 122,
+          "correct": 18,
+          "precision": 0.14754098360655737
+        },
+        "0-2": {
+          "predicted": 12,
+          "correct": 3,
+          "precision": 0.25
+        },
+        "2-1": {
+          "predicted": 29,
+          "correct": 4,
+          "precision": 0.13793103448275862
+        },
+        "1-2": {
+          "predicted": 7,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 3,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "3-1": {
+          "predicted": 1,
+          "correct": 0,
+          "precision": 0.0
+        }
+      }
+    },
+    "temperature": {
+      "matches": 760,
+      "exact_hits": 96,
+      "exact_top1": 0.12631578947368421,
+      "top3_hits": 215,
+      "top3_exact": 0.28289473684210525,
+      "conditional_grid_nll": 2.9378579440525097,
+      "grid_supported_matches": 759,
+      "predicted_scores": {
+        "1-1": 437,
+        "2-0": 116,
+        "1-0": 115,
+        "2-1": 38,
+        "0-1": 28,
+        "0-2": 12,
+        "1-2": 10,
+        "3-0": 3,
+        "3-1": 1
+      },
+      "top1_entropy_nats": 1.315311813366174,
+      "top1_frequency_tv_distance": 0.6249999999999998,
+      "most_common_score": "1-1",
+      "most_common_count": 437,
+      "unique_scorelines": 9,
+      "count_1_1": 437,
+      "count_2_1": 38,
+      "predicted_draw_count": 437,
+      "predicted_draw_rate": 0.575,
+      "actual_draw_rate": 0.25921052631578945,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 115,
+          "correct": 9,
+          "precision": 0.0782608695652174
+        },
+        "0-1": {
+          "predicted": 28,
+          "correct": 4,
+          "precision": 0.14285714285714285
+        },
+        "1-1": {
+          "predicted": 437,
+          "correct": 57,
+          "precision": 0.13043478260869565
+        },
+        "2-0": {
+          "predicted": 116,
+          "correct": 18,
+          "precision": 0.15517241379310345
+        },
+        "0-2": {
+          "predicted": 12,
+          "correct": 3,
+          "precision": 0.25
+        },
+        "2-1": {
+          "predicted": 38,
+          "correct": 5,
+          "precision": 0.13157894736842105
+        },
+        "1-2": {
+          "predicted": 10,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 3,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "3-1": {
+          "predicted": 1,
+          "correct": 0,
+          "precision": 0.0
+        }
+      }
+    },
+    "score_specific": {
+      "matches": 760,
+      "exact_hits": 90,
+      "exact_top1": 0.11842105263157894,
+      "top3_hits": 235,
+      "top3_exact": 0.3092105263157895,
+      "conditional_grid_nll": 2.9316469117344512,
+      "grid_supported_matches": 759,
+      "predicted_scores": {
+        "1-1": 404,
+        "2-1": 133,
+        "2-0": 67,
+        "1-0": 40,
+        "1-2": 37,
+        "0-1": 30,
+        "3-0": 21,
+        "0-2": 19,
+        "3-1": 9
+      },
+      "top1_entropy_nats": 1.5286449521966514,
+      "top1_frequency_tv_distance": 0.5157894736842102,
+      "most_common_score": "1-1",
+      "most_common_count": 404,
+      "unique_scorelines": 9,
+      "count_1_1": 404,
+      "count_2_1": 133,
+      "predicted_draw_count": 404,
+      "predicted_draw_rate": 0.531578947368421,
+      "actual_draw_rate": 0.25921052631578945,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 40,
+          "correct": 5,
+          "precision": 0.125
+        },
+        "0-1": {
+          "predicted": 30,
+          "correct": 4,
+          "precision": 0.13333333333333333
+        },
+        "1-1": {
+          "predicted": 404,
+          "correct": 52,
+          "precision": 0.12871287128712872
+        },
+        "2-0": {
+          "predicted": 67,
+          "correct": 10,
+          "precision": 0.14925373134328357
+        },
+        "0-2": {
+          "predicted": 19,
+          "correct": 3,
+          "precision": 0.15789473684210525
+        },
+        "2-1": {
+          "predicted": 133,
+          "correct": 10,
+          "precision": 0.07518796992481203
+        },
+        "1-2": {
+          "predicted": 37,
+          "correct": 4,
+          "precision": 0.10810810810810811
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 21,
+          "correct": 2,
+          "precision": 0.09523809523809523
+        },
+        "3-1": {
+          "predicted": 9,
+          "correct": 0,
+          "precision": 0.0
+        }
+      }
+    },
+    "structured": {
+      "matches": 760,
+      "exact_hits": 88,
+      "exact_top1": 0.11578947368421053,
+      "top3_hits": 223,
+      "top3_exact": 0.29342105263157897,
+      "conditional_grid_nll": 2.9491868550426092,
+      "grid_supported_matches": 759,
+      "predicted_scores": {
+        "1-1": 292,
+        "2-1": 260,
+        "1-2": 101,
+        "1-0": 46,
+        "2-0": 39,
+        "3-1": 10,
+        "0-1": 9,
+        "0-2": 2,
+        "3-0": 1
+      },
+      "top1_entropy_nats": 1.4587130629488194,
+      "top1_frequency_tv_distance": 0.5723684210526314,
+      "most_common_score": "1-1",
+      "most_common_count": 292,
+      "unique_scorelines": 9,
+      "count_1_1": 292,
+      "count_2_1": 260,
+      "predicted_draw_count": 292,
+      "predicted_draw_rate": 0.38421052631578945,
+      "actual_draw_rate": 0.25921052631578945,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 46,
+          "correct": 4,
+          "precision": 0.08695652173913043
+        },
+        "0-1": {
+          "predicted": 9,
+          "correct": 3,
+          "precision": 0.3333333333333333
+        },
+        "1-1": {
+          "predicted": 292,
+          "correct": 39,
+          "precision": 0.13356164383561644
+        },
+        "2-0": {
+          "predicted": 39,
+          "correct": 3,
+          "precision": 0.07692307692307693
+        },
+        "0-2": {
+          "predicted": 2,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "2-1": {
+          "predicted": 260,
+          "correct": 28,
+          "precision": 0.1076923076923077
+        },
+        "1-2": {
+          "predicted": 101,
+          "correct": 10,
+          "precision": 0.09900990099009901
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 1,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "3-1": {
+          "predicted": 10,
+          "correct": 1,
+          "precision": 0.1
+        }
+      }
+    }
+  },
+  "flips": {
+    "temperature": {
+      "changed_top1": 0,
+      "gained_vs_raw": 0,
+      "lost_vs_raw": 0,
+      "gained_vs_dc": 6,
+      "lost_vs_dc": 9
+    },
+    "score_specific": {
+      "changed_top1": 223,
+      "gained_vs_raw": 17,
+      "lost_vs_raw": 23,
+      "gained_vs_dc": 15,
+      "lost_vs_dc": 24
+    },
+    "structured": {
+      "changed_top1": 353,
+      "gained_vs_raw": 35,
+      "lost_vs_raw": 43,
+      "gained_vs_dc": 35,
+      "lost_vs_dc": 46
+    }
+  },
+  "score_distribution": [
+    {
+      "Score": "0-0",
+      "ActualCount": 43,
+      "ActualPct": 5.657894736842105,
+      "rawCount": 0,
+      "dcCount": 0,
+      "temperatureCount": 0,
+      "score_specificCount": 0,
+      "structuredCount": 0,
+      "rawPct": 0.0,
+      "dcPct": 0.0,
+      "temperaturePct": 0.0,
+      "score_specificPct": 0.0,
+      "structuredPct": 0.0
+    },
+    {
+      "Score": "1-0",
+      "ActualCount": 51,
+      "ActualPct": 6.7105263157894735,
+      "rawCount": 115,
+      "dcCount": 67,
+      "temperatureCount": 115,
+      "score_specificCount": 40,
+      "structuredCount": 46,
+      "rawPct": 15.131578947368421,
+      "dcPct": 8.81578947368421,
+      "temperaturePct": 15.131578947368421,
+      "score_specificPct": 5.2631578947368425,
+      "structuredPct": 6.052631578947368
+    },
+    {
+      "Score": "0-1",
+      "ActualCount": 57,
+      "ActualPct": 7.5,
+      "rawCount": 28,
+      "dcCount": 12,
+      "temperatureCount": 28,
+      "score_specificCount": 30,
+      "structuredCount": 9,
+      "rawPct": 3.6842105263157894,
+      "dcPct": 1.5789473684210527,
+      "temperaturePct": 3.6842105263157894,
+      "score_specificPct": 3.9473684210526314,
+      "structuredPct": 1.1842105263157894
+    },
+    {
+      "Score": "1-1",
+      "ActualCount": 92,
+      "ActualPct": 12.105263157894736,
+      "rawCount": 437,
+      "dcCount": 507,
+      "temperatureCount": 437,
+      "score_specificCount": 404,
+      "structuredCount": 292,
+      "rawPct": 57.5,
+      "dcPct": 66.71052631578948,
+      "temperaturePct": 57.5,
+      "score_specificPct": 53.1578947368421,
+      "structuredPct": 38.421052631578945
+    },
+    {
+      "Score": "2-0",
+      "ActualCount": 50,
+      "ActualPct": 6.578947368421052,
+      "rawCount": 116,
+      "dcCount": 122,
+      "temperatureCount": 116,
+      "score_specificCount": 67,
+      "structuredCount": 39,
+      "rawPct": 15.263157894736842,
+      "dcPct": 16.05263157894737,
+      "temperaturePct": 15.263157894736842,
+      "score_specificPct": 8.81578947368421,
+      "structuredPct": 5.131578947368421
+    },
+    {
+      "Score": "0-2",
+      "ActualCount": 43,
+      "ActualPct": 5.657894736842105,
+      "rawCount": 12,
+      "dcCount": 12,
+      "temperatureCount": 12,
+      "score_specificCount": 19,
+      "structuredCount": 2,
+      "rawPct": 1.5789473684210527,
+      "dcPct": 1.5789473684210527,
+      "temperaturePct": 1.5789473684210527,
+      "score_specificPct": 2.5,
+      "structuredPct": 0.2631578947368421
+    },
+    {
+      "Score": "2-1",
+      "ActualCount": 70,
+      "ActualPct": 9.210526315789474,
+      "rawCount": 38,
+      "dcCount": 29,
+      "temperatureCount": 38,
+      "score_specificCount": 133,
+      "structuredCount": 260,
+      "rawPct": 5.0,
+      "dcPct": 3.8157894736842106,
+      "temperaturePct": 5.0,
+      "score_specificPct": 17.5,
+      "structuredPct": 34.21052631578947
+    },
+    {
+      "Score": "1-2",
+      "ActualCount": 56,
+      "ActualPct": 7.368421052631579,
+      "rawCount": 10,
+      "dcCount": 7,
+      "temperatureCount": 10,
+      "score_specificCount": 37,
+      "structuredCount": 101,
+      "rawPct": 1.3157894736842106,
+      "dcPct": 0.9210526315789473,
+      "temperaturePct": 1.3157894736842106,
+      "score_specificPct": 4.868421052631579,
+      "structuredPct": 13.289473684210526
+    },
+    {
+      "Score": "2-2",
+      "ActualCount": 57,
+      "ActualPct": 7.5,
+      "rawCount": 0,
+      "dcCount": 0,
+      "temperatureCount": 0,
+      "score_specificCount": 0,
+      "structuredCount": 0,
+      "rawPct": 0.0,
+      "dcPct": 0.0,
+      "temperaturePct": 0.0,
+      "score_specificPct": 0.0,
+      "structuredPct": 0.0
+    },
+    {
+      "Score": "3-0",
+      "ActualCount": 38,
+      "ActualPct": 5.0,
+      "rawCount": 3,
+      "dcCount": 3,
+      "temperatureCount": 3,
+      "score_specificCount": 21,
+      "structuredCount": 1,
+      "rawPct": 0.39473684210526316,
+      "dcPct": 0.39473684210526316,
+      "temperaturePct": 0.39473684210526316,
+      "score_specificPct": 2.763157894736842,
+      "structuredPct": 0.13157894736842105
+    },
+    {
+      "Score": "0-3",
+      "ActualCount": 22,
+      "ActualPct": 2.8947368421052633,
+      "rawCount": 0,
+      "dcCount": 0,
+      "temperatureCount": 0,
+      "score_specificCount": 0,
+      "structuredCount": 0,
+      "rawPct": 0.0,
+      "dcPct": 0.0,
+      "temperaturePct": 0.0,
+      "score_specificPct": 0.0,
+      "structuredPct": 0.0
+    },
+    {
+      "Score": "3-1",
+      "ActualCount": 37,
+      "ActualPct": 4.868421052631579,
+      "rawCount": 1,
+      "dcCount": 1,
+      "temperatureCount": 1,
+      "score_specificCount": 9,
+      "structuredCount": 10,
+      "rawPct": 0.13157894736842105,
+      "dcPct": 0.13157894736842105,
+      "temperaturePct": 0.13157894736842105,
+      "score_specificPct": 1.1842105263157894,
+      "structuredPct": 1.3157894736842106
+    },
+    {
+      "Score": "1-3",
+      "ActualCount": 20,
+      "ActualPct": 2.6315789473684212,
+      "rawCount": 0,
+      "dcCount": 0,
+      "temperatureCount": 0,
+      "score_specificCount": 0,
+      "structuredCount": 0,
+      "rawPct": 0.0,
+      "dcPct": 0.0,
+      "temperaturePct": 0.0,
+      "score_specificPct": 0.0,
+      "structuredPct": 0.0
+    },
+    {
+      "Score": "3-2",
+      "ActualCount": 22,
+      "ActualPct": 2.8947368421052633,
+      "rawCount": 0,
+      "dcCount": 0,
+      "temperatureCount": 0,
+      "score_specificCount": 0,
+      "structuredCount": 0,
+      "rawPct": 0.0,
+      "dcPct": 0.0,
+      "temperaturePct": 0.0,
+      "score_specificPct": 0.0,
+      "structuredPct": 0.0
+    },
+    {
+      "Score": "2-3",
+      "ActualCount": 15,
+      "ActualPct": 1.9736842105263157,
+      "rawCount": 0,
+      "dcCount": 0,
+      "temperatureCount": 0,
+      "score_specificCount": 0,
+      "structuredCount": 0,
+      "rawPct": 0.0,
+      "dcPct": 0.0,
+      "temperaturePct": 0.0,
+      "score_specificPct": 0.0,
+      "structuredPct": 0.0
+    }
+  ],
+  "confidence_bins": {
+    "raw": [
+      {
+        "lower": 0,
+        "upper": 0.1,
+        "matches": 66,
+        "mean_top1_probability": 0.0961354760958532,
+        "observed_exact_rate": 0.10606060606060606
+      },
+      {
+        "lower": 0.1,
+        "upper": 0.125,
+        "matches": 493,
+        "mean_top1_probability": 0.11500310555948286,
+        "observed_exact_rate": 0.12778904665314403
+      },
+      {
+        "lower": 0.125,
+        "upper": 0.15,
+        "matches": 189,
+        "mean_top1_probability": 0.13066688515262148,
+        "observed_exact_rate": 0.12698412698412698
+      },
+      {
+        "lower": 0.15,
+        "upper": 0.2,
+        "matches": 12,
+        "mean_top1_probability": 0.1562305475008986,
+        "observed_exact_rate": 0.16666666666666666
+      },
+      {
+        "lower": 0.2,
+        "upper": 1.01,
+        "matches": 0,
+        "mean_top1_probability": null,
+        "observed_exact_rate": null
+      }
+    ],
+    "dc": [
+      {
+        "lower": 0,
+        "upper": 0.1,
+        "matches": 55,
+        "mean_top1_probability": 0.09569541896171332,
+        "observed_exact_rate": 0.10909090909090909
+      },
+      {
+        "lower": 0.1,
+        "upper": 0.125,
+        "matches": 422,
+        "mean_top1_probability": 0.11529606712041306,
+        "observed_exact_rate": 0.13981042654028436
+      },
+      {
+        "lower": 0.125,
+        "upper": 0.15,
+        "matches": 275,
+        "mean_top1_probability": 0.1306015655345964,
+        "observed_exact_rate": 0.12363636363636364
+      },
+      {
+        "lower": 0.15,
+        "upper": 0.2,
+        "matches": 8,
+        "mean_top1_probability": 0.15543182592979943,
+        "observed_exact_rate": 0.0
+      },
+      {
+        "lower": 0.2,
+        "upper": 1.01,
+        "matches": 0,
+        "mean_top1_probability": null,
+        "observed_exact_rate": null
+      }
+    ],
+    "temperature": [
+      {
+        "lower": 0,
+        "upper": 0.1,
+        "matches": 125,
+        "mean_top1_probability": 0.09417103380741518,
+        "observed_exact_rate": 0.096
+      },
+      {
+        "lower": 0.1,
+        "upper": 0.125,
+        "matches": 572,
+        "mean_top1_probability": 0.11281550874455115,
+        "observed_exact_rate": 0.13286713286713286
+      },
+      {
+        "lower": 0.125,
+        "upper": 0.15,
+        "matches": 60,
+        "mean_top1_probability": 0.13188995672471732,
+        "observed_exact_rate": 0.13333333333333333
+      },
+      {
+        "lower": 0.15,
+        "upper": 0.2,
+        "matches": 3,
+        "mean_top1_probability": 0.1535472142972385,
+        "observed_exact_rate": 0.0
+      },
+      {
+        "lower": 0.2,
+        "upper": 1.01,
+        "matches": 0,
+        "mean_top1_probability": null,
+        "observed_exact_rate": null
+      }
+    ],
+    "score_specific": [
+      {
+        "lower": 0,
+        "upper": 0.1,
+        "matches": 43,
+        "mean_top1_probability": 0.09704007730264792,
+        "observed_exact_rate": 0.09302325581395349
+      },
+      {
+        "lower": 0.1,
+        "upper": 0.125,
+        "matches": 655,
+        "mean_top1_probability": 0.11148759630016217,
+        "observed_exact_rate": 0.11908396946564885
+      },
+      {
+        "lower": 0.125,
+        "upper": 0.15,
+        "matches": 60,
+        "mean_top1_probability": 0.13194685869443776,
+        "observed_exact_rate": 0.1
+      },
+      {
+        "lower": 0.15,
+        "upper": 0.2,
+        "matches": 2,
+        "mean_top1_probability": 0.15507235686262116,
+        "observed_exact_rate": 1.0
+      },
+      {
+        "lower": 0.2,
+        "upper": 1.01,
+        "matches": 0,
+        "mean_top1_probability": null,
+        "observed_exact_rate": null
+      }
+    ],
+    "structured": [
+      {
+        "lower": 0,
+        "upper": 0.1,
+        "matches": 23,
+        "mean_top1_probability": 0.0959184958433955,
+        "observed_exact_rate": 0.13043478260869565
+      },
+      {
+        "lower": 0.1,
+        "upper": 0.125,
+        "matches": 698,
+        "mean_top1_probability": 0.11256537919568163,
+        "observed_exact_rate": 0.11318051575931232
+      },
+      {
+        "lower": 0.125,
+        "upper": 0.15,
+        "matches": 37,
+        "mean_top1_probability": 0.1315137802575341,
+        "observed_exact_rate": 0.16216216216216217
+      },
+      {
+        "lower": 0.15,
+        "upper": 0.2,
+        "matches": 2,
+        "mean_top1_probability": 0.15224400636153818,
+        "observed_exact_rate": 0.0
+      },
+      {
+        "lower": 0.2,
+        "upper": 1.01,
+        "matches": 0,
+        "mean_top1_probability": null,
+        "observed_exact_rate": null
+      }
+    ]
+  },
+  "nll_definition": "Conditional 0..6-grid score-matrix NLL on identical 759/760 in-grid diagnostic matches; one out-of-grid score excluded explicitly for every method. Not directly comparable to Phase-4 untruncated NLL.",
+  "limitations": [
+    "XGB used whole 2023/24 season for early stopping; validation targets were not fitted, but this is not a strict prospective walk-forward prediction set",
+    "The 760 diagnostic seasons were inspected repeatedly; no prospective proof.",
+    "No test-outcome-based multiplier, threshold, temperature or coefficient fit."
+  ]
+}

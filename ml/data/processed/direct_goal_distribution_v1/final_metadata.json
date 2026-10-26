@@ -1,0 +1,37 @@
+{
+  "Features": [
+    "HomeEloPre",
+    "AwayEloPre",
+    "EloDiffPre",
+    "HomeGoalsForAvgLast5",
+    "AwayGoalsForAvgLast5",
+    "HomeGoalsAgainstAvgLast5",
+    "AwayGoalsAgainstAvgLast5"
+  ],
+  "Fills": {
+    "HomeEloPre": 1532.5977522508006,
+    "AwayEloPre": 1532.1725609016355,
+    "EloDiffPre": 0.1508050068462125,
+    "HomeGoalsForAvgLast5": 1.2,
+    "AwayGoalsForAvgLast5": 1.2,
+    "HomeGoalsAgainstAvgLast5": 1.4,
+    "AwayGoalsAgainstAvgLast5": 1.2
+  },
+  "ClassOrder": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "TrainN": 11944,
+  "TrainMaxDate": "2024-05-19",
+  "HomeTarget": "HomeGoals",
+  "AwayTarget": "AwayGoals",
+  "NoCalibration": true,
+  "Matrix": "normalized outer product of exact 0..6; 7+ excluded",
+  "NoScoreWeighting": true
+}

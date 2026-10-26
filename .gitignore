@@ -35,3 +35,8 @@ public/uploads/community/*
 
 # local community moderation/upload storage
 storage/
+
+# ml (AI prediction) local environment and training logs
+ml/.venv/
+ml/**/__pycache__/
+ml/catboost_info/

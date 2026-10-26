@@ -1,0 +1,40 @@
+{
+  "experiment": "outcome_aware_score_selection_v1",
+  "created_utc": "2026-09-15T09:27:53.667124+00:00",
+  "feature_version": "legacy_v1",
+  "lambda_source": "frozen Phase-3 XGB home/away rates",
+  "score_grid": "0..6 per side",
+  "test_matches": 760,
+  "dc_rho": -0.034189878130936914,
+  "phase3_artifact_sha256": {
+    "xgb_home.json": "fdca5a147997238388359c989dd22ab88fb6d5503348d181a0cf3cdb8333de75",
+    "xgb_away.json": "c8cfa763db9385e85d485f067d6aaacd9e7ebe5eb5be1e4806a74af3d46e0fa8",
+    "cat_home.cbm": "ff82d640ce44baa46bcab30d67e7f9e86596f64d8b94b43bda58728bc3167e17",
+    "cat_away.cbm": "575f84d5db91ab8bca7e67701f1130daee014228247fb8bfcf363ea1ce8649ba",
+    "metadata.joblib": "b9ae9a5196b9e9ec71c2a50b2632ba855b27e3f2708e615e8519e1cf86babda4"
+  },
+  "phase4_score_matrices_sha256": "ba3a0fe504d048b51cea1cdfa018c7fd24dee0afb7d95192b3ca3f539a4a7eb0",
+  "phase4_test_inputs_sha256": "6d408d731695399c8ad2cda6fac66eb0d891d1bf081796ff042add927568d2d5",
+  "phase5_protected_sha256": {
+    "data_manifest.json": "d5c6c4831967e141d9ff9f1a695671049fb80fe63cc884be0b31c9ed9841bca8",
+    "calibration_parameters.json": "361bc8b9c48fcefa44aa33af376ffe84270a596b35e73224dfbf0608d1c2b6d6",
+    "report.json": "34366230a60bda0f928df5786d5d5eb8a3133574c2c60e370c96222a117fc53f",
+    "diagnostic_matrices.npz": "5579ab0a351fded58d87ad0eed46337e28ca55a3a70f9e2a10ae2bbb3e8face0",
+    "final_report.md": "ab332eeb681f2732bef038dc4bb15e6c6f7870dc159393d1b22bbabf9052a7fc"
+  },
+  "classifier_status": "VALID",
+  "classifier_hashes": {
+    "data\\processed\\input_parity_no_odds_v1\\catboost_no_odds.cbm": "5a1b7b220830e9e657d07c9b344bfed634223997f422c061775b9a15e4809055",
+    "data\\processed\\input_parity_no_odds_v1\\catboost_metadata.joblib": "9fccbd024deff754d01285e99ec6cdcc0c9032002defdc4566ab31add6ed13e2",
+    "data\\processed\\input_parity_no_odds_v1\\xgboost_no_odds.json": "a5dda9701e0e4ed1287d89baf8a0fcefab9c5580b12f9a330121e4d09454d9d0",
+    "data\\processed\\input_parity_no_odds_v1\\xgboost_metadata.joblib": "9fccbd024deff754d01285e99ec6cdcc0c9032002defdc4566ab31add6ed13e2"
+  },
+  "class_mapping": {
+    "0": "A",
+    "1": "D",
+    "2": "H"
+  },
+  "test_outcomes_used_to_fit": false,
+  "no_thresholds_no_blends_no_retraining": true,
+  "limitation": "Previously inspected historical diagnostics, not prospective pre-kickoff freezes"
+}

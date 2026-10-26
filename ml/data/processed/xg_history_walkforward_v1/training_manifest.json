@@ -1,0 +1,226 @@
+[
+  {
+    "Fold": "2018/19",
+    "TrainN": 1520,
+    "TrainMaxDate": "2018-05-13",
+    "ValidMinDate": "2018-08-10",
+    "BaseFill": {
+      "HomeEloPre": 1548.9495641448434,
+      "AwayEloPre": 1547.1830400013164,
+      "EloDiffPre": -2.6057101053586393,
+      "HomeGoalsForAvgLast5": 1.2,
+      "AwayGoalsForAvgLast5": 1.2,
+      "HomeGoalsAgainstAvgLast5": 1.2666666666666666,
+      "AwayGoalsAgainstAvgLast5": 1.2
+    },
+    "XGFill": {
+      "HomeEloPre": 1548.9495641448434,
+      "AwayEloPre": 1547.1830400013164,
+      "EloDiffPre": -2.6057101053586393,
+      "HomeGoalsForAvgLast5": 1.2,
+      "AwayGoalsForAvgLast5": 1.2,
+      "HomeGoalsAgainstAvgLast5": 1.2666666666666666,
+      "AwayGoalsAgainstAvgLast5": 1.2,
+      "HomeXGForLast5": 1.1999950999999998,
+      "HomeXGAgainstLast5": 1.2711033,
+      "AwayXGForLast5": 1.2280366,
+      "AwayXGAgainstLast5": 1.2498452
+    }
+  },
+  {
+    "Fold": "2019/20",
+    "TrainN": 1900,
+    "TrainMaxDate": "2019-05-12",
+    "ValidMinDate": "2019-08-09",
+    "BaseFill": {
+      "HomeEloPre": 1545.7445956524584,
+      "AwayEloPre": 1544.1626040187753,
+      "EloDiffPre": -1.3724043947657947,
+      "HomeGoalsForAvgLast5": 1.2,
+      "AwayGoalsForAvgLast5": 1.2,
+      "HomeGoalsAgainstAvgLast5": 1.4,
+      "AwayGoalsAgainstAvgLast5": 1.2
+    },
+    "XGFill": {
+      "HomeEloPre": 1545.7445956524584,
+      "AwayEloPre": 1544.1626040187753,
+      "EloDiffPre": -1.3724043947657947,
+      "HomeGoalsForAvgLast5": 1.2,
+      "AwayGoalsForAvgLast5": 1.2,
+      "HomeGoalsAgainstAvgLast5": 1.4,
+      "AwayGoalsAgainstAvgLast5": 1.2,
+      "HomeXGForLast5": 1.2262026000000001,
+      "HomeXGAgainstLast5": 1.298074,
+      "AwayXGForLast5": 1.2571126000000001,
+      "AwayXGAgainstLast5": 1.2747115999999998
+    }
+  },
+  {
+    "Fold": "2020/21",
+    "TrainN": 2280,
+    "TrainMaxDate": "2020-07-26",
+    "ValidMinDate": "2020-09-12",
+    "BaseFill": {
+      "HomeEloPre": 1548.0334865769833,
+      "AwayEloPre": 1546.3417930396388,
+      "EloDiffPre": -1.5480773689814669,
+      "HomeGoalsForAvgLast5": 1.2,
+      "AwayGoalsForAvgLast5": 1.2,
+      "HomeGoalsAgainstAvgLast5": 1.4,
+      "AwayGoalsAgainstAvgLast5": 1.2
+    },
+    "XGFill": {
+      "HomeEloPre": 1548.0334865769833,
+      "AwayEloPre": 1546.3417930396388,
+      "EloDiffPre": -1.5480773689814669,
+      "HomeGoalsForAvgLast5": 1.2,
+      "AwayGoalsForAvgLast5": 1.2,
+      "HomeGoalsAgainstAvgLast5": 1.4,
+      "AwayGoalsAgainstAvgLast5": 1.2,
+      "HomeXGForLast5": 1.2477175,
+      "HomeXGAgainstLast5": 1.3117097000000002,
+      "AwayXGForLast5": 1.2771655000000002,
+      "AwayXGAgainstLast5": 1.2842709
+    }
+  },
+  {
+    "Fold": "2021/22",
+    "TrainN": 2660,
+    "TrainMaxDate": "2021-05-23",
+    "ValidMinDate": "2021-08-13",
+    "BaseFill": {
+      "HomeEloPre": 1549.416932641307,
+      "AwayEloPre": 1548.4848250853697,
+      "EloDiffPre": -1.6831147447185233,
+      "HomeGoalsForAvgLast5": 1.2,
+      "AwayGoalsForAvgLast5": 1.2,
+      "HomeGoalsAgainstAvgLast5": 1.4,
+      "AwayGoalsAgainstAvgLast5": 1.2
+    },
+    "XGFill": {
+      "HomeEloPre": 1549.416932641307,
+      "AwayEloPre": 1548.4848250853697,
+      "EloDiffPre": -1.6831147447185233,
+      "HomeGoalsForAvgLast5": 1.2,
+      "AwayGoalsForAvgLast5": 1.2,
+      "HomeGoalsAgainstAvgLast5": 1.4,
+      "AwayGoalsAgainstAvgLast5": 1.2,
+      "HomeXGForLast5": 1.2517409000000002,
+      "HomeXGAgainstLast5": 1.3176773000000002,
+      "AwayXGForLast5": 1.2873986,
+      "AwayXGAgainstLast5": 1.2915454
+    }
+  },
+  {
+    "Fold": "2022/23",
+    "TrainN": 3040,
+    "TrainMaxDate": "2022-05-22",
+    "ValidMinDate": "2022-08-05",
+    "BaseFill": {
+      "HomeEloPre": 1550.368043726589,
+      "AwayEloPre": 1549.430664008403,
+      "EloDiffPre": -2.2591706020405127,
+      "HomeGoalsForAvgLast5": 1.2,
+      "AwayGoalsForAvgLast5": 1.2,
+      "HomeGoalsAgainstAvgLast5": 1.4,
+      "AwayGoalsAgainstAvgLast5": 1.2
+    },
+    "XGFill": {
+      "HomeEloPre": 1550.368043726589,
+      "AwayEloPre": 1549.430664008403,
+      "EloDiffPre": -2.2591706020405127,
+      "HomeGoalsForAvgLast5": 1.2,
+      "AwayGoalsForAvgLast5": 1.2,
+      "HomeGoalsAgainstAvgLast5": 1.4,
+      "AwayGoalsAgainstAvgLast5": 1.2,
+      "HomeXGForLast5": 1.254633,
+      "HomeXGAgainstLast5": 1.3245673999999998,
+      "AwayXGForLast5": 1.2876574,
+      "AwayXGAgainstLast5": 1.300092
+    }
+  },
+  {
+    "Fold": "2023/24",
+    "TrainN": 3420,
+    "TrainMaxDate": "2023-05-28",
+    "ValidMinDate": "2023-08-11",
+    "BaseFill": {
+      "HomeEloPre": 1551.371655649899,
+      "AwayEloPre": 1551.1084047002873,
+      "EloDiffPre": -1.9609812907555124,
+      "HomeGoalsForAvgLast5": 1.2,
+      "AwayGoalsForAvgLast5": 1.2,
+      "HomeGoalsAgainstAvgLast5": 1.4,
+      "AwayGoalsAgainstAvgLast5": 1.2
+    },
+    "XGFill": {
+      "HomeEloPre": 1551.371655649899,
+      "AwayEloPre": 1551.1084047002873,
+      "EloDiffPre": -1.9609812907555124,
+      "HomeGoalsForAvgLast5": 1.2,
+      "AwayGoalsForAvgLast5": 1.2,
+      "HomeGoalsAgainstAvgLast5": 1.4,
+      "AwayGoalsAgainstAvgLast5": 1.2,
+      "HomeXGForLast5": 1.2658342,
+      "HomeXGAgainstLast5": 1.3417676,
+      "AwayXGForLast5": 1.2995527999999998,
+      "AwayXGAgainstLast5": 1.3165194999999998
+    }
+  },
+  {
+    "Fold": "2024/25",
+    "TrainN": 3800,
+    "TrainMaxDate": "2024-05-19",
+    "ValidMinDate": "2024-08-16",
+    "BaseFill": {
+      "HomeEloPre": 1553.390896292789,
+      "AwayEloPre": 1552.7680386443362,
+      "EloDiffPre": -2.0628768387711034,
+      "HomeGoalsForAvgLast5": 1.2,
+      "AwayGoalsForAvgLast5": 1.4,
+      "HomeGoalsAgainstAvgLast5": 1.4,
+      "AwayGoalsAgainstAvgLast5": 1.4
+    },
+    "XGFill": {
+      "HomeEloPre": 1553.390896292789,
+      "AwayEloPre": 1552.7680386443362,
+      "EloDiffPre": -2.0628768387711034,
+      "HomeGoalsForAvgLast5": 1.2,
+      "AwayGoalsForAvgLast5": 1.4,
+      "HomeGoalsAgainstAvgLast5": 1.4,
+      "AwayGoalsAgainstAvgLast5": 1.4,
+      "HomeXGForLast5": 1.294707,
+      "HomeXGAgainstLast5": 1.3699151999999999,
+      "AwayXGForLast5": 1.3263517999999999,
+      "AwayXGAgainstLast5": 1.3441142
+    }
+  },
+  {
+    "Fold": "2025/26",
+    "TrainN": 4180,
+    "TrainMaxDate": "2025-05-25",
+    "ValidMinDate": "2025-08-15",
+    "BaseFill": {
+      "HomeEloPre": 1557.9608503615007,
+      "AwayEloPre": 1555.740349329935,
+      "EloDiffPre": -1.8029186463548972,
+      "HomeGoalsForAvgLast5": 1.2,
+      "AwayGoalsForAvgLast5": 1.4,
+      "HomeGoalsAgainstAvgLast5": 1.4,
+      "AwayGoalsAgainstAvgLast5": 1.4
+    },
+    "XGFill": {
+      "HomeEloPre": 1557.9608503615007,
+      "AwayEloPre": 1555.740349329935,
+      "EloDiffPre": -1.8029186463548972,
+      "HomeGoalsForAvgLast5": 1.2,
+      "AwayGoalsForAvgLast5": 1.4,
+      "HomeGoalsAgainstAvgLast5": 1.4,
+      "AwayGoalsAgainstAvgLast5": 1.4,
+      "HomeXGForLast5": 1.3188948,
+      "HomeXGAgainstLast5": 1.3906102,
+      "AwayXGForLast5": 1.3427098000000002,
+      "AwayXGAgainstLast5": 1.3619792
+    }
+  }
+]

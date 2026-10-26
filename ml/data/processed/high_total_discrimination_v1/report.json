@@ -1,0 +1,127 @@
+{
+  "Experiment": "high_total_discrimination_v1",
+  "SelectedVariant": "Full",
+  "WalkForwardSelectedMetrics": {
+    "Variant": "Full",
+    "N": 2660,
+    "High": 851,
+    "Prevalence": 0.31992481203007517,
+    "ROC_AUC": 0.5518074856167005,
+    "AveragePrecision": 0.36999229313712234,
+    "LogLoss": 0.6258131771131015,
+    "Brier": 0.21689617419695562,
+    "FoldAUCMean": 0.5481256001177416,
+    "FoldAUCStd": 0.029184303867312338
+  },
+  "DiagnosticMetrics": [
+    {
+      "Source": "Detector",
+      "Season": "pooled",
+      "N": 760,
+      "High": 238,
+      "Prevalence": 0.3131578947368421,
+      "ROC_AUC": 0.5073489165781255,
+      "AveragePrecision": 0.3355750776882473,
+      "LogLoss": 0.6257245597175864,
+      "Brier": 0.21684571830239688
+    },
+    {
+      "Source": "FrozenPoissonHighProbability",
+      "Season": "pooled",
+      "N": 760,
+      "High": 238,
+      "Prevalence": 0.3131578947368421,
+      "ROC_AUC": 0.4905582922824302,
+      "AveragePrecision": 0.3242620971167641,
+      "LogLoss": 0.6333290041891554,
+      "Brier": 0.22011727665481745
+    },
+    {
+      "Source": "FrozenPhase3LambdaTotal",
+      "Season": "pooled",
+      "N": 760,
+      "High": 238,
+      "Prevalence": 0.3131578947368421,
+      "ROC_AUC": 0.4905582922824302,
+      "AveragePrecision": 0.3242620971167641,
+      "LogLoss": NaN,
+      "Brier": NaN
+    }
+  ],
+  "SeasonMetrics": [
+    {
+      "Source": "Detector",
+      "Season": "2024/25",
+      "N": 380,
+      "High": 130,
+      "Prevalence": 0.34210526315789475,
+      "ROC_AUC": 0.5131692307692308,
+      "AveragePrecision": 0.3884231042273953,
+      "LogLoss": 0.6457124745289302,
+      "Brier": 0.22620306661470677
+    },
+    {
+      "Source": "FrozenPoissonHighProbability",
+      "Season": "2024/25",
+      "N": 380,
+      "High": 130,
+      "Prevalence": 0.34210526315789475,
+      "ROC_AUC": 0.5086153846153846,
+      "AveragePrecision": 0.3674822325994675,
+      "LogLoss": 0.6517583668418713,
+      "Brier": 0.22884228347327137
+    },
+    {
+      "Source": "FrozenPhase3LambdaTotal",
+      "Season": "2024/25",
+      "N": 380,
+      "High": 130,
+      "Prevalence": 0.34210526315789475,
+      "ROC_AUC": 0.5086153846153846,
+      "AveragePrecision": 0.3674822325994675,
+      "LogLoss": NaN,
+      "Brier": NaN
+    },
+    {
+      "Source": "Detector",
+      "Season": "2025/26",
+      "N": 380,
+      "High": 108,
+      "Prevalence": 0.28421052631578947,
+      "ROC_AUC": 0.49462145969498905,
+      "AveragePrecision": 0.2805745276615692,
+      "LogLoss": 0.6057366449062426,
+      "Brier": 0.20748836999008696
+    },
+    {
+      "Source": "FrozenPoissonHighProbability",
+      "Season": "2025/26",
+      "N": 380,
+      "High": 108,
+      "Prevalence": 0.28421052631578947,
+      "ROC_AUC": 0.4611587690631808,
+      "AveragePrecision": 0.2791673718803414,
+      "LogLoss": 0.6148996415364396,
+      "Brier": 0.21139226983636342
+    },
+    {
+      "Source": "FrozenPhase3LambdaTotal",
+      "Season": "2025/26",
+      "N": 380,
+      "High": 108,
+      "Prevalence": 0.28421052631578947,
+      "ROC_AUC": 0.4611587690631808,
+      "AveragePrecision": 0.2791673718803414,
+      "LogLoss": NaN,
+      "Brier": NaN
+    }
+  ],
+  "HighMatches": 238,
+  "BaselineExact": 96,
+  "FixedDCExact": 99,
+  "EFixedDCExact": 101,
+  "BaselineHighExact": 0,
+  "DetectorScoreIntegration": false,
+  "HistoricalInspectedDiagnostic": true,
+  "Phase3EarlierOOFReference": "unavailable; 2023/24 frozen goal rates used for early stopping, so cannot serve as independent walk-forward reference"
+}

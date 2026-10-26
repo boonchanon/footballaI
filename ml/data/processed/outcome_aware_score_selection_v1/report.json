@@ -1,0 +1,959 @@
+{
+  "experiment": "outcome_aware_score_selection_v1",
+  "created_utc": "2026-09-15T09:27:54.989013+00:00",
+  "deployable_methods": {
+    "independent_global": {
+      "matches": 760,
+      "exact_hits": 96,
+      "exact_top1": 0.12631578947368421,
+      "top3_hits": 215,
+      "top3_exact": 0.28289473684210525,
+      "outcome_hits": 315,
+      "outcome_accuracy": 0.4144736842105263,
+      "exact_given_correct_outcome": 96,
+      "conditional_exact_accuracy": 0.3047619047619048,
+      "predicted_outcomes": {
+        "D": 437,
+        "H": 273,
+        "A": 50
+      },
+      "predicted_scores": {
+        "1-1": 437,
+        "2-0": 116,
+        "1-0": 115,
+        "2-1": 38,
+        "0-1": 28,
+        "0-2": 12,
+        "1-2": 10,
+        "3-0": 3,
+        "3-1": 1
+      },
+      "most_common_score": "1-1",
+      "most_common_count": 437,
+      "unique_scorelines": 9,
+      "entropy_nats": 1.315311813366174,
+      "draw_rate": 0.575,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 115,
+          "correct": 9,
+          "precision": 0.0782608695652174
+        },
+        "0-1": {
+          "predicted": 28,
+          "correct": 4,
+          "precision": 0.14285714285714285
+        },
+        "1-1": {
+          "predicted": 437,
+          "correct": 57,
+          "precision": 0.13043478260869565
+        },
+        "2-0": {
+          "predicted": 116,
+          "correct": 18,
+          "precision": 0.15517241379310345
+        },
+        "0-2": {
+          "predicted": 12,
+          "correct": 3,
+          "precision": 0.25
+        },
+        "2-1": {
+          "predicted": 38,
+          "correct": 5,
+          "precision": 0.13157894736842105
+        },
+        "1-2": {
+          "predicted": 10,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 3,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "3-1": {
+          "predicted": 1,
+          "correct": 0,
+          "precision": 0.0
+        }
+      }
+    },
+    "independent_mass": {
+      "matches": 760,
+      "exact_hits": 70,
+      "exact_top1": 0.09210526315789473,
+      "top3_hits": 195,
+      "top3_exact": 0.2565789473684211,
+      "outcome_hits": 383,
+      "outcome_accuracy": 0.5039473684210526,
+      "exact_given_correct_outcome": 70,
+      "conditional_exact_accuracy": 0.18276762402088773,
+      "predicted_outcomes": {
+        "H": 506,
+        "A": 254
+      },
+      "predicted_scores": {
+        "1-0": 283,
+        "0-1": 162,
+        "2-0": 116,
+        "2-1": 103,
+        "1-2": 80,
+        "0-2": 12,
+        "3-0": 3,
+        "3-1": 1
+      },
+      "most_common_score": "1-0",
+      "most_common_count": 283,
+      "unique_scorelines": 8,
+      "entropy_nats": 1.5881572836303186,
+      "draw_rate": 0.0,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 283,
+          "correct": 18,
+          "precision": 0.0636042402826855
+        },
+        "0-1": {
+          "predicted": 162,
+          "correct": 16,
+          "precision": 0.09876543209876543
+        },
+        "1-1": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "2-0": {
+          "predicted": 116,
+          "correct": 18,
+          "precision": 0.15517241379310345
+        },
+        "0-2": {
+          "predicted": 12,
+          "correct": 3,
+          "precision": 0.25
+        },
+        "2-1": {
+          "predicted": 103,
+          "correct": 11,
+          "precision": 0.10679611650485436
+        },
+        "1-2": {
+          "predicted": 80,
+          "correct": 4,
+          "precision": 0.05
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 3,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "3-1": {
+          "predicted": 1,
+          "correct": 0,
+          "precision": 0.0
+        }
+      }
+    },
+    "dc_global": {
+      "matches": 760,
+      "exact_hits": 99,
+      "exact_top1": 0.13026315789473683,
+      "top3_hits": 228,
+      "top3_exact": 0.3,
+      "outcome_hits": 297,
+      "outcome_accuracy": 0.3907894736842105,
+      "exact_given_correct_outcome": 99,
+      "conditional_exact_accuracy": 0.3333333333333333,
+      "predicted_outcomes": {
+        "D": 507,
+        "H": 222,
+        "A": 31
+      },
+      "predicted_scores": {
+        "1-1": 507,
+        "2-0": 122,
+        "1-0": 67,
+        "2-1": 29,
+        "0-2": 12,
+        "0-1": 12,
+        "1-2": 7,
+        "3-0": 3,
+        "3-1": 1
+      },
+      "most_common_score": "1-1",
+      "most_common_count": 507,
+      "unique_scorelines": 9,
+      "entropy_nats": 1.107178172291833,
+      "draw_rate": 0.6671052631578948,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 67,
+          "correct": 5,
+          "precision": 0.07462686567164178
+        },
+        "0-1": {
+          "predicted": 12,
+          "correct": 3,
+          "precision": 0.25
+        },
+        "1-1": {
+          "predicted": 507,
+          "correct": 66,
+          "precision": 0.1301775147928994
+        },
+        "2-0": {
+          "predicted": 122,
+          "correct": 18,
+          "precision": 0.14754098360655737
+        },
+        "0-2": {
+          "predicted": 12,
+          "correct": 3,
+          "precision": 0.25
+        },
+        "2-1": {
+          "predicted": 29,
+          "correct": 4,
+          "precision": 0.13793103448275862
+        },
+        "1-2": {
+          "predicted": 7,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 3,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "3-1": {
+          "predicted": 1,
+          "correct": 0,
+          "precision": 0.0
+        }
+      }
+    },
+    "dc_mass": {
+      "matches": 760,
+      "exact_hits": 69,
+      "exact_top1": 0.09078947368421053,
+      "top3_hits": 196,
+      "top3_exact": 0.2578947368421053,
+      "outcome_hits": 383,
+      "outcome_accuracy": 0.5039473684210526,
+      "exact_given_correct_outcome": 69,
+      "conditional_exact_accuracy": 0.1801566579634465,
+      "predicted_outcomes": {
+        "H": 506,
+        "A": 254
+      },
+      "predicted_scores": {
+        "1-0": 248,
+        "0-1": 138,
+        "2-0": 127,
+        "2-1": 127,
+        "1-2": 103,
+        "0-2": 13,
+        "3-0": 3,
+        "3-1": 1
+      },
+      "most_common_score": "1-0",
+      "most_common_count": 248,
+      "unique_scorelines": 8,
+      "entropy_nats": 1.6441972203043915,
+      "draw_rate": 0.0,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 248,
+          "correct": 16,
+          "precision": 0.06451612903225806
+        },
+        "0-1": {
+          "predicted": 138,
+          "correct": 12,
+          "precision": 0.08695652173913043
+        },
+        "1-1": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "2-0": {
+          "predicted": 127,
+          "correct": 18,
+          "precision": 0.14173228346456693
+        },
+        "0-2": {
+          "predicted": 13,
+          "correct": 3,
+          "precision": 0.23076923076923078
+        },
+        "2-1": {
+          "predicted": 127,
+          "correct": 13,
+          "precision": 0.10236220472440945
+        },
+        "1-2": {
+          "predicted": 103,
+          "correct": 7,
+          "precision": 0.06796116504854369
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 3,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "3-1": {
+          "predicted": 1,
+          "correct": 0,
+          "precision": 0.0
+        }
+      }
+    },
+    "cat_independent": {
+      "matches": 760,
+      "exact_hits": 72,
+      "exact_top1": 0.09473684210526316,
+      "top3_hits": 196,
+      "top3_exact": 0.2578947368421053,
+      "outcome_hits": 380,
+      "outcome_accuracy": 0.5,
+      "exact_given_correct_outcome": 72,
+      "conditional_exact_accuracy": 0.18947368421052632,
+      "predicted_outcomes": {
+        "H": 501,
+        "A": 257,
+        "D": 2
+      },
+      "predicted_scores": {
+        "1-0": 276,
+        "0-1": 167,
+        "2-0": 116,
+        "2-1": 105,
+        "1-2": 78,
+        "0-2": 12,
+        "3-0": 3,
+        "1-1": 2,
+        "3-1": 1
+      },
+      "most_common_score": "1-0",
+      "most_common_count": 276,
+      "unique_scorelines": 9,
+      "entropy_nats": 1.606552375316195,
+      "draw_rate": 0.002631578947368421,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 276,
+          "correct": 19,
+          "precision": 0.06884057971014493
+        },
+        "0-1": {
+          "predicted": 167,
+          "correct": 17,
+          "precision": 0.10179640718562874
+        },
+        "1-1": {
+          "predicted": 2,
+          "correct": 1,
+          "precision": 0.5
+        },
+        "2-0": {
+          "predicted": 116,
+          "correct": 18,
+          "precision": 0.15517241379310345
+        },
+        "0-2": {
+          "predicted": 12,
+          "correct": 3,
+          "precision": 0.25
+        },
+        "2-1": {
+          "predicted": 105,
+          "correct": 11,
+          "precision": 0.10476190476190476
+        },
+        "1-2": {
+          "predicted": 78,
+          "correct": 3,
+          "precision": 0.038461538461538464
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 3,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "3-1": {
+          "predicted": 1,
+          "correct": 0,
+          "precision": 0.0
+        }
+      }
+    },
+    "cat_dc": {
+      "matches": 760,
+      "exact_hits": 72,
+      "exact_top1": 0.09473684210526316,
+      "top3_hits": 197,
+      "top3_exact": 0.25921052631578945,
+      "outcome_hits": 380,
+      "outcome_accuracy": 0.5,
+      "exact_given_correct_outcome": 72,
+      "conditional_exact_accuracy": 0.18947368421052632,
+      "predicted_outcomes": {
+        "H": 501,
+        "A": 257,
+        "D": 2
+      },
+      "predicted_scores": {
+        "1-0": 241,
+        "0-1": 144,
+        "2-1": 129,
+        "2-0": 127,
+        "1-2": 100,
+        "0-2": 13,
+        "3-0": 3,
+        "1-1": 2,
+        "3-1": 1
+      },
+      "most_common_score": "1-0",
+      "most_common_count": 241,
+      "unique_scorelines": 9,
+      "entropy_nats": 1.6620549757461371,
+      "draw_rate": 0.002631578947368421,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 241,
+          "correct": 17,
+          "precision": 0.07053941908713693
+        },
+        "0-1": {
+          "predicted": 144,
+          "correct": 13,
+          "precision": 0.09027777777777778
+        },
+        "1-1": {
+          "predicted": 2,
+          "correct": 1,
+          "precision": 0.5
+        },
+        "2-0": {
+          "predicted": 127,
+          "correct": 18,
+          "precision": 0.14173228346456693
+        },
+        "0-2": {
+          "predicted": 13,
+          "correct": 3,
+          "precision": 0.23076923076923078
+        },
+        "2-1": {
+          "predicted": 129,
+          "correct": 14,
+          "precision": 0.10852713178294573
+        },
+        "1-2": {
+          "predicted": 100,
+          "correct": 6,
+          "precision": 0.06
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 3,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "3-1": {
+          "predicted": 1,
+          "correct": 0,
+          "precision": 0.0
+        }
+      }
+    },
+    "xgb_independent": {
+      "matches": 760,
+      "exact_hits": 71,
+      "exact_top1": 0.09342105263157895,
+      "top3_hits": 194,
+      "top3_exact": 0.25526315789473686,
+      "outcome_hits": 376,
+      "outcome_accuracy": 0.49473684210526314,
+      "exact_given_correct_outcome": 71,
+      "conditional_exact_accuracy": 0.18882978723404256,
+      "predicted_outcomes": {
+        "H": 506,
+        "A": 252,
+        "D": 2
+      },
+      "predicted_scores": {
+        "1-0": 286,
+        "0-1": 157,
+        "2-0": 116,
+        "2-1": 100,
+        "1-2": 83,
+        "0-2": 12,
+        "3-0": 3,
+        "1-1": 2,
+        "3-1": 1
+      },
+      "most_common_score": "1-0",
+      "most_common_count": 286,
+      "unique_scorelines": 9,
+      "entropy_nats": 1.6008940759474721,
+      "draw_rate": 0.002631578947368421,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 286,
+          "correct": 18,
+          "precision": 0.06293706293706294
+        },
+        "0-1": {
+          "predicted": 157,
+          "correct": 16,
+          "precision": 0.10191082802547771
+        },
+        "1-1": {
+          "predicted": 2,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "2-0": {
+          "predicted": 116,
+          "correct": 18,
+          "precision": 0.15517241379310345
+        },
+        "0-2": {
+          "predicted": 12,
+          "correct": 3,
+          "precision": 0.25
+        },
+        "2-1": {
+          "predicted": 100,
+          "correct": 11,
+          "precision": 0.11
+        },
+        "1-2": {
+          "predicted": 83,
+          "correct": 5,
+          "precision": 0.060240963855421686
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 3,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "3-1": {
+          "predicted": 1,
+          "correct": 0,
+          "precision": 0.0
+        }
+      }
+    },
+    "xgb_dc": {
+      "matches": 760,
+      "exact_hits": 72,
+      "exact_top1": 0.09473684210526316,
+      "top3_hits": 195,
+      "top3_exact": 0.2565789473684211,
+      "outcome_hits": 376,
+      "outcome_accuracy": 0.49473684210526314,
+      "exact_given_correct_outcome": 72,
+      "conditional_exact_accuracy": 0.19148936170212766,
+      "predicted_outcomes": {
+        "H": 506,
+        "A": 252,
+        "D": 2
+      },
+      "predicted_scores": {
+        "1-0": 252,
+        "0-1": 132,
+        "2-0": 127,
+        "2-1": 123,
+        "1-2": 107,
+        "0-2": 13,
+        "3-0": 3,
+        "1-1": 2,
+        "3-1": 1
+      },
+      "most_common_score": "1-0",
+      "most_common_count": 252,
+      "unique_scorelines": 9,
+      "entropy_nats": 1.6555874100081713,
+      "draw_rate": 0.002631578947368421,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 252,
+          "correct": 17,
+          "precision": 0.06746031746031746
+        },
+        "0-1": {
+          "predicted": 132,
+          "correct": 12,
+          "precision": 0.09090909090909091
+        },
+        "1-1": {
+          "predicted": 2,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "2-0": {
+          "predicted": 127,
+          "correct": 18,
+          "precision": 0.14173228346456693
+        },
+        "0-2": {
+          "predicted": 13,
+          "correct": 3,
+          "precision": 0.23076923076923078
+        },
+        "2-1": {
+          "predicted": 123,
+          "correct": 14,
+          "precision": 0.11382113821138211
+        },
+        "1-2": {
+          "predicted": 107,
+          "correct": 8,
+          "precision": 0.07476635514018691
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 3,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "3-1": {
+          "predicted": 1,
+          "correct": 0,
+          "precision": 0.0
+        }
+      }
+    }
+  },
+  "oracle_non_deployable_diagnostic": {
+    "oracle_independent": {
+      "matches": 760,
+      "exact_hits": 206,
+      "exact_top1": 0.2710526315789474,
+      "top3_hits": 514,
+      "top3_exact": 0.6763157894736842,
+      "outcome_hits": 760,
+      "outcome_accuracy": 1.0,
+      "exact_given_correct_outcome": 206,
+      "conditional_exact_accuracy": 0.2710526315789474,
+      "predicted_outcomes": {
+        "H": 317,
+        "A": 246,
+        "D": 197
+      },
+      "predicted_scores": {
+        "1-1": 197,
+        "1-0": 170,
+        "0-1": 165,
+        "2-0": 82,
+        "1-2": 74,
+        "2-1": 62,
+        "0-2": 7,
+        "3-0": 2,
+        "3-1": 1
+      },
+      "most_common_score": "1-1",
+      "most_common_count": 197,
+      "unique_scorelines": 9,
+      "entropy_nats": 1.755555716828266,
+      "draw_rate": 0.25921052631578945,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 170,
+          "correct": 26,
+          "precision": 0.15294117647058825
+        },
+        "0-1": {
+          "predicted": 165,
+          "correct": 37,
+          "precision": 0.22424242424242424
+        },
+        "1-1": {
+          "predicted": 197,
+          "correct": 92,
+          "precision": 0.467005076142132
+        },
+        "2-0": {
+          "predicted": 82,
+          "correct": 18,
+          "precision": 0.21951219512195122
+        },
+        "0-2": {
+          "predicted": 7,
+          "correct": 3,
+          "precision": 0.42857142857142855
+        },
+        "2-1": {
+          "predicted": 62,
+          "correct": 15,
+          "precision": 0.24193548387096775
+        },
+        "1-2": {
+          "predicted": 74,
+          "correct": 15,
+          "precision": 0.20270270270270271
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 2,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "3-1": {
+          "predicted": 1,
+          "correct": 0,
+          "precision": 0.0
+        }
+      }
+    },
+    "oracle_dc": {
+      "matches": 760,
+      "exact_hits": 214,
+      "exact_top1": 0.28157894736842104,
+      "top3_hits": 515,
+      "top3_exact": 0.6776315789473685,
+      "outcome_hits": 760,
+      "outcome_accuracy": 1.0,
+      "exact_given_correct_outcome": 214,
+      "conditional_exact_accuracy": 0.28157894736842104,
+      "predicted_outcomes": {
+        "H": 317,
+        "A": 246,
+        "D": 197
+      },
+      "predicted_scores": {
+        "1-1": 197,
+        "1-0": 147,
+        "0-1": 139,
+        "1-2": 99,
+        "2-0": 87,
+        "2-1": 80,
+        "0-2": 8,
+        "3-0": 2,
+        "3-1": 1
+      },
+      "most_common_score": "1-1",
+      "most_common_count": 197,
+      "unique_scorelines": 9,
+      "entropy_nats": 1.8013297089675262,
+      "draw_rate": 0.25921052631578945,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 147,
+          "correct": 24,
+          "precision": 0.16326530612244897
+        },
+        "0-1": {
+          "predicted": 139,
+          "correct": 31,
+          "precision": 0.22302158273381295
+        },
+        "1-1": {
+          "predicted": 197,
+          "correct": 92,
+          "precision": 0.467005076142132
+        },
+        "2-0": {
+          "predicted": 87,
+          "correct": 18,
+          "precision": 0.20689655172413793
+        },
+        "0-2": {
+          "predicted": 8,
+          "correct": 3,
+          "precision": 0.375
+        },
+        "2-1": {
+          "predicted": 80,
+          "correct": 21,
+          "precision": 0.2625
+        },
+        "1-2": {
+          "predicted": 99,
+          "correct": 25,
+          "precision": 0.25252525252525254
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 2,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "3-1": {
+          "predicted": 1,
+          "correct": 0,
+          "precision": 0.0
+        }
+      }
+    }
+  },
+  "flips": {
+    "independent_mass": {
+      "changed_top1": 437,
+      "wrong_to_correct": 31,
+      "correct_to_wrong": 57,
+      "wrong_to_different_wrong": 349,
+      "net_exact_hits": -26,
+      "global_outcome_vs_selected_disagreement": 437
+    },
+    "dc_mass": {
+      "changed_top1": 507,
+      "wrong_to_correct": 36,
+      "correct_to_wrong": 66,
+      "wrong_to_different_wrong": 405,
+      "net_exact_hits": -30,
+      "global_outcome_vs_selected_disagreement": 507
+    },
+    "cat_independent": {
+      "changed_top1": 435,
+      "wrong_to_correct": 32,
+      "correct_to_wrong": 56,
+      "wrong_to_different_wrong": 347,
+      "net_exact_hits": -24,
+      "global_outcome_vs_selected_disagreement": 435
+    },
+    "cat_dc": {
+      "changed_top1": 505,
+      "wrong_to_correct": 38,
+      "correct_to_wrong": 65,
+      "wrong_to_different_wrong": 402,
+      "net_exact_hits": -27,
+      "global_outcome_vs_selected_disagreement": 505
+    },
+    "xgb_independent": {
+      "changed_top1": 436,
+      "wrong_to_correct": 32,
+      "correct_to_wrong": 57,
+      "wrong_to_different_wrong": 347,
+      "net_exact_hits": -25,
+      "global_outcome_vs_selected_disagreement": 436
+    },
+    "xgb_dc": {
+      "changed_top1": 505,
+      "wrong_to_correct": 39,
+      "correct_to_wrong": 66,
+      "wrong_to_different_wrong": 400,
+      "net_exact_hits": -27,
+      "global_outcome_vs_selected_disagreement": 505
+    }
+  },
+  "classifier_status": "VALID",
+  "actual_outcome_counts": {
+    "H": 317,
+    "A": 246,
+    "D": 197
+  },
+  "underlying_matrix_nll_unchanged": {
+    "independent": 2.9472945642879735,
+    "dc": 2.9461832200790647
+  },
+  "nll_note": "Outcome-aware argmax is a decision rule; original Phase-4 matrix NLL is unchanged and no new selection NLL exists",
+  "top3_note": "Global: three highest grid cells; two-stage: three highest cells within selected outcome",
+  "best_deployable": "dc_global",
+  "test_outcomes_used_to_fit": false,
+  "oracle_cannot_be_deployed": true
+}

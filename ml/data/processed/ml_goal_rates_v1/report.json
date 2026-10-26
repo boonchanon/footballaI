@@ -1,0 +1,1138 @@
+{
+  "experiment": "ml_goal_rates_v1",
+  "created_utc": "2026-09-15T08:41:14.220185+00:00",
+  "baseline_freeze": "baseline_freeze.json",
+  "training_manifest": "training_manifest.json",
+  "objectives": {
+    "xgb": "count:poisson",
+    "cat": "Poisson"
+  },
+  "phase2_baseline_exact_hits": 75,
+  "pure": {
+    "poisson": {
+      "matches": 760,
+      "exact_hits": 85,
+      "exact_top1": 0.1118421052631579,
+      "outcome_accuracy": 0.40131578947368424,
+      "home_rate_mae": 0.9508126751630886,
+      "away_rate_mae": 0.8562621253282029,
+      "home_rate_rmse": 1.1709937818724887,
+      "away_rate_rmse": 1.1051359849825104,
+      "mean_lambda_home": 1.5761086723688496,
+      "mean_lambda_away": 1.1979812891124946,
+      "actual_mean_home": 1.519736842105263,
+      "actual_mean_away": 1.3223684210526316,
+      "independent_poisson_nll": 2.933928127984061,
+      "rate_distribution": {
+        "home": {
+          "min": 0.6609069346417101,
+          "median": 1.4977514995097887,
+          "mean": 1.5761086723688496,
+          "max": 3.6414769999883294,
+          "variance": 0.2140227630638302
+        },
+        "away": {
+          "min": 0.533495192233679,
+          "median": 1.1432706248303028,
+          "mean": 1.1979812891124946,
+          "max": 2.4357602814579398,
+          "variance": 0.12519991194354319
+        }
+      },
+      "predicted_scores": {
+        "1-1": 460,
+        "1-0": 128,
+        "2-0": 116,
+        "0-1": 28,
+        "0-2": 22,
+        "3-0": 5,
+        "2-1": 1
+      },
+      "score_precision": {
+        "0-0": {
+          "predictions": 0,
+          "hits": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predictions": 128,
+          "hits": 8,
+          "precision": 0.0625
+        },
+        "0-1": {
+          "predictions": 28,
+          "hits": 3,
+          "precision": 0.10714285714285714
+        },
+        "1-1": {
+          "predictions": 460,
+          "hits": 59,
+          "precision": 0.1282608695652174
+        },
+        "2-0": {
+          "predictions": 116,
+          "hits": 12,
+          "precision": 0.10344827586206896
+        },
+        "2-1": {
+          "predictions": 1,
+          "hits": 0,
+          "precision": 0.0
+        },
+        "1-2": {
+          "predictions": 0,
+          "hits": 0,
+          "precision": null
+        },
+        "2-2": {
+          "predictions": 0,
+          "hits": 0,
+          "precision": null
+        }
+      },
+      "most_common_score": "1-1",
+      "most_common_count": 460,
+      "most_common_pct": 0.6052631578947368,
+      "unique_scorelines": 7,
+      "draw_prediction_rate": 0.6052631578947368,
+      "actual_draw_rate": 0.25921052631578945
+    },
+    "xgb": {
+      "matches": 760,
+      "exact_hits": 96,
+      "exact_top1": 0.12631578947368421,
+      "outcome_accuracy": 0.4144736842105263,
+      "home_rate_mae": 0.9745661963757716,
+      "away_rate_mae": 0.8605088600202611,
+      "home_rate_rmse": 1.188368526683416,
+      "away_rate_rmse": 1.108498042789164,
+      "mean_lambda_home": 1.6080577634667095,
+      "mean_lambda_away": 1.235995140593303,
+      "actual_mean_home": 1.519736842105263,
+      "actual_mean_away": 1.3223684210526316,
+      "independent_poisson_nll": 2.9472945642879735,
+      "rate_distribution": {
+        "home": {
+          "min": 0.6581993699073792,
+          "median": 1.4940903186798096,
+          "mean": 1.6080577634667095,
+          "max": 3.2355830669403076,
+          "variance": 0.22501408947981824
+        },
+        "away": {
+          "min": 0.5189940333366394,
+          "median": 1.2081515789031982,
+          "mean": 1.235995140593303,
+          "max": 2.6350932121276855,
+          "variance": 0.12501410148768094
+        }
+      },
+      "predicted_scores": {
+        "1-1": 437,
+        "2-0": 116,
+        "1-0": 115,
+        "2-1": 38,
+        "0-1": 28,
+        "0-2": 12,
+        "1-2": 10,
+        "3-0": 3,
+        "3-1": 1
+      },
+      "score_precision": {
+        "0-0": {
+          "predictions": 0,
+          "hits": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predictions": 115,
+          "hits": 9,
+          "precision": 0.0782608695652174
+        },
+        "0-1": {
+          "predictions": 28,
+          "hits": 4,
+          "precision": 0.14285714285714285
+        },
+        "1-1": {
+          "predictions": 437,
+          "hits": 57,
+          "precision": 0.13043478260869565
+        },
+        "2-0": {
+          "predictions": 116,
+          "hits": 18,
+          "precision": 0.15517241379310345
+        },
+        "2-1": {
+          "predictions": 38,
+          "hits": 5,
+          "precision": 0.13157894736842105
+        },
+        "1-2": {
+          "predictions": 10,
+          "hits": 0,
+          "precision": 0.0
+        },
+        "2-2": {
+          "predictions": 0,
+          "hits": 0,
+          "precision": null
+        }
+      },
+      "most_common_score": "1-1",
+      "most_common_count": 437,
+      "most_common_pct": 0.575,
+      "unique_scorelines": 9,
+      "draw_prediction_rate": 0.575,
+      "actual_draw_rate": 0.25921052631578945
+    },
+    "cat": {
+      "matches": 760,
+      "exact_hits": 89,
+      "exact_top1": 0.11710526315789474,
+      "outcome_accuracy": 0.42105263157894735,
+      "home_rate_mae": 0.9637759046536373,
+      "away_rate_mae": 0.8645114427900084,
+      "home_rate_rmse": 1.1903081483386633,
+      "away_rate_rmse": 1.1077837321885937,
+      "mean_lambda_home": 1.554455622523961,
+      "mean_lambda_away": 1.2238604886389408,
+      "actual_mean_home": 1.519736842105263,
+      "actual_mean_away": 1.3223684210526316,
+      "independent_poisson_nll": 2.949182274971831,
+      "rate_distribution": {
+        "home": {
+          "min": 0.5833374907676219,
+          "median": 1.4343516270823522,
+          "mean": 1.554455622523961,
+          "max": 3.7418570877664017,
+          "variance": 0.2819629084919413
+        },
+        "away": {
+          "min": 0.5673185104402158,
+          "median": 1.159653571506353,
+          "mean": 1.2238604886389408,
+          "max": 2.683176370030674,
+          "variance": 0.14353121846516143
+        }
+      },
+      "predicted_scores": {
+        "1-1": 388,
+        "1-0": 136,
+        "2-0": 114,
+        "0-1": 63,
+        "0-2": 26,
+        "2-1": 18,
+        "1-2": 6,
+        "3-0": 6,
+        "3-1": 3
+      },
+      "score_precision": {
+        "0-0": {
+          "predictions": 0,
+          "hits": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predictions": 136,
+          "hits": 9,
+          "precision": 0.0661764705882353
+        },
+        "0-1": {
+          "predictions": 63,
+          "hits": 7,
+          "precision": 0.1111111111111111
+        },
+        "1-1": {
+          "predictions": 388,
+          "hits": 53,
+          "precision": 0.13659793814432988
+        },
+        "2-0": {
+          "predictions": 114,
+          "hits": 14,
+          "precision": 0.12280701754385964
+        },
+        "2-1": {
+          "predictions": 18,
+          "hits": 3,
+          "precision": 0.16666666666666666
+        },
+        "1-2": {
+          "predictions": 6,
+          "hits": 1,
+          "precision": 0.16666666666666666
+        },
+        "2-2": {
+          "predictions": 0,
+          "hits": 0,
+          "precision": null
+        }
+      },
+      "most_common_score": "1-1",
+      "most_common_count": 388,
+      "most_common_pct": 0.5105263157894737,
+      "unique_scorelines": 9,
+      "draw_prediction_rate": 0.5105263157894737,
+      "actual_draw_rate": 0.25921052631578945
+    },
+    "ensemble": {
+      "matches": 760,
+      "exact_hits": 94,
+      "exact_top1": 0.12368421052631579,
+      "outcome_accuracy": 0.41842105263157897,
+      "home_rate_mae": 0.9671303401211717,
+      "away_rate_mae": 0.8608328509004287,
+      "home_rate_rmse": 1.1841973117831808,
+      "away_rate_rmse": 1.10587474772457,
+      "mean_lambda_home": 1.581256692995335,
+      "mean_lambda_away": 1.2299278146161219,
+      "actual_mean_home": 1.519736842105263,
+      "actual_mean_away": 1.3223684210526316,
+      "independent_poisson_nll": 2.942756168994685,
+      "rate_distribution": {
+        "home": {
+          "min": 0.6207684303375005,
+          "median": 1.4623845811331346,
+          "mean": 1.581256692995335,
+          "max": 3.2706979557688642,
+          "variance": 0.24200344799223822
+        },
+        "away": {
+          "min": 0.5431562718884275,
+          "median": 1.1917215727983113,
+          "mean": 1.2299278146161219,
+          "max": 2.6475397803217335,
+          "variance": 0.1292920759912677
+        }
+      },
+      "predicted_scores": {
+        "1-1": 429,
+        "1-0": 122,
+        "2-0": 115,
+        "0-1": 39,
+        "2-1": 23,
+        "0-2": 18,
+        "1-2": 7,
+        "3-0": 4,
+        "3-1": 3
+      },
+      "score_precision": {
+        "0-0": {
+          "predictions": 0,
+          "hits": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predictions": 122,
+          "hits": 10,
+          "precision": 0.08196721311475409
+        },
+        "0-1": {
+          "predictions": 39,
+          "hits": 5,
+          "precision": 0.1282051282051282
+        },
+        "1-1": {
+          "predictions": 429,
+          "hits": 56,
+          "precision": 0.13053613053613053
+        },
+        "2-0": {
+          "predictions": 115,
+          "hits": 15,
+          "precision": 0.13043478260869565
+        },
+        "2-1": {
+          "predictions": 23,
+          "hits": 3,
+          "precision": 0.13043478260869565
+        },
+        "1-2": {
+          "predictions": 7,
+          "hits": 1,
+          "precision": 0.14285714285714285
+        },
+        "2-2": {
+          "predictions": 0,
+          "hits": 0,
+          "precision": null
+        }
+      },
+      "most_common_score": "1-1",
+      "most_common_count": 429,
+      "most_common_pct": 0.5644736842105263,
+      "unique_scorelines": 9,
+      "draw_prediction_rate": 0.5644736842105263,
+      "actual_draw_rate": 0.25921052631578945
+    }
+  },
+  "integrated": {
+    "poisson": {
+      "matches": 760,
+      "exact_hits": 75,
+      "exact_top1": 0.09868421052631579,
+      "outcome_accuracy": 0.4644736842105263,
+      "home_rate_mae": 0.9508126751630886,
+      "away_rate_mae": 0.8562621253282029,
+      "home_rate_rmse": 1.1709937818724887,
+      "away_rate_rmse": 1.1051359849825104,
+      "mean_lambda_home": 1.5761086723688496,
+      "mean_lambda_away": 1.1979812891124946,
+      "actual_mean_home": 1.519736842105263,
+      "actual_mean_away": 1.3223684210526316,
+      "independent_poisson_nll": 2.933928127984061,
+      "rate_distribution": {
+        "home": {
+          "min": 0.6609069346417101,
+          "median": 1.4977514995097887,
+          "mean": 1.5761086723688496,
+          "max": 3.6414769999883294,
+          "variance": 0.2140227630638302
+        },
+        "away": {
+          "min": 0.533495192233679,
+          "median": 1.1432706248303028,
+          "mean": 1.1979812891124946,
+          "max": 2.4357602814579398,
+          "variance": 0.12519991194354319
+        }
+      },
+      "predicted_scores": {
+        "2-1": 213,
+        "2-0": 172,
+        "1-1": 158,
+        "1-2": 119,
+        "1-0": 49,
+        "0-1": 26,
+        "0-2": 21,
+        "3-0": 2
+      },
+      "score_precision": {
+        "0-0": {
+          "predictions": 0,
+          "hits": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predictions": 49,
+          "hits": 2,
+          "precision": 0.04081632653061224
+        },
+        "0-1": {
+          "predictions": 26,
+          "hits": 2,
+          "precision": 0.07692307692307693
+        },
+        "1-1": {
+          "predictions": 158,
+          "hits": 22,
+          "precision": 0.13924050632911392
+        },
+        "2-0": {
+          "predictions": 172,
+          "hits": 17,
+          "precision": 0.09883720930232558
+        },
+        "2-1": {
+          "predictions": 213,
+          "hits": 21,
+          "precision": 0.09859154929577464
+        },
+        "1-2": {
+          "predictions": 119,
+          "hits": 7,
+          "precision": 0.058823529411764705
+        },
+        "2-2": {
+          "predictions": 0,
+          "hits": 0,
+          "precision": null
+        }
+      },
+      "most_common_score": "2-1",
+      "most_common_count": 213,
+      "most_common_pct": 0.2802631578947368,
+      "unique_scorelines": 8,
+      "draw_prediction_rate": 0.20789473684210527,
+      "actual_draw_rate": 0.25921052631578945
+    },
+    "xgb": {
+      "matches": 760,
+      "exact_hits": 85,
+      "exact_top1": 0.1118421052631579,
+      "outcome_accuracy": 0.4710526315789474,
+      "home_rate_mae": 0.9745661963757716,
+      "away_rate_mae": 0.8605088600202611,
+      "home_rate_rmse": 1.188368526683416,
+      "away_rate_rmse": 1.108498042789164,
+      "mean_lambda_home": 1.6080577634667095,
+      "mean_lambda_away": 1.235995140593303,
+      "actual_mean_home": 1.519736842105263,
+      "actual_mean_away": 1.3223684210526316,
+      "independent_poisson_nll": 2.9472945642879735,
+      "rate_distribution": {
+        "home": {
+          "min": 0.6581993699073792,
+          "median": 1.4940903186798096,
+          "mean": 1.6080577634667095,
+          "max": 3.2355830669403076,
+          "variance": 0.22501408947981824
+        },
+        "away": {
+          "min": 0.5189940333366394,
+          "median": 1.2081515789031982,
+          "mean": 1.235995140593303,
+          "max": 2.6350932121276855,
+          "variance": 0.12501410148768094
+        }
+      },
+      "predicted_scores": {
+        "2-1": 196,
+        "2-0": 147,
+        "1-1": 138,
+        "1-2": 138,
+        "1-0": 92,
+        "0-1": 36,
+        "0-2": 12,
+        "0-0": 1
+      },
+      "score_precision": {
+        "0-0": {
+          "predictions": 1,
+          "hits": 0,
+          "precision": 0.0
+        },
+        "1-0": {
+          "predictions": 92,
+          "hits": 9,
+          "precision": 0.09782608695652174
+        },
+        "0-1": {
+          "predictions": 36,
+          "hits": 4,
+          "precision": 0.1111111111111111
+        },
+        "1-1": {
+          "predictions": 138,
+          "hits": 21,
+          "precision": 0.15217391304347827
+        },
+        "2-0": {
+          "predictions": 147,
+          "hits": 19,
+          "precision": 0.1292517006802721
+        },
+        "2-1": {
+          "predictions": 196,
+          "hits": 19,
+          "precision": 0.09693877551020408
+        },
+        "1-2": {
+          "predictions": 138,
+          "hits": 10,
+          "precision": 0.07246376811594203
+        },
+        "2-2": {
+          "predictions": 0,
+          "hits": 0,
+          "precision": null
+        }
+      },
+      "most_common_score": "2-1",
+      "most_common_count": 196,
+      "most_common_pct": 0.2578947368421053,
+      "unique_scorelines": 8,
+      "draw_prediction_rate": 0.18289473684210528,
+      "actual_draw_rate": 0.25921052631578945
+    },
+    "cat": {
+      "matches": 760,
+      "exact_hits": 81,
+      "exact_top1": 0.10657894736842105,
+      "outcome_accuracy": 0.46578947368421053,
+      "home_rate_mae": 0.9637759046536373,
+      "away_rate_mae": 0.8645114427900084,
+      "home_rate_rmse": 1.1903081483386633,
+      "away_rate_rmse": 1.1077837321885937,
+      "mean_lambda_home": 1.554455622523961,
+      "mean_lambda_away": 1.2238604886389408,
+      "actual_mean_home": 1.519736842105263,
+      "actual_mean_away": 1.3223684210526316,
+      "independent_poisson_nll": 2.949182274971831,
+      "rate_distribution": {
+        "home": {
+          "min": 0.5833374907676219,
+          "median": 1.4343516270823522,
+          "mean": 1.554455622523961,
+          "max": 3.7418570877664017,
+          "variance": 0.2819629084919413
+        },
+        "away": {
+          "min": 0.5673185104402158,
+          "median": 1.159653571506353,
+          "mean": 1.2238604886389408,
+          "max": 2.683176370030674,
+          "variance": 0.14353121846516143
+        }
+      },
+      "predicted_scores": {
+        "1-1": 157,
+        "2-1": 146,
+        "2-0": 143,
+        "1-0": 116,
+        "1-2": 108,
+        "0-1": 53,
+        "0-2": 28,
+        "3-0": 4,
+        "0-0": 3,
+        "3-1": 2
+      },
+      "score_precision": {
+        "0-0": {
+          "predictions": 3,
+          "hits": 0,
+          "precision": 0.0
+        },
+        "1-0": {
+          "predictions": 116,
+          "hits": 7,
+          "precision": 0.0603448275862069
+        },
+        "0-1": {
+          "predictions": 53,
+          "hits": 10,
+          "precision": 0.18867924528301888
+        },
+        "1-1": {
+          "predictions": 157,
+          "hits": 21,
+          "precision": 0.1337579617834395
+        },
+        "2-0": {
+          "predictions": 143,
+          "hits": 17,
+          "precision": 0.11888111888111888
+        },
+        "2-1": {
+          "predictions": 146,
+          "hits": 13,
+          "precision": 0.08904109589041095
+        },
+        "1-2": {
+          "predictions": 108,
+          "hits": 9,
+          "precision": 0.08333333333333333
+        },
+        "2-2": {
+          "predictions": 0,
+          "hits": 0,
+          "precision": null
+        }
+      },
+      "most_common_score": "1-1",
+      "most_common_count": 157,
+      "most_common_pct": 0.20657894736842106,
+      "unique_scorelines": 10,
+      "draw_prediction_rate": 0.21052631578947367,
+      "actual_draw_rate": 0.25921052631578945
+    },
+    "ensemble": {
+      "matches": 760,
+      "exact_hits": 79,
+      "exact_top1": 0.10394736842105264,
+      "outcome_accuracy": 0.45789473684210524,
+      "home_rate_mae": 0.9671303401211717,
+      "away_rate_mae": 0.8608328509004287,
+      "home_rate_rmse": 1.1841973117831808,
+      "away_rate_rmse": 1.10587474772457,
+      "mean_lambda_home": 1.581256692995335,
+      "mean_lambda_away": 1.2299278146161219,
+      "actual_mean_home": 1.519736842105263,
+      "actual_mean_away": 1.3223684210526316,
+      "independent_poisson_nll": 2.942756168994685,
+      "rate_distribution": {
+        "home": {
+          "min": 0.6207684303375005,
+          "median": 1.4623845811331346,
+          "mean": 1.581256692995335,
+          "max": 3.2706979557688642,
+          "variance": 0.24200344799223822
+        },
+        "away": {
+          "min": 0.5431562718884275,
+          "median": 1.1917215727983113,
+          "mean": 1.2299278146161219,
+          "max": 2.6475397803217335,
+          "variance": 0.1292920759912677
+        }
+      },
+      "predicted_scores": {
+        "2-1": 171,
+        "1-1": 152,
+        "2-0": 148,
+        "1-2": 133,
+        "1-0": 100,
+        "0-1": 37,
+        "0-2": 18,
+        "0-0": 1
+      },
+      "score_precision": {
+        "0-0": {
+          "predictions": 1,
+          "hits": 0,
+          "precision": 0.0
+        },
+        "1-0": {
+          "predictions": 100,
+          "hits": 7,
+          "precision": 0.07
+        },
+        "0-1": {
+          "predictions": 37,
+          "hits": 5,
+          "precision": 0.13513513513513514
+        },
+        "1-1": {
+          "predictions": 152,
+          "hits": 18,
+          "precision": 0.11842105263157894
+        },
+        "2-0": {
+          "predictions": 148,
+          "hits": 19,
+          "precision": 0.12837837837837837
+        },
+        "2-1": {
+          "predictions": 171,
+          "hits": 15,
+          "precision": 0.08771929824561403
+        },
+        "1-2": {
+          "predictions": 133,
+          "hits": 11,
+          "precision": 0.08270676691729323
+        },
+        "2-2": {
+          "predictions": 0,
+          "hits": 0,
+          "precision": null
+        }
+      },
+      "most_common_score": "2-1",
+      "most_common_count": 171,
+      "most_common_pct": 0.225,
+      "unique_scorelines": 8,
+      "draw_prediction_rate": 0.2013157894736842,
+      "actual_draw_rate": 0.25921052631578945
+    }
+  },
+  "score_distributions": {
+    "pure": [
+      {
+        "score": "0-0",
+        "actual_count": 43,
+        "actual_pct": 5.657894736842105,
+        "phase2_count": 0,
+        "phase2_pct": 0.0,
+        "poisson_count": 0,
+        "xgb_count": 0,
+        "cat_count": 0,
+        "ensemble_count": 0,
+        "poisson_pct": 0.0,
+        "xgb_pct": 0.0,
+        "cat_pct": 0.0,
+        "ensemble_pct": 0.0
+      },
+      {
+        "score": "1-0",
+        "actual_count": 51,
+        "actual_pct": 6.7105263157894735,
+        "phase2_count": 49,
+        "phase2_pct": 6.447368421052632,
+        "poisson_count": 128,
+        "xgb_count": 115,
+        "cat_count": 136,
+        "ensemble_count": 122,
+        "poisson_pct": 16.842105263157894,
+        "xgb_pct": 15.131578947368421,
+        "cat_pct": 17.894736842105264,
+        "ensemble_pct": 16.05263157894737
+      },
+      {
+        "score": "0-1",
+        "actual_count": 57,
+        "actual_pct": 7.5,
+        "phase2_count": 26,
+        "phase2_pct": 3.4210526315789473,
+        "poisson_count": 28,
+        "xgb_count": 28,
+        "cat_count": 63,
+        "ensemble_count": 39,
+        "poisson_pct": 3.6842105263157894,
+        "xgb_pct": 3.6842105263157894,
+        "cat_pct": 8.289473684210526,
+        "ensemble_pct": 5.131578947368421
+      },
+      {
+        "score": "1-1",
+        "actual_count": 92,
+        "actual_pct": 12.105263157894736,
+        "phase2_count": 158,
+        "phase2_pct": 20.789473684210527,
+        "poisson_count": 460,
+        "xgb_count": 437,
+        "cat_count": 388,
+        "ensemble_count": 429,
+        "poisson_pct": 60.526315789473685,
+        "xgb_pct": 57.5,
+        "cat_pct": 51.05263157894737,
+        "ensemble_pct": 56.44736842105263
+      },
+      {
+        "score": "2-0",
+        "actual_count": 50,
+        "actual_pct": 6.578947368421052,
+        "phase2_count": 172,
+        "phase2_pct": 22.63157894736842,
+        "poisson_count": 116,
+        "xgb_count": 116,
+        "cat_count": 114,
+        "ensemble_count": 115,
+        "poisson_pct": 15.263157894736842,
+        "xgb_pct": 15.263157894736842,
+        "cat_pct": 15.0,
+        "ensemble_pct": 15.131578947368421
+      },
+      {
+        "score": "0-2",
+        "actual_count": 43,
+        "actual_pct": 5.657894736842105,
+        "phase2_count": 21,
+        "phase2_pct": 2.763157894736842,
+        "poisson_count": 22,
+        "xgb_count": 12,
+        "cat_count": 26,
+        "ensemble_count": 18,
+        "poisson_pct": 2.8947368421052633,
+        "xgb_pct": 1.5789473684210527,
+        "cat_pct": 3.4210526315789473,
+        "ensemble_pct": 2.3684210526315788
+      },
+      {
+        "score": "2-1",
+        "actual_count": 70,
+        "actual_pct": 9.210526315789474,
+        "phase2_count": 213,
+        "phase2_pct": 28.026315789473685,
+        "poisson_count": 1,
+        "xgb_count": 38,
+        "cat_count": 18,
+        "ensemble_count": 23,
+        "poisson_pct": 0.13157894736842105,
+        "xgb_pct": 5.0,
+        "cat_pct": 2.3684210526315788,
+        "ensemble_pct": 3.026315789473684
+      },
+      {
+        "score": "1-2",
+        "actual_count": 56,
+        "actual_pct": 7.368421052631579,
+        "phase2_count": 119,
+        "phase2_pct": 15.657894736842104,
+        "poisson_count": 0,
+        "xgb_count": 10,
+        "cat_count": 6,
+        "ensemble_count": 7,
+        "poisson_pct": 0.0,
+        "xgb_pct": 1.3157894736842106,
+        "cat_pct": 0.7894736842105263,
+        "ensemble_pct": 0.9210526315789473
+      },
+      {
+        "score": "2-2",
+        "actual_count": 57,
+        "actual_pct": 7.5,
+        "phase2_count": 0,
+        "phase2_pct": 0.0,
+        "poisson_count": 0,
+        "xgb_count": 0,
+        "cat_count": 0,
+        "ensemble_count": 0,
+        "poisson_pct": 0.0,
+        "xgb_pct": 0.0,
+        "cat_pct": 0.0,
+        "ensemble_pct": 0.0
+      },
+      {
+        "score": "3-0",
+        "actual_count": 38,
+        "actual_pct": 5.0,
+        "phase2_count": 2,
+        "phase2_pct": 0.2631578947368421,
+        "poisson_count": 5,
+        "xgb_count": 3,
+        "cat_count": 6,
+        "ensemble_count": 4,
+        "poisson_pct": 0.6578947368421053,
+        "xgb_pct": 0.39473684210526316,
+        "cat_pct": 0.7894736842105263,
+        "ensemble_pct": 0.5263157894736842
+      },
+      {
+        "score": "0-3",
+        "actual_count": 22,
+        "actual_pct": 2.8947368421052633,
+        "phase2_count": 0,
+        "phase2_pct": 0.0,
+        "poisson_count": 0,
+        "xgb_count": 0,
+        "cat_count": 0,
+        "ensemble_count": 0,
+        "poisson_pct": 0.0,
+        "xgb_pct": 0.0,
+        "cat_pct": 0.0,
+        "ensemble_pct": 0.0
+      },
+      {
+        "score": "3-1",
+        "actual_count": 37,
+        "actual_pct": 4.868421052631579,
+        "phase2_count": 0,
+        "phase2_pct": 0.0,
+        "poisson_count": 0,
+        "xgb_count": 1,
+        "cat_count": 3,
+        "ensemble_count": 3,
+        "poisson_pct": 0.0,
+        "xgb_pct": 0.13157894736842105,
+        "cat_pct": 0.39473684210526316,
+        "ensemble_pct": 0.39473684210526316
+      },
+      {
+        "score": "1-3",
+        "actual_count": 20,
+        "actual_pct": 2.6315789473684212,
+        "phase2_count": 0,
+        "phase2_pct": 0.0,
+        "poisson_count": 0,
+        "xgb_count": 0,
+        "cat_count": 0,
+        "ensemble_count": 0,
+        "poisson_pct": 0.0,
+        "xgb_pct": 0.0,
+        "cat_pct": 0.0,
+        "ensemble_pct": 0.0
+      }
+    ],
+    "integrated": [
+      {
+        "score": "0-0",
+        "actual_count": 43,
+        "actual_pct": 5.657894736842105,
+        "phase2_count": 0,
+        "phase2_pct": 0.0,
+        "poisson_count": 0,
+        "xgb_count": 1,
+        "cat_count": 3,
+        "ensemble_count": 1,
+        "poisson_pct": 0.0,
+        "xgb_pct": 0.13157894736842105,
+        "cat_pct": 0.39473684210526316,
+        "ensemble_pct": 0.13157894736842105
+      },
+      {
+        "score": "1-0",
+        "actual_count": 51,
+        "actual_pct": 6.7105263157894735,
+        "phase2_count": 49,
+        "phase2_pct": 6.447368421052632,
+        "poisson_count": 49,
+        "xgb_count": 92,
+        "cat_count": 116,
+        "ensemble_count": 100,
+        "poisson_pct": 6.447368421052632,
+        "xgb_pct": 12.105263157894736,
+        "cat_pct": 15.263157894736842,
+        "ensemble_pct": 13.157894736842104
+      },
+      {
+        "score": "0-1",
+        "actual_count": 57,
+        "actual_pct": 7.5,
+        "phase2_count": 26,
+        "phase2_pct": 3.4210526315789473,
+        "poisson_count": 26,
+        "xgb_count": 36,
+        "cat_count": 53,
+        "ensemble_count": 37,
+        "poisson_pct": 3.4210526315789473,
+        "xgb_pct": 4.7368421052631575,
+        "cat_pct": 6.973684210526316,
+        "ensemble_pct": 4.868421052631579
+      },
+      {
+        "score": "1-1",
+        "actual_count": 92,
+        "actual_pct": 12.105263157894736,
+        "phase2_count": 158,
+        "phase2_pct": 20.789473684210527,
+        "poisson_count": 158,
+        "xgb_count": 138,
+        "cat_count": 157,
+        "ensemble_count": 152,
+        "poisson_pct": 20.789473684210527,
+        "xgb_pct": 18.157894736842106,
+        "cat_pct": 20.657894736842106,
+        "ensemble_pct": 20.0
+      },
+      {
+        "score": "2-0",
+        "actual_count": 50,
+        "actual_pct": 6.578947368421052,
+        "phase2_count": 172,
+        "phase2_pct": 22.63157894736842,
+        "poisson_count": 172,
+        "xgb_count": 147,
+        "cat_count": 143,
+        "ensemble_count": 148,
+        "poisson_pct": 22.63157894736842,
+        "xgb_pct": 19.342105263157894,
+        "cat_pct": 18.81578947368421,
+        "ensemble_pct": 19.473684210526315
+      },
+      {
+        "score": "0-2",
+        "actual_count": 43,
+        "actual_pct": 5.657894736842105,
+        "phase2_count": 21,
+        "phase2_pct": 2.763157894736842,
+        "poisson_count": 21,
+        "xgb_count": 12,
+        "cat_count": 28,
+        "ensemble_count": 18,
+        "poisson_pct": 2.763157894736842,
+        "xgb_pct": 1.5789473684210527,
+        "cat_pct": 3.6842105263157894,
+        "ensemble_pct": 2.3684210526315788
+      },
+      {
+        "score": "2-1",
+        "actual_count": 70,
+        "actual_pct": 9.210526315789474,
+        "phase2_count": 213,
+        "phase2_pct": 28.026315789473685,
+        "poisson_count": 213,
+        "xgb_count": 196,
+        "cat_count": 146,
+        "ensemble_count": 171,
+        "poisson_pct": 28.026315789473685,
+        "xgb_pct": 25.789473684210527,
+        "cat_pct": 19.210526315789473,
+        "ensemble_pct": 22.5
+      },
+      {
+        "score": "1-2",
+        "actual_count": 56,
+        "actual_pct": 7.368421052631579,
+        "phase2_count": 119,
+        "phase2_pct": 15.657894736842104,
+        "poisson_count": 119,
+        "xgb_count": 138,
+        "cat_count": 108,
+        "ensemble_count": 133,
+        "poisson_pct": 15.657894736842104,
+        "xgb_pct": 18.157894736842106,
+        "cat_pct": 14.210526315789474,
+        "ensemble_pct": 17.5
+      },
+      {
+        "score": "2-2",
+        "actual_count": 57,
+        "actual_pct": 7.5,
+        "phase2_count": 0,
+        "phase2_pct": 0.0,
+        "poisson_count": 0,
+        "xgb_count": 0,
+        "cat_count": 0,
+        "ensemble_count": 0,
+        "poisson_pct": 0.0,
+        "xgb_pct": 0.0,
+        "cat_pct": 0.0,
+        "ensemble_pct": 0.0
+      },
+      {
+        "score": "3-0",
+        "actual_count": 38,
+        "actual_pct": 5.0,
+        "phase2_count": 2,
+        "phase2_pct": 0.2631578947368421,
+        "poisson_count": 2,
+        "xgb_count": 0,
+        "cat_count": 4,
+        "ensemble_count": 0,
+        "poisson_pct": 0.2631578947368421,
+        "xgb_pct": 0.0,
+        "cat_pct": 0.5263157894736842,
+        "ensemble_pct": 0.0
+      },
+      {
+        "score": "0-3",
+        "actual_count": 22,
+        "actual_pct": 2.8947368421052633,
+        "phase2_count": 0,
+        "phase2_pct": 0.0,
+        "poisson_count": 0,
+        "xgb_count": 0,
+        "cat_count": 0,
+        "ensemble_count": 0,
+        "poisson_pct": 0.0,
+        "xgb_pct": 0.0,
+        "cat_pct": 0.0,
+        "ensemble_pct": 0.0
+      },
+      {
+        "score": "3-1",
+        "actual_count": 37,
+        "actual_pct": 4.868421052631579,
+        "phase2_count": 0,
+        "phase2_pct": 0.0,
+        "poisson_count": 0,
+        "xgb_count": 0,
+        "cat_count": 2,
+        "ensemble_count": 0,
+        "poisson_pct": 0.0,
+        "xgb_pct": 0.0,
+        "cat_pct": 0.2631578947368421,
+        "ensemble_pct": 0.0
+      },
+      {
+        "score": "1-3",
+        "actual_count": 20,
+        "actual_pct": 2.6315789473684212,
+        "phase2_count": 0,
+        "phase2_pct": 0.0,
+        "poisson_count": 0,
+        "xgb_count": 0,
+        "cat_count": 0,
+        "ensemble_count": 0,
+        "poisson_pct": 0.0,
+        "xgb_pct": 0.0,
+        "cat_pct": 0.0,
+        "ensemble_pct": 0.0
+      }
+    ]
+  },
+  "integrated_best": "xgb",
+  "best_gained": 35,
+  "best_lost": 25,
+  "pure_comparison_baseline": "pure poisson",
+  "integrated_comparison_baseline": "Phase 2 integrated poisson",
+  "nll_method": "Untruncated independent-Poisson joint likelihood for actual counts; valid for pure models. For integrated variants it evaluates underlying goal-rate quality, not the forced-draw/adjusted score matrix.",
+  "limitations": [
+    "Historical date-based pre-match feature rows; not 760 live fixture calls.",
+    "Diagnostic seasons 2024/25 and 2025/26 were previously inspected.",
+    "No diagnostic test-based hyperparameter or ensemble-weight tuning."
+  ]
+}

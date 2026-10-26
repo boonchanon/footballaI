@@ -1,0 +1,7 @@
+{
+  "PreDiagnosticQualification": true,
+  "DeploymentApproved": false,
+  "FutureForecastsFrozen": false,
+  "PreRegisteredHistoricalRule": "positive pooled exact and no losing pre-diagnostic season",
+  "DecisionReason": "earlier folds improved but both repeatedly inspected later seasons regressed; gain is statistically uncertain and no prospective test exists"
+}

@@ -1,0 +1,7 @@
+{
+  "HomeModelSHA256": "8f317a34c3c43572d7b08b4b283cc495480793d002640e9b4804a4d30caf0139",
+  "AwayModelSHA256": "29c132d1bec0929a571ec731fb4bd64c08222bffcb9a53178c01a58a6ccddad7",
+  "MetadataSHA256": "8984c8825383b1ac40dd552d1bcfd3d1df25e30546df1e173ab5a9203bf86e73",
+  "SelectionSHA256": "b3b23ce8e2b200c5c44524b37fa43a71334ea7110e4cad7a2b3a7201266a77b4",
+  "DiagnosticOutcomesUsedForTraining": false
+}

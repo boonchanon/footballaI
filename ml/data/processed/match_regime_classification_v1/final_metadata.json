@@ -1,0 +1,41 @@
+{
+  "Selected": "D",
+  "Features": [
+    "HomeEloPre",
+    "AwayEloPre",
+    "EloDiffPre",
+    "HomeGoalsForAvgLast5",
+    "AwayGoalsForAvgLast5",
+    "HomeGoalsAgainstAvgLast5",
+    "AwayGoalsAgainstAvgLast5",
+    "LambdaHome",
+    "LambdaAway",
+    "LambdaTotal",
+    "LambdaDifference",
+    "AbsLambdaDifference",
+    "HomeXGForLast5",
+    "HomeXGAgainstLast5",
+    "AwayXGForLast5",
+    "AwayXGAgainstLast5"
+  ],
+  "Fills": {
+    "HomeEloPre": 1553.4609839825698,
+    "AwayEloPre": 1552.8378042266631,
+    "EloDiffPre": -2.2591706020405127,
+    "HomeGoalsForAvgLast5": 1.2,
+    "AwayGoalsForAvgLast5": 1.4,
+    "HomeGoalsAgainstAvgLast5": 1.4,
+    "AwayGoalsAgainstAvgLast5": 1.4,
+    "LambdaHome": 1.4137300000000002,
+    "LambdaAway": 1.11364855,
+    "LambdaTotal": 2.6875008,
+    "LambdaDifference": 0.3005624499999999,
+    "AbsLambdaDifference": 0.5823635500000001,
+    "HomeXGForLast5": 1.3333794,
+    "HomeXGAgainstLast5": 1.4018446,
+    "AwayXGForLast5": 1.3586086,
+    "AwayXGAgainstLast5": 1.3753139
+  },
+  "TrainMaxDate": "2024-05-19",
+  "ModelSHA256": "9f734dbfbd23d63909562a8cbeda0e5faa089bfcd634a94e7f07985074420e2e"
+}

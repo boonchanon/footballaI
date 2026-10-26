@@ -1,0 +1,236 @@
+{
+  "dataset_window": {
+    "train": {
+      "seasons": [
+        "2002/03",
+        "2003/04",
+        "2004/05",
+        "2005/06",
+        "2006/07",
+        "2007/08",
+        "2008/09",
+        "2009/10",
+        "2010/11",
+        "2011/12",
+        "2012/13",
+        "2013/14",
+        "2014/15",
+        "2015/16",
+        "2016/17",
+        "2017/18",
+        "2018/19",
+        "2019/20",
+        "2020/21",
+        "2021/22",
+        "2022/23"
+      ],
+      "rows": 7980
+    },
+    "validation": {
+      "seasons": [
+        "2023/24"
+      ],
+      "rows": 380
+    },
+    "test": {
+      "seasons": [
+        "2024/25",
+        "2025/26"
+      ],
+      "rows": 760
+    }
+  },
+  "odds_feature_columns": [
+    "market_home_prob",
+    "market_draw_prob",
+    "market_away_prob",
+    "market_favorite_prob",
+    "market_confidence",
+    "market_prob_difference"
+  ],
+  "ensemble_definition": "Soft voting average of CatBoost and XGBoost probabilities.",
+  "experiment_a_football_only": {
+    "catboost": {
+      "accuracy": 0.5013157894736842,
+      "precision_macro": 0.4984956730667007,
+      "recall_macro": 0.43738660937026513,
+      "f1_macro": 0.37464112724530335,
+      "log_loss": 1.019546633148444,
+      "brier_score": 0.6113915674139632,
+      "confusion_matrix": [
+        [
+          119,
+          1,
+          126
+        ],
+        [
+          69,
+          1,
+          127
+        ],
+        [
+          56,
+          0,
+          261
+        ]
+      ],
+      "feature_count": 114,
+      "best_iteration": 148
+    },
+    "xgboost": {
+      "accuracy": 0.5013157894736842,
+      "precision_macro": 0.4443809372601942,
+      "recall_macro": 0.4382970758881795,
+      "f1_macro": 0.3762903216575793,
+      "log_loss": 1.0274272770935888,
+      "brier_score": 0.615466955737598,
+      "confusion_matrix": [
+        [
+          122,
+          1,
+          123
+        ],
+        [
+          67,
+          1,
+          129
+        ],
+        [
+          58,
+          1,
+          258
+        ]
+      ],
+      "feature_count": 114,
+      "best_iteration": 88
+    },
+    "ensemble": {
+      "accuracy": 0.5026315789473684,
+      "precision_macro": 0.49982915839152625,
+      "recall_macro": 0.43843813408109583,
+      "f1_macro": 0.3756022633124425,
+      "log_loss": 1.0210458230334452,
+      "brier_score": 0.6120492740227476,
+      "confusion_matrix": [
+        [
+          119,
+          1,
+          126
+        ],
+        [
+          68,
+          1,
+          128
+        ],
+        [
+          55,
+          0,
+          262
+        ]
+      ]
+    },
+    "feature_count": 114
+  },
+  "experiment_b_football_plus_betting_odds": {
+    "catboost": {
+      "accuracy": 0.5013157894736842,
+      "precision_macro": 0.3335900533574952,
+      "recall_macro": 0.4412984192933412,
+      "f1_macro": 0.3782740530394186,
+      "log_loss": 1.0088621941810685,
+      "brier_score": 0.6043952485849617,
+      "confusion_matrix": [
+        [
+          134,
+          4,
+          108
+        ],
+        [
+          79,
+          0,
+          118
+        ],
+        [
+          67,
+          3,
+          247
+        ]
+      ],
+      "feature_count": 120,
+      "best_iteration": 142
+    },
+    "xgboost": {
+      "accuracy": 0.5013157894736842,
+      "precision_macro": 0.39683869612974093,
+      "recall_macro": 0.4423095207749144,
+      "f1_macro": 0.3865156068382312,
+      "log_loss": 1.0021052552188199,
+      "brier_score": 0.5991746367040898,
+      "confusion_matrix": [
+        [
+          131,
+          6,
+          109
+        ],
+        [
+          81,
+          3,
+          113
+        ],
+        [
+          63,
+          7,
+          247
+        ]
+      ],
+      "feature_count": 120,
+      "best_iteration": 57
+    },
+    "ensemble": {
+      "accuracy": 0.5,
+      "precision_macro": 0.33221675325859085,
+      "recall_macro": 0.4393364280645961,
+      "f1_macro": 0.3763732463463203,
+      "log_loss": 1.0029975814519707,
+      "brier_score": 0.6003419965408232,
+      "confusion_matrix": [
+        [
+          131,
+          4,
+          111
+        ],
+        [
+          80,
+          0,
+          117
+        ],
+        [
+          65,
+          3,
+          249
+        ]
+      ]
+    },
+    "feature_count": 120
+  },
+  "comparison": {
+    "catboost": {
+      "accuracy_delta": 0.0,
+      "log_loss_delta": -0.010684438967375476,
+      "brier_score_delta": -0.006996318829001424,
+      "odds_helped": false
+    },
+    "xgboost": {
+      "accuracy_delta": 0.0,
+      "log_loss_delta": -0.025322021874768952,
+      "brier_score_delta": -0.01629231903350825,
+      "odds_helped": false
+    },
+    "ensemble": {
+      "accuracy_delta": -0.0026315789473684292,
+      "log_loss_delta": -0.018048241581474445,
+      "brier_score_delta": -0.01170727748192435,
+      "odds_helped": false
+    }
+  }
+}

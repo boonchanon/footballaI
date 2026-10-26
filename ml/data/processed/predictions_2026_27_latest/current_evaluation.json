@@ -1,0 +1,9 @@
+{
+  "Type": "RETROSPECTIVE RECONSTRUCTION",
+  "N": 40,
+  "ExactHits": 3,
+  "ExactPercent": 7.5,
+  "RawPredictionSHA256": "0afa806c8e26b9fa2a354b760128955ad40fa85b7b592bd11aa0fd3a2923f8e3",
+  "RawFrozenBeforeResultJoin": true,
+  "Claim": "reconstructed after fixtures completed; not prospective accuracy"
+}

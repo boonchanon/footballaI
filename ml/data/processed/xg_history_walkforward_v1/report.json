@@ -1,0 +1,116 @@
+{
+  "PreDiagnostic": [
+    {
+      "Group": "2018/19",
+      "N": 380,
+      "HighN": 120,
+      "BaseExact": 35,
+      "XGExact": 39,
+      "DeltaExact": 4,
+      "BaseHighExact": 0,
+      "XGHighExact": 0,
+      "BasePredHigh": 1,
+      "XGPredHigh": 0
+    },
+    {
+      "Group": "2019/20",
+      "N": 380,
+      "HighN": 107,
+      "BaseExact": 50,
+      "XGExact": 50,
+      "DeltaExact": 0,
+      "BaseHighExact": 0,
+      "XGHighExact": 0,
+      "BasePredHigh": 1,
+      "XGPredHigh": 0
+    },
+    {
+      "Group": "2020/21",
+      "N": 380,
+      "HighN": 102,
+      "BaseExact": 38,
+      "XGExact": 42,
+      "DeltaExact": 4,
+      "BaseHighExact": 0,
+      "XGHighExact": 0,
+      "BasePredHigh": 0,
+      "XGPredHigh": 0
+    },
+    {
+      "Group": "2021/22",
+      "N": 380,
+      "HighN": 124,
+      "BaseExact": 46,
+      "XGExact": 46,
+      "DeltaExact": 0,
+      "BaseHighExact": 0,
+      "XGHighExact": 0,
+      "BasePredHigh": 1,
+      "XGPredHigh": 2
+    },
+    {
+      "Group": "2022/23",
+      "N": 380,
+      "HighN": 121,
+      "BaseExact": 45,
+      "XGExact": 42,
+      "DeltaExact": -3,
+      "BaseHighExact": 0,
+      "XGHighExact": 0,
+      "BasePredHigh": 0,
+      "XGPredHigh": 0
+    },
+    {
+      "Group": "2023/24",
+      "N": 380,
+      "HighN": 166,
+      "BaseExact": 40,
+      "XGExact": 44,
+      "DeltaExact": 4,
+      "BaseHighExact": 0,
+      "XGHighExact": 0,
+      "BasePredHigh": 1,
+      "XGPredHigh": 1
+    }
+  ],
+  "Diagnostic": [
+    {
+      "Group": "2024/25",
+      "N": 380,
+      "HighN": 130,
+      "BaseExact": 44,
+      "XGExact": 48,
+      "DeltaExact": 4,
+      "BaseHighExact": 0,
+      "XGHighExact": 0,
+      "BasePredHigh": 2,
+      "XGPredHigh": 1
+    },
+    {
+      "Group": "2025/26",
+      "N": 380,
+      "HighN": 108,
+      "BaseExact": 46,
+      "XGExact": 46,
+      "DeltaExact": 0,
+      "BaseHighExact": 0,
+      "XGHighExact": 0,
+      "BasePredHigh": 0,
+      "XGPredHigh": 0
+    }
+  ],
+  "Pooled": {
+    "Group": "Pooled",
+    "N": 3040,
+    "HighN": 978,
+    "BaseExact": 344,
+    "XGExact": 357,
+    "DeltaExact": 13,
+    "BaseHighExact": 0,
+    "XGHighExact": 0,
+    "BasePredHigh": 6,
+    "XGPredHigh": 4
+  },
+  "ForecastsFrozen": false,
+  "Existing2026RawSHA256": "0afa806c8e26b9fa2a354b760128955ad40fa85b7b592bd11aa0fd3a2923f8e3"
+}

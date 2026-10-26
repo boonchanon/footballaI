@@ -1,0 +1,39 @@
+{
+  "ClassPolicySHA256": "99a61d793b569e4716e1e740ea750d7ee447c39d600f52b136243b8d6c76046b",
+  "FeatureSpecSHA256": "972a048c1606fda385fbd16508d39a1809a2f67d1c88308424be8984473c750e",
+  "OofSHA256": "8357c665576a1653ed696188954ea413cbb6797f11cb8e19790a544b9be18ad2",
+  "SelectedFeatures": [
+    "HomeEloPre",
+    "AwayEloPre",
+    "EloDiffPre",
+    "HomeGoalsForAvgLast5",
+    "AwayGoalsForAvgLast5",
+    "HomeGoalsAgainstAvgLast5",
+    "AwayGoalsAgainstAvgLast5"
+  ],
+  "SelectedModel": {
+    "n_estimators": 180,
+    "max_depth": 4,
+    "learning_rate": 0.05,
+    "subsample": 0.9,
+    "colsample_bytree": 0.9,
+    "reg_lambda": 5,
+    "tree_method": "hist",
+    "random_state": 42,
+    "n_jobs": 4
+  },
+  "Architecture": "two unweighted direct marginals × independent outer product × global argmax",
+  "FrozenBeforeDiagnostic": true,
+  "DiagnosticUsedForSelection": false,
+  "HistoricalMetrics": {
+    "N": 2660,
+    "DirectHits": 318,
+    "DirectAccuracy": 0.11954887218045113,
+    "MatchedPoissonHits": 307,
+    "MatchedPoissonAccuracy": 0.11541353383458647,
+    "DirectTop3": 815,
+    "MatchedPoissonTop3": 811,
+    "DirectMeanActualRank": 7.783834586466165,
+    "MatchedPoissonMeanActualRank": 7.666541353383459
+  }
+}

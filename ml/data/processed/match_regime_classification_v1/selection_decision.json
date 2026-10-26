@@ -1,0 +1,28 @@
+{
+  "Selected": "D",
+  "Rule": "highest pooled HIGH AUC, then HIGH AP, then LOW AUC; latest fold stability checked as gate",
+  "SelectedPreDiagnosticMetrics": {
+    "Variant": "D",
+    "N": 2280,
+    "LowN": 487,
+    "NormalN": 1053,
+    "HighN": 740,
+    "HighAUC": 0.5558748683748683,
+    "HighAP": 0.36207082490615894,
+    "LowAUC": 0.537652701413551,
+    "LowAP": 0.23641868498650764,
+    "LogLoss": 1.0653935086562252,
+    "Accuracy": 0.4451754385964912,
+    "MacroF1": 0.3131094569987258,
+    "ActualLowRate": 0.21359649122807017,
+    "MeanPLOW": 0.2225722074508667,
+    "ActualHighRate": 0.32456140350877194,
+    "MeanPHIGH": 0.32022687792778015
+  },
+  "LatestFoldHighAUC": 0.5310775813534512,
+  "GatePassed": false,
+  "StopReason": "Insufficient or unstable HIGH discrimination",
+  "VariantComparisonSHA": "fde44383d3128de1bed828d9bbeca7ecc729ea0dc8fbbcdc1ea2c9108531185a",
+  "WalkForwardPredictionsSHA": "adf8552bd3b7c31af7d1f26ed49e905b554046a28352a2e7253088037d5aa46c",
+  "NoDiagnosticSelection": true
+}

@@ -1,0 +1,8 @@
+{
+  "train_rows": 11564,
+  "validation_rows": 380,
+  "test_rows": 760,
+  "feature_count": 132,
+  "best_iteration": 73,
+  "validation_log_loss": 0.9217009959786534
+}
