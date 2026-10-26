@@ -161,8 +161,19 @@ def refresh(api_url: str, previous_path: Path, now: pd.Timestamp, model: str = "
             report_progress(20 + int(75 * index / len(ordered)), f"predicting fixtures {index}/{len(ordered)}")
 
     api_pairs = set(zip(fixtures.HomeTeam, fixtures.AwayTeam))
+    # Fixtures the website feed does not list (e.g. postponed or not yet dated) keep their row. While
+    # their last known date is still ahead they are re-predicted, so they use the same history as the rest.
     missing_from_api = [row for pair, row in previous_by_pair.items() if pair not in api_pairs]
-    rows.extend(missing_from_api)
+    kept_missing, repredicted_missing = [], []
+    for row in missing_from_api:
+        fixture_date = str(row["fixture_date"])[:10]
+        if fixture_date > basis_date:
+            rows.append(predict_row(models, row["home_team"], row["away_team"], fixture_date, basis_date, dc_predict))
+            repredicted_missing.append(row)
+            refreshed += 1
+        else:
+            rows.append(row)
+            kept_missing.append(row)
 
     columns = list(previous.columns) + [c for c in ("top_scores_probabilities",) if c not in previous.columns]
     output = pd.DataFrame(rows, columns=columns).fillna("")
@@ -194,7 +205,8 @@ def refresh(api_url: str, previous_path: Path, now: pd.Timestamp, model: str = "
         StartedWithoutResult=int(((fixtures.Kickoff <= now) & ~fixtures.Finished).sum()),
         Refreshed=refreshed,
         FrozenFromPrevious=frozen,
-        KeptMissingFromApi=[f"{row['home_team']} v {row['away_team']}" for row in missing_from_api],
+        KeptMissingFromApi=[f"{row['home_team']} v {row['away_team']}" for row in kept_missing],
+        RepredictedMissingFromApi=[f"{row['fixture_date']} {row['home_team']} v {row['away_team']}" for row in repredicted_missing],
         HeadlineModel=model,
         DixonColes=dict(half_life_days=dc.HALF_LIFE_DAYS, window_years=dc.WINDOW_YEARS, min_team_matches=dc.MIN_TEAM_MATCHES) if dc_predict else None,
         ModelHashes={name: sha(MODEL_DIR / name) for name in MODEL_FILES},
