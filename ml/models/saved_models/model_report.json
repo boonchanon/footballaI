@@ -1,0 +1,77 @@
+{
+  "created_at": "2026-10-26T16:45:16.746538+00:00",
+  "test_seasons": [
+    "2024/25",
+    "2025/26"
+  ],
+  "test_matches": 760,
+  "best_model": "xgboost",
+  "models": [
+    {
+      "key": "baseline",
+      "label": "Baseline (ทายเจ้าบ้านชนะทุกนัด)",
+      "accuracy": 0.41710526315789476,
+      "precision_macro": 0.13903508771929826,
+      "recall_macro": 0.3333333333333333,
+      "f1_macro": 0.1962240792324358,
+      "log_loss": null,
+      "brier_score": null
+    },
+    {
+      "key": "catboost",
+      "label": "CatBoost",
+      "accuracy": 0.5039473684210526,
+      "precision_macro": 0.333859542602712,
+      "recall_macro": 0.44249100219708826,
+      "f1_macro": 0.3779462981687451,
+      "log_loss": 1.0070452982389895,
+      "brier_score": 0.6035222312456089
+    },
+    {
+      "key": "xgboost",
+      "label": "XGBoost",
+      "accuracy": 0.5105263157894737,
+      "precision_macro": 0.34017787044544834,
+      "recall_macro": 0.44774862575124175,
+      "f1_macro": 0.38387300105810845,
+      "log_loss": 1.0024648228779818,
+      "brier_score": 0.5996508978721522
+    },
+    {
+      "key": "poisson",
+      "label": "Poisson",
+      "accuracy": 0.506578947368421,
+      "precision_macro": 0.3365261813537675,
+      "recall_macro": 0.4409521855470921,
+      "f1_macro": 0.37527457914282053,
+      "log_loss": 1.012348319034092,
+      "brier_score": 0.6073206850955998
+    },
+    {
+      "key": "ensemble",
+      "label": "Ensemble",
+      "accuracy": 0.5078947368421053,
+      "precision_macro": 0.3366448460261848,
+      "recall_macro": 0.4450385986509707,
+      "f1_macro": 0.38015008472524814,
+      "log_loss": 1.0028027513315352,
+      "brier_score": 0.6005125810534483
+    },
+    {
+      "key": "dixon_coles",
+      "label": "Dixon-Coles",
+      "accuracy": 0.5039473684210526,
+      "precision_macro": 0.332475220164205,
+      "recall_macro": 0.4455258905901362,
+      "f1_macro": 0.37994994569580204,
+      "log_loss": 1.0099229694668168,
+      "brier_score": 0.605557779545759
+    }
+  ],
+  "notes_th": {
+    "accuracy": "สัดส่วนนัดที่ทายผล ชนะ/เสมอ/แพ้ ถูก",
+    "precision_macro": "เฉลี่ยทั้ง 3 ผล: เมื่อทายว่าออกผลไหน ถูกจริงบ่อยแค่ไหน",
+    "recall_macro": "เฉลี่ยทั้ง 3 ผล: เมื่อผลจริงเกิดขึ้น ทายเจอได้มากแค่ไหน",
+    "f1_macro": "ค่าสมดุลระหว่าง Precision และ Recall เฉลี่ยทั้ง 3 ผล"
+  }
+}
