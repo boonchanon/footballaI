@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import {
   Activity,
   AlertCircle,
@@ -32,6 +33,7 @@ import type {
   ExportPipelineResult,
   MatchPredictionResult,
   UploadPipelineResult,
+  AdminAiJob,
   WeeklyHistory,
   WeeklyRefreshJob,
 } from "./admin-ai-client"
@@ -162,34 +164,34 @@ export function AdminAiHero({
           </div>
           <h1 className="mt-4 text-3xl font-black tracking-tight text-foreground sm:text-5xl">ระบบวิเคราะห์ฟุตบอลด้วย AI</h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
-            อัปโหลดไฟล์ฤดูกาลล่าสุดเพื่ออัปเดตโมเดล อัปโหลด fixture เพื่อสร้างไฟล์ CSV ผลทำนาย
-            และติดตามสถานะคลังข้อมูล ผลประเมินโมเดล และการทำนายรายคู่จากหน้าเดียว
+            อัปเดตผลทำนายรายสัปดาห์ เพิ่มไฟล์ผลการแข่งขันเข้าคลังข้อมูล ฝึกแบบจำลองใหม่ และทดลองทำนายรายคู่
+            ทุกส่วนใช้ข้อมูลและแบบจำลองจริงในโฟลเดอร์ ml/ ของเว็บนี้
           </p>
         </div>
 
         <div className="grid w-full gap-3 sm:grid-cols-2 xl:w-[460px]">
           <StatTile
-            label="จำนวนทีมที่โหลดแล้ว"
+            label="ทีมในฤดูกาลที่ทำนาย"
             value={formatNumber(summary?.teamsLoaded)}
-            hint={summary?.healthLabel || "ตรวจจาก /health และ /pipeline/status"}
+            hint={`แมตช์ในคลังข้อมูล ${formatNumber(summary?.totalMatches)} นัด`}
             icon={Database}
           />
           <StatTile
-            label="โมเดลที่แม่นยำที่สุด"
+            label="แบบจำลองที่แม่นยำที่สุด"
             value={summary?.bestModelLabel || "-"}
             hint={topModel?.accuracy != null ? `Accuracy ${formatPercent(topModel.accuracy)}` : "ยังไม่มีผลประเมิน"}
             icon={Sparkles}
           />
           <StatTile
-            label="ฤดูกาลล่าสุดในระบบ"
+            label="ฤดูกาลล่าสุดในคลังข้อมูล"
             value={summary?.latestSeason || "-"}
-            hint="อ้างอิงจากคลังข้อมูลล่าสุด"
+            hint={`${formatNumber(summary?.seasonCount)} ฤดูกาล`}
             icon={BarChart3}
           />
           <StatTile
-            label="ไฟล์ผลทำนายล่าสุด"
-            value={summary?.latestPredictionFile || "-"}
-            hint="อัปเดตหลัง export fixture"
+            label="เผยแพร่ผลทำนายล่าสุด"
+            value={formatThaiDateTime(summary?.latestPredictionUpdatedAt)}
+            hint="จากการอัปเดตผลรายสัปดาห์"
             icon={FileSpreadsheet}
           />
         </div>
@@ -201,7 +203,7 @@ export function AdminAiHero({
           รีเฟรชสถานะระบบ
         </Button>
         <Badge variant="outline" className="rounded-full border-border px-4 py-2 text-sm">
-          แหล่งข้อมูลหลัก: `data/raw`
+          แหล่งข้อมูลหลัก: ml/data/raw
         </Badge>
       </div>
 
@@ -226,16 +228,33 @@ export function formatThaiDate(value: string | null | undefined) {
   return date.toLocaleDateString("th-TH", { dateStyle: "medium", timeZone: "Asia/Bangkok" })
 }
 
-// weekly_refresh.py reports progress in English; show it in Thai.
-function describeWeeklyStep(message: string) {
+// The ml/ jobs report progress in English; show it in Thai.
+export function describeJobStep(message: string) {
   const predicting = message.match(/^predicting fixtures (\d+)\/(\d+)/)
   if (predicting) return `กำลังทำนายผล ${predicting[1]}/${predicting[2]} นัด`
+  const dcWeek = message.match(/^evaluating Dixon-Coles week (\d+)\/(\d+)/)
+  if (dcWeek) return `กำลังประเมิน Dixon-Coles สัปดาห์ที่ ${dcWeek[1]}/${dcWeek[2]}`
+  if (message.startsWith("rebuilding dataset")) return "กำลังเตรียมข้อมูลและฝึก CatBoost, XGBoost, Poisson"
+  if (message.startsWith("evaluating models")) return "กำลังประเมินแบบจำลองทั้งหมด"
   if (message.startsWith("fetching fixtures")) return "กำลังดึงตารางและผลการแข่งขันจากเว็บ"
   if (message.startsWith("loading models")) return "กำลังโหลดแบบจำลองและประวัติแมตช์"
   if (message.startsWith("fitting Dixon-Coles")) return "กำลังคำนวณค่าพลังทีม (Dixon-Coles)"
   if (message.startsWith("writing weekly output")) return "กำลังบันทึกไฟล์ผลทำนาย"
   if (message.startsWith("publishing")) return "กำลังเผยแพร่ผลขึ้นหน้าเว็บ"
   return message || "กำลังเตรียมงาน"
+}
+
+export function formatDuration(job: AdminAiJob) {
+  if (!job.startedAt || !job.finishedAt) return "-"
+  const seconds = Math.max(0, Math.round((new Date(job.finishedAt).getTime() - new Date(job.startedAt).getTime()) / 1000))
+  return seconds >= 60 ? `${Math.floor(seconds / 60)} นาที ${seconds % 60} วินาที` : `${seconds} วินาที`
+}
+
+export function JobStatusBadge({ status }: { status: AdminAiJob["status"] }) {
+  if (status === "done") return <Badge className="bg-primary text-primary-foreground hover:bg-primary">สำเร็จ</Badge>
+  if (status === "failed") return <Badge variant="destructive">ไม่สำเร็จ</Badge>
+  if (status === "running") return <Badge variant="outline">กำลังทำงาน</Badge>
+  return <Badge variant="outline">รอเริ่ม</Badge>
 }
 
 export function WeeklyRefreshSection({
@@ -292,7 +311,7 @@ export function WeeklyRefreshSection({
             <div className="flex items-center justify-between gap-3 text-sm">
               <span className="flex items-center gap-2 font-semibold text-foreground">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                {job.status === "queued" ? "รอเริ่มงาน" : describeWeeklyStep(job.message)}
+                {job.status === "queued" ? "รอเริ่มงาน" : describeJobStep(job.message)}
               </span>
               <span className="font-bold text-primary">{job.progress}%</span>
             </div>
@@ -384,23 +403,18 @@ export function HistoricalUpdateSection({
   latestFileInputKey,
   latestFileNames,
   uploadState,
-  rebuildState,
   canUpload,
   onLatestFileChange,
   onUpload,
-  onRebuild,
 }: {
   statusSummary: AdminAiStatusSummary | null
   latestFileInputKey: number
   latestFileNames: string[]
   uploadState: ActionState<UploadPipelineResult>
-  rebuildState: ActionState<UploadPipelineResult>
   canUpload: boolean
   onLatestFileChange: (files: File[]) => void
   onUpload: () => void
-  onRebuild: () => void
 }) {
-  const latestActionSummary = uploadState.data || rebuildState.data
   const selectedFilePreview = latestFileNames.slice(0, 3).join(", ")
   const hasMoreSelectedFiles = latestFileNames.length > 3
   const systemMetrics = [
@@ -408,7 +422,7 @@ export function HistoricalUpdateSection({
     { label: "จำนวนแมตช์รวมในระบบ", value: formatNumber(statusSummary?.totalMatches ?? 0) },
     { label: "จำนวนฤดูกาลที่มี", value: formatNumber(statusSummary?.seasonCount ?? 0) },
     { label: "ฤดูกาลล่าสุดในระบบ", value: statusSummary?.latestSeason || "-" },
-    { label: "จำนวนทีมที่โหลดแล้ว", value: formatNumber(statusSummary?.teamsLoaded ?? 0) },
+    { label: "ทีมในฤดูกาลที่ทำนาย", value: formatNumber(statusSummary?.teamsLoaded ?? 0) },
   ]
 
   return (
@@ -419,7 +433,8 @@ export function HistoricalUpdateSection({
           อัปเดตข้อมูลย้อนหลัง
         </CardTitle>
         <CardDescription>
-          อัปโหลดไฟล์ลีกล่าสุดเพื่ออัปเดตโมเดล หรือสั่งสร้างข้อมูลใหม่จากไฟล์ดิบทั้งหมดในคลัง
+          อัปโหลดไฟล์ผลการแข่งขันรายฤดูกาล (รูปแบบ football-data.co.uk เช่น E0.csv) ระบบจะตรวจไฟล์ก่อนเพิ่มเข้าคลัง
+          จากนั้นกดฝึกแบบจำลองใหม่เพื่อนำข้อมูลไปใช้
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -434,7 +449,7 @@ export function HistoricalUpdateSection({
             onChange={(event) => onLatestFileChange(Array.from(event.target.files || []))}
           />
           <p className="text-xs text-muted-foreground">
-            รองรับกรณีไฟล์ซ้ำ ระบบจะใช้ข้อมูลเดิมประมวลผลต่อ
+            ต้องมีคอลัมน์ Date, HomeTeam, AwayTeam, FTHG, FTAG, FTR · ไฟล์ที่ซ้ำกับในคลังจะไม่ถูกเพิ่ม
             {latestFileNames.length
               ? ` | เลือกแล้ว ${latestFileNames.length} ไฟล์${selectedFilePreview ? `: ${selectedFilePreview}` : ""}${hasMoreSelectedFiles ? " ..." : ""}`
               : ""}
@@ -444,32 +459,19 @@ export function HistoricalUpdateSection({
         <div className="flex flex-col gap-3 sm:flex-row">
           <Button onClick={onUpload} disabled={!canUpload} className="rounded-[14px]">
             {uploadState.loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-            อัปโหลดและอัปเดต
+            ตรวจและเพิ่มเข้าคลัง
           </Button>
-          <Button
-            variant="outline"
-            onClick={onRebuild}
-            disabled={uploadState.loading || rebuildState.loading}
-            className="rounded-[14px] bg-transparent"
-          >
-            {rebuildState.loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-            สร้างใหม่จากไฟล์ดิบทั้งหมด
+          <Button asChild variant="outline" className="rounded-[14px] bg-transparent">
+            <Link href="/admin/ai/training">
+              <Brain className="mr-2 h-4 w-4" />
+              ไปหน้าฝึกแบบจำลองใหม่
+            </Link>
           </Button>
         </div>
 
-        <StateMessage type="error" message={uploadState.error || rebuildState.error} />
-        <StateMessage type="success" message={uploadState.success || rebuildState.success} />
-        <StateMessage
-          type="loading"
-          message={
-            uploadState.loading
-              ? "กำลังอัปโหลดไฟล์และอัปเดตข้อมูลย้อนหลัง โปรดรอสักครู่"
-              : rebuildState.loading
-                ? "กำลังสร้างข้อมูลใหม่จากไฟล์ดิบทั้งหมด โปรดรอสักครู่"
-                : ""
-          }
-        />
-        <StateMessage type="info" message={uploadState.data?.duplicateNotice || ""} />
+        <StateMessage type="error" message={uploadState.error} />
+        <StateMessage type="success" message={uploadState.success || uploadState.data?.message || ""} />
+        <StateMessage type="loading" message={uploadState.loading ? "กำลังตรวจไฟล์ด้วยตัวทำความสะอาดข้อมูลของระบบ AI" : ""} />
 
         <div className="space-y-3">
           <p className="text-sm font-semibold text-foreground">สถานะปัจจุบันของระบบ</p>
@@ -483,30 +485,39 @@ export function HistoricalUpdateSection({
           </div>
         </div>
 
-        {latestActionSummary ? (
+        {uploadState.data?.checkedFiles.length ? (
           <div className="space-y-3 rounded-[16px] border border-border bg-card/60 p-4">
-            <p className="text-sm font-semibold text-foreground">สรุปการประมวลผลล่าสุด</p>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {[
-                { label: "จำนวนไฟล์ที่ประมวลผล", value: formatNumber(latestActionSummary.processedFiles) },
-                { label: "แมตช์ที่เพิ่มเข้าใหม่", value: formatNumber(latestActionSummary.matchesAdded) },
-                { label: "รายการซ้ำที่ลบออก", value: formatNumber(latestActionSummary.duplicatesRemoved) },
-                { label: "จำนวนแถวฟีเจอร์จากรอบล่าสุด", value: formatNumber(latestActionSummary.featureRows) },
-              ].map((item) => (
-                <div key={item.label} className="rounded-[16px] border border-border bg-muted/30 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{item.label}</p>
-                  <p className="mt-2 text-xl font-bold text-foreground">{item.value}</p>
-                </div>
-              ))}
+            <p className="text-sm font-semibold text-foreground">ผลตรวจไฟล์</p>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead>ไฟล์</TableHead>
+                    <TableHead>ฤดูกาลในไฟล์</TableHead>
+                    <TableHead className="text-right">แมตช์ที่อ่านได้</TableHead>
+                    <TableHead>ผล</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {uploadState.data.checkedFiles.map((file) => (
+                    <TableRow key={file.originalName}>
+                      <TableCell className="font-medium text-foreground">{file.originalName}</TableCell>
+                      <TableCell>{file.seasons.join(", ") || "-"}</TableCell>
+                      <TableCell className="text-right">{formatNumber(file.matchRows)}</TableCell>
+                      <TableCell>
+                        {file.duplicate ? (
+                          <Badge variant="outline">ซ้ำกับ {file.duplicateOf || "ไฟล์ในคลัง"} ไม่ได้เพิ่ม</Badge>
+                        ) : (
+                          <Badge className="bg-primary text-primary-foreground hover:bg-primary">
+                            เพิ่มแล้ว{file.isNewSeason ? " · ฤดูกาลใหม่" : ""}
+                          </Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-          </div>
-        ) : null}
-
-        {uploadState.data?.uploadedFiles?.length ? (
-          <div className="rounded-[16px] border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-            <span className="font-semibold text-foreground">ไฟล์ที่บันทึกเข้าคลังล่าสุด:</span>{" "}
-            {uploadState.data.uploadedFiles.slice(0, 5).join(", ")}
-            {uploadState.data.uploadedFiles.length > 5 ? ` และอีก ${uploadState.data.uploadedFiles.length - 5} ไฟล์` : ""}
           </div>
         ) : null}
       </CardContent>
@@ -655,71 +666,80 @@ export function ArchiveSummarySection({
   )
 }
 
+export function describeEvaluation(info: AdminAiStatusSummary["evaluationInfo"] | null | undefined) {
+  if (!info?.testMatches) return "ยังไม่มีผลประเมิน"
+  const seasons = info.testSeasons.join(" และ ")
+  return `ชุดทดสอบ ${formatNumber(info.testMatches)} นัด (ฤดูกาล ${seasons}) ที่ไม่ได้ใช้ฝึก · ประเมินเมื่อ ${formatThaiDateTime(info.evaluatedAt)}`
+}
+
+// Accuracy is shown as a 0-1 value (as in the report book); the summary API delivers it in percent.
+export function ModelReportTable({ models }: { models: AdminAiStatusSummary["models"] }) {
+  return (
+    <div className="overflow-hidden rounded-[18px] border border-border">
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead className="min-w-[220px]">แบบจำลอง</TableHead>
+              <TableHead className="text-right">Accuracy</TableHead>
+              <TableHead className="text-right">Precision (Macro)</TableHead>
+              <TableHead className="text-right">Recall (Macro)</TableHead>
+              <TableHead className="text-right">F1 (Macro)</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {models.map((model) => (
+              <TableRow key={model.key} className={model.isBest ? "bg-primary/10" : undefined}>
+                <TableCell className="font-medium text-foreground">
+                  <span className="flex items-center gap-2">
+                    {model.label}
+                    {model.isBest ? <Badge className="bg-primary text-primary-foreground hover:bg-primary">ดีที่สุด</Badge> : null}
+                  </span>
+                </TableCell>
+                <TableCell className="text-right font-semibold">{model.accuracy == null ? "-" : formatMetric(model.accuracy / 100)}</TableCell>
+                <TableCell className="text-right">{formatMetric(model.precisionMacro)}</TableCell>
+                <TableCell className="text-right">{formatMetric(model.recallMacro)}</TableCell>
+                <TableCell className="text-right">{formatMetric(model.f1Macro)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  )
+}
+
 export function ModelEvaluationSection({
   loading,
   models,
+  info,
 }: {
   loading: boolean
   models: AdminAiStatusSummary["models"]
+  info: AdminAiStatusSummary["evaluationInfo"] | null | undefined
 }) {
   return (
     <Card className="rounded-[22px] border-border">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
           <Target className="h-5 w-5 text-primary" />
-          ผลประเมินโมเดล
+          ผลประเมินแบบจำลอง
         </CardTitle>
-        <CardDescription>เปรียบเทียบ accuracy, f1 macro, log loss และ brier score เพื่อดูว่าโมเดลไหนเหมาะที่สุด</CardDescription>
+        <CardDescription>{describeEvaluation(info)}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-3">
         {loading && !models.length ? (
-          <LoadingPanel label="กำลังโหลดผลประเมินโมเดล" />
+          <LoadingPanel label="กำลังโหลดผลประเมินแบบจำลอง" />
         ) : models.length ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {models.map((model) => (
-              <div
-                key={model.key}
-                className={`rounded-[18px] border p-4 shadow-sm ${
-                  model.isBest ? "border-primary/40 bg-primary/10" : "border-border bg-card"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-lg font-bold text-foreground">{model.label}</p>
-                    <p className="text-sm text-muted-foreground">ประเมินจากชุดข้อมูลล่าสุด</p>
-                  </div>
-                  {model.isBest ? <Badge className="bg-primary text-primary-foreground hover:bg-primary">ดีที่สุด</Badge> : null}
-                </div>
-
-                <div className="mt-4 space-y-3">
-                  <div>
-                    <div className="mb-1 flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Accuracy</span>
-                      <span className="font-semibold text-foreground">{formatPercent(model.accuracy)}</span>
-                    </div>
-                    <Progress value={model.accuracy ?? 0} />
-                  </div>
-                  <div className="grid grid-cols-3 gap-3 text-sm">
-                    <div className="rounded-[14px] border border-border bg-background/80 p-3">
-                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">F1 Macro</p>
-                      <p className="mt-2 font-bold text-foreground">{formatMetric(model.f1Macro)}</p>
-                    </div>
-                    <div className="rounded-[14px] border border-border bg-background/80 p-3">
-                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Log Loss</p>
-                      <p className="mt-2 font-bold text-foreground">{formatMetric(model.logLoss)}</p>
-                    </div>
-                    <div className="rounded-[14px] border border-border bg-background/80 p-3">
-                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Brier</p>
-                      <p className="mt-2 font-bold text-foreground">{formatMetric(model.brierScore)}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <>
+            <ModelReportTable models={models} />
+            <Button asChild variant="outline" size="sm" className="rounded-[12px] bg-transparent">
+              <Link href="/admin/ai/training">ฝึกแบบจำลองใหม่และประเมินซ้ำ</Link>
+            </Button>
+          </>
         ) : (
           <div className="rounded-[18px] border border-dashed border-border bg-card/70 p-6 text-center text-sm text-muted-foreground">
-            ยังไม่มีผลประเมินโมเดลจาก API
+            ยังไม่มีผลประเมิน กดฝึกแบบจำลองใหม่ที่หน้าฝึกแบบจำลองเพื่อสร้าง
           </div>
         )}
       </CardContent>
@@ -745,7 +765,10 @@ export function KnownFilesSection({
           <FileSpreadsheet className="h-5 w-5 text-primary" />
           ไฟล์และฤดูกาลที่ระบบรู้จัก
         </CardTitle>
-        <CardDescription>แสดงชื่อไฟล์ ฤดูกาล และจำนวนแมตช์ เพื่อใช้ตรวจสอบคลังข้อมูลย้อนหลังอย่างรวดเร็ว</CardDescription>
+        <CardDescription>
+          ไฟล์ผลการแข่งขันที่แบบจำลองใช้ฝึก ไฟล์ที่อัปโหลดแล้วแต่ยังไม่ได้ฝึกจะขึ้นว่า &quot;รอฝึกแบบจำลอง&quot;
+          ลบได้เฉพาะไฟล์ที่อัปโหลดเพิ่ม
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <StateMessage type="error" message={deleteState.error} />
@@ -770,24 +793,28 @@ export function KnownFilesSection({
                   {files.map((file) => (
                     <TableRow key={`${file.filename}-${file.season}`}>
                       <TableCell className="font-medium text-foreground">{file.filename}</TableCell>
-                      <TableCell>{file.season}</TableCell>
-                      <TableCell className="text-right">{formatNumber(file.matches)}</TableCell>
+                      <TableCell>{file.pending ? <Badge variant="outline">รอฝึกแบบจำลอง</Badge> : file.season}</TableCell>
+                      <TableCell className="text-right">{file.pending ? "-" : formatNumber(file.matches)}</TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="rounded-[12px] bg-transparent"
-                          disabled={deleteState.loading}
-                          onClick={() => onDeleteFile(file.filename)}
-                        >
-                          {deleteState.loading && deleteState.data?.filename === file.filename ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="mr-2 h-4 w-4" />
-                          )}
-                          ลบไฟล์
-                        </Button>
+                        {file.uploaded ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="rounded-[12px] bg-transparent"
+                            disabled={deleteState.loading}
+                            onClick={() => onDeleteFile(file.filename)}
+                          >
+                            {deleteState.loading && deleteState.data?.filename === file.filename ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="mr-2 h-4 w-4" />
+                            )}
+                            ลบไฟล์
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">ข้อมูลตั้งต้น</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -829,7 +856,10 @@ export function MatchPredictionSection({
           <Brain className="h-5 w-5 text-primary" />
           ทำนายผลการแข่งขัน
         </CardTitle>
-        <CardDescription>เลือกทีมเหย้าและทีมเยือน แล้วดูโอกาสชนะ expected goals และสกอร์ที่มีแนวโน้มมากที่สุด</CardDescription>
+        <CardDescription>
+          เลือก 2 ทีมจากรายชื่อทีมพรีเมียร์ลีกฤดูกาลที่ทำนาย ระบบใช้ Dixon-Coles (แบบจำลองเดียวกับที่เผยแพร่บนเว็บ)
+          กับผลการแข่งขันล่าสุดที่มี แล้วแสดงโอกาส ชนะ/เสมอ/แพ้ ประตูที่คาด และสกอร์คาดการณ์
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="grid gap-4 lg:grid-cols-[1fr_1fr_auto]">
@@ -908,13 +938,19 @@ export function MatchPredictionSection({
               </div>
 
               <div className="rounded-[18px] border border-border bg-card p-4">
-                <p className="text-sm font-semibold text-foreground">Top Scores</p>
+                <p className="text-sm font-semibold text-foreground">สกอร์คาดการณ์ 3 อันดับ</p>
                 {predictState.data.topScores.length ? (
                   <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {predictState.data.topScores.map((item) => (
-                      <div key={`${item.score}-${item.probability}`} className="rounded-[14px] border border-border bg-muted/40 p-3">
+                    {predictState.data.topScores.map((item, index) => (
+                      <div
+                        key={`${item.score}-${item.probability}`}
+                        className={`rounded-[14px] border p-3 ${index === 0 ? "border-primary/40 bg-primary/10" : "border-border bg-muted/40"}`}
+                      >
                         <p className="text-lg font-bold text-foreground">{item.score}</p>
-                        <p className="mt-1 text-sm text-muted-foreground">{formatPercent(item.probability)}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          โอกาส {formatPercent(item.probability)}
+                          {index === 0 ? " · สกอร์หลัก" : ""}
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -928,6 +964,15 @@ export function MatchPredictionSection({
 
             <div className="rounded-[18px] border border-border bg-muted/30 p-4 text-sm leading-7 text-muted-foreground">
               <span className="font-semibold text-foreground">สรุปผลทำนาย:</span> {predictState.data.summary}
+              {predictState.data.otherModels ? (
+                <p className="mt-1 text-xs">
+                  เทียบแบบจำลองอื่น (ชนะ/เสมอ/แพ้ของเจ้าบ้าน: H/D/A) · CatBoost {predictState.data.otherModels.catboost} · XGBoost{" "}
+                  {predictState.data.otherModels.xgboost} · Poisson {predictState.data.otherModels.poisson}
+                </p>
+              ) : null}
+              <p className="mt-1 text-xs">
+                สกอร์หลักคือสกอร์ที่มีโอกาสมากที่สุดในบรรดาสกอร์ที่ตรงกับผลชนะ/เสมอ/แพ้ที่ทาย จึงอาจไม่ใช่สกอร์ที่มีเปอร์เซ็นต์สูงสุดเสมอไป
+              </p>
             </div>
           </div>
         ) : (

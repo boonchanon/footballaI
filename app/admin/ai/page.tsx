@@ -10,7 +10,6 @@ import {
   fetchWeeklyHistory,
   fetchWeeklyRefreshJob,
   predictMatchPair,
-  rebuildFromRawArchive,
   startWeeklyRefresh,
   uploadLatestSeasonFile,
   type AdminAiStatusSummary,
@@ -86,6 +85,9 @@ function buildCanonicalTeamMap(teamOptions: string[]) {
 }
 
 function normalizeTeamName(teamName: string, canonicalTeamMap: Map<string, string>) {
+  // Names picked from the team list are already the exact names the models use.
+  const exact = canonicalTeamMap.get(normalizeLookupKey(teamName))
+  if (exact) return exact
   const normalizedKey = normalizeLookupKey(teamName)
   const aliasResolved = TEAM_ALIAS_MAP[normalizedKey] ?? teamName.trim()
   const canonical = canonicalTeamMap.get(normalizeLookupKey(aliasResolved))
@@ -271,7 +273,6 @@ export default function AdminAiPage() {
   const [homeTeam, setHomeTeam] = useState("")
   const [awayTeam, setAwayTeam] = useState("")
   const [uploadState, setUploadState] = useState<ActionState<UploadPipelineResult>>(createActionState())
-  const [rebuildState, setRebuildState] = useState<ActionState<UploadPipelineResult>>(createActionState())
   const [exportState, setExportState] = useState<ActionState<ExportPipelineResult>>(createActionState())
   const [predictState, setPredictState] = useState<ActionState<MatchPredictionResult>>(createActionState())
   const [deleteState, setDeleteState] = useState<ActionState<{ filename: string }>>(createActionState())
@@ -288,7 +289,6 @@ export default function AdminAiPage() {
 
   const clearPipelineStates = () => {
     setUploadState(createActionState())
-    setRebuildState(createActionState())
     setExportState(createActionState())
     setDeleteState(createActionState())
     setLatestFiles([])
@@ -436,33 +436,6 @@ export default function AdminAiPage() {
     }
   }
 
-  const handleRebuild = async () => {
-    setRebuildState({ ...createActionState(), loading: true })
-    try {
-      const data = await rebuildFromRawArchive()
-      const refreshed = await refreshSummaryTwice()
-      const mergedRebuildData: UploadPipelineResult = {
-        ...data,
-        latestSeason: refreshed?.latestSeason || data.latestSeason,
-        featureRows: refreshed?.totalMatches ?? data.featureRows,
-      }
-
-      setRebuildState({
-        loading: false,
-        error: "",
-        success: refreshed ? "" : "สร้างข้อมูลใหม่จากไฟล์ดิบทั้งหมดสำเร็จ แต่รีเฟรชสถานะล่าสุดไม่สำเร็จ",
-        data: mergedRebuildData,
-      })
-    } catch (error) {
-      setRebuildState({
-        loading: false,
-        error: error instanceof Error ? error.message : "สร้างข้อมูลใหม่จากไฟล์ดิบทั้งหมดไม่สำเร็จ",
-        success: "",
-        data: null,
-      })
-    }
-  }
-
   const handleDeleteFile = async (filename: string) => {
     setDeleteState({
       loading: true,
@@ -476,7 +449,6 @@ export default function AdminAiPage() {
       const refreshed = await refreshSummaryTwice()
       if (refreshed) {
         setUploadState(createActionState())
-        setRebuildState(createActionState())
       }
 
       setDeleteState({
@@ -635,11 +607,9 @@ export default function AdminAiPage() {
           latestFileInputKey={latestFileInputKey}
           latestFileNames={latestFiles.map((file) => file.name)}
           uploadState={uploadState}
-          rebuildState={rebuildState}
-          canUpload={latestFiles.length > 0 && !uploadState.loading && !rebuildState.loading}
+          canUpload={latestFiles.length > 0 && !uploadState.loading}
           onLatestFileChange={handleLatestFileChange}
           onUpload={() => void handleLatestUpload()}
-          onRebuild={() => void handleRebuild()}
         />
         <FixtureExportSection
           fixtureFileInputKey={fixtureFileInputKey}
@@ -655,7 +625,7 @@ export default function AdminAiPage() {
 
       <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
         <ArchiveSummarySection loading={summaryState.loading} summary={summaryState.data} />
-        <ModelEvaluationSection loading={summaryState.loading} models={summaryState.data?.models || []} />
+        <ModelEvaluationSection loading={summaryState.loading} models={summaryState.data?.models || []} info={summaryState.data?.evaluationInfo} />
       </div>
 
       <KnownFilesSection
