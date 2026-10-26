@@ -21,6 +21,7 @@ JOB_LABELS = {
     "weekly_refresh": "อัปเดตผลทำนายรายสัปดาห์",
     "train": "ฝึกแบบจำลองใหม่",
     "upload": "อัปโหลดข้อมูลผลแข่ง",
+    "delete_file": "ลบไฟล์ข้อมูลผลแข่ง",
 }
 ACTIVE_STATUSES = {"queued", "running"}
 LOG_TAIL_LINES = 40
