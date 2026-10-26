@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,9 +16,15 @@ from src.models import dixon_coles_team as dc
 from src.models.fixture_predictions import _excel_safe_score
 from src.models.predictor import MODEL_DIR, PROJECT_ROOT, load_models, predict_match
 
-DEFAULT_API = "http://localhost:3000/api/football/fixtures?type=all&limit=380"
+# The website serving the fixtures API; on the faculty VM it runs on port 80, so this is configurable.
+DEFAULT_API = os.getenv("PREDICTION_FIXTURES_API_URL", "http://localhost:3000/api/football/fixtures?type=all&limit=380")
 DEFAULT_PREVIOUS = PROJECT_ROOT / "data/processed/predictions_2026_2027_retrained_h2h.csv"
 OUT_DIR = PROJECT_ROOT / "data/processed/weekly"
+# ml/ lives inside the website repo; --publish writes into its public/ folder.
+WEB_PUBLIC_DIR = PROJECT_ROOT.parent / "public"
+PUBLISHED_CSV = WEB_PUBLIC_DIR / "predictions_2026_2027_retrained_h2h.csv"
+PUBLISHED_MANIFEST = WEB_PUBLIC_DIR / "predictions_manifest.json"
+MODEL_LABELS = {"dixon_coles": "Dixon-Coles", "ensemble": "Ensemble (CatBoost + XGBoost + Poisson)"}
 API_TO_CSV = {"Manchester City": "Man City", "Manchester Utd": "Man Utd", "Tottenham": "Spurs", "Nottingham": "Nott'm Forest"}
 CSV_TO_MODEL = {"Man Utd": "Man United", "Spurs": "Tottenham"}
 MODEL_FILES = ["catboost_classifier.cbm", "catboost_metadata.joblib", "xgboost_classifier.json", "xgboost_metadata.joblib", "poisson_model.joblib"]
@@ -178,14 +185,54 @@ def refresh(api_url: str, previous_path: Path, now: pd.Timestamp, model: str = "
     return manifest
 
 
+def _write_atomic(path: Path, data: bytes) -> None:
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_bytes(data)
+    os.replace(tmp, path)
+
+
+def publish(manifest: dict[str, object], public_dir: Path = WEB_PUBLIC_DIR) -> dict[str, object]:
+    """Copy the weekly CSV over the file the website reads and write the website's summary manifest."""
+    source = OUT_DIR / str(manifest["Output"])
+    csv_path = public_dir / PUBLISHED_CSV.name
+    # The website copy has always used LF line endings; content is otherwise identical.
+    _write_atomic(csv_path, source.read_bytes().replace(b"\r\n", b"\n"))
+    model = str(manifest["HeadlineModel"])
+    summary = dict(
+        updatedAt=manifest["CreatedAt"],
+        asOf=manifest["AsOf"],
+        source=manifest["Output"],
+        fixtures=manifest["Fixtures"],
+        knownResults=manifest["KnownResults"],
+        lastKnownResultDate=manifest["LastKnownResultDate"],
+        refreshed=manifest["Refreshed"],
+        frozen=manifest["FrozenFromPrevious"],
+        startedWithoutResult=manifest["StartedWithoutResult"],
+        model=model,
+        modelLabel=MODEL_LABELS.get(model, model),
+    )
+    _write_atomic(public_dir / PUBLISHED_MANIFEST.name, json.dumps(summary, indent=2, default=str).encode("utf-8"))
+    return summary
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--api-url", default=DEFAULT_API)
-    parser.add_argument("--previous", type=Path, default=DEFAULT_PREVIOUS, help="Last published CSV; started fixtures keep its rows.")
+    parser.add_argument("--previous", type=Path, default=None,
+                        help="Last published CSV; started fixtures keep its rows. Defaults to the website's CSV with --publish.")
     parser.add_argument("--model", choices=["ensemble", "dixon_coles"], default="dixon_coles",
                         help="Model behind the headline outcome/score; dixon_coles won the 2024-26 walk-forward test.")
+    parser.add_argument("--as-of", default=None, help="Reference time (e.g. 2026-10-26T12:00:00Z); defaults to now.")
+    parser.add_argument("--publish", action="store_true",
+                        help="Copy the new CSV to public/ and write public/predictions_manifest.json for the website.")
     args = parser.parse_args()
-    manifest = refresh(args.api_url, args.previous, pd.Timestamp.now(tz="UTC"), args.model)
+    previous = args.previous or (PUBLISHED_CSV if args.publish and PUBLISHED_CSV.exists() else DEFAULT_PREVIOUS)
+    now = pd.Timestamp(args.as_of) if args.as_of else pd.Timestamp.now(tz="UTC")
+    if now.tzinfo is None:
+        now = now.tz_localize("UTC")
+    manifest = refresh(args.api_url, previous, now, args.model)
+    if args.publish:
+        manifest["Published"] = publish(manifest)
     print(json.dumps(manifest, indent=2, default=str))
 
 
