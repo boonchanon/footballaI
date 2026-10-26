@@ -1,0 +1,46 @@
+{
+  "CreatedAt": "2026-10-26T15:54:37.337524+00:00",
+  "AsOf": "2026-10-26T15:46:41.936641+00:00",
+  "Output": "predictions_2026_2027_asof_2026-10-26_155437_dixon_coles.csv",
+  "OutputSHA256": "4c79071560cdcfc44fec3529a03ed62e89a565cdc0e253dc5c01251b488ba7bc",
+  "PreviousFile": "D:\\bundesliga-clubs-display (1)\\public\\predictions_2026_2027_retrained_h2h.csv",
+  "PreviousSHA256": "84502cf6660ccea9cde3a07775e3fc32d28e52f3a8aba19030985e6f28e2ac55",
+  "ApiUrl": "http://localhost:3000/api/football/fixtures?type=all&limit=380",
+  "Fixtures": 378,
+  "KnownResults": 80,
+  "LastKnownResultDate": "2026-10-25",
+  "StartedWithoutResult": 0,
+  "Refreshed": 298,
+  "FrozenFromPrevious": 80,
+  "KeptMissingFromApi": [
+    "Everton v Hull",
+    "Sunderland v Man City"
+  ],
+  "HeadlineModel": "dixon_coles",
+  "DixonColes": {
+    "half_life_days": 365,
+    "window_years": 4,
+    "min_team_matches": 10
+  },
+  "ModelHashes": {
+    "catboost_classifier.cbm": "974b5da1dbc7da3d257dd10dd44569c3cb9e102d89d74e42c07f07d9d8d2b89e",
+    "catboost_metadata.joblib": "2fa81d3dd67c5d76ceb27601a9fbd24a118dee67c215932d4e922a2de9b3843a",
+    "xgboost_classifier.json": "6f8d04599e2f66a04efd3f2c75b36342e2e28bc5029c603e740fbb077a4df18e",
+    "xgboost_metadata.joblib": "7cac11193e8d0c00e002170d1c2cd5e9965705b33e4486540a2b477fc883296e",
+    "poisson_model.joblib": "eb1726c8971402bba48819c49e656a7c274d802ecc3add46a01262407d1df714"
+  },
+  "Retraining": false,
+  "Published": {
+    "updatedAt": "2026-10-26T15:54:37.337524+00:00",
+    "asOf": "2026-10-26T15:46:41.936641+00:00",
+    "source": "predictions_2026_2027_asof_2026-10-26_155437_dixon_coles.csv",
+    "fixtures": 378,
+    "knownResults": 80,
+    "lastKnownResultDate": "2026-10-25",
+    "refreshed": 298,
+    "frozen": 80,
+    "startedWithoutResult": 0,
+    "model": "dixon_coles",
+    "modelLabel": "Dixon-Coles"
+  }
+}

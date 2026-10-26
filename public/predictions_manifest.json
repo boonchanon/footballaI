@@ -1,13 +1,13 @@
 {
-  "updatedAt": "2026-10-26T15:15:31.096645+00:00",
-  "asOf": "2026-10-26T15:11:25.683076+00:00",
-  "source": "predictions_2026_2027_asof_2026-10-26_151531_dixon_coles.csv",
+  "updatedAt": "2026-10-26T16:21:32.383677+00:00",
+  "asOf": "2026-10-26T16:17:26.948210+00:00",
+  "source": "predictions_2026_2027_asof_2026-10-26_162132_dixon_coles.csv",
   "fixtures": 378,
-  "knownResults": 50,
-  "lastKnownResultDate": "2026-09-20",
-  "refreshed": 298,
+  "knownResults": 80,
+  "lastKnownResultDate": "2026-10-25",
+  "refreshed": 300,
   "frozen": 80,
-  "startedWithoutResult": 30,
+  "startedWithoutResult": 0,
   "model": "dixon_coles",
   "modelLabel": "Dixon-Coles"
 }
