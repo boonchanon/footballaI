@@ -7,14 +7,19 @@ import {
   downloadAdminAiFile,
   exportFixturePredictions,
   fetchAdminAiSummary,
+  fetchWeeklyHistory,
+  fetchWeeklyRefreshJob,
   predictMatchPair,
   rebuildFromRawArchive,
+  startWeeklyRefresh,
   uploadLatestSeasonFile,
   type AdminAiStatusSummary,
   type DeleteRawFileResult,
   type ExportPipelineResult,
   type MatchPredictionResult,
   type UploadPipelineResult,
+  type WeeklyHistory,
+  type WeeklyRefreshJob,
 } from "./admin-ai-client"
 import {
   AdminAiHero,
@@ -25,6 +30,7 @@ import {
   KnownFilesSection,
   MatchPredictionSection,
   ModelEvaluationSection,
+  WeeklyRefreshSection,
   type ActionState,
   type RemoteState,
 } from "./admin-ai-sections"
@@ -269,6 +275,11 @@ export default function AdminAiPage() {
   const [exportState, setExportState] = useState<ActionState<ExportPipelineResult>>(createActionState())
   const [predictState, setPredictState] = useState<ActionState<MatchPredictionResult>>(createActionState())
   const [deleteState, setDeleteState] = useState<ActionState<{ filename: string }>>(createActionState())
+  const [weeklyHistory, setWeeklyHistory] = useState<RemoteState<WeeklyHistory>>({ loading: true, error: "", data: null })
+  const [weeklyJob, setWeeklyJob] = useState<WeeklyRefreshJob | null>(null)
+  const [weeklyStarting, setWeeklyStarting] = useState(false)
+  const [weeklyStartError, setWeeklyStartError] = useState("")
+  const weeklyJobActive = weeklyJob?.status === "queued" || weeklyJob?.status === "running"
 
   const canonicalTeamMap = useMemo(
     () => buildCanonicalTeamMap(summaryState.data?.teams || []),
@@ -312,9 +323,51 @@ export default function AdminAiPage() {
     return delayed ?? immediate
   }
 
+  const loadWeeklyHistory = async () => {
+    setWeeklyHistory((prev) => ({ ...prev, loading: true, error: "" }))
+    try {
+      const data = await fetchWeeklyHistory()
+      setWeeklyHistory({ loading: false, error: "", data })
+      // Pick up a refresh that is still running (e.g. started before this page was opened).
+      if (data.activeJob) setWeeklyJob(data.activeJob)
+    } catch (error) {
+      setWeeklyHistory({ loading: false, error: error instanceof Error ? error.message : "โหลดประวัติการอัปเดตไม่สำเร็จ", data: null })
+    }
+  }
+
+  const handleWeeklyRefresh = async () => {
+    setWeeklyStarting(true)
+    setWeeklyStartError("")
+    try {
+      setWeeklyJob(await startWeeklyRefresh())
+    } catch (error) {
+      setWeeklyStartError(error instanceof Error ? error.message : "เริ่มอัปเดตผลทำนายไม่สำเร็จ")
+      void loadWeeklyHistory()
+    } finally {
+      setWeeklyStarting(false)
+    }
+  }
+
   useEffect(() => {
     void loadSummary()
+    void loadWeeklyHistory()
   }, [])
+
+  // Poll the running job until it finishes, then reload the history table.
+  useEffect(() => {
+    if (!weeklyJob || !weeklyJobActive) return
+    const jobId = weeklyJob.id
+    const timer = window.setInterval(async () => {
+      try {
+        const next = await fetchWeeklyRefreshJob(jobId)
+        setWeeklyJob(next)
+        if (next.status === "done" || next.status === "failed") void loadWeeklyHistory()
+      } catch {
+        // Keep polling; a transient network error should not end the progress view.
+      }
+    }, 3000)
+    return () => window.clearInterval(timer)
+  }, [weeklyJob?.id, weeklyJobActive])
 
   useEffect(() => {
     if (summaryState.loading || !summaryState.data) return
@@ -566,6 +619,14 @@ export default function AdminAiPage() {
         loading={summaryState.loading}
         error={summaryState.error}
         onRefresh={() => void loadSummary()}
+      />
+
+      <WeeklyRefreshSection
+        history={weeklyHistory}
+        job={weeklyJob}
+        startError={weeklyStartError}
+        starting={weeklyStarting}
+        onStart={() => void handleWeeklyRefresh()}
       />
 
       <div className="grid gap-6 2xl:grid-cols-[1.1fr_0.9fr]">

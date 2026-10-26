@@ -84,6 +84,13 @@ type PredictionInsights = {
   leans: Record<string, PredictionLean>
   record: { week: number; correct: number; total: number }[]
   season: { correct: number; total: number }
+  lastUpdate?: { updatedAt: string; lastKnownResultDate: string | null } | null
+}
+
+function formatThaiDateTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString("th-TH", { dateStyle: "long", timeStyle: "short", timeZone: "Asia/Bangkok" })
 }
 
 type AccessEntitlement = {
@@ -537,6 +544,12 @@ export default function AIPredictionPageClient() {
               <p className="mt-5 max-w-3xl text-base leading-8 text-muted-foreground dark:text-slate-300 md:text-lg">
                 เลือกสัปดาห์ เลือกคู่ แล้วใช้เหรียญปลดล็อกผลทำนายรายคู่ ระบบจะจำสิทธิ์ของคู่ที่เคยเปิดไว้ให้ดูซ้ำได้
               </p>
+              {insights?.lastUpdate?.updatedAt ? (
+                <p className="mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-surface-2 px-3 py-1 text-xs font-semibold text-muted-foreground dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
+                  <BrainCircuit className="h-3.5 w-3.5 text-primary" />
+                  อัปเดตผลทำนายล่าสุด: {formatThaiDateTime(insights.lastUpdate.updatedAt)}
+                </p>
+              ) : null}
             </div>
 
             <Card className="border-primary/20 bg-card dark:bg-[linear-gradient(135deg,rgba(184,255,0,0.08),rgba(255,255,255,0.02))] text-foreground dark:text-white">

@@ -131,6 +131,38 @@ export type DeleteRawFileResult = {
   message: string
 }
 
+export type WeeklyJobStatus = "queued" | "running" | "done" | "failed"
+
+export type WeeklyRefreshJob = {
+  id: string
+  status: WeeklyJobStatus
+  progress: number
+  message: string
+  error: string | null
+  requestedBy: string
+  createdAt: string | null
+  finishedAt: string | null
+}
+
+export type WeeklyRound = {
+  manifestFile: string
+  createdAt: string | null
+  asOf: string | null
+  modelLabel: string
+  fixtures: number | null
+  knownResults: number | null
+  lastKnownResultDate: string | null
+  startedWithoutResult: number | null
+  refreshed: number | null
+  frozen: number | null
+  isLive: boolean
+}
+
+export type WeeklyHistory = {
+  rounds: WeeklyRound[]
+  activeJob: WeeklyRefreshJob | null
+}
+
 function toRecord(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {}
 }
@@ -220,6 +252,63 @@ function normalizeTeamOptions(payload: PipelineStatusPayload) {
 
 export async function fetchAdminAiSummary(): Promise<AdminAiStatusSummary> {
   return fetchJson("/summary") as Promise<AdminAiStatusSummary>
+}
+
+function toNullableString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null
+}
+
+function normalizeWeeklyJob(value: unknown): WeeklyRefreshJob | null {
+  const job = toRecord(value)
+  if (typeof job.id !== "string") return null
+  const status = ["queued", "running", "done", "failed"].includes(job.status) ? (job.status as WeeklyJobStatus) : "failed"
+  return {
+    id: job.id,
+    status,
+    progress: toNumber(job.progress) ?? 0,
+    message: typeof job.message === "string" ? job.message : "",
+    error: toNullableString(job.error),
+    requestedBy: toStringValue(job.requested_by, "-"),
+    createdAt: toNullableString(job.created_at),
+    finishedAt: toNullableString(job.finished_at),
+  }
+}
+
+export async function fetchWeeklyHistory(): Promise<WeeklyHistory> {
+  const payload = toRecord(await fetchJson("/pipeline/weekly-history"))
+  return {
+    rounds: toArray(payload.rounds).map((item) => {
+      const round = toRecord(item)
+      return {
+        manifestFile: toStringValue(round.manifest_file, "-"),
+        createdAt: toNullableString(round.created_at),
+        asOf: toNullableString(round.as_of),
+        modelLabel: toStringValue(round.model_label, "-"),
+        fixtures: toNumber(round.fixtures),
+        knownResults: toNumber(round.known_results),
+        lastKnownResultDate: toNullableString(round.last_known_result_date),
+        startedWithoutResult: toNumber(round.started_without_result),
+        refreshed: toNumber(round.refreshed),
+        frozen: toNumber(round.frozen),
+        isLive: round.is_live === true,
+      }
+    }),
+    activeJob: normalizeWeeklyJob(payload.active_job),
+  }
+}
+
+export async function startWeeklyRefresh(): Promise<WeeklyRefreshJob> {
+  const payload = toRecord(await fetchJson("/pipeline/weekly-refresh", { method: "POST" }))
+  const job = normalizeWeeklyJob(payload.job)
+  if (!job) throw new Error("ไม่ได้รับรหัสงานจากบริการทำนายผล")
+  return job
+}
+
+export async function fetchWeeklyRefreshJob(jobId: string): Promise<WeeklyRefreshJob> {
+  const payload = toRecord(await fetchJson(`/pipeline/weekly-refresh/${encodeURIComponent(jobId)}`))
+  const job = normalizeWeeklyJob(payload.job)
+  if (!job) throw new Error("ไม่พบสถานะงาน")
+  return job
 }
 
 export async function uploadLatestSeasonFile(files: File[]): Promise<UploadPipelineResult> {

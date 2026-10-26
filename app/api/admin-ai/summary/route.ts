@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 import { denyUnlessAiAdmin } from "@/lib/server/admin-ai-auth"
-
-const PREDICTION_API_BASE_URL =
-  process.env.NEXT_PUBLIC_epl_PREDICTION_API_BASE_URL?.trim() ||
-  "https://football-epl-prediction-api.onrender.com"
+import { PREDICTION_SERVICE_URL } from "@/lib/server/prediction-service"
 
 export const maxDuration = 60
 
@@ -67,7 +64,7 @@ function normalizeTeamOptions(statusPayload: JsonRecord) {
 }
 
 async function fetchUpstreamJson(path: string) {
-  const response = await fetch(`${PREDICTION_API_BASE_URL.replace(/\/+$/, "")}${path}`, {
+  const response = await fetch(`${PREDICTION_SERVICE_URL}${path}`, {
     cache: "no-store",
     headers: {
       Accept: "application/json",

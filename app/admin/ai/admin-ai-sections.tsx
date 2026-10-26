@@ -5,6 +5,7 @@ import {
   AlertCircle,
   BarChart3,
   Brain,
+  CalendarClock,
   CheckCircle2,
   Database,
   Download,
@@ -31,6 +32,8 @@ import type {
   ExportPipelineResult,
   MatchPredictionResult,
   UploadPipelineResult,
+  WeeklyHistory,
+  WeeklyRefreshJob,
 } from "./admin-ai-client"
 
 export type RemoteState<T> = {
@@ -206,6 +209,173 @@ export function AdminAiHero({
         <StateMessage type="error" message={error} />
       </div>
     </section>
+  )
+}
+
+export function formatThaiDateTime(value: string | null | undefined) {
+  if (!value) return "-"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" })
+}
+
+export function formatThaiDate(value: string | null | undefined) {
+  if (!value) return "-"
+  const date = new Date(value.length === 10 ? `${value}T00:00:00Z` : value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString("th-TH", { dateStyle: "medium", timeZone: "Asia/Bangkok" })
+}
+
+// weekly_refresh.py reports progress in English; show it in Thai.
+function describeWeeklyStep(message: string) {
+  const predicting = message.match(/^predicting fixtures (\d+)\/(\d+)/)
+  if (predicting) return `กำลังทำนายผล ${predicting[1]}/${predicting[2]} นัด`
+  if (message.startsWith("fetching fixtures")) return "กำลังดึงตารางและผลการแข่งขันจากเว็บ"
+  if (message.startsWith("loading models")) return "กำลังโหลดแบบจำลองและประวัติแมตช์"
+  if (message.startsWith("fitting Dixon-Coles")) return "กำลังคำนวณค่าพลังทีม (Dixon-Coles)"
+  if (message.startsWith("writing weekly output")) return "กำลังบันทึกไฟล์ผลทำนาย"
+  if (message.startsWith("publishing")) return "กำลังเผยแพร่ผลขึ้นหน้าเว็บ"
+  return message || "กำลังเตรียมงาน"
+}
+
+export function WeeklyRefreshSection({
+  history,
+  job,
+  startError,
+  starting,
+  onStart,
+}: {
+  history: RemoteState<WeeklyHistory>
+  job: WeeklyRefreshJob | null
+  startError: string
+  starting: boolean
+  onStart: () => void
+}) {
+  const rounds = history.data?.rounds || []
+  const latest = rounds[0] || null
+  const running = job != null && (job.status === "queued" || job.status === "running")
+  const latestMetrics = latest
+    ? [
+        { label: "อัปเดตเมื่อ", value: formatThaiDateTime(latest.createdAt) },
+        {
+          label: "มีผลแข่งแล้ว",
+          value: `${formatNumber(latest.knownResults)} นัด`,
+          hint: latest.lastKnownResultDate ? `ล่าสุด ${formatThaiDate(latest.lastKnownResultDate)}` : "",
+        },
+        { label: "ทำนายใหม่", value: `${formatNumber(latest.refreshed)} นัด` },
+        { label: "คงผลเดิม", value: `${formatNumber(latest.frozen)} นัด`, hint: "นัดที่เริ่มแข่งแล้ว" },
+        { label: "แบบจำลองที่ใช้", value: latest.modelLabel },
+      ]
+    : []
+
+  return (
+    <Card className="rounded-[22px] border-border">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-xl">
+          <CalendarClock className="h-5 w-5 text-primary" />
+          อัปเดตผลรายสัปดาห์
+        </CardTitle>
+        <CardDescription>
+          ดึงผลการแข่งขันล่าสุดจากเว็บ ทำนายนัดที่ยังไม่แข่งใหม่ทั้งหมด คงผลเดิมของนัดที่เริ่มแข่งแล้ว
+          แล้วเผยแพร่ขึ้นหน้า AI ทำนายผลทันที (ใช้เวลาประมาณ 5 นาที บนเครื่องที่ไม่มี GPU)
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <Button onClick={onStart} disabled={starting || running} className="rounded-[14px]">
+          {starting || running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+          อัปเดตผลทำนายสัปดาห์นี้
+        </Button>
+
+        <StateMessage type="error" message={startError} />
+        {job && running ? (
+          <div className="space-y-2 rounded-[16px] border border-primary/20 bg-primary/5 p-4">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="flex items-center gap-2 font-semibold text-foreground">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                {job.status === "queued" ? "รอเริ่มงาน" : describeWeeklyStep(job.message)}
+              </span>
+              <span className="font-bold text-primary">{job.progress}%</span>
+            </div>
+            <Progress value={job.progress} />
+            <p className="text-xs text-muted-foreground">
+              สั่งโดย {job.requestedBy} เมื่อ {formatThaiDateTime(job.createdAt)} · ปิดหน้านี้ได้ งานจะทำต่อจนเสร็จ
+            </p>
+          </div>
+        ) : null}
+        {job?.status === "done" ? (
+          <StateMessage type="success" message={`อัปเดตผลทำนายสำเร็จเมื่อ ${formatThaiDateTime(job.finishedAt)} และเผยแพร่ขึ้นหน้าเว็บแล้ว`} />
+        ) : null}
+        {job?.status === "failed" ? <StateMessage type="error" message={`อัปเดตไม่สำเร็จ: ${job.error || "ไม่ทราบสาเหตุ"}`} /> : null}
+
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-foreground">รอบล่าสุด</p>
+          {history.loading && !latest ? (
+            <LoadingPanel label="กำลังโหลดประวัติการอัปเดต" />
+          ) : latest ? (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                {latestMetrics.map((item) => (
+                  <div key={item.label} className="rounded-[16px] border border-border bg-muted/40 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{item.label}</p>
+                    <p className="mt-2 text-lg font-bold text-foreground">{item.value}</p>
+                    {item.hint ? <p className="mt-1 text-xs text-muted-foreground">{item.hint}</p> : null}
+                  </div>
+                ))}
+              </div>
+              {latest.startedWithoutResult ? (
+                <StateMessage
+                  type="info"
+                  message={`มี ${formatNumber(latest.startedWithoutResult)} นัดที่เริ่มแข่งแล้วแต่ยังไม่มีสกอร์ในระบบ นัดเหล่านี้ยังไม่ถูกนำมาคำนวณ`}
+                />
+              ) : null}
+            </>
+          ) : (
+            <div className="rounded-[18px] border border-dashed border-border bg-card/70 p-6 text-center text-sm text-muted-foreground">
+              ยังไม่เคยอัปเดตผลรายสัปดาห์
+            </div>
+          )}
+          <StateMessage type="error" message={history.error} />
+        </div>
+
+        {rounds.length ? (
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-foreground">ประวัติทุกสัปดาห์</p>
+            <div className="overflow-hidden rounded-[18px] border border-border">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="min-w-[150px]">อัปเดตเมื่อ</TableHead>
+                      <TableHead className="text-right">ผลแข่งที่มี</TableHead>
+                      <TableHead>ผลล่าสุด</TableHead>
+                      <TableHead className="text-right">ทำนายใหม่</TableHead>
+                      <TableHead className="text-right">คงผลเดิม</TableHead>
+                      <TableHead>แบบจำลอง</TableHead>
+                      <TableHead>สถานะ</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rounds.map((round) => (
+                      <TableRow key={round.manifestFile}>
+                        <TableCell className="font-medium text-foreground">{formatThaiDateTime(round.createdAt)}</TableCell>
+                        <TableCell className="text-right">{formatNumber(round.knownResults)}</TableCell>
+                        <TableCell>{formatThaiDate(round.lastKnownResultDate)}</TableCell>
+                        <TableCell className="text-right">{formatNumber(round.refreshed)}</TableCell>
+                        <TableCell className="text-right">{formatNumber(round.frozen)}</TableCell>
+                        <TableCell>{round.modelLabel}</TableCell>
+                        <TableCell>
+                          {round.isLive ? <Badge className="bg-primary text-primary-foreground hover:bg-primary">ใช้บนเว็บตอนนี้</Badge> : null}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   )
 }
 
