@@ -1,3 +1,5 @@
 * text=auto eol=lf
 # ml/ keeps byte-exact copies: its tests and manifests verify SHA-256 hashes of these files.
 ml/** -text
+# Windows batch files must keep CRLF line endings.
+*.bat text eol=crlf
