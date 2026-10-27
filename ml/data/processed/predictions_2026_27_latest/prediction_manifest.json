@@ -1,0 +1,40 @@
+{
+  "CreatedAt": "2026-09-15T13:35:12.188679+00:00",
+  "ModelName": "current predictor production ensemble",
+  "ModelFiles": {
+    "catboost_classifier.cbm": "974b5da1dbc7da3d257dd10dd44569c3cb9e102d89d74e42c07f07d9d8d2b89e",
+    "catboost_metadata.joblib": "2fa81d3dd67c5d76ceb27601a9fbd24a118dee67c215932d4e922a2de9b3843a",
+    "xgboost_classifier.json": "6f8d04599e2f66a04efd3f2c75b36342e2e28bc5029c603e740fbb077a4df18e",
+    "xgboost_metadata.joblib": "7cac11193e8d0c00e002170d1c2cd5e9965705b33e4486540a2b477fc883296e",
+    "poisson_model.joblib": "eb1726c8971402bba48819c49e656a7c274d802ecc3add46a01262407d1df714"
+  },
+  "CombinedModelHash": "640c16270fd684ff40544d9dc1cbfa99e8e1d9644b67e27dae7002335eb150b7",
+  "CodeHashes": {
+    "src/models/predictor.py": "782aa201e00fea073ede0db98e4101cca03e2d87cceb69e6c918042692e801d8",
+    "src/features/feature_engineering.py": "f89c3a57a9e2b820a107bfc26ea2605c5971f3e7b1c54e13c316da859fff79e0",
+    "src/models/poisson_model.py": "211978937aea968d05342d7b2379d5afeaee7460116710eec99d6549bc92f729"
+  },
+  "FeatureVersion": "legacy_v1 live fixture builder; classifier numeric zero-fill, Poisson saved medians",
+  "FixtureSource": "data\\processed\\predictions_2026_2027_harddraw_v3.csv",
+  "FixtureSourceSHA256": "efc363f5567eb40e49944e4c67387d928585a3053b846e5ec44bf1e5971e450f",
+  "LocalResultsSource": "data\\processed\\actual_results_2026_2027_mw1_3.csv",
+  "LocalResultsSHA256": "f4731da55aed32d72c7c75d95b8c66b9987c26c755cee8eb605e2d3f6987452d",
+  "VerifiedMW4SHA256": "3f0cdfdb3e039b358f3d94e8b4205512820ae6a31eb0f9749dbe9c3de2dd9b83",
+  "FixtureAmendmentsSHA256": "ce6477b7dda3c9e6ed8d3baf309852edc4e35641af11cf376e70b507d617ecaf",
+  "PredictionsRawSHA256": "0afa806c8e26b9fa2a354b760128955ad40fa85b7b592bd11aa0fd3a2923f8e3",
+  "FixtureAuditSHA256": "fd991c649dc1b644a500019407cccffded7e74a246cd7f55a30b3ae46717b31a",
+  "PredictionsN": 380,
+  "FixturesFound": 380,
+  "Predictable": 380,
+  "NotPredictable": 0,
+  "PlayedVerified": 40,
+  "FutureScheduled": 340,
+  "Retraining": false,
+  "Tuning": false,
+  "NewScoreAdjustment": false,
+  "GitCommit": null,
+  "CurrentHistoryLastDate": "2026-05-24",
+  "RecentResultHistory": "40 score-only completed PL fixtures, strictly prior per fixture",
+  "ModelMetadataFeatureVersion": "not explicitly stored; predictor build_fixture_features defaults to legacy_v1",
+  "ScheduleCaveat": "future local fixture dates can change; two verified amendments applied before export"
+}

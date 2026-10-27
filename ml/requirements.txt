@@ -1,0 +1,14 @@
+# Libraries imported by ml/src and ml/tests, pinned to the versions the original
+# D:\ai-score- project ran with (Python 3.11). Everything here runs on CPU.
+numpy==2.4.1
+pandas==2.3.3
+scipy==1.16.0
+scikit-learn==1.5.1
+joblib==1.5.1
+xgboost==3.1.2
+catboost==1.2.8
+penaltyblog==1.13.1
+requests==2.32.5
+beautifulsoup4==4.12.2
+tzdata==2025.2
+pytest==7.2.0

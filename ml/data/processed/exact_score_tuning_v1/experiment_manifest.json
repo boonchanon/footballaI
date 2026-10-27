@@ -1,0 +1,46 @@
+{
+  "Methods": [
+    "RAW",
+    "PRIOR_RATIO",
+    "LOG_PRIOR",
+    "TOTAL_MARGIN",
+    "ELO_PRIOR",
+    "CONFIDENCE_PRIOR"
+  ],
+  "Alphas": [
+    0.1,
+    0.25,
+    0.5
+  ],
+  "SmoothingPseudoMatches": 20.0,
+  "RatioShrink": 0.5,
+  "RatioCap": [
+    0.5,
+    2.0
+  ],
+  "EloEdges": [
+    "-inf",
+    -150,
+    -50,
+    50,
+    150,
+    "inf"
+  ],
+  "ConfidenceBuckets": "training raw Top1 probability 0/33/67/100 percentiles",
+  "Grid": "0..6 x 0..6",
+  "Folds": [
+    "2018/19",
+    "2019/20",
+    "2020/21",
+    "2021/22",
+    "2022/23",
+    "2023/24"
+  ],
+  "Diagnostic": [
+    "2024/25",
+    "2025/26"
+  ],
+  "Upstream": "P12 chronological OOF XGB-rate fixture lambdas",
+  "No2026": true,
+  "ProtectedSHA": "0afa806c8e26b9fa2a354b760128955ad40fa85b7b592bd11aa0fd3a2923f8e3"
+}

@@ -1,0 +1,19 @@
+{
+  "experiment": "input_parity_no_odds_v1",
+  "created_utc": "2026-09-15T08:24:36.440511+00:00",
+  "feature_version": "legacy_v1",
+  "odds_included": false,
+  "feature_count": 123,
+  "imputation_policy": "numeric train median; fallback 0 only if train column entirely missing",
+  "train_rows": 11564,
+  "validation_rows": 380,
+  "diagnostic_rows": 760,
+  "catboost_best_iteration": 291,
+  "xgboost_best_iteration": 77,
+  "artifacts": [
+    "data\\processed\\input_parity_no_odds_v1\\catboost_no_odds.cbm",
+    "data\\processed\\input_parity_no_odds_v1\\catboost_metadata.joblib",
+    "data\\processed\\input_parity_no_odds_v1\\xgboost_no_odds.json",
+    "data\\processed\\input_parity_no_odds_v1\\xgboost_metadata.joblib"
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "experiment": "score_calibration_v1",
+  "created_utc": "2026-09-15T09:09:16.428915+00:00",
+  "feature_version": "legacy_v1",
+  "lambda_source": "frozen Phase-3 XGB home/away model",
+  "score_grid": "0..6 per side",
+  "train_dates": [
+    "2023-08-11",
+    "2023-12-28"
+  ],
+  "validation_dates": [
+    "2023-12-30",
+    "2024-05-19"
+  ],
+  "train_matches": 188,
+  "validation_matches": 192,
+  "diagnostic_test_matches": 760,
+  "train_outside_grid": 1,
+  "validation_outside_grid": 0,
+  "calibration_source": "2023/24 held-out XGB goal-rate predictions from frozen model; chronological date cutoff",
+  "limitation": "XGB used whole 2023/24 season for early stopping; validation targets were not fitted, but this is not a strict prospective walk-forward prediction set",
+  "test_outcomes_used_for_fit": false,
+  "phase3_artifact_sha256": {
+    "xgb_home.json": "fdca5a147997238388359c989dd22ab88fb6d5503348d181a0cf3cdb8333de75",
+    "xgb_away.json": "c8cfa763db9385e85d485f067d6aaacd9e7ebe5eb5be1e4806a74af3d46e0fa8",
+    "cat_home.cbm": "ff82d640ce44baa46bcab30d67e7f9e86596f64d8b94b43bda58728bc3167e17",
+    "cat_away.cbm": "575f84d5db91ab8bca7e67701f1130daee014228247fb8bfcf363ea1ce8649ba",
+    "metadata.joblib": "b9ae9a5196b9e9ec71c2a50b2632ba855b27e3f2708e615e8519e1cf86babda4"
+  },
+  "independent_baseline_hits": 96,
+  "dc_challenger_hits": 99,
+  "dc_rho": -0.034189878130936914,
+  "input_sha256": {
+    "calibration_train.csv": "f4deab34537bd16e9177117f65bcb65a8b12a09f5d374965488f0cdb775acaf4",
+    "calibration_validation.csv": "1779b20cecdc6fbee575e46c7810661bdd94df3d47d10af7cbdb1550a67fdd57",
+    "calibration_raw_matrices.npy": "f8a23d1720d5904cd18bb07be63a3094d50bd28196ef3f2fe0ea3ad19e810319"
+  },
+  "phase4_test_inputs_sha256": "6d408d731695399c8ad2cda6fac66eb0d891d1bf081796ff042add927568d2d5",
+  "phase4_matrices_sha256": "ba3a0fe504d048b51cea1cdfa018c7fd24dee0afb7d95192b3ca3f539a4a7eb0"
+}

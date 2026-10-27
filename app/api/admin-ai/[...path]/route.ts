@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { denyUnlessAiAdmin } from "@/lib/server/admin-ai-auth"
-
-const PREDICTION_API_BASE_URL =
-  process.env.NEXT_PUBLIC_epl_PREDICTION_API_BASE_URL?.trim() ||
-  "https://football-epl-prediction-api.onrender.com"
+import { authorizeAiAdmin } from "@/lib/server/admin-ai-auth"
+import { PREDICTION_SERVICE_URL } from "@/lib/server/prediction-service"
 
 export const maxDuration = 60
 
 function buildTargetUrl(pathSegments: string[], request: NextRequest) {
-  const baseUrl = PREDICTION_API_BASE_URL.replace(/\/+$/, "")
   const path = pathSegments.map(encodeURIComponent).join("/")
-  const target = new URL(`${baseUrl}/${path}`)
+  const target = new URL(`${PREDICTION_SERVICE_URL}/${path}`)
 
   request.nextUrl.searchParams.forEach((value, key) => {
     target.searchParams.append(key, value)
@@ -32,7 +28,7 @@ function copyResponseHeaders(source: Headers) {
 }
 
 async function proxyRequest(request: NextRequest, params: { path?: string[] }) {
-  const denied = await denyUnlessAiAdmin(request)
+  const { admin, denied } = await authorizeAiAdmin(request)
   if (denied) return denied
 
   const targetUrl = buildTargetUrl(params.path ?? [], request)
@@ -47,6 +43,8 @@ async function proxyRequest(request: NextRequest, params: { path?: string[] }) {
     // The admin session is only for this app; never forward it to the prediction service.
     headers.delete("authorization")
     headers.delete("cookie")
+    // Jobs record who started them; only this server may set it.
+    headers.set("x-requested-by", admin.email)
 
     const upstream = await fetch(targetUrl, {
       method: request.method,
@@ -80,9 +78,7 @@ async function proxyRequest(request: NextRequest, params: { path?: string[] }) {
     const message =
       error instanceof Error && error.name === "AbortError"
         ? "Prediction service ใช้เวลาตอบนานเกินไป"
-        : error instanceof Error
-          ? error.message
-          : "Prediction service unavailable"
+        : "เชื่อมต่อบริการทำนายผล (prediction-service) ไม่ได้ ตรวจสอบว่าเปิดบริการไว้ที่ PREDICTION_SERVICE_URL"
 
     return NextResponse.json({ error: message }, { status: 503 })
   } finally {

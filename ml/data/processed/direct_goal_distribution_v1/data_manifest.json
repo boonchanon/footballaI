@@ -1,0 +1,46 @@
+{
+  "SourceSHA256": "a8f6e7e267d1790b4ebafd40db8b7afbed0064e67d67d87544674b323847be13",
+  "Phase8RankSHA256": "06a4f650bc0a5cc3849df57bde7f69818895bc7f7d36769fee2bfd29abf71976",
+  "SpecSHA256": "972a048c1606fda385fbd16508d39a1809a2f67d1c88308424be8984473c750e",
+  "PolicySHA256": "99a61d793b569e4716e1e740ea750d7ee447c39d600f52b136243b8d6c76046b",
+  "Protected": {
+    "phase3": {
+      "report.json": "e0e6290a9e8c53cc73172df49a57f11740cf6c5b40051c5436a320142a1f90d5",
+      "final_report.md": "be4448fde600ad095d881983fde6889aa3f0c73e2e2c6cab177cd94c9d2be5c2"
+    },
+    "phase4": {
+      "report.json": "1452e760806af88cb9d816258646c2cdb1a13c0f8b1f61bd7ee2a34a94daf879",
+      "final_report.md": "5c2eb109dd76241184befb2d20d52385c11d3b6a1c70755160f9b9fa49f59737"
+    },
+    "phase5": {
+      "report.json": "34366230a60bda0f928df5786d5d5eb8a3133574c2c60e370c96222a117fc53f",
+      "final_report.md": "ab332eeb681f2732bef038dc4bb15e6c6f7870dc159393d1b22bbabf9052a7fc"
+    },
+    "phase6": {
+      "report.json": "f2bd619c10468179433d8ad8a6b512be2a53ed1d63a43b7d7f0c609d9f3d25d3",
+      "final_report.md": "bbd4b97877baa7179927d6bcfcca62d8e0b1e77be4a9a7c6e92f8498ad19d7bf"
+    },
+    "phase7": {
+      "report.json": "7b25ff73c3898a5348707e2cb23a60bdfba55daf1cacefd217c2abdcf64f3828",
+      "final_report.md": "4eee39e0cbc0fb37955b451feb80e2899da86e37ff01826cd85e86d45d0fa519"
+    },
+    "phase8": {
+      "report.json": "41a057eb8c6551c8baba0f1099d72779977bacc6070fc17086a50d0fafd08712",
+      "final_report.md": "226b05c7d78e3fa8d7d7e6511633c58b190b6583fda5af520fa90fc02e14eaa5"
+    },
+    "phase9": {
+      "report.json": "5119afe640ecbb8e21b4b7c81785105235ce94c0b4d4a2f3b5ad6a49365aae86",
+      "final_report.md": "51d37348350c9d6691c37b9659adf7a4c5a384b7797955a613da7de891a473ae"
+    }
+  },
+  "ProtectedFolders": {
+    "phase3": "ml_goal_rates_v1",
+    "phase4": "score_dependency_v1",
+    "phase5": "score_calibration_v1",
+    "phase6": "outcome_aware_score_selection_v1",
+    "phase7": "goal_rate_feature_expansion_v1",
+    "phase8": "high_score_underdispersion_audit_v1",
+    "phase9": "high_total_discrimination_v1"
+  },
+  "Phase3Baseline": "matchwise 96/760 reproduced before training"
+}

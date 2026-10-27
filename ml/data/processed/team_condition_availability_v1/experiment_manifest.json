@@ -1,0 +1,47 @@
+{
+  "Source": "https://github.com/Randdalf/fplcache",
+  "SnapshotSelection": "latest filename timestamp strictly before kickoff converted from Europe/London to UTC",
+  "ImportanceProxy": "top 15/top 11 by FPL now_cost in that timestamped snapshot",
+  "Risk": "FPL chance_of_playing_this_round where present; otherwise a=0,d=.5,i/s/u/n=1",
+  "Baseline": [
+    "HomeEloPre",
+    "AwayEloPre",
+    "EloDiffPre",
+    "HomeGoalsForAvgLast5",
+    "AwayGoalsForAvgLast5",
+    "HomeGoalsAgainstAvgLast5",
+    "AwayGoalsAgainstAvgLast5"
+  ],
+  "ConditionFeatures": [
+    "HomeUnavailableTop15",
+    "AwayUnavailableTop15",
+    "HomeDoubtfulTop15",
+    "AwayDoubtfulTop15",
+    "HomeInjuredTop15",
+    "AwayInjuredTop15",
+    "HomeSuspendedTop15",
+    "AwaySuspendedTop15",
+    "HomeRiskCostShareTop15",
+    "AwayRiskCostShareTop15",
+    "HomeRiskMinutesShareTop15",
+    "AwayRiskMinutesShareTop15",
+    "HomeKeyUnavailableTop11",
+    "AwayKeyUnavailableTop11",
+    "UnavailableTop15Diff",
+    "DoubtfulTop15Diff",
+    "RiskCostShareDiff",
+    "RiskMinutesShareDiff"
+  ],
+  "PrimaryMetric": "Exact-score Top-1",
+  "Folds": [
+    "2022/23",
+    "2023/24"
+  ],
+  "Diagnostic": [
+    "2024/25",
+    "2025/26"
+  ],
+  "Model": "same XGB count:poisson configuration via P11 fit_predict",
+  "No2026Results": true,
+  "NoConfirmedLineups": "FPL bootstrap snapshots contain availability flags, not confirmed starting XI"
+}

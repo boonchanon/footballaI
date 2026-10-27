@@ -1,0 +1,6 @@
+{
+  "Fold": "2023/24",
+  "Selected": "D",
+  "HighAUC": 0.4950456029726382,
+  "Interpretation": "A single finite shuffled-label fit is a sanity diagnostic; chance fluctuations remain"
+}

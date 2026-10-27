@@ -1,0 +1,67 @@
+{
+  "experiment_a_football_only": {
+    "accuracy": 0.5,
+    "precision_macro": 0.41484018264840183,
+    "recall_macro": 0.43633508465943444,
+    "f1_macro": 0.37423154111473783,
+    "log_loss": 1.021208069675506,
+    "brier_score": 0.6125382129501354,
+    "confusion_matrix": [
+      [
+        119,
+        3,
+        124
+      ],
+      [
+        69,
+        1,
+        127
+      ],
+      [
+        57,
+        0,
+        260
+      ]
+    ],
+    "feature_count": 114,
+    "best_iteration": 264
+  },
+  "experiment_b_football_plus_odds": {
+    "accuracy": 0.5,
+    "precision_macro": 0.33164383884580023,
+    "recall_macro": 0.4366050285108529,
+    "f1_macro": 0.3723864220924251,
+    "log_loss": 1.0231409399883127,
+    "brier_score": 0.614007217226258,
+    "confusion_matrix": [
+      [
+        122,
+        2,
+        122
+      ],
+      [
+        70,
+        0,
+        127
+      ],
+      [
+        59,
+        0,
+        258
+      ]
+    ],
+    "feature_count": 117,
+    "best_iteration": 304
+  },
+  "odds_feature_columns": [
+    "market_home_prob",
+    "market_draw_prob",
+    "market_away_prob"
+  ],
+  "comparison": {
+    "accuracy_delta": 0.0,
+    "log_loss_delta": 0.001932870312806756,
+    "brier_score_delta": 0.0014690042761225097,
+    "odds_helped": false
+  }
+}

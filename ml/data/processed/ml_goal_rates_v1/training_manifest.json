@@ -1,0 +1,33 @@
+{
+  "experiment": "ml_goal_rates_v1",
+  "created_utc": "2026-09-15T08:39:54.127805+00:00",
+  "feature_count": 123,
+  "train_rows": 11564,
+  "validation_rows": 380,
+  "diagnostic_rows": 760,
+  "targets": {
+    "home": "HomeGoals",
+    "away": "AwayGoals"
+  },
+  "objectives": {
+    "xgb": "count:poisson",
+    "cat": "Poisson"
+  },
+  "runs": {
+    "home": {
+      "xgb_best_iteration": 117,
+      "cat_best_iteration": 264
+    },
+    "away": {
+      "xgb_best_iteration": 139,
+      "cat_best_iteration": 137
+    }
+  },
+  "artifacts": {
+    "xgb_home.json": "fdca5a147997238388359c989dd22ab88fb6d5503348d181a0cf3cdb8333de75",
+    "xgb_away.json": "c8cfa763db9385e85d485f067d6aaacd9e7ebe5eb5be1e4806a74af3d46e0fa8",
+    "cat_home.cbm": "ff82d640ce44baa46bcab30d67e7f9e86596f64d8b94b43bda58728bc3167e17",
+    "cat_away.cbm": "575f84d5db91ab8bca7e67701f1130daee014228247fb8bfcf363ea1ce8649ba",
+    "metadata.joblib": "b9ae9a5196b9e9ec71c2a50b2632ba855b27e3f2708e615e8519e1cf86babda4"
+  }
+}

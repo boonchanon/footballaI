@@ -17,6 +17,7 @@
     "cleanup:temporary-match-rooms": "node scripts/cleanup-temporary-match-rooms.js",
     "payments:cleanup-daypass": "node scripts/cleanup-prediction-daypass.js",
     "heatmaps:backfill-match": "node scripts/run-backfill-heatmap-match.js",
+    "predict:weekly": "node scripts/predict-weekly.js",
     "start": "next start",
     "seed:admins": "node scripts/seed-admins.js",
     "test:moderation": "node scripts/run-moderation-tests.js",

@@ -66,6 +66,8 @@ export type AdminAiStatusSummary = {
   bestModelAccuracy: number | null
   latestSeason: string
   latestPredictionFile: string
+  latestPredictionUpdatedAt: string | null
+  evaluationInfo: { testSeasons: string[]; testMatches: number; evaluatedAt: string | null }
   rawFileCount: number
   totalMatches: number
   seasonCount: number
@@ -73,11 +75,15 @@ export type AdminAiStatusSummary = {
     filename: string
     season: string
     matches: number
+    uploaded: boolean
+    pending: boolean
   }>
   models: Array<{
     key: string
     label: string
     accuracy: number | null
+    precisionMacro: number | null
+    recallMacro: number | null
     f1Macro: number | null
     logLoss: number | null
     brierScore: number | null
@@ -97,6 +103,17 @@ export type UploadPipelineResult = {
   processedFiles: number
   uploadedFiles: string[]
   duplicateFiles: string[]
+  checkedFiles: UploadedFileCheck[]
+}
+
+export type UploadedFileCheck = {
+  originalName: string
+  storedFilename: string | null
+  duplicate: boolean
+  duplicateOf: string | null
+  seasons: string[]
+  matchRows: number
+  isNewSeason: boolean
 }
 
 export type ExportPipelineResult = {
@@ -121,6 +138,9 @@ export type MatchPredictionResult = {
     probability: number | null
   }>
   summary: string
+  predictedResult: string
+  otherModels: { catboost: string; xgboost: string; poisson: string } | null
+  basis: { date: string; lastResultDate: string } | null
 }
 
 export type DeleteRawFileResult = {
@@ -129,6 +149,49 @@ export type DeleteRawFileResult = {
   latestSeason: string
   totalMatches: number
   message: string
+}
+
+export type WeeklyJobStatus = "queued" | "running" | "done" | "failed"
+export type AdminAiJobKind = "weekly_refresh" | "train" | "upload" | "delete_file"
+
+// A job run by prediction-service (weekly refresh, retraining, uploads); history lives in ml/logs/jobs.json.
+export type AdminAiJob = {
+  id: string
+  kind: AdminAiJobKind | string
+  label: string
+  status: WeeklyJobStatus
+  progress: number
+  message: string
+  error: string | null
+  requestedBy: string
+  createdAt: string | null
+  startedAt: string | null
+  finishedAt: string | null
+  result: JsonRecord | null
+  logTail: string[]
+}
+
+export type WeeklyRefreshJob = AdminAiJob
+
+export type ModelReportRow = AdminAiStatusSummary["models"][number]
+
+export type WeeklyRound = {
+  manifestFile: string
+  createdAt: string | null
+  asOf: string | null
+  modelLabel: string
+  fixtures: number | null
+  knownResults: number | null
+  lastKnownResultDate: string | null
+  startedWithoutResult: number | null
+  refreshed: number | null
+  frozen: number | null
+  isLive: boolean
+}
+
+export type WeeklyHistory = {
+  rounds: WeeklyRound[]
+  activeJob: WeeklyRefreshJob | null
 }
 
 function toRecord(value: unknown): JsonRecord {
@@ -222,6 +285,90 @@ export async function fetchAdminAiSummary(): Promise<AdminAiStatusSummary> {
   return fetchJson("/summary") as Promise<AdminAiStatusSummary>
 }
 
+function toNullableString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null
+}
+
+function normalizeWeeklyJob(value: unknown): AdminAiJob | null {
+  const job = toRecord(value)
+  if (typeof job.id !== "string") return null
+  const status = ["queued", "running", "done", "failed"].includes(job.status) ? (job.status as WeeklyJobStatus) : "failed"
+  return {
+    id: job.id,
+    kind: toStringValue(job.kind, "-"),
+    label: toStringValue(job.label, toStringValue(job.kind, "-")),
+    status,
+    progress: toNumber(job.progress) ?? 0,
+    message: typeof job.message === "string" ? job.message : "",
+    error: toNullableString(job.error),
+    requestedBy: toStringValue(job.requested_by, "-"),
+    createdAt: toNullableString(job.created_at),
+    startedAt: toNullableString(job.started_at),
+    finishedAt: toNullableString(job.finished_at),
+    result: job.result && typeof job.result === "object" ? (job.result as JsonRecord) : null,
+    logTail: toStringList(job.log_tail),
+  }
+}
+
+export async function fetchAdminAiJobs(kind?: string): Promise<{ jobs: AdminAiJob[]; activeJob: AdminAiJob | null }> {
+  const query = kind ? `?kind=${encodeURIComponent(kind)}&limit=200` : "?limit=200"
+  const payload = toRecord(await fetchJson(`/pipeline/jobs${query}`))
+  return {
+    jobs: toArray(payload.jobs).map(normalizeWeeklyJob).filter((job): job is AdminAiJob => job != null),
+    activeJob: normalizeWeeklyJob(payload.active_job),
+  }
+}
+
+export async function fetchAdminAiJob(jobId: string): Promise<AdminAiJob> {
+  const job = normalizeWeeklyJob(toRecord(await fetchJson(`/pipeline/jobs/${encodeURIComponent(jobId)}`)).job)
+  if (!job) throw new Error("ไม่พบสถานะงาน")
+  return job
+}
+
+// Starts retraining (POST /pipeline/full runs as a background job and returns at once).
+export async function startModelTraining(): Promise<AdminAiJob> {
+  const job = normalizeWeeklyJob(toRecord(await fetchJson("/pipeline/full", { method: "POST" })).job)
+  if (!job) throw new Error("ไม่ได้รับรหัสงานจากบริการทำนายผล")
+  return job
+}
+
+export async function fetchWeeklyHistory(): Promise<WeeklyHistory> {
+  const payload = toRecord(await fetchJson("/pipeline/weekly-history"))
+  return {
+    rounds: toArray(payload.rounds).map((item) => {
+      const round = toRecord(item)
+      return {
+        manifestFile: toStringValue(round.manifest_file, "-"),
+        createdAt: toNullableString(round.created_at),
+        asOf: toNullableString(round.as_of),
+        modelLabel: toStringValue(round.model_label, "-"),
+        fixtures: toNumber(round.fixtures),
+        knownResults: toNumber(round.known_results),
+        lastKnownResultDate: toNullableString(round.last_known_result_date),
+        startedWithoutResult: toNumber(round.started_without_result),
+        refreshed: toNumber(round.refreshed),
+        frozen: toNumber(round.frozen),
+        isLive: round.is_live === true,
+      }
+    }),
+    activeJob: normalizeWeeklyJob(payload.active_job),
+  }
+}
+
+export async function startWeeklyRefresh(): Promise<WeeklyRefreshJob> {
+  const payload = toRecord(await fetchJson("/pipeline/weekly-refresh", { method: "POST" }))
+  const job = normalizeWeeklyJob(payload.job)
+  if (!job) throw new Error("ไม่ได้รับรหัสงานจากบริการทำนายผล")
+  return job
+}
+
+export async function fetchWeeklyRefreshJob(jobId: string): Promise<WeeklyRefreshJob> {
+  const payload = toRecord(await fetchJson(`/pipeline/weekly-refresh/${encodeURIComponent(jobId)}`))
+  const job = normalizeWeeklyJob(payload.job)
+  if (!job) throw new Error("ไม่พบสถานะงาน")
+  return job
+}
+
 export async function uploadLatestSeasonFile(files: File[]): Promise<UploadPipelineResult> {
   const formData = new FormData()
   for (const file of files) {
@@ -254,22 +401,18 @@ export async function uploadLatestSeasonFile(files: File[]): Promise<UploadPipel
     processedFiles: toNumber(payload.processed_files ?? payload.processedFiles) ?? files.length,
     uploadedFiles: toStringList(payload.uploaded_files ?? payload.uploadedFiles),
     duplicateFiles: toStringList(payload.duplicate_files ?? payload.duplicateFiles),
-  }
-}
-
-export async function rebuildFromRawArchive(): Promise<UploadPipelineResult> {
-  const payload = toRecord(await fetchJson("/pipeline/full", { method: "POST" }))
-
-  return {
-    message: toStringValue(payload.message ?? payload.status, "สร้างข้อมูลใหม่จากไฟล์ดิบทั้งหมดสำเร็จ"),
-    duplicateNotice: null,
-    matchesAdded: toNumber(payload.matches_added ?? payload.matchesAdded ?? payload.processed_matches) ?? 0,
-    duplicatesRemoved: toNumber(payload.duplicates_removed ?? payload.duplicatesRemoved ?? payload.removed_duplicates) ?? 0,
-    latestSeason: toStringValue(payload.latest_season ?? payload.latestSeason ?? payload.season, "-"),
-    featureRows: toNumber(payload.feature_rows ?? payload.featureRows ?? payload.rows) ?? 0,
-    processedFiles: 0,
-    uploadedFiles: [],
-    duplicateFiles: [],
+    checkedFiles: toArray(payload.files).map((item) => {
+      const file = toRecord(item)
+      return {
+        originalName: toStringValue(file.original_name, "-"),
+        storedFilename: toNullableString(file.stored_filename),
+        duplicate: file.duplicate === true,
+        duplicateOf: toNullableString(file.duplicate_of),
+        seasons: toStringList(file.seasons),
+        matchRows: toNumber(file.match_rows) ?? 0,
+        isNewSeason: file.is_new_season === true,
+      }
+    }),
   }
 }
 
@@ -354,5 +497,16 @@ export async function predictMatchPair(homeTeam: string, awayTeam: string): Prom
     },
     topScores,
     summary: toStringValue(payload.summary ?? payload.message ?? payload.analysis, "ประมวลผลผลทำนายสำเร็จ"),
+    predictedResult: toStringValue(payload.predicted_result, "-"),
+    otherModels: payload.other_models
+      ? {
+          catboost: toStringValue(toRecord(payload.other_models).catboost, "-"),
+          xgboost: toStringValue(toRecord(payload.other_models).xgboost, "-"),
+          poisson: toStringValue(toRecord(payload.other_models).poisson, "-"),
+        }
+      : null,
+    basis: payload.basis
+      ? { date: toStringValue(toRecord(payload.basis).date, "-"), lastResultDate: toStringValue(toRecord(payload.basis).last_result_date, "-") }
+      : null,
   }
 }

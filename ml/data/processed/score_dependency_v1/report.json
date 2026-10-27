@@ -1,0 +1,601 @@
+{
+  "experiment": "score_dependency_v1",
+  "created_utc": "2026-09-15T08:53:38.133655+00:00",
+  "score_grid": "0..6 per side",
+  "baseline": "Phase 3 frozen XGB rates + independent Poisson matrix",
+  "feature_version": "legacy_v1",
+  "parameters": {
+    "rho": -0.034189878130936914,
+    "shared_fraction": 0.0
+  },
+  "parameter_fit_file": "parameter_fit.json",
+  "baseline_freeze_file": "baseline_freeze.json",
+  "methods": {
+    "independent": {
+      "matches": 760,
+      "exact_hits": 96,
+      "exact_top1": 0.12631578947368421,
+      "top3_hits": 215,
+      "top3_exact": 0.28289473684210525,
+      "joint_untruncated_nll": 2.9472945642879735,
+      "grid_supported_matches": 759,
+      "predicted_scores": {
+        "1-1": 437,
+        "2-0": 116,
+        "1-0": 115,
+        "2-1": 38,
+        "0-1": 28,
+        "0-2": 12,
+        "1-2": 10,
+        "3-0": 3,
+        "3-1": 1
+      },
+      "actual_scores": {
+        "1-1": 92,
+        "2-1": 70,
+        "0-1": 57,
+        "2-2": 57,
+        "1-2": 56,
+        "1-0": 51,
+        "2-0": 50,
+        "0-0": 43,
+        "0-2": 43,
+        "3-0": 38,
+        "3-1": 37,
+        "0-3": 22,
+        "3-2": 22,
+        "1-3": 20,
+        "4-1": 16,
+        "2-3": 15,
+        "4-0": 9,
+        "4-2": 9,
+        "1-4": 8,
+        "0-4": 7,
+        "4-3": 5,
+        "0-5": 4,
+        "3-3": 4,
+        "5-1": 3,
+        "2-4": 3,
+        "1-5": 3,
+        "5-0": 3,
+        "3-4": 3,
+        "5-2": 2,
+        "5-3": 1,
+        "2-6": 1,
+        "2-5": 1,
+        "3-6": 1,
+        "7-0": 1,
+        "0-6": 1,
+        "4-5": 1,
+        "4-4": 1
+      },
+      "most_common_score": "1-1",
+      "most_common_count": 437,
+      "most_common_pct": 0.575,
+      "unique_scorelines": 9,
+      "top1_entropy_nats": 1.315311813366174,
+      "predicted_draw_rate": 0.575,
+      "actual_draw_rate": 0.25921052631578945,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 115,
+          "correct": 9,
+          "precision": 0.0782608695652174
+        },
+        "0-1": {
+          "predicted": 28,
+          "correct": 4,
+          "precision": 0.14285714285714285
+        },
+        "1-1": {
+          "predicted": 437,
+          "correct": 57,
+          "precision": 0.13043478260869565
+        },
+        "2-0": {
+          "predicted": 116,
+          "correct": 18,
+          "precision": 0.15517241379310345
+        },
+        "0-2": {
+          "predicted": 12,
+          "correct": 3,
+          "precision": 0.25
+        },
+        "2-1": {
+          "predicted": 38,
+          "correct": 5,
+          "precision": 0.13157894736842105
+        },
+        "1-2": {
+          "predicted": 10,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 3,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "3-1": {
+          "predicted": 1,
+          "correct": 0,
+          "precision": 0.0
+        }
+      }
+    },
+    "dc": {
+      "matches": 760,
+      "exact_hits": 99,
+      "exact_top1": 0.13026315789473683,
+      "top3_hits": 228,
+      "top3_exact": 0.3,
+      "joint_untruncated_nll": 2.9461832200790647,
+      "grid_supported_matches": 759,
+      "predicted_scores": {
+        "1-1": 507,
+        "2-0": 122,
+        "1-0": 67,
+        "2-1": 29,
+        "0-2": 12,
+        "0-1": 12,
+        "1-2": 7,
+        "3-0": 3,
+        "3-1": 1
+      },
+      "actual_scores": {
+        "1-1": 92,
+        "2-1": 70,
+        "0-1": 57,
+        "2-2": 57,
+        "1-2": 56,
+        "1-0": 51,
+        "2-0": 50,
+        "0-0": 43,
+        "0-2": 43,
+        "3-0": 38,
+        "3-1": 37,
+        "0-3": 22,
+        "3-2": 22,
+        "1-3": 20,
+        "4-1": 16,
+        "2-3": 15,
+        "4-0": 9,
+        "4-2": 9,
+        "1-4": 8,
+        "0-4": 7,
+        "4-3": 5,
+        "0-5": 4,
+        "3-3": 4,
+        "5-1": 3,
+        "2-4": 3,
+        "1-5": 3,
+        "5-0": 3,
+        "3-4": 3,
+        "5-2": 2,
+        "5-3": 1,
+        "2-6": 1,
+        "2-5": 1,
+        "3-6": 1,
+        "7-0": 1,
+        "0-6": 1,
+        "4-5": 1,
+        "4-4": 1
+      },
+      "most_common_score": "1-1",
+      "most_common_count": 507,
+      "most_common_pct": 0.6671052631578948,
+      "unique_scorelines": 9,
+      "top1_entropy_nats": 1.107178172291833,
+      "predicted_draw_rate": 0.6671052631578948,
+      "actual_draw_rate": 0.25921052631578945,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 67,
+          "correct": 5,
+          "precision": 0.07462686567164178
+        },
+        "0-1": {
+          "predicted": 12,
+          "correct": 3,
+          "precision": 0.25
+        },
+        "1-1": {
+          "predicted": 507,
+          "correct": 66,
+          "precision": 0.1301775147928994
+        },
+        "2-0": {
+          "predicted": 122,
+          "correct": 18,
+          "precision": 0.14754098360655737
+        },
+        "0-2": {
+          "predicted": 12,
+          "correct": 3,
+          "precision": 0.25
+        },
+        "2-1": {
+          "predicted": 29,
+          "correct": 4,
+          "precision": 0.13793103448275862
+        },
+        "1-2": {
+          "predicted": 7,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 3,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "3-1": {
+          "predicted": 1,
+          "correct": 0,
+          "precision": 0.0
+        }
+      }
+    },
+    "bivariate": {
+      "matches": 760,
+      "exact_hits": 96,
+      "exact_top1": 0.12631578947368421,
+      "top3_hits": 215,
+      "top3_exact": 0.28289473684210525,
+      "joint_untruncated_nll": 2.9472945642879735,
+      "grid_supported_matches": 759,
+      "predicted_scores": {
+        "1-1": 437,
+        "2-0": 116,
+        "1-0": 115,
+        "2-1": 38,
+        "0-1": 28,
+        "0-2": 12,
+        "1-2": 10,
+        "3-0": 3,
+        "3-1": 1
+      },
+      "actual_scores": {
+        "1-1": 92,
+        "2-1": 70,
+        "0-1": 57,
+        "2-2": 57,
+        "1-2": 56,
+        "1-0": 51,
+        "2-0": 50,
+        "0-0": 43,
+        "0-2": 43,
+        "3-0": 38,
+        "3-1": 37,
+        "0-3": 22,
+        "3-2": 22,
+        "1-3": 20,
+        "4-1": 16,
+        "2-3": 15,
+        "4-0": 9,
+        "4-2": 9,
+        "1-4": 8,
+        "0-4": 7,
+        "4-3": 5,
+        "0-5": 4,
+        "3-3": 4,
+        "5-1": 3,
+        "2-4": 3,
+        "1-5": 3,
+        "5-0": 3,
+        "3-4": 3,
+        "5-2": 2,
+        "5-3": 1,
+        "2-6": 1,
+        "2-5": 1,
+        "3-6": 1,
+        "7-0": 1,
+        "0-6": 1,
+        "4-5": 1,
+        "4-4": 1
+      },
+      "most_common_score": "1-1",
+      "most_common_count": 437,
+      "most_common_pct": 0.575,
+      "unique_scorelines": 9,
+      "top1_entropy_nats": 1.315311813366174,
+      "predicted_draw_rate": 0.575,
+      "actual_draw_rate": 0.25921052631578945,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 115,
+          "correct": 9,
+          "precision": 0.0782608695652174
+        },
+        "0-1": {
+          "predicted": 28,
+          "correct": 4,
+          "precision": 0.14285714285714285
+        },
+        "1-1": {
+          "predicted": 437,
+          "correct": 57,
+          "precision": 0.13043478260869565
+        },
+        "2-0": {
+          "predicted": 116,
+          "correct": 18,
+          "precision": 0.15517241379310345
+        },
+        "0-2": {
+          "predicted": 12,
+          "correct": 3,
+          "precision": 0.25
+        },
+        "2-1": {
+          "predicted": 38,
+          "correct": 5,
+          "precision": 0.13157894736842105
+        },
+        "1-2": {
+          "predicted": 10,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 3,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "3-1": {
+          "predicted": 1,
+          "correct": 0,
+          "precision": 0.0
+        }
+      }
+    }
+  },
+  "flips": {
+    "dc": {
+      "gained": 9,
+      "lost": 6,
+      "changed_top1": 78
+    },
+    "bivariate": {
+      "gained": 0,
+      "lost": 0,
+      "changed_top1": 0
+    }
+  },
+  "score_distribution": [
+    {
+      "Score": "0-0",
+      "ActualCount": 43,
+      "ActualPct": 5.657894736842105,
+      "independentCount": 0,
+      "dcCount": 0,
+      "bivariateCount": 0,
+      "independentPct": 0.0,
+      "dcPct": 0.0,
+      "bivariatePct": 0.0
+    },
+    {
+      "Score": "1-0",
+      "ActualCount": 51,
+      "ActualPct": 6.7105263157894735,
+      "independentCount": 115,
+      "dcCount": 67,
+      "bivariateCount": 115,
+      "independentPct": 15.131578947368421,
+      "dcPct": 8.81578947368421,
+      "bivariatePct": 15.131578947368421
+    },
+    {
+      "Score": "0-1",
+      "ActualCount": 57,
+      "ActualPct": 7.5,
+      "independentCount": 28,
+      "dcCount": 12,
+      "bivariateCount": 28,
+      "independentPct": 3.6842105263157894,
+      "dcPct": 1.5789473684210527,
+      "bivariatePct": 3.6842105263157894
+    },
+    {
+      "Score": "1-1",
+      "ActualCount": 92,
+      "ActualPct": 12.105263157894736,
+      "independentCount": 437,
+      "dcCount": 507,
+      "bivariateCount": 437,
+      "independentPct": 57.5,
+      "dcPct": 66.71052631578948,
+      "bivariatePct": 57.5
+    },
+    {
+      "Score": "2-0",
+      "ActualCount": 50,
+      "ActualPct": 6.578947368421052,
+      "independentCount": 116,
+      "dcCount": 122,
+      "bivariateCount": 116,
+      "independentPct": 15.263157894736842,
+      "dcPct": 16.05263157894737,
+      "bivariatePct": 15.263157894736842
+    },
+    {
+      "Score": "0-2",
+      "ActualCount": 43,
+      "ActualPct": 5.657894736842105,
+      "independentCount": 12,
+      "dcCount": 12,
+      "bivariateCount": 12,
+      "independentPct": 1.5789473684210527,
+      "dcPct": 1.5789473684210527,
+      "bivariatePct": 1.5789473684210527
+    },
+    {
+      "Score": "2-1",
+      "ActualCount": 70,
+      "ActualPct": 9.210526315789474,
+      "independentCount": 38,
+      "dcCount": 29,
+      "bivariateCount": 38,
+      "independentPct": 5.0,
+      "dcPct": 3.8157894736842106,
+      "bivariatePct": 5.0
+    },
+    {
+      "Score": "1-2",
+      "ActualCount": 56,
+      "ActualPct": 7.368421052631579,
+      "independentCount": 10,
+      "dcCount": 7,
+      "bivariateCount": 10,
+      "independentPct": 1.3157894736842106,
+      "dcPct": 0.9210526315789473,
+      "bivariatePct": 1.3157894736842106
+    },
+    {
+      "Score": "2-2",
+      "ActualCount": 57,
+      "ActualPct": 7.5,
+      "independentCount": 0,
+      "dcCount": 0,
+      "bivariateCount": 0,
+      "independentPct": 0.0,
+      "dcPct": 0.0,
+      "bivariatePct": 0.0
+    },
+    {
+      "Score": "3-0",
+      "ActualCount": 38,
+      "ActualPct": 5.0,
+      "independentCount": 3,
+      "dcCount": 3,
+      "bivariateCount": 3,
+      "independentPct": 0.39473684210526316,
+      "dcPct": 0.39473684210526316,
+      "bivariatePct": 0.39473684210526316
+    },
+    {
+      "Score": "0-3",
+      "ActualCount": 22,
+      "ActualPct": 2.8947368421052633,
+      "independentCount": 0,
+      "dcCount": 0,
+      "bivariateCount": 0,
+      "independentPct": 0.0,
+      "dcPct": 0.0,
+      "bivariatePct": 0.0
+    },
+    {
+      "Score": "3-1",
+      "ActualCount": 37,
+      "ActualPct": 4.868421052631579,
+      "independentCount": 1,
+      "dcCount": 1,
+      "bivariateCount": 1,
+      "independentPct": 0.13157894736842105,
+      "dcPct": 0.13157894736842105,
+      "bivariatePct": 0.13157894736842105
+    },
+    {
+      "Score": "1-3",
+      "ActualCount": 20,
+      "ActualPct": 2.6315789473684212,
+      "independentCount": 0,
+      "dcCount": 0,
+      "bivariateCount": 0,
+      "independentPct": 0.0,
+      "dcPct": 0.0,
+      "bivariatePct": 0.0
+    },
+    {
+      "Score": "3-2",
+      "ActualCount": 22,
+      "ActualPct": 2.8947368421052633,
+      "independentCount": 0,
+      "dcCount": 0,
+      "bivariateCount": 0,
+      "independentPct": 0.0,
+      "dcPct": 0.0,
+      "bivariatePct": 0.0
+    },
+    {
+      "Score": "2-3",
+      "ActualCount": 15,
+      "ActualPct": 1.9736842105263157,
+      "independentCount": 0,
+      "dcCount": 0,
+      "bivariateCount": 0,
+      "independentPct": 0.0,
+      "dcPct": 0.0,
+      "bivariatePct": 0.0
+    }
+  ],
+  "zero_controls": {
+    "dc_max_abs_difference": 0.0,
+    "bivariate_max_abs_difference": 0.0
+  },
+  "bivariate_sensitivity": {
+    "shared_covariance_mean": 0.0,
+    "shared_covariance_min": 0.0,
+    "shared_covariance_max": 0.0,
+    "implied_correlation_mean": 0.0,
+    "selected_cell_mean_probabilities": {
+      "0-0": {
+        "independent_mean": 0.06151993681441781,
+        "bivariate_mean": 0.06151993681441781
+      },
+      "1-1": {
+        "independent_mean": 0.10873095394037649,
+        "bivariate_mean": 0.10873095394037649
+      },
+      "2-2": {
+        "independent_mean": 0.04984610980819112,
+        "bivariate_mean": 0.04984610980819112
+      },
+      "2-1": {
+        "independent_mean": 0.08417661934594739,
+        "bivariate_mean": 0.08417661934594739
+      },
+      "1-2": {
+        "independent_mean": 0.06783323860513847,
+        "bivariate_mean": 0.06783323860513847
+      }
+    }
+  },
+  "nll_definition": "Proper untruncated joint score NLL at actual counts for all 760 matches; grid matrix is separately normalized for Top-1/Top-3. Out-of-grid actual scores retain nonzero untruncated likelihood.",
+  "limitations": [
+    "Diagnostic seasons previously inspected, not pristine holdout.",
+    "Frozen historical pre-match feature rows, not prospective forecast snapshots.",
+    "No time decay, no test-outcome-based dependence parameter selection."
+  ]
+}

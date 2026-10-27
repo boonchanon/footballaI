@@ -1,0 +1,761 @@
+Date,HomeTeam,AwayTeam,ActualScore,ActualOutcome,ActualTotalGoals,CombinedOracleScore,CombinedOracleProbability,CombinedOracleCorrect,OracleNonDeployable,UsesActualResultInformation
+2024-08-16,Man United,Fulham,1-0,H,1,1-0,0.11184607577392053,True,True,True
+2024-08-17,Arsenal,Wolves,2-0,H,2,2-0,0.12647792203751868,True,True,True
+2024-08-17,Everton,Brighton,0-3,A,3,1-2,0.08451776345422024,False,True,True
+2024-08-17,Ipswich,Liverpool,0-2,A,2,0-2,0.08562635428762515,True,True,True
+2024-08-17,Newcastle,Southampton,1-0,H,1,1-0,0.07660547886213137,True,True,True
+2024-08-17,Nott'm Forest,Bournemouth,1-1,D,2,1-1,0.1231208828617774,True,True,True
+2024-08-17,West Ham,Aston Villa,1-2,A,3,1-2,0.08446899804587976,True,True,True
+2024-08-18,Brentford,Crystal Palace,2-1,H,3,2-1,0.06989165374712006,True,True,True
+2024-08-18,Chelsea,Man City,0-2,A,2,0-2,0.09327300119692267,True,True,True
+2024-08-19,Leicester,Tottenham,1-1,D,2,1-1,0.10390789825835826,True,True,True
+2024-08-24,Aston Villa,Arsenal,0-2,A,2,0-2,0.06884242794166999,True,True,True
+2024-08-24,Brighton,Man United,2-1,H,3,2-1,0.07591963876854002,True,True,True
+2024-08-24,Crystal Palace,West Ham,0-2,A,2,0-2,0.04207006082788988,True,True,True
+2024-08-24,Fulham,Leicester,2-1,H,3,2-1,0.09360729889509328,True,True,True
+2024-08-24,Man City,Ipswich,4-1,H,5,4-1,0.06669334485286703,True,True,True
+2024-08-24,Southampton,Nott'm Forest,0-1,A,1,0-1,0.09424193645815016,True,True,True
+2024-08-24,Tottenham,Everton,4-0,H,4,3-1,0.07701588834920269,False,True,True
+2024-08-25,Bournemouth,Newcastle,1-1,D,2,1-1,0.11145697462051478,True,True,True
+2024-08-25,Liverpool,Brentford,2-0,H,2,2-0,0.11897497621886921,True,True,True
+2024-08-25,Wolves,Chelsea,2-6,A,8,3-5,0.0012767046547187408,False,True,True
+2024-08-31,Arsenal,Brighton,1-1,D,2,1-1,0.08487710147788656,True,True,True
+2024-08-31,Brentford,Southampton,3-1,H,4,3-1,0.05342572844593409,True,True,True
+2024-08-31,Everton,Bournemouth,2-3,A,5,2-3,0.022187910400443944,True,True,True
+2024-08-31,Ipswich,Fulham,1-1,D,2,1-1,0.11953745527607088,True,True,True
+2024-08-31,Leicester,Aston Villa,1-2,A,3,1-2,0.0866093854725341,True,True,True
+2024-08-31,Nott'm Forest,Wolves,1-1,D,2,1-1,0.12604812989837322,True,True,True
+2024-08-31,West Ham,Man City,1-3,A,4,1-3,0.07581245604267389,True,True,True
+2024-09-01,Chelsea,Crystal Palace,1-1,D,2,1-1,0.10725132243080092,True,True,True
+2024-09-01,Man United,Liverpool,0-3,A,3,1-2,0.09626755979942846,False,True,True
+2024-09-01,Newcastle,Tottenham,2-1,H,3,2-1,0.0866406374983479,True,True,True
+2024-09-14,Aston Villa,Everton,3-2,H,5,3-2,0.029451004691102213,True,True,True
+2024-09-14,Bournemouth,Chelsea,0-1,A,1,0-1,0.08939540086907888,True,True,True
+2024-09-14,Brighton,Ipswich,0-0,D,0,0-0,0.0857482776670472,True,True,True
+2024-09-14,Crystal Palace,Leicester,2-2,D,4,2-2,0.03146091105021198,True,True,True
+2024-09-14,Fulham,West Ham,1-1,D,2,1-1,0.12886850363429844,True,True,True
+2024-09-14,Liverpool,Nott'm Forest,0-1,A,1,0-1,0.02988246203172107,True,True,True
+2024-09-14,Man City,Brentford,2-1,H,3,2-1,0.09638433111392578,True,True,True
+2024-09-14,Southampton,Man United,0-3,A,3,1-2,0.09754454158674775,False,True,True
+2024-09-15,Tottenham,Arsenal,0-1,A,1,0-1,0.0840152774988833,True,True,True
+2024-09-15,Wolves,Newcastle,1-2,A,3,1-2,0.08784159545116899,True,True,True
+2024-09-21,Aston Villa,Wolves,3-1,H,4,3-1,0.05964119520773461,True,True,True
+2024-09-21,Crystal Palace,Man United,0-0,D,0,0-0,0.05794115203599814,True,True,True
+2024-09-21,Fulham,Newcastle,3-1,H,4,3-1,0.030433229739092207,True,True,True
+2024-09-21,Leicester,Everton,1-1,D,2,1-1,0.12834594679145503,True,True,True
+2024-09-21,Liverpool,Bournemouth,3-0,H,3,2-1,0.09624538312892332,False,True,True
+2024-09-21,Southampton,Ipswich,1-1,D,2,1-1,0.12202710059468264,True,True,True
+2024-09-21,Tottenham,Brentford,3-1,H,4,3-1,0.0678158523881546,True,True,True
+2024-09-21,West Ham,Chelsea,0-3,A,3,1-2,0.09174716059793638,False,True,True
+2024-09-22,Brighton,Nott'm Forest,2-2,D,4,2-2,0.04760819945367003,True,True,True
+2024-09-22,Man City,Arsenal,2-2,D,4,2-2,0.04364897363480491,True,True,True
+2024-09-28,Arsenal,Leicester,4-2,H,6,5-1,0.025119352342416326,False,True,True
+2024-09-28,Brentford,West Ham,1-1,D,2,1-1,0.12142954754547593,True,True,True
+2024-09-28,Chelsea,Brighton,4-2,H,6,4-2,0.021495335267193143,True,True,True
+2024-09-28,Everton,Crystal Palace,2-1,H,3,2-1,0.08529174536263068,True,True,True
+2024-09-28,Newcastle,Man City,1-1,D,2,1-1,0.0926123542099561,True,True,True
+2024-09-28,Nott'm Forest,Fulham,0-1,A,1,0-1,0.09196748109759727,True,True,True
+2024-09-28,Wolves,Liverpool,1-2,A,3,1-2,0.0993465405315642,True,True,True
+2024-09-29,Ipswich,Aston Villa,2-2,D,4,2-2,0.04093818013117926,True,True,True
+2024-09-29,Man United,Tottenham,0-3,A,3,1-2,0.06703723892800942,False,True,True
+2024-09-30,Bournemouth,Southampton,3-1,H,4,3-1,0.04398484347456764,True,True,True
+2024-10-05,Arsenal,Southampton,3-1,H,4,3-1,0.08432068259769879,True,True,True
+2024-10-05,Brentford,Wolves,5-3,H,8,5-3,0.0007094346688046697,True,True,True
+2024-10-05,Crystal Palace,Liverpool,0-1,A,1,0-1,0.10505539540486489,True,True,True
+2024-10-05,Everton,Newcastle,0-0,D,0,0-0,0.07355158876535688,True,True,True
+2024-10-05,Leicester,Bournemouth,1-0,H,1,1-0,0.0838364962307183,True,True,True
+2024-10-05,Man City,Fulham,3-2,H,5,4-1,0.04658391690406161,False,True,True
+2024-10-05,West Ham,Ipswich,4-1,H,5,3-2,0.022688808398328597,False,True,True
+2024-10-06,Aston Villa,Man United,0-0,D,0,0-0,0.04909617734416888,True,True,True
+2024-10-06,Brighton,Tottenham,3-2,H,5,3-2,0.03192948834212494,True,True,True
+2024-10-06,Chelsea,Nott'm Forest,1-1,D,2,1-1,0.08721417515848896,True,True,True
+2024-10-19,Bournemouth,Arsenal,2-0,H,2,2-0,0.026089565929610238,True,True,True
+2024-10-19,Fulham,Aston Villa,1-3,A,4,1-3,0.04116544759446365,True,True,True
+2024-10-19,Ipswich,Everton,0-2,A,2,0-2,0.05444631523303692,True,True,True
+2024-10-19,Man United,Brentford,2-1,H,3,2-1,0.09708351176183173,True,True,True
+2024-10-19,Newcastle,Brighton,0-1,A,1,0-1,0.06291054470479568,True,True,True
+2024-10-19,Southampton,Leicester,2-3,A,5,2-3,0.027469782384652714,True,True,True
+2024-10-19,Tottenham,West Ham,4-1,H,5,3-2,0.037804620075509485,False,True,True
+2024-10-20,Liverpool,Chelsea,2-1,H,3,3-0,0.09326231560914763,False,True,True
+2024-10-20,Wolves,Man City,1-2,A,3,0-3,0.09975718527445951,False,True,True
+2024-10-21,Nott'm Forest,Crystal Palace,1-0,H,1,1-0,0.11235599691172783,True,True,True
+2024-10-25,Leicester,Nott'm Forest,1-3,A,4,1-3,0.030602505329772385,True,True,True
+2024-10-26,Aston Villa,Bournemouth,1-1,D,2,1-1,0.09810782842458922,True,True,True
+2024-10-26,Brentford,Ipswich,4-3,H,7,5-2,0.0027972866745119363,False,True,True
+2024-10-26,Brighton,Wolves,2-2,D,4,2-2,0.037681483130503346,True,True,True
+2024-10-26,Everton,Fulham,1-1,D,2,1-1,0.12199538542983049,True,True,True
+2024-10-26,Man City,Southampton,1-0,H,1,1-0,0.0635021961960606,True,True,True
+2024-10-27,Arsenal,Liverpool,2-2,D,4,2-2,0.060314113172238545,True,True,True
+2024-10-27,Chelsea,Newcastle,2-1,H,3,2-1,0.09430184263790191,True,True,True
+2024-10-27,Crystal Palace,Tottenham,1-0,H,1,1-0,0.05731433558718197,True,True,True
+2024-10-27,West Ham,Man United,2-1,H,3,2-1,0.08027298362535164,True,True,True
+2024-11-02,Bournemouth,Man City,2-1,H,3,2-1,0.025701703531373778,True,True,True
+2024-11-02,Ipswich,Leicester,1-1,D,2,1-1,0.1271369045386362,True,True,True
+2024-11-02,Liverpool,Brighton,2-1,H,3,2-1,0.09931105803311853,True,True,True
+2024-11-02,Newcastle,Arsenal,1-0,H,1,1-0,0.08179171253754902,True,True,True
+2024-11-02,Nott'm Forest,West Ham,3-0,H,3,2-1,0.0859466076955102,False,True,True
+2024-11-02,Southampton,Everton,1-0,H,1,1-0,0.09199234367866048,True,True,True
+2024-11-02,Wolves,Crystal Palace,2-2,D,4,2-2,0.05638061415792634,True,True,True
+2024-11-03,Man United,Chelsea,1-1,D,2,1-1,0.12235677174389518,True,True,True
+2024-11-03,Tottenham,Aston Villa,4-1,H,5,3-2,0.027805836969897316,False,True,True
+2024-11-04,Fulham,Brentford,2-1,H,3,2-1,0.09002249603428458,True,True,True
+2024-11-09,Brentford,Bournemouth,3-2,H,5,3-2,0.024829293872172135,True,True,True
+2024-11-09,Brighton,Man City,2-1,H,3,2-1,0.04262200569078865,True,True,True
+2024-11-09,Crystal Palace,Fulham,0-2,A,2,0-2,0.05454318800920416,True,True,True
+2024-11-09,Liverpool,Aston Villa,2-0,H,2,2-0,0.11558339096075301,True,True,True
+2024-11-09,West Ham,Everton,0-0,D,0,0-0,0.06952838310017628,True,True,True
+2024-11-09,Wolves,Southampton,2-0,H,2,2-0,0.10291814048508852,True,True,True
+2024-11-10,Chelsea,Arsenal,1-1,D,2,1-1,0.11635097951079577,True,True,True
+2024-11-10,Man United,Leicester,3-0,H,3,2-1,0.09988112858590581,False,True,True
+2024-11-10,Nott'm Forest,Newcastle,1-3,A,4,1-3,0.04023786100856922,True,True,True
+2024-11-10,Tottenham,Ipswich,1-2,A,3,1-2,0.04509826305654412,True,True,True
+2024-11-23,Arsenal,Nott'm Forest,3-0,H,3,2-1,0.0956809717819464,False,True,True
+2024-11-23,Aston Villa,Crystal Palace,2-2,D,4,2-2,0.0510574988577926,True,True,True
+2024-11-23,Bournemouth,Brighton,1-2,A,3,1-2,0.0888134284026221,True,True,True
+2024-11-23,Everton,Brentford,0-0,D,0,0-0,0.08413294581301133,True,True,True
+2024-11-23,Fulham,Wolves,1-4,A,5,2-3,0.01459346909599195,False,True,True
+2024-11-23,Leicester,Chelsea,1-2,A,3,1-2,0.09715571509597819,True,True,True
+2024-11-23,Man City,Tottenham,0-4,A,4,1-3,0.014390669523804012,False,True,True
+2024-11-24,Ipswich,Man United,1-1,D,2,1-1,0.11852104541601571,True,True,True
+2024-11-24,Southampton,Liverpool,2-3,A,5,2-3,0.04606775096568128,True,True,True
+2024-11-25,Newcastle,West Ham,0-2,A,2,0-2,0.02981294251691848,True,True,True
+2024-11-29,Brighton,Southampton,1-1,D,2,1-1,0.08373789332269223,True,True,True
+2024-11-30,Brentford,Leicester,4-1,H,5,3-2,0.026143659407272993,False,True,True
+2024-11-30,Crystal Palace,Newcastle,1-1,D,2,1-1,0.10899620702873954,True,True,True
+2024-11-30,Nott'm Forest,Ipswich,1-0,H,1,1-0,0.12666445472141058,True,True,True
+2024-11-30,West Ham,Arsenal,2-5,A,7,3-4,0.005722889275963713,False,True,True
+2024-11-30,Wolves,Bournemouth,2-4,A,6,2-4,0.00546087992421553,True,True,True
+2024-12-01,Chelsea,Aston Villa,3-0,H,3,2-1,0.09632382848810533,False,True,True
+2024-12-01,Liverpool,Man City,2-0,H,2,2-0,0.05860289009888362,True,True,True
+2024-12-01,Man United,Everton,4-0,H,4,3-1,0.07581636508161164,False,True,True
+2024-12-01,Tottenham,Fulham,1-1,D,2,1-1,0.108379740057152,True,True,True
+2024-12-03,Ipswich,Crystal Palace,0-1,A,1,0-1,0.09172264113121792,True,True,True
+2024-12-03,Leicester,West Ham,3-1,H,4,3-1,0.03144040761833946,True,True,True
+2024-12-04,Arsenal,Man United,2-0,H,2,2-0,0.11038787019059305,True,True,True
+2024-12-04,Aston Villa,Brentford,3-1,H,4,3-1,0.05752363699358639,True,True,True
+2024-12-04,Everton,Wolves,4-0,H,4,3-1,0.04745486652966095,False,True,True
+2024-12-04,Man City,Nott'm Forest,3-0,H,3,3-0,0.11126914081975411,True,True,True
+2024-12-04,Newcastle,Liverpool,3-3,D,6,3-3,0.012859091911763987,True,True,True
+2024-12-04,Southampton,Chelsea,1-5,A,6,2-4,0.016226730940080588,False,True,True
+2024-12-05,Bournemouth,Tottenham,1-0,H,1,1-0,0.08470028006946773,True,True,True
+2024-12-05,Fulham,Brighton,3-1,H,4,3-1,0.04267079219568624,True,True,True
+2024-12-07,Aston Villa,Southampton,1-0,H,1,1-0,0.12906078659046427,True,True,True
+2024-12-07,Brentford,Newcastle,4-2,H,6,4-2,0.00712206480702364,True,True,True
+2024-12-07,Crystal Palace,Man City,2-2,D,4,2-2,0.05551325670637588,True,True,True
+2024-12-07,Man United,Nott'm Forest,2-3,A,5,2-3,0.012540892001641839,True,True,True
+2024-12-08,Fulham,Arsenal,1-1,D,2,1-1,0.10235994025725455,True,True,True
+2024-12-08,Ipswich,Bournemouth,1-2,A,3,1-2,0.09058335488386392,True,True,True
+2024-12-08,Leicester,Brighton,2-2,D,4,2-2,0.04841248214101762,True,True,True
+2024-12-08,Tottenham,Chelsea,3-4,A,7,3-4,0.004559393117970579,True,True,True
+2024-12-09,West Ham,Wolves,2-1,H,3,2-1,0.0977845804219051,True,True,True
+2024-12-14,Arsenal,Everton,0-0,D,0,0-0,0.028692186312267283,True,True,True
+2024-12-14,Liverpool,Fulham,2-2,D,4,2-2,0.03475074384104764,True,True,True
+2024-12-14,Newcastle,Leicester,4-0,H,4,3-1,0.06408979159921716,False,True,True
+2024-12-14,Nott'm Forest,Aston Villa,2-1,H,3,2-1,0.07018871937656793,True,True,True
+2024-12-14,Wolves,Ipswich,1-2,A,3,1-2,0.07927713794761358,True,True,True
+2024-12-15,Brighton,Crystal Palace,1-3,A,4,1-3,0.023572290270933466,True,True,True
+2024-12-15,Chelsea,Brentford,2-1,H,3,2-1,0.10001104304743094,True,True,True
+2024-12-15,Man City,Man United,1-2,A,3,1-2,0.03378964697040141,True,True,True
+2024-12-15,Southampton,Tottenham,0-5,A,5,2-3,0.03234641586815599,False,True,True
+2024-12-16,Bournemouth,West Ham,1-1,D,2,1-1,0.11820735126494458,True,True,True
+2024-12-21,Aston Villa,Man City,2-1,H,3,2-1,0.07447799967539896,True,True,True
+2024-12-21,Brentford,Nott'm Forest,0-2,A,2,0-2,0.04791960597359429,True,True,True
+2024-12-21,Crystal Palace,Arsenal,1-5,A,6,2-4,0.015399175378672626,False,True,True
+2024-12-21,Ipswich,Newcastle,0-4,A,4,1-3,0.04887847627461524,False,True,True
+2024-12-21,West Ham,Brighton,1-1,D,2,1-1,0.11983508691942016,True,True,True
+2024-12-22,Everton,Chelsea,0-0,D,0,0-0,0.05785818116696205,True,True,True
+2024-12-22,Fulham,Southampton,0-0,D,0,0-0,0.059420815839572025,True,True,True
+2024-12-22,Leicester,Wolves,0-3,A,3,1-2,0.07310323650291478,False,True,True
+2024-12-22,Man United,Bournemouth,0-3,A,3,1-2,0.06207023638380938,False,True,True
+2024-12-22,Tottenham,Liverpool,3-6,A,9,4-5,0.000668850172469879,False,True,True
+2024-12-26,Bournemouth,Crystal Palace,0-0,D,0,0-0,0.0507477852066041,True,True,True
+2024-12-26,Chelsea,Fulham,1-2,A,3,1-2,0.037696490883489586,True,True,True
+2024-12-26,Liverpool,Leicester,3-1,H,4,3-1,0.07571601997078566,True,True,True
+2024-12-26,Man City,Everton,1-1,D,2,1-1,0.0736824574879614,True,True,True
+2024-12-26,Newcastle,Aston Villa,3-0,H,3,2-1,0.09448838335179179,False,True,True
+2024-12-26,Nott'm Forest,Tottenham,1-0,H,1,1-0,0.10357914592431129,True,True,True
+2024-12-26,Southampton,West Ham,0-1,A,1,0-1,0.08926447407686455,True,True,True
+2024-12-26,Wolves,Man United,2-0,H,2,2-0,0.04939555984275649,True,True,True
+2024-12-27,Arsenal,Ipswich,1-0,H,1,1-0,0.07730648715598878,True,True,True
+2024-12-27,Brighton,Brentford,0-0,D,0,0-0,0.05759564731917721,True,True,True
+2024-12-29,Crystal Palace,Southampton,2-1,H,3,2-1,0.08581949469700838,True,True,True
+2024-12-29,Everton,Nott'm Forest,0-2,A,2,0-2,0.06161848100518211,True,True,True
+2024-12-29,Fulham,Bournemouth,2-2,D,4,2-2,0.06599809432817232,True,True,True
+2024-12-29,Leicester,Man City,0-2,A,2,0-2,0.11313887173828073,True,True,True
+2024-12-29,Tottenham,Wolves,2-2,D,4,2-2,0.041036523368042456,True,True,True
+2024-12-29,West Ham,Liverpool,0-5,A,5,2-3,0.03890654840406748,False,True,True
+2024-12-30,Aston Villa,Brighton,2-2,D,4,2-2,0.0592309367191053,True,True,True
+2024-12-30,Ipswich,Chelsea,2-0,H,2,2-0,0.030244792787150365,True,True,True
+2024-12-30,Man United,Newcastle,0-2,A,2,0-2,0.0612289562796735,True,True,True
+2025-01-01,Brentford,Arsenal,1-3,A,4,1-3,0.04961512833763196,True,True,True
+2025-01-04,Aston Villa,Leicester,2-1,H,3,2-1,0.09711726678576561,True,True,True
+2025-01-04,Bournemouth,Everton,1-0,H,1,1-0,0.14394947714660222,True,True,True
+2025-01-04,Brighton,Arsenal,1-1,D,2,1-1,0.10840819827473275,True,True,True
+2025-01-04,Crystal Palace,Chelsea,1-1,D,2,1-1,0.11497363518259449,True,True,True
+2025-01-04,Man City,West Ham,4-1,H,5,4-1,0.04938513971270539,True,True,True
+2025-01-04,Southampton,Brentford,0-5,A,5,2-3,0.0179583014327295,False,True,True
+2025-01-04,Tottenham,Newcastle,1-2,A,3,1-2,0.08285644513455795,True,True,True
+2025-01-05,Fulham,Ipswich,2-2,D,4,2-2,0.04738227376339006,True,True,True
+2025-01-05,Liverpool,Man United,2-2,D,4,2-2,0.05172528701480517,True,True,True
+2025-01-06,Wolves,Nott'm Forest,0-3,A,3,1-2,0.08665719280218445,False,True,True
+2025-01-14,Brentford,Man City,2-2,D,4,2-2,0.04383751976150686,True,True,True
+2025-01-14,Chelsea,Bournemouth,2-2,D,4,2-2,0.05754747010338868,True,True,True
+2025-01-14,Nott'm Forest,Liverpool,1-1,D,2,1-1,0.09534229429512527,True,True,True
+2025-01-14,West Ham,Fulham,3-2,H,5,3-2,0.02341114728240642,True,True,True
+2025-01-15,Arsenal,Tottenham,2-1,H,3,2-1,0.09519423448136861,True,True,True
+2025-01-15,Everton,Aston Villa,0-1,A,1,0-1,0.10201806702276549,True,True,True
+2025-01-15,Leicester,Crystal Palace,0-2,A,2,0-2,0.0803680680260885,True,True,True
+2025-01-15,Newcastle,Wolves,3-0,H,3,2-1,0.09573461710317432,False,True,True
+2025-01-16,Ipswich,Brighton,0-2,A,2,0-2,0.08230650761307236,True,True,True
+2025-01-16,Man United,Southampton,3-1,H,4,3-1,0.06364926155569968,True,True,True
+2025-01-18,Arsenal,Aston Villa,2-2,D,4,2-2,0.041967024512035433,True,True,True
+2025-01-18,Brentford,Liverpool,0-2,A,2,0-2,0.0786501807487017,True,True,True
+2025-01-18,Leicester,Fulham,0-2,A,2,0-2,0.07860726994583923,True,True,True
+2025-01-18,Newcastle,Bournemouth,1-4,A,5,2-3,0.020077183795834348,False,True,True
+2025-01-18,West Ham,Crystal Palace,0-2,A,2,0-2,0.06813555148811486,True,True,True
+2025-01-19,Everton,Tottenham,3-2,H,5,3-2,0.03174961964373144,True,True,True
+2025-01-19,Ipswich,Man City,0-6,A,6,2-4,0.012133681023983612,False,True,True
+2025-01-19,Man United,Brighton,1-3,A,4,1-3,0.03691859216325446,True,True,True
+2025-01-19,Nott'm Forest,Southampton,3-2,H,5,4-1,0.027243540770016873,False,True,True
+2025-01-20,Chelsea,Wolves,3-1,H,4,3-1,0.05837897133226897,True,True,True
+2025-01-25,Bournemouth,Nott'm Forest,5-0,H,5,3-2,0.02413932464324044,False,True,True
+2025-01-25,Brighton,Everton,0-1,A,1,0-1,0.07578355873732626,True,True,True
+2025-01-25,Liverpool,Ipswich,4-1,H,5,4-1,0.05284835733829146,True,True,True
+2025-01-25,Man City,Chelsea,3-1,H,4,3-1,0.07608993596104627,True,True,True
+2025-01-25,Southampton,Newcastle,1-3,A,4,1-3,0.05685656660911876,True,True,True
+2025-01-25,Wolves,Arsenal,0-1,A,1,0-1,0.08251791791500586,True,True,True
+2025-01-26,Aston Villa,West Ham,1-1,D,2,1-1,0.1089668274922686,True,True,True
+2025-01-26,Crystal Palace,Brentford,1-2,A,3,1-2,0.07340009762079683,True,True,True
+2025-01-26,Fulham,Man United,0-1,A,1,0-1,0.07478517442433723,True,True,True
+2025-01-26,Tottenham,Leicester,1-2,A,3,1-2,0.05365048084806984,True,True,True
+2025-02-01,Bournemouth,Liverpool,0-2,A,2,0-2,0.06651631562482377,True,True,True
+2025-02-01,Everton,Leicester,4-0,H,4,3-1,0.048348036473922607,False,True,True
+2025-02-01,Ipswich,Southampton,1-2,A,3,1-2,0.07156981484352798,True,True,True
+2025-02-01,Newcastle,Fulham,1-2,A,3,1-2,0.047581492557924925,True,True,True
+2025-02-01,Nott'm Forest,Brighton,7-0,H,7,4-3,0.002754963432015664,False,True,True
+2025-02-01,Wolves,Aston Villa,2-0,H,2,2-0,0.05534999005956365,True,True,True
+2025-02-02,Arsenal,Man City,5-1,H,6,4-2,0.010542739171205111,False,True,True
+2025-02-02,Brentford,Tottenham,0-2,A,2,0-2,0.03375877370321722,True,True,True
+2025-02-02,Man United,Crystal Palace,0-2,A,2,0-2,0.045046494791674434,True,True,True
+2025-02-03,Chelsea,West Ham,2-1,H,3,3-0,0.1069661303296591,False,True,True
+2025-02-12,Everton,Liverpool,2-2,D,4,2-2,0.05275776382419948,True,True,True
+2025-02-14,Brighton,Chelsea,3-0,H,3,2-1,0.07139330619573056,False,True,True
+2025-02-15,Aston Villa,Ipswich,1-1,D,2,1-1,0.09393390048213736,True,True,True
+2025-02-15,Crystal Palace,Everton,1-2,A,3,1-2,0.05349157455683359,True,True,True
+2025-02-15,Fulham,Nott'm Forest,2-1,H,3,2-1,0.08546656915950628,True,True,True
+2025-02-15,Leicester,Arsenal,0-2,A,2,0-2,0.08512404926415297,True,True,True
+2025-02-15,Man City,Newcastle,4-0,H,4,3-1,0.08261953943720578,False,True,True
+2025-02-15,Southampton,Bournemouth,1-3,A,4,1-3,0.052457411508091405,True,True,True
+2025-02-15,West Ham,Brentford,0-1,A,1,0-1,0.08385301462188371,True,True,True
+2025-02-16,Liverpool,Wolves,2-1,H,3,3-0,0.11220373402998846,False,True,True
+2025-02-16,Tottenham,Man United,1-0,H,1,1-0,0.11189321280411473,True,True,True
+2025-02-19,Aston Villa,Liverpool,2-2,D,4,2-2,0.06024344035994843,True,True,True
+2025-02-21,Leicester,Brentford,0-4,A,4,1-3,0.04576150235342143,False,True,True
+2025-02-22,Arsenal,West Ham,0-1,A,1,0-1,0.037590810278469555,True,True,True
+2025-02-22,Aston Villa,Chelsea,2-1,H,3,2-1,0.08676224898666834,True,True,True
+2025-02-22,Bournemouth,Wolves,0-1,A,1,0-1,0.07926471321565715,True,True,True
+2025-02-22,Everton,Man United,2-2,D,4,2-2,0.0490548659609238,True,True,True
+2025-02-22,Fulham,Crystal Palace,0-2,A,2,0-2,0.045155829951547,True,True,True
+2025-02-22,Ipswich,Tottenham,1-4,A,5,2-3,0.03300772803302445,False,True,True
+2025-02-22,Southampton,Brighton,0-4,A,4,1-3,0.04684758532584498,False,True,True
+2025-02-23,Man City,Liverpool,0-2,A,2,0-2,0.04859958870059599,True,True,True
+2025-02-23,Newcastle,Nott'm Forest,4-3,H,7,4-3,0.006930953923201779,True,True,True
+2025-02-25,Brighton,Bournemouth,2-1,H,3,2-1,0.09072124078143087,True,True,True
+2025-02-25,Chelsea,Southampton,4-0,H,4,3-1,0.07737598610808492,False,True,True
+2025-02-25,Crystal Palace,Aston Villa,4-1,H,5,3-2,0.02305874742875665,False,True,True
+2025-02-25,Wolves,Fulham,1-2,A,3,1-2,0.09411954464220498,True,True,True
+2025-02-26,Brentford,Everton,1-1,D,2,1-1,0.11250121263587634,True,True,True
+2025-02-26,Liverpool,Newcastle,2-0,H,2,2-0,0.10814002718991389,True,True,True
+2025-02-26,Man United,Ipswich,3-2,H,5,4-1,0.031180349164983818,False,True,True
+2025-02-26,Nott'm Forest,Arsenal,0-0,D,0,0-0,0.05747575635368611,True,True,True
+2025-02-26,Tottenham,Man City,0-1,A,1,0-1,0.11502096113777799,True,True,True
+2025-02-27,West Ham,Leicester,2-0,H,2,2-0,0.10134684249009404,True,True,True
+2025-03-08,Brentford,Aston Villa,0-1,A,1,0-1,0.08552672497612214,True,True,True
+2025-03-08,Brighton,Fulham,2-1,H,3,2-1,0.09347041030909323,True,True,True
+2025-03-08,Crystal Palace,Ipswich,1-0,H,1,1-0,0.13321150260998593,True,True,True
+2025-03-08,Liverpool,Southampton,3-1,H,4,3-1,0.07823225982805318,True,True,True
+2025-03-08,Nott'm Forest,Man City,1-0,H,1,1-0,0.0779167028672053,True,True,True
+2025-03-08,Wolves,Everton,1-1,D,2,1-1,0.1277212331539664,True,True,True
+2025-03-09,Chelsea,Leicester,1-0,H,1,1-0,0.09207788062797408,True,True,True
+2025-03-09,Man United,Arsenal,1-1,D,2,1-1,0.12951414302208672,True,True,True
+2025-03-09,Tottenham,Bournemouth,2-2,D,4,2-2,0.07043177606058064,True,True,True
+2025-03-10,West Ham,Newcastle,0-1,A,1,0-1,0.09630839423377524,True,True,True
+2025-03-15,Bournemouth,Brentford,1-2,A,3,1-2,0.0708721483667707,True,True,True
+2025-03-15,Everton,West Ham,1-1,D,2,1-1,0.11971032393845471,True,True,True
+2025-03-15,Ipswich,Nott'm Forest,2-4,A,6,2-4,0.006971010977908222,True,True,True
+2025-03-15,Man City,Brighton,2-2,D,4,2-2,0.05477174460204535,True,True,True
+2025-03-15,Southampton,Wolves,1-2,A,3,1-2,0.08512650445002035,True,True,True
+2025-03-16,Arsenal,Chelsea,1-0,H,1,1-0,0.06356360514098124,True,True,True
+2025-03-16,Fulham,Tottenham,2-0,H,2,2-0,0.07521301812305753,True,True,True
+2025-03-16,Leicester,Man United,0-3,A,3,1-2,0.09008607668061389,False,True,True
+2025-04-01,Arsenal,Fulham,2-1,H,3,2-1,0.09860882525400616,True,True,True
+2025-04-01,Nott'm Forest,Man United,1-0,H,1,1-0,0.08043633511058822,True,True,True
+2025-04-01,Wolves,West Ham,1-0,H,1,1-0,0.1344086848333895,True,True,True
+2025-04-02,Bournemouth,Ipswich,1-2,A,3,1-2,0.0538537482537476,True,True,True
+2025-04-02,Brighton,Aston Villa,0-3,A,3,1-2,0.07690561207944438,False,True,True
+2025-04-02,Liverpool,Everton,1-0,H,1,1-0,0.08502431729943949,True,True,True
+2025-04-02,Man City,Leicester,2-0,H,2,2-0,0.11284130068381198,True,True,True
+2025-04-02,Newcastle,Brentford,2-1,H,3,2-1,0.09120345893341635,True,True,True
+2025-04-02,Southampton,Crystal Palace,1-1,D,2,1-1,0.0996323213552872,True,True,True
+2025-04-03,Chelsea,Tottenham,1-0,H,1,1-0,0.07221789525249633,True,True,True
+2025-04-05,Aston Villa,Nott'm Forest,2-1,H,3,2-1,0.0946105326139957,True,True,True
+2025-04-05,Crystal Palace,Brighton,2-1,H,3,2-1,0.08511434823027088,True,True,True
+2025-04-05,Everton,Arsenal,1-1,D,2,1-1,0.11492434133250484,True,True,True
+2025-04-05,Ipswich,Wolves,1-2,A,3,1-2,0.0760978998834023,True,True,True
+2025-04-05,West Ham,Bournemouth,2-2,D,4,2-2,0.055094976065591786,True,True,True
+2025-04-06,Brentford,Chelsea,0-0,D,0,0-0,0.07481480503303098,True,True,True
+2025-04-06,Fulham,Liverpool,3-2,H,5,3-2,0.018162560797466348,True,True,True
+2025-04-06,Man United,Man City,0-0,D,0,0-0,0.061059770808046664,True,True,True
+2025-04-06,Tottenham,Southampton,3-1,H,4,3-1,0.0708756714780947,True,True,True
+2025-04-07,Leicester,Newcastle,0-3,A,3,1-2,0.09159596485949778,False,True,True
+2025-04-12,Arsenal,Brentford,1-1,D,2,1-1,0.08558505433475729,True,True,True
+2025-04-12,Brighton,Leicester,2-2,D,4,2-2,0.03641722918169184,True,True,True
+2025-04-12,Man City,Crystal Palace,5-2,H,7,5-2,0.005191145049660569,True,True,True
+2025-04-12,Nott'm Forest,Everton,0-1,A,1,0-1,0.08051160008961694,True,True,True
+2025-04-12,Southampton,Aston Villa,0-3,A,3,1-2,0.0948797043480241,False,True,True
+2025-04-13,Chelsea,Ipswich,2-2,D,4,2-2,0.04333355104018614,True,True,True
+2025-04-13,Liverpool,West Ham,2-1,H,3,3-0,0.1055114648497441,False,True,True
+2025-04-13,Newcastle,Man United,4-1,H,5,3-2,0.039313258211777474,False,True,True
+2025-04-13,Wolves,Tottenham,4-2,H,6,4-2,0.005230698600463405,True,True,True
+2025-04-14,Bournemouth,Fulham,1-0,H,1,1-0,0.12250772717883976,True,True,True
+2025-04-16,Newcastle,Crystal Palace,5-0,H,5,3-2,0.027736868947631426,False,True,True
+2025-04-19,Aston Villa,Newcastle,4-1,H,5,3-2,0.031490993992903824,False,True,True
+2025-04-19,Brentford,Brighton,4-2,H,6,4-2,0.00912374648617399,True,True,True
+2025-04-19,Crystal Palace,Bournemouth,0-0,D,0,0-0,0.05666518714543829,True,True,True
+2025-04-19,Everton,Man City,0-2,A,2,0-2,0.11361017578188773,True,True,True
+2025-04-19,West Ham,Southampton,1-1,D,2,1-1,0.11326099122069891,True,True,True
+2025-04-20,Fulham,Chelsea,1-2,A,3,1-2,0.08134498128444731,True,True,True
+2025-04-20,Ipswich,Arsenal,0-4,A,4,1-3,0.06651668550301659,False,True,True
+2025-04-20,Leicester,Liverpool,0-1,A,1,0-1,0.07334098505678152,True,True,True
+2025-04-20,Man United,Wolves,0-1,A,1,0-1,0.06512556287059695,True,True,True
+2025-04-21,Tottenham,Nott'm Forest,1-2,A,3,1-2,0.07405129643970083,True,True,True
+2025-04-22,Man City,Aston Villa,2-1,H,3,2-1,0.09468417774237506,True,True,True
+2025-04-23,Arsenal,Crystal Palace,2-2,D,4,2-2,0.03152276760816102,True,True,True
+2025-04-26,Brighton,West Ham,3-2,H,5,3-2,0.028328198863975643,True,True,True
+2025-04-26,Chelsea,Everton,1-0,H,1,1-0,0.07964496549917824,True,True,True
+2025-04-26,Newcastle,Ipswich,3-0,H,3,2-1,0.09462140546743875,False,True,True
+2025-04-26,Southampton,Fulham,1-2,A,3,1-2,0.09359689531928915,True,True,True
+2025-04-26,Wolves,Leicester,3-0,H,3,2-1,0.0864409525217931,False,True,True
+2025-04-27,Bournemouth,Man United,1-1,D,2,1-1,0.10679379496742106,True,True,True
+2025-04-27,Liverpool,Tottenham,5-1,H,6,5-1,0.026045548893910284,True,True,True
+2025-05-01,Nott'm Forest,Brentford,0-2,A,2,0-2,0.041220975521190806,True,True,True
+2025-05-02,Man City,Wolves,1-0,H,1,1-0,0.10967344959778706,True,True,True
+2025-05-03,Arsenal,Bournemouth,1-2,A,3,1-2,0.035596118600086386,True,True,True
+2025-05-03,Aston Villa,Fulham,1-0,H,1,1-0,0.1000081943724861,True,True,True
+2025-05-03,Everton,Ipswich,2-2,D,4,2-2,0.05778970283719657,True,True,True
+2025-05-03,Leicester,Southampton,2-0,H,2,2-0,0.045677821282685986,True,True,True
+2025-05-04,Brentford,Man United,4-3,H,7,4-3,0.005335207844428047,True,True,True
+2025-05-04,Brighton,Newcastle,1-1,D,2,1-1,0.10633499488632873,True,True,True
+2025-05-04,Chelsea,Liverpool,3-1,H,4,3-1,0.04374593758835774,True,True,True
+2025-05-04,West Ham,Tottenham,1-1,D,2,1-1,0.12720024796793847,True,True,True
+2025-05-05,Crystal Palace,Nott'm Forest,1-1,D,2,1-1,0.11670797075102643,True,True,True
+2025-05-10,Bournemouth,Aston Villa,0-1,A,1,0-1,0.09043041464583705,True,True,True
+2025-05-10,Fulham,Everton,1-3,A,4,1-3,0.013665047527483374,True,True,True
+2025-05-10,Ipswich,Brentford,0-1,A,1,0-1,0.11384421866926946,True,True,True
+2025-05-10,Southampton,Man City,0-0,D,0,0-0,0.03560485417072896,True,True,True
+2025-05-10,Wolves,Brighton,0-2,A,2,0-2,0.06457217725698572,True,True,True
+2025-05-11,Liverpool,Arsenal,2-2,D,4,2-2,0.05274564756927374,True,True,True
+2025-05-11,Man United,West Ham,0-2,A,2,0-2,0.036086792395016436,True,True,True
+2025-05-11,Newcastle,Chelsea,2-0,H,2,2-0,0.07310732538035696,True,True,True
+2025-05-11,Nott'm Forest,Leicester,2-2,D,4,2-2,0.04516698303555469,True,True,True
+2025-05-11,Tottenham,Crystal Palace,0-2,A,2,0-2,0.050816729646666614,True,True,True
+2025-05-16,Aston Villa,Tottenham,2-0,H,2,2-0,0.09943164689879666,True,True,True
+2025-05-16,Chelsea,Man United,1-0,H,1,1-0,0.04368425133393806,True,True,True
+2025-05-18,Arsenal,Newcastle,1-0,H,1,1-0,0.06331411777761449,True,True,True
+2025-05-18,Brentford,Fulham,2-3,A,5,2-3,0.02230295059529869,True,True,True
+2025-05-18,Everton,Southampton,2-0,H,2,2-0,0.12528078219886693,True,True,True
+2025-05-18,Leicester,Ipswich,2-0,H,2,2-0,0.07953477543042456,True,True,True
+2025-05-18,West Ham,Nott'm Forest,1-2,A,3,1-2,0.08156593943778559,True,True,True
+2025-05-19,Brighton,Liverpool,3-2,H,5,3-2,0.020811970025567457,True,True,True
+2025-05-20,Crystal Palace,Wolves,4-2,H,6,4-2,0.008772139129685622,True,True,True
+2025-05-20,Man City,Bournemouth,3-1,H,4,3-1,0.07439515792417162,True,True,True
+2025-05-25,Bournemouth,Leicester,2-0,H,2,2-0,0.09317282732927527,True,True,True
+2025-05-25,Fulham,Man City,0-2,A,2,0-2,0.11346991308866877,True,True,True
+2025-05-25,Ipswich,West Ham,1-3,A,4,1-3,0.03529105373015016,True,True,True
+2025-05-25,Liverpool,Crystal Palace,1-1,D,2,1-1,0.09782926702760045,True,True,True
+2025-05-25,Man United,Aston Villa,2-0,H,2,2-0,0.04887720149042437,True,True,True
+2025-05-25,Newcastle,Everton,0-1,A,1,0-1,0.03774911839531873,True,True,True
+2025-05-25,Nott'm Forest,Chelsea,0-1,A,1,0-1,0.0899588715624558,True,True,True
+2025-05-25,Southampton,Arsenal,1-2,A,3,1-2,0.09736275447130063,True,True,True
+2025-05-25,Tottenham,Brighton,1-4,A,5,2-3,0.024040461152693267,False,True,True
+2025-05-25,Wolves,Brentford,1-1,D,2,1-1,0.12685163214168527,True,True,True
+2025-08-15,Liverpool,Bournemouth,4-2,H,6,5-1,0.027478253925745308,False,True,True
+2025-08-16,Aston Villa,Newcastle,0-0,D,0,0-0,0.038735927107730744,True,True,True
+2025-08-16,Brighton,Fulham,1-1,D,2,1-1,0.10752147827107612,True,True,True
+2025-08-16,Sunderland,West Ham,3-0,H,3,2-1,0.06995074756860782,False,True,True
+2025-08-16,Tottenham,Burnley,3-0,H,3,2-1,0.08924005235793642,False,True,True
+2025-08-16,Wolves,Man City,0-4,A,4,1-3,0.07613031274423268,False,True,True
+2025-08-17,Chelsea,Crystal Palace,0-0,D,0,0-0,0.04276093283664758,True,True,True
+2025-08-17,Man United,Arsenal,0-1,A,1,0-1,0.079062464292284,True,True,True
+2025-08-17,Nott'm Forest,Brentford,3-1,H,4,3-1,0.03925066353948111,True,True,True
+2025-08-18,Leeds,Everton,1-0,H,1,1-0,0.06957904296492864,True,True,True
+2025-08-22,West Ham,Chelsea,1-5,A,6,2-4,0.007685969418946612,False,True,True
+2025-08-23,Arsenal,Leeds,5-0,H,5,4-1,0.053568064451529306,False,True,True
+2025-08-23,Bournemouth,Wolves,1-0,H,1,1-0,0.12283890113596664,True,True,True
+2025-08-23,Brentford,Aston Villa,1-0,H,1,1-0,0.11765488589680048,True,True,True
+2025-08-23,Burnley,Sunderland,2-0,H,2,2-0,0.09037571112275251,True,True,True
+2025-08-23,Man City,Tottenham,0-2,A,2,0-2,0.008611607135222648,True,True,True
+2025-08-24,Crystal Palace,Nott'm Forest,1-1,D,2,1-1,0.10782662182589745,True,True,True
+2025-08-24,Everton,Brighton,2-0,H,2,2-0,0.04733889104715536,True,True,True
+2025-08-24,Fulham,Man United,1-1,D,2,1-1,0.10496604400652604,True,True,True
+2025-08-25,Newcastle,Liverpool,2-3,A,5,2-3,0.028849743598941734,True,True,True
+2025-08-30,Chelsea,Fulham,2-0,H,2,2-0,0.09719870678407112,True,True,True
+2025-08-30,Leeds,Newcastle,0-0,D,0,0-0,0.035710733065631536,True,True,True
+2025-08-30,Man United,Burnley,3-2,H,5,4-1,0.029430617717811195,False,True,True
+2025-08-30,Sunderland,Brentford,2-1,H,3,2-1,0.07410319813834125,True,True,True
+2025-08-30,Tottenham,Bournemouth,0-1,A,1,0-1,0.08110838515599528,True,True,True
+2025-08-30,Wolves,Everton,2-3,A,5,2-3,0.01908459124484321,True,True,True
+2025-08-31,Aston Villa,Crystal Palace,0-3,A,3,1-2,0.0732884448963661,False,True,True
+2025-08-31,Brighton,Man City,2-1,H,3,2-1,0.06481415763845379,True,True,True
+2025-08-31,Liverpool,Arsenal,1-0,H,1,1-0,0.0773831527903783,True,True,True
+2025-08-31,Nott'm Forest,West Ham,0-3,A,3,1-2,0.06477566947751737,False,True,True
+2025-09-13,Arsenal,Nott'm Forest,3-0,H,3,2-1,0.09905816630724965,False,True,True
+2025-09-13,Bournemouth,Brighton,2-1,H,3,2-1,0.0843626950206758,True,True,True
+2025-09-13,Brentford,Chelsea,2-2,D,4,2-2,0.051701552019029914,True,True,True
+2025-09-13,Crystal Palace,Sunderland,0-0,D,0,0-0,0.06927766319857752,True,True,True
+2025-09-13,Everton,Aston Villa,0-0,D,0,0-0,0.10616144591257369,True,True,True
+2025-09-13,Fulham,Leeds,1-0,H,1,1-0,0.11034138043731127,True,True,True
+2025-09-13,Newcastle,Wolves,1-0,H,1,1-0,0.12470466539635279,True,True,True
+2025-09-13,West Ham,Tottenham,0-3,A,3,1-2,0.06037557367416626,False,True,True
+2025-09-14,Burnley,Liverpool,0-1,A,1,0-1,0.10133893675268937,True,True,True
+2025-09-14,Man City,Man United,3-0,H,3,2-1,0.08372985510545969,False,True,True
+2025-09-20,Brighton,Tottenham,2-2,D,4,2-2,0.056696078170705336,True,True,True
+2025-09-20,Burnley,Nott'm Forest,1-1,D,2,1-1,0.13028168777013482,True,True,True
+2025-09-20,Fulham,Brentford,3-1,H,4,3-1,0.04262627600591725,True,True,True
+2025-09-20,Liverpool,Everton,2-1,H,3,2-1,0.09495682763694394,True,True,True
+2025-09-20,Man United,Chelsea,2-1,H,3,2-1,0.07702964508542101,True,True,True
+2025-09-20,West Ham,Crystal Palace,1-2,A,3,1-2,0.09603050689119251,True,True,True
+2025-09-20,Wolves,Leeds,1-3,A,4,1-3,0.030302488841022945,True,True,True
+2025-09-21,Arsenal,Man City,1-1,D,2,1-1,0.11737873182321913,True,True,True
+2025-09-21,Bournemouth,Newcastle,0-0,D,0,0-0,0.076693784582989,True,True,True
+2025-09-21,Sunderland,Aston Villa,1-1,D,2,1-1,0.12077563142661278,True,True,True
+2025-09-27,Brentford,Man United,3-1,H,4,3-1,0.04473162954036427,True,True,True
+2025-09-27,Chelsea,Brighton,1-3,A,4,1-3,0.01661559308234714,True,True,True
+2025-09-27,Crystal Palace,Liverpool,2-1,H,3,2-1,0.07592099858960524,True,True,True
+2025-09-27,Leeds,Bournemouth,2-2,D,4,2-2,0.04968611692914425,True,True,True
+2025-09-27,Man City,Burnley,5-1,H,6,5-1,0.02634343687556203,True,True,True
+2025-09-27,Nott'm Forest,Sunderland,0-1,A,1,0-1,0.07781967436873276,True,True,True
+2025-09-27,Tottenham,Wolves,1-1,D,2,1-1,0.11644531152534962,True,True,True
+2025-09-28,Aston Villa,Fulham,3-1,H,4,3-1,0.04917223554989423,True,True,True
+2025-09-28,Newcastle,Arsenal,1-2,A,3,1-2,0.08680444997535229,True,True,True
+2025-09-29,Everton,West Ham,1-1,D,2,1-1,0.1048584781959823,True,True,True
+2025-10-03,Bournemouth,Fulham,3-1,H,4,3-1,0.048683292780160495,True,True,True
+2025-10-04,Arsenal,West Ham,2-0,H,2,2-0,0.11407942005932989,True,True,True
+2025-10-04,Chelsea,Liverpool,2-1,H,3,2-1,0.07125996709030816,True,True,True
+2025-10-04,Leeds,Tottenham,1-2,A,3,1-2,0.08125134385151028,True,True,True
+2025-10-04,Man United,Sunderland,2-0,H,2,2-0,0.11988346965302003,True,True,True
+2025-10-05,Aston Villa,Burnley,2-1,H,3,2-1,0.09966225583717064,True,True,True
+2025-10-05,Brentford,Man City,0-1,A,1,0-1,0.1537387726855637,True,True,True
+2025-10-05,Everton,Crystal Palace,2-1,H,3,2-1,0.08079440995407523,True,True,True
+2025-10-05,Newcastle,Nott'm Forest,2-0,H,2,2-0,0.0876027880143291,True,True,True
+2025-10-05,Wolves,Brighton,1-1,D,2,1-1,0.1308607045393167,True,True,True
+2025-10-18,Brighton,Newcastle,2-1,H,3,2-1,0.08545363235096591,True,True,True
+2025-10-18,Burnley,Leeds,2-0,H,2,2-0,0.05462514966983972,True,True,True
+2025-10-18,Crystal Palace,Bournemouth,3-3,D,6,3-3,0.016940980415661874,True,True,True
+2025-10-18,Fulham,Arsenal,0-1,A,1,0-1,0.09113590073019627,True,True,True
+2025-10-18,Man City,Everton,2-0,H,2,2-0,0.11204587230790103,True,True,True
+2025-10-18,Nott'm Forest,Chelsea,0-3,A,3,1-2,0.08870867962536638,False,True,True
+2025-10-18,Sunderland,Wolves,2-0,H,2,2-0,0.07733609974226781,True,True,True
+2025-10-19,Liverpool,Man United,1-2,A,3,1-2,0.03091844397437146,True,True,True
+2025-10-19,Tottenham,Aston Villa,1-2,A,3,1-2,0.08233595194757391,True,True,True
+2025-10-20,West Ham,Brentford,0-2,A,2,0-2,0.053909277028761006,True,True,True
+2025-10-24,Leeds,West Ham,2-1,H,3,2-1,0.09208999787715295,True,True,True
+2025-10-25,Brentford,Liverpool,3-2,H,5,3-2,0.03746103355265314,True,True,True
+2025-10-25,Chelsea,Sunderland,1-2,A,3,1-2,0.03597069811572489,True,True,True
+2025-10-25,Man United,Brighton,4-2,H,6,4-2,0.008218019629348127,True,True,True
+2025-10-25,Newcastle,Fulham,2-1,H,3,2-1,0.09527760320919773,True,True,True
+2025-10-26,Arsenal,Crystal Palace,1-0,H,1,1-0,0.09669579244700686,True,True,True
+2025-10-26,Aston Villa,Man City,1-0,H,1,1-0,0.08308040593726394,True,True,True
+2025-10-26,Bournemouth,Nott'm Forest,2-0,H,2,2-0,0.08529777465197211,True,True,True
+2025-10-26,Everton,Tottenham,0-3,A,3,1-2,0.05870625545970198,False,True,True
+2025-10-26,Wolves,Burnley,2-3,A,5,2-3,0.008823504936104707,True,True,True
+2025-11-01,Brighton,Leeds,3-0,H,3,2-1,0.09797313492972343,False,True,True
+2025-11-01,Burnley,Arsenal,0-2,A,2,0-2,0.09343223648138481,True,True,True
+2025-11-01,Crystal Palace,Brentford,2-0,H,2,2-0,0.0694041071914387,True,True,True
+2025-11-01,Fulham,Wolves,3-0,H,3,2-1,0.09361711815284117,False,True,True
+2025-11-01,Liverpool,Aston Villa,2-0,H,2,2-0,0.11610838414329729,True,True,True
+2025-11-01,Nott'm Forest,Man United,2-2,D,4,2-2,0.051224747586982707,True,True,True
+2025-11-01,Tottenham,Chelsea,0-1,A,1,0-1,0.10004928062071664,True,True,True
+2025-11-02,Man City,Bournemouth,3-1,H,4,3-1,0.0718716983760546,True,True,True
+2025-11-02,West Ham,Newcastle,3-1,H,4,3-1,0.024551381878620732,True,True,True
+2025-11-03,Sunderland,Everton,1-1,D,2,1-1,0.13115631483059154,True,True,True
+2025-11-08,Chelsea,Wolves,3-0,H,3,3-0,0.09761214869237055,True,True,True
+2025-11-08,Everton,Fulham,2-0,H,2,2-0,0.07951460306697111,True,True,True
+2025-11-08,Sunderland,Arsenal,2-2,D,4,2-2,0.05702200236039367,True,True,True
+2025-11-08,Tottenham,Man United,2-2,D,4,2-2,0.04876074572825704,True,True,True
+2025-11-08,West Ham,Burnley,3-2,H,5,3-2,0.01950151537886474,True,True,True
+2025-11-09,Aston Villa,Bournemouth,4-0,H,4,3-1,0.06049290350851492,False,True,True
+2025-11-09,Brentford,Newcastle,3-1,H,4,3-1,0.05109872454113103,True,True,True
+2025-11-09,Crystal Palace,Brighton,0-0,D,0,0-0,0.04971804456985626,True,True,True
+2025-11-09,Man City,Liverpool,3-0,H,3,2-1,0.09683791487092988,False,True,True
+2025-11-09,Nott'm Forest,Leeds,3-1,H,4,3-1,0.04773708327520984,True,True,True
+2025-11-22,Bournemouth,West Ham,2-2,D,4,2-2,0.04240119207007203,True,True,True
+2025-11-22,Brighton,Brentford,2-1,H,3,2-1,0.09500546638075469,True,True,True
+2025-11-22,Burnley,Chelsea,0-2,A,2,0-2,0.1215757554302095,True,True,True
+2025-11-22,Fulham,Sunderland,1-0,H,1,1-0,0.13873334944939017,True,True,True
+2025-11-22,Liverpool,Nott'm Forest,0-3,A,3,1-2,0.03344629605695391,False,True,True
+2025-11-22,Newcastle,Man City,2-1,H,3,2-1,0.06371532010789202,True,True,True
+2025-11-22,Wolves,Crystal Palace,0-2,A,2,0-2,0.0885623480954602,True,True,True
+2025-11-23,Arsenal,Tottenham,4-1,H,5,4-1,0.04985848163126676,True,True,True
+2025-11-23,Leeds,Aston Villa,1-2,A,3,1-2,0.09529271665121401,True,True,True
+2025-11-24,Man United,Everton,0-1,A,1,0-1,0.07063594618479511,True,True,True
+2025-11-29,Brentford,Burnley,3-1,H,4,3-1,0.06422341173951718,True,True,True
+2025-11-29,Everton,Newcastle,1-4,A,5,2-3,0.019027304498678115,False,True,True
+2025-11-29,Man City,Leeds,3-2,H,5,4-1,0.05709035600626859,False,True,True
+2025-11-29,Sunderland,Bournemouth,3-2,H,5,3-2,0.01889776696723092,True,True,True
+2025-11-29,Tottenham,Fulham,1-2,A,3,1-2,0.08034240355192818,True,True,True
+2025-11-30,Aston Villa,Wolves,1-0,H,1,1-0,0.11773927711788702,True,True,True
+2025-11-30,Chelsea,Arsenal,1-1,D,2,1-1,0.11316989121495157,True,True,True
+2025-11-30,Crystal Palace,Man United,1-2,A,3,1-2,0.05056997431839541,True,True,True
+2025-11-30,Nott'm Forest,Brighton,0-2,A,2,0-2,0.05634360963762328,True,True,True
+2025-11-30,West Ham,Liverpool,0-2,A,2,0-2,0.07110592351390257,True,True,True
+2025-12-02,Bournemouth,Everton,0-1,A,1,0-1,0.06129970202762586,True,True,True
+2025-12-02,Fulham,Man City,4-5,A,9,3-6,0.00040219172753975255,False,True,True
+2025-12-02,Newcastle,Tottenham,2-2,D,4,2-2,0.0416412089768428,True,True,True
+2025-12-03,Arsenal,Brentford,2-0,H,2,2-0,0.11391458706710819,True,True,True
+2025-12-03,Brighton,Aston Villa,3-4,A,7,3-4,0.0030926890567380583,True,True,True
+2025-12-03,Burnley,Crystal Palace,0-1,A,1,0-1,0.15066431800622435,True,True,True
+2025-12-03,Leeds,Chelsea,3-1,H,4,3-1,0.015745463172917393,True,True,True
+2025-12-03,Liverpool,Sunderland,1-1,D,2,1-1,0.0891186448847584,True,True,True
+2025-12-03,Wolves,Nott'm Forest,0-1,A,1,0-1,0.08222923111012911,True,True,True
+2025-12-04,Man United,West Ham,1-1,D,2,1-1,0.09649263592268538,True,True,True
+2025-12-06,Aston Villa,Arsenal,2-1,H,3,2-1,0.07765933065875888,True,True,True
+2025-12-06,Bournemouth,Chelsea,0-0,D,0,0-0,0.055455609218925825,True,True,True
+2025-12-06,Everton,Nott'm Forest,3-0,H,3,2-1,0.0928683068632084,False,True,True
+2025-12-06,Leeds,Liverpool,3-3,D,6,3-3,0.011016056860623548,True,True,True
+2025-12-06,Man City,Sunderland,3-0,H,3,2-1,0.09494725270154246,False,True,True
+2025-12-06,Newcastle,Burnley,2-1,H,3,2-1,0.0985725121000911,True,True,True
+2025-12-06,Tottenham,Brentford,2-0,H,2,2-0,0.07775582027523995,True,True,True
+2025-12-07,Brighton,West Ham,1-1,D,2,1-1,0.10770567992577913,True,True,True
+2025-12-07,Fulham,Crystal Palace,1-2,A,3,1-2,0.0739737139493539,True,True,True
+2025-12-08,Wolves,Man United,1-4,A,5,2-3,0.026684879916413443,False,True,True
+2025-12-13,Arsenal,Wolves,2-1,H,3,3-0,0.12656949824320532,False,True,True
+2025-12-13,Burnley,Fulham,2-3,A,5,2-3,0.021506890179581576,True,True,True
+2025-12-13,Chelsea,Everton,2-0,H,2,2-0,0.10936957873925414,True,True,True
+2025-12-13,Liverpool,Brighton,2-0,H,2,2-0,0.09582890726705197,True,True,True
+2025-12-14,Brentford,Leeds,1-1,D,2,1-1,0.11609555568460707,True,True,True
+2025-12-14,Crystal Palace,Man City,0-3,A,3,1-2,0.09944049903355995,False,True,True
+2025-12-14,Nott'm Forest,Tottenham,3-0,H,3,2-1,0.09875865432897059,False,True,True
+2025-12-14,Sunderland,Newcastle,1-0,H,1,1-0,0.06613238961296526,True,True,True
+2025-12-14,West Ham,Aston Villa,2-3,A,5,2-3,0.03250449266779271,True,True,True
+2025-12-15,Man United,Bournemouth,4-4,D,8,4-4,0.004745281656244003,True,True,True
+2025-12-20,Bournemouth,Burnley,1-1,D,2,1-1,0.1141742515149195,True,True,True
+2025-12-20,Brighton,Sunderland,0-0,D,0,0-0,0.06413444162464309,True,True,True
+2025-12-20,Everton,Arsenal,0-1,A,1,0-1,0.10109204198669437,True,True,True
+2025-12-20,Leeds,Crystal Palace,4-1,H,5,3-2,0.024216657466728558,False,True,True
+2025-12-20,Man City,West Ham,3-0,H,3,3-0,0.10149349990194785,True,True,True
+2025-12-20,Newcastle,Chelsea,2-2,D,4,2-2,0.051193440212553246,True,True,True
+2025-12-20,Tottenham,Liverpool,1-2,A,3,1-2,0.09301891159388212,True,True,True
+2025-12-20,Wolves,Brentford,0-2,A,2,0-2,0.07923189813629157,True,True,True
+2025-12-21,Aston Villa,Man United,2-1,H,3,2-1,0.08968286778651911,True,True,True
+2025-12-22,Fulham,Nott'm Forest,1-0,H,1,1-0,0.08854579276274824,True,True,True
+2025-12-26,Man United,Newcastle,1-0,H,1,1-0,0.10544890215528302,True,True,True
+2025-12-27,Arsenal,Brighton,2-1,H,3,2-1,0.09793015878623888,True,True,True
+2025-12-27,Brentford,Bournemouth,4-1,H,5,3-2,0.028398105119533706,False,True,True
+2025-12-27,Burnley,Everton,0-0,D,0,0-0,0.09872489383540663,True,True,True
+2025-12-27,Chelsea,Aston Villa,1-2,A,3,1-2,0.07245544981035837,True,True,True
+2025-12-27,Liverpool,Wolves,2-1,H,3,3-0,0.12178391505064824,False,True,True
+2025-12-27,Nott'm Forest,Man City,1-2,A,3,1-2,0.09703005132693204,True,True,True
+2025-12-27,West Ham,Fulham,0-1,A,1,0-1,0.10501747027278965,True,True,True
+2025-12-28,Crystal Palace,Tottenham,0-1,A,1,0-1,0.06359255432513974,True,True,True
+2025-12-28,Sunderland,Leeds,1-1,D,2,1-1,0.11956554706005991,True,True,True
+2025-12-30,Arsenal,Aston Villa,4-1,H,5,3-2,0.03351699009196929,False,True,True
+2025-12-30,Burnley,Newcastle,1-3,A,4,1-3,0.04434665402929944,True,True,True
+2025-12-30,Chelsea,Bournemouth,2-2,D,4,2-2,0.05000954615364467,True,True,True
+2025-12-30,Man United,Wolves,1-1,D,2,1-1,0.08750004505022749,True,True,True
+2025-12-30,Nott'm Forest,Everton,0-2,A,2,0-2,0.06339147578604555,True,True,True
+2025-12-30,West Ham,Brighton,2-2,D,4,2-2,0.05586968497146569,True,True,True
+2026-01-01,Brentford,Tottenham,0-0,D,0,0-0,0.06327877821673204,True,True,True
+2026-01-01,Crystal Palace,Fulham,1-1,D,2,1-1,0.12224256311161831,True,True,True
+2026-01-01,Liverpool,Leeds,0-0,D,0,0-0,0.04103732735082045,True,True,True
+2026-01-01,Sunderland,Man City,0-0,D,0,0-0,0.07694595224232904,True,True,True
+2026-01-03,Aston Villa,Nott'm Forest,3-1,H,4,3-1,0.07273766282912399,True,True,True
+2026-01-03,Bournemouth,Arsenal,2-3,A,5,2-3,0.041423577869178746,True,True,True
+2026-01-03,Brighton,Burnley,2-0,H,2,2-0,0.1085800594352538,True,True,True
+2026-01-03,Wolves,West Ham,3-0,H,3,2-1,0.08127919577436875,False,True,True
+2026-01-04,Everton,Brentford,2-4,A,6,2-4,0.0036076490235545044,True,True,True
+2026-01-04,Fulham,Liverpool,2-2,D,4,2-2,0.0511603071880931,True,True,True
+2026-01-04,Leeds,Man United,1-1,D,2,1-1,0.11931244282904323,True,True,True
+2026-01-04,Man City,Chelsea,1-1,D,2,1-1,0.09585450905744804,True,True,True
+2026-01-04,Newcastle,Crystal Palace,2-0,H,2,2-0,0.06039342224679839,True,True,True
+2026-01-04,Tottenham,Sunderland,1-1,D,2,1-1,0.12165551578966473,True,True,True
+2026-01-06,West Ham,Nott'm Forest,1-2,A,3,1-2,0.08587276875708588,True,True,True
+2026-01-07,Bournemouth,Tottenham,3-2,H,5,3-2,0.025128821537868985,True,True,True
+2026-01-07,Brentford,Sunderland,3-0,H,3,2-1,0.09643354545511905,False,True,True
+2026-01-07,Burnley,Man United,2-2,D,4,2-2,0.04787194942689726,True,True,True
+2026-01-07,Crystal Palace,Aston Villa,0-0,D,0,0-0,0.07184510297039974,True,True,True
+2026-01-07,Everton,Wolves,1-1,D,2,1-1,0.10911316108042303,True,True,True
+2026-01-07,Fulham,Chelsea,2-1,H,3,2-1,0.07188340108355461,True,True,True
+2026-01-07,Man City,Brighton,1-1,D,2,1-1,0.09185187448467337,True,True,True
+2026-01-07,Newcastle,Leeds,4-3,H,7,5-2,0.005459780895576317,False,True,True
+2026-01-08,Arsenal,Liverpool,0-0,D,0,0-0,0.054603598674175136,True,True,True
+2026-01-17,Chelsea,Brentford,2-0,H,2,2-0,0.09225081169630721,True,True,True
+2026-01-17,Leeds,Fulham,1-0,H,1,1-0,0.09054321639100833,True,True,True
+2026-01-17,Liverpool,Burnley,1-1,D,2,1-1,0.08972431211583984,True,True,True
+2026-01-17,Man United,Man City,2-0,H,2,2-0,0.03866720446569864,True,True,True
+2026-01-17,Nott'm Forest,Arsenal,0-0,D,0,0-0,0.048238613365833447,True,True,True
+2026-01-17,Sunderland,Crystal Palace,2-1,H,3,2-1,0.07084576919059314,True,True,True
+2026-01-17,Tottenham,West Ham,1-2,A,3,1-2,0.05645490185590848,True,True,True
+2026-01-18,Aston Villa,Everton,0-1,A,1,0-1,0.051981889759855966,True,True,True
+2026-01-18,Wolves,Newcastle,0-0,D,0,0-0,0.07664028083757912,True,True,True
+2026-01-19,Brighton,Bournemouth,1-1,D,2,1-1,0.09978898208567814,True,True,True
+2026-01-24,Bournemouth,Liverpool,3-2,H,5,3-2,0.02322940020928714,True,True,True
+2026-01-24,Burnley,Tottenham,2-2,D,4,2-2,0.05000920548996008,True,True,True
+2026-01-24,Fulham,Brighton,2-1,H,3,2-1,0.07753241301980518,True,True,True
+2026-01-24,Man City,Wolves,2-0,H,2,2-0,0.12176989159271713,True,True,True
+2026-01-24,West Ham,Sunderland,3-1,H,4,3-1,0.03724042804812164,True,True,True
+2026-01-25,Arsenal,Man United,2-3,A,5,2-3,0.01860274261733388,True,True,True
+2026-01-25,Brentford,Nott'm Forest,0-2,A,2,0-2,0.03291673914180806,True,True,True
+2026-01-25,Crystal Palace,Chelsea,1-3,A,4,1-3,0.042459466822657596,True,True,True
+2026-01-25,Newcastle,Aston Villa,0-2,A,2,0-2,0.04926036170999721,True,True,True
+2026-01-26,Everton,Leeds,1-1,D,2,1-1,0.11463088974284667,True,True,True
+2026-01-31,Brighton,Everton,1-1,D,2,1-1,0.11617002196382978,True,True,True
+2026-01-31,Chelsea,West Ham,3-2,H,5,4-1,0.028737081574973518,False,True,True
+2026-01-31,Leeds,Arsenal,0-4,A,4,1-3,0.053093779274926936,False,True,True
+2026-01-31,Liverpool,Newcastle,4-1,H,5,4-1,0.03971981634553162,True,True,True
+2026-01-31,Wolves,Bournemouth,0-2,A,2,0-2,0.07320341536675927,True,True,True
+2026-02-01,Aston Villa,Brentford,0-1,A,1,0-1,0.04889257227124674,True,True,True
+2026-02-01,Man United,Fulham,3-2,H,5,3-2,0.02567120729972418,True,True,True
+2026-02-01,Nott'm Forest,Crystal Palace,1-1,D,2,1-1,0.12797793584526357,True,True,True
+2026-02-01,Tottenham,Man City,2-2,D,4,2-2,0.051703499032815396,True,True,True
+2026-02-02,Sunderland,Burnley,3-0,H,3,2-1,0.08422810907654407,False,True,True
+2026-02-06,Leeds,Nott'm Forest,3-1,H,4,3-1,0.04099030318994166,True,True,True
+2026-02-07,Arsenal,Sunderland,3-0,H,3,2-1,0.09557279171043524,False,True,True
+2026-02-07,Bournemouth,Aston Villa,1-1,D,2,1-1,0.11749012387209087,True,True,True
+2026-02-07,Burnley,West Ham,0-2,A,2,0-2,0.07300646270875412,True,True,True
+2026-02-07,Fulham,Everton,1-2,A,3,1-2,0.06223459516466889,True,True,True
+2026-02-07,Man United,Tottenham,2-0,H,2,2-0,0.07889515945075204,True,True,True
+2026-02-07,Newcastle,Brentford,2-3,A,5,2-3,0.02733791946788539,True,True,True
+2026-02-07,Wolves,Chelsea,1-3,A,4,1-3,0.05219023879448251,True,True,True
+2026-02-08,Brighton,Crystal Palace,0-1,A,1,0-1,0.06931330992021277,True,True,True
+2026-02-08,Liverpool,Man City,1-2,A,3,1-2,0.07526551903512102,True,True,True
+2026-02-10,Chelsea,Leeds,2-2,D,4,2-2,0.04634715517860317,True,True,True
+2026-02-10,Everton,Bournemouth,1-2,A,3,1-2,0.07422636041040698,True,True,True
+2026-02-10,Tottenham,Newcastle,1-2,A,3,1-2,0.09106806138135061,True,True,True
+2026-02-10,West Ham,Man United,1-1,D,2,1-1,0.12236574091178759,True,True,True
+2026-02-11,Aston Villa,Brighton,1-0,H,1,1-0,0.12033304695114486,True,True,True
+2026-02-11,Crystal Palace,Burnley,2-3,A,5,2-3,0.007560066106972587,True,True,True
+2026-02-11,Man City,Fulham,3-0,H,3,2-1,0.09867887875783997,False,True,True
+2026-02-11,Nott'm Forest,Wolves,0-0,D,0,0-0,0.09289901877585706,True,True,True
+2026-02-11,Sunderland,Liverpool,0-1,A,1,0-1,0.11626206174358245,True,True,True
+2026-02-12,Brentford,Arsenal,1-1,D,2,1-1,0.1217621105499117,True,True,True
+2026-02-18,Wolves,Arsenal,2-2,D,4,2-2,0.059096896960667875,True,True,True
+2026-02-21,Aston Villa,Leeds,1-1,D,2,1-1,0.09058590867810912,True,True,True
+2026-02-21,Brentford,Brighton,0-2,A,2,0-2,0.045526341782848236,True,True,True
+2026-02-21,Chelsea,Burnley,1-1,D,2,1-1,0.08009800876703416,True,True,True
+2026-02-21,Man City,Newcastle,2-1,H,3,2-1,0.09662164694648087,True,True,True
+2026-02-21,West Ham,Bournemouth,0-0,D,0,0-0,0.06688959553593109,True,True,True
+2026-02-22,Crystal Palace,Wolves,1-0,H,1,1-0,0.13136809065769695,True,True,True
+2026-02-22,Nott'm Forest,Liverpool,0-1,A,1,0-1,0.08264943741140268,True,True,True
+2026-02-22,Sunderland,Fulham,1-3,A,4,1-3,0.03509954995921328,True,True,True
+2026-02-22,Tottenham,Arsenal,1-4,A,5,2-3,0.025070472773761364,False,True,True
+2026-02-23,Everton,Man United,0-1,A,1,0-1,0.09877164649965882,True,True,True
+2026-02-27,Wolves,Aston Villa,2-0,H,2,2-0,0.03413994967051612,True,True,True
+2026-02-28,Bournemouth,Sunderland,1-1,D,2,1-1,0.12150161973122807,True,True,True
+2026-02-28,Burnley,Brentford,3-4,A,7,3-4,0.0022628331462734665,True,True,True
+2026-02-28,Leeds,Man City,0-1,A,1,0-1,0.1338111226816193,True,True,True
+2026-02-28,Liverpool,West Ham,5-2,H,7,5-2,0.006298329047308478,True,True,True
+2026-02-28,Newcastle,Everton,2-3,A,5,2-3,0.025075528738947764,True,True,True
+2026-03-01,Arsenal,Chelsea,2-1,H,3,2-1,0.09615589244388466,True,True,True
+2026-03-01,Brighton,Nott'm Forest,2-1,H,3,2-1,0.0926498315538758,True,True,True
+2026-03-01,Fulham,Tottenham,2-1,H,3,2-1,0.09523174331287254,True,True,True
+2026-03-01,Man United,Crystal Palace,2-1,H,3,2-1,0.0979540018145529,True,True,True
+2026-03-03,Bournemouth,Brentford,0-0,D,0,0-0,0.08882370897868627,True,True,True
+2026-03-03,Everton,Burnley,2-0,H,2,2-0,0.11170686274174113,True,True,True
+2026-03-03,Leeds,Sunderland,0-1,A,1,0-1,0.08789391233604643,True,True,True
+2026-03-03,Wolves,Liverpool,2-1,H,3,2-1,0.05192243504331078,True,True,True
+2026-03-04,Aston Villa,Chelsea,1-4,A,5,2-3,0.02631476470524451,False,True,True
+2026-03-04,Brighton,Arsenal,0-1,A,1,0-1,0.088884782961723,True,True,True
+2026-03-04,Fulham,West Ham,0-1,A,1,0-1,0.08287292010939645,True,True,True
+2026-03-04,Man City,Nott'm Forest,2-2,D,4,2-2,0.03799882259592434,True,True,True
+2026-03-04,Newcastle,Man United,2-1,H,3,2-1,0.08504045166534391,True,True,True
+2026-03-05,Tottenham,Crystal Palace,1-3,A,4,1-3,0.048200342812059434,True,True,True
+2026-03-14,Arsenal,Everton,2-0,H,2,2-0,0.11686862619135915,True,True,True
+2026-03-14,Burnley,Bournemouth,0-0,D,0,0-0,0.0752595762692234,True,True,True
+2026-03-14,Chelsea,Newcastle,0-1,A,1,0-1,0.03826761375911913,True,True,True
+2026-03-14,Sunderland,Brighton,0-1,A,1,0-1,0.11348049682600404,True,True,True
+2026-03-14,West Ham,Man City,1-1,D,2,1-1,0.08716689938758784,True,True,True
+2026-03-15,Crystal Palace,Leeds,0-0,D,0,0-0,0.07284472105654059,True,True,True
+2026-03-15,Liverpool,Tottenham,1-1,D,2,1-1,0.07642877124035441,True,True,True
+2026-03-15,Man United,Aston Villa,3-1,H,4,3-1,0.04632194983774128,True,True,True
+2026-03-15,Nott'm Forest,Fulham,0-0,D,0,0-0,0.07253760472233572,True,True,True
+2026-03-16,Brentford,Wolves,2-2,D,4,2-2,0.0320553468393576,True,True,True
+2026-03-20,Bournemouth,Man United,2-2,D,4,2-2,0.05448031317827467,True,True,True
+2026-03-21,Brighton,Liverpool,2-1,H,3,2-1,0.0695833688000393,True,True,True
+2026-03-21,Everton,Chelsea,3-0,H,3,2-1,0.08053744697477351,False,True,True
+2026-03-21,Fulham,Burnley,3-1,H,4,3-1,0.05272893270906766,True,True,True
+2026-03-21,Leeds,Brentford,0-0,D,0,0-0,0.06965953297291945,True,True,True
+2026-03-22,Aston Villa,West Ham,2-0,H,2,2-0,0.10264323449574786,True,True,True
+2026-03-22,Newcastle,Sunderland,1-2,A,3,1-2,0.049496263839057975,True,True,True
+2026-03-22,Tottenham,Nott'm Forest,0-3,A,3,1-2,0.07616670569587278,False,True,True
+2026-04-10,West Ham,Wolves,4-0,H,4,3-1,0.04266554271665459,False,True,True
+2026-04-11,Arsenal,Bournemouth,1-2,A,3,1-2,0.052909184618689355,True,True,True
+2026-04-11,Brentford,Everton,2-2,D,4,2-2,0.052143117873942,True,True,True
+2026-04-11,Burnley,Brighton,0-2,A,2,0-2,0.11919236641802383,True,True,True
+2026-04-11,Liverpool,Fulham,2-0,H,2,2-0,0.1210942477314651,True,True,True
+2026-04-12,Chelsea,Man City,0-3,A,3,1-2,0.09407543271800706,False,True,True
+2026-04-12,Crystal Palace,Newcastle,2-1,H,3,2-1,0.0871377364732211,True,True,True
+2026-04-12,Nott'm Forest,Aston Villa,1-1,D,2,1-1,0.11855928372729278,True,True,True
+2026-04-12,Sunderland,Tottenham,1-0,H,1,1-0,0.10240943567775747,True,True,True
+2026-04-13,Man United,Leeds,1-2,A,3,1-2,0.04387156486147099,True,True,True
+2026-04-18,Brentford,Fulham,0-0,D,0,0-0,0.06135075843771744,True,True,True
+2026-04-18,Chelsea,Man United,0-1,A,1,0-1,0.04595862028933637,True,True,True
+2026-04-18,Leeds,Wolves,3-0,H,3,2-1,0.0914357110705066,False,True,True
+2026-04-18,Newcastle,Bournemouth,1-2,A,3,1-2,0.07620141997079853,True,True,True
+2026-04-18,Tottenham,Brighton,2-2,D,4,2-2,0.05626672839954963,True,True,True
+2026-04-19,Aston Villa,Sunderland,4-3,H,7,5-2,0.006049474681743497,False,True,True
+2026-04-19,Everton,Liverpool,1-2,A,3,1-2,0.09284666179289552,True,True,True
+2026-04-19,Man City,Arsenal,2-1,H,3,2-1,0.09524641088884049,True,True,True
+2026-04-19,Nott'm Forest,Burnley,4-1,H,5,3-2,0.024266106748666767,False,True,True
+2026-04-20,Crystal Palace,West Ham,0-0,D,0,0-0,0.07420788602947322,True,True,True
+2026-04-21,Brighton,Chelsea,3-0,H,3,2-1,0.0877808705729004,False,True,True
+2026-04-22,Bournemouth,Leeds,2-2,D,4,2-2,0.060966115731038356,True,True,True
+2026-04-22,Burnley,Man City,0-1,A,1,0-1,0.1010328889429711,True,True,True
+2026-04-24,Sunderland,Nott'm Forest,0-5,A,5,2-3,0.021173224518450145,False,True,True
+2026-04-25,Arsenal,Newcastle,1-0,H,1,1-0,0.09190398443425524,True,True,True
+2026-04-25,Fulham,Aston Villa,1-0,H,1,1-0,0.062378666541180426,True,True,True
+2026-04-25,Liverpool,Crystal Palace,3-1,H,4,3-1,0.06615530053959173,True,True,True
+2026-04-25,West Ham,Everton,2-1,H,3,2-1,0.0842985496026251,True,True,True
+2026-04-25,Wolves,Tottenham,0-1,A,1,0-1,0.10807772575413639,True,True,True
+2026-04-27,Man United,Brentford,2-1,H,3,2-1,0.09593158393607501,True,True,True
+2026-05-01,Leeds,Burnley,3-1,H,4,3-1,0.05920332131976631,True,True,True
+2026-05-02,Arsenal,Fulham,3-0,H,3,2-1,0.09970486935347482,False,True,True
+2026-05-02,Brentford,West Ham,3-0,H,3,2-1,0.09041991854633387,False,True,True
+2026-05-02,Newcastle,Brighton,3-1,H,4,3-1,0.03462420686607162,True,True,True
+2026-05-02,Wolves,Sunderland,1-1,D,2,1-1,0.12979777433277803,True,True,True
+2026-05-03,Aston Villa,Tottenham,1-2,A,3,1-2,0.04938544117799714,True,True,True
+2026-05-03,Bournemouth,Crystal Palace,3-0,H,3,2-1,0.08832020330057659,False,True,True
+2026-05-03,Man United,Liverpool,3-2,H,5,3-2,0.027968144021449242,True,True,True
+2026-05-04,Chelsea,Nott'm Forest,1-3,A,4,1-3,0.018925738789187765,True,True,True
+2026-05-04,Everton,Man City,3-3,D,6,3-3,0.011810544097742168,True,True,True
+2026-05-09,Brighton,Wolves,3-0,H,3,2-1,0.09593213585591727,False,True,True
+2026-05-09,Fulham,Bournemouth,0-1,A,1,0-1,0.0788128912924098,True,True,True
+2026-05-09,Liverpool,Chelsea,1-1,D,2,1-1,0.06097065562169447,True,True,True
+2026-05-09,Man City,Brentford,3-0,H,3,2-1,0.09555105145124439,False,True,True
+2026-05-09,Sunderland,Man United,0-0,D,0,0-0,0.07222677526430955,True,True,True
+2026-05-10,Burnley,Aston Villa,2-2,D,4,2-2,0.04044369696853414,True,True,True
+2026-05-10,Crystal Palace,Everton,2-2,D,4,2-2,0.04968997333635787,True,True,True
+2026-05-10,Nott'm Forest,Newcastle,1-1,D,2,1-1,0.12559123095613348,True,True,True
+2026-05-10,West Ham,Arsenal,0-1,A,1,0-1,0.08713833697719234,True,True,True
+2026-05-11,Tottenham,Leeds,1-1,D,2,1-1,0.11768050828254827,True,True,True
+2026-05-13,Man City,Crystal Palace,3-0,H,3,3-0,0.0956576374198018,True,True,True
+2026-05-15,Aston Villa,Liverpool,4-2,H,6,4-2,0.007798731727183624,True,True,True
+2026-05-17,Brentford,Crystal Palace,2-2,D,4,2-2,0.05430747098973319,True,True,True
+2026-05-17,Everton,Sunderland,1-3,A,4,1-3,0.022537700287825962,True,True,True
+2026-05-17,Leeds,Brighton,1-0,H,1,1-0,0.08451738397236183,True,True,True
+2026-05-17,Man United,Nott'm Forest,3-2,H,5,4-1,0.02490093589730047,False,True,True
+2026-05-17,Newcastle,West Ham,3-1,H,4,3-1,0.06257090597501941,True,True,True
+2026-05-17,Wolves,Fulham,1-1,D,2,1-1,0.11923094684552225,True,True,True
+2026-05-18,Arsenal,Burnley,1-0,H,1,1-0,0.10841778514165666,True,True,True
+2026-05-19,Bournemouth,Man City,1-1,D,2,1-1,0.11789592820966842,True,True,True
+2026-05-19,Chelsea,Tottenham,2-1,H,3,2-1,0.09357962113583161,True,True,True
+2026-05-24,Brighton,Man United,0-3,A,3,1-2,0.07818066598150118,False,True,True
+2026-05-24,Burnley,Wolves,1-1,D,2,1-1,0.13192769582519062,True,True,True
+2026-05-24,Crystal Palace,Arsenal,1-2,A,3,1-2,0.09833053820446018,True,True,True
+2026-05-24,Fulham,Newcastle,2-0,H,2,2-0,0.05769412773581585,True,True,True
+2026-05-24,Liverpool,Brentford,1-1,D,2,1-1,0.09688068623873698,True,True,True
+2026-05-24,Man City,Aston Villa,1-2,A,3,1-2,0.037301268858149314,True,True,True
+2026-05-24,Nott'm Forest,Bournemouth,1-1,D,2,1-1,0.1245997606532684,True,True,True
+2026-05-24,Sunderland,Chelsea,2-1,H,3,2-1,0.07088676215170064,True,True,True
+2026-05-24,Tottenham,Everton,1-0,H,1,1-0,0.07317302436616459,True,True,True
+2026-05-24,West Ham,Leeds,3-0,H,3,2-1,0.08600942629418792,False,True,True

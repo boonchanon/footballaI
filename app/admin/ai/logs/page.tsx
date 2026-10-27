@@ -1,405 +1,246 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import {
-  Search,
-  Download,
-  Eye,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-  RefreshCw,
-  TrendingUp,
-  Target,
-  Percent,
-} from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { CheckCircle2, Eye, History, RefreshCw, XCircle } from "lucide-react"
 
-const predictionLogs = [
-  {
-    id: "pred-001",
-    matchId: "match-456",
-    homeTeam: "Manchester City",
-    awayTeam: "Liverpool",
-    prediction: "Home Win",
-    confidence: 68,
-    actualResult: "Draw",
-    correct: false,
-    model: "GPT-4o",
-    createdAt: "2026-01-28 14:00",
-    responseTime: "2.3s",
-  },
-  {
-    id: "pred-002",
-    matchId: "match-457",
-    homeTeam: "Arsenal",
-    awayTeam: "Chelsea",
-    prediction: "Home Win",
-    confidence: 72,
-    actualResult: "Home Win",
-    correct: true,
-    model: "GPT-4o",
-    createdAt: "2026-01-28 16:30",
-    responseTime: "1.8s",
-  },
-  {
-    id: "pred-003",
-    matchId: "match-458",
-    homeTeam: "Tottenham",
-    awayTeam: "Man United",
-    prediction: "Draw",
-    confidence: 55,
-    actualResult: "Away Win",
-    correct: false,
-    model: "Claude 3 Opus",
-    createdAt: "2026-01-27 15:00",
-    responseTime: "2.1s",
-  },
-  {
-    id: "pred-004",
-    matchId: "match-459",
-    homeTeam: "Newcastle",
-    awayTeam: "Brighton",
-    prediction: "Home Win",
-    confidence: 65,
-    actualResult: "Home Win",
-    correct: true,
-    model: "GPT-4o",
-    createdAt: "2026-01-27 12:30",
-    responseTime: "1.9s",
-  },
-  {
-    id: "pred-005",
-    matchId: "match-460",
-    homeTeam: "Aston Villa",
-    awayTeam: "West Ham",
-    prediction: "Home Win",
-    confidence: 70,
-    actualResult: "Home Win",
-    correct: true,
-    model: "Custom ML v2.1",
-    createdAt: "2026-01-26 20:00",
-    responseTime: "0.5s",
-  },
-  {
-    id: "pred-006",
-    matchId: "match-461",
-    homeTeam: "Everton",
-    awayTeam: "Wolves",
-    prediction: "Draw",
-    confidence: 58,
-    actualResult: null,
-    correct: null,
-    model: "GPT-4o",
-    createdAt: "2026-01-29 10:00",
-    responseTime: "2.0s",
-  },
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+
+import { fetchAdminAiJobs, type AdminAiJob } from "../admin-ai-client"
+import { describeJobStep, formatDuration, formatNumber, formatThaiDateTime, JobStatusBadge, LoadingPanel, StateMessage } from "../admin-ai-sections"
+
+const KIND_OPTIONS = [
+  { value: "all", label: "งานทั้งหมด" },
+  { value: "weekly_refresh", label: "อัปเดตผลทำนายรายสัปดาห์" },
+  { value: "train", label: "ฝึกแบบจำลองใหม่" },
+  { value: "upload", label: "อัปโหลดข้อมูลผลแข่ง" },
+  { value: "delete_file", label: "ลบไฟล์ข้อมูลผลแข่ง" },
 ]
 
-export default function PredictionLogsPage() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [modelFilter, setModelFilter] = useState("all")
+type JsonRecord = Record<string, any>
 
-  const filteredLogs = predictionLogs.filter((log) => {
-    const matchesSearch =
-      log.homeTeam.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.awayTeam.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.id.toLowerCase().includes(searchQuery.toLowerCase())
+// One-line outcome of a job, read from the result each job kind stores.
+function describeResult(job: AdminAiJob) {
+  if (job.status === "failed") return job.error || "ไม่สำเร็จ"
+  if (job.status !== "done") return describeJobStep(job.message)
+  const result = (job.result || {}) as JsonRecord
+  if (job.kind === "weekly_refresh") {
+    return `ทำนายใหม่ ${formatNumber(result.Refreshed)} นัด · คงผลเดิม ${formatNumber(result.FrozenFromPrevious)} นัด · ผลแข่งถึง ${result.LastKnownResultDate || "-"}`
+  }
+  if (job.kind === "train") {
+    const report = (result.report || {}) as JsonRecord
+    const best = Array.isArray(report.models) ? report.models.find((model: JsonRecord) => model.key === report.best_model) : null
+    return `ใช้ ${formatNumber(result.total_matches)} นัด · ดีที่สุด ${best ? `${best.label} ${Number(best.accuracy).toFixed(3)}` : "-"}`
+  }
+  return job.message || "-"
+}
 
-    const matchesStatus =
-      statusFilter === "all" ||
-      (statusFilter === "correct" && log.correct === true) ||
-      (statusFilter === "incorrect" && log.correct === false) ||
-      (statusFilter === "pending" && log.correct === null)
-
-    const matchesModel = modelFilter === "all" || log.model === modelFilter
-
-    return matchesSearch && matchesStatus && matchesModel
+export default function AiJobLogsPage() {
+  const [state, setState] = useState<{ loading: boolean; error: string; jobs: AdminAiJob[]; activeJob: AdminAiJob | null }>({
+    loading: true,
+    error: "",
+    jobs: [],
+    activeJob: null,
   })
+  const [kind, setKind] = useState("all")
+  const [status, setStatus] = useState("all")
+  const [selected, setSelected] = useState<AdminAiJob | null>(null)
 
-  const totalPredictions = predictionLogs.length
-  const correctPredictions = predictionLogs.filter((l) => l.correct === true).length
-  const incorrectPredictions = predictionLogs.filter((l) => l.correct === false).length
-  const pendingPredictions = predictionLogs.filter((l) => l.correct === null).length
-  const accuracyRate = ((correctPredictions / (correctPredictions + incorrectPredictions)) * 100).toFixed(1)
+  const load = async () => {
+    setState((prev) => ({ ...prev, loading: true, error: "" }))
+    try {
+      const data = await fetchAdminAiJobs()
+      setState({ loading: false, error: "", jobs: data.jobs, activeJob: data.activeJob })
+    } catch (error) {
+      setState((prev) => ({ ...prev, loading: false, error: error instanceof Error ? error.message : "โหลดประวัติการทำงานไม่สำเร็จ" }))
+    }
+  }
+
+  useEffect(() => {
+    void load()
+  }, [])
+
+  // Refresh every 5 s while something runs so its row ends in its final state.
+  useEffect(() => {
+    if (!state.activeJob) return
+    const timer = window.setInterval(() => void load(), 5000)
+    return () => window.clearInterval(timer)
+  }, [state.activeJob?.id])
+
+  const jobs = useMemo(
+    () => state.jobs.filter((job) => (kind === "all" || job.kind === kind) && (status === "all" || job.status === status)),
+    [state.jobs, kind, status],
+  )
+  const stats = useMemo(
+    () => ({
+      total: state.jobs.length,
+      done: state.jobs.filter((job) => job.status === "done").length,
+      failed: state.jobs.filter((job) => job.status === "failed").length,
+      last: state.jobs[0] || null,
+    }),
+    [state.jobs],
+  )
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Prediction Logs</h1>
-          <p className="text-muted-foreground mt-1">
-            View and analyze AI prediction history
-          </p>
+          <h1 className="text-3xl font-bold">ประวัติการทำงาน</h1>
+          <p className="text-muted-foreground">งานของระบบ AI ที่ผู้ดูแลสั่ง: อัปเดตผลรายสัปดาห์ ฝึกแบบจำลอง และอัปโหลด/ลบไฟล์ข้อมูล พร้อมเวลา ผล และผู้สั่ง</p>
         </div>
-        <Button variant="outline">
-          <Download className="h-4 w-4 mr-2" />
-          Export Logs
+        <Button variant="outline" onClick={() => void load()} disabled={state.loading} className="rounded-[14px] bg-transparent">
+          <RefreshCw className={`mr-2 h-4 w-4 ${state.loading ? "animate-spin" : ""}`} />
+          รีเฟรช
         </Button>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-primary/10 rounded-lg">
-                <Target className="h-6 w-6 text-primary" />
-              </div>
+        {[
+          { label: "งานทั้งหมด", value: formatNumber(stats.total), icon: History },
+          { label: "สำเร็จ", value: formatNumber(stats.done), icon: CheckCircle2 },
+          { label: "ไม่สำเร็จ", value: formatNumber(stats.failed), icon: XCircle },
+          { label: "งานล่าสุด", value: stats.last ? formatThaiDateTime(stats.last.createdAt) : "-", icon: History },
+        ].map((item) => (
+          <Card key={item.label} className="rounded-[18px] border-border">
+            <CardContent className="flex items-center justify-between p-5">
               <div>
-                <p className="text-2xl font-bold">{totalPredictions}</p>
-                <p className="text-sm text-muted-foreground">Total Predictions</p>
+                <p className="text-sm text-muted-foreground">{item.label}</p>
+                <p className="mt-1 text-xl font-bold text-foreground">{item.value}</p>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-green-500/10 rounded-lg">
-                <CheckCircle2 className="h-6 w-6 text-green-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{correctPredictions}</p>
-                <p className="text-sm text-muted-foreground">Correct</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-red-500/10 rounded-lg">
-                <XCircle className="h-6 w-6 text-red-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{incorrectPredictions}</p>
-                <p className="text-sm text-muted-foreground">Incorrect</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-yellow-500/10 rounded-lg">
-                <Percent className="h-6 w-6 text-yellow-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{accuracyRate}%</p>
-                <p className="text-sm text-muted-foreground">Accuracy Rate</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+              <item.icon className="h-7 w-7 text-primary" />
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by team or prediction ID..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="correct">Correct</SelectItem>
-                <SelectItem value="incorrect">Incorrect</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={modelFilter} onValueChange={setModelFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by model" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Models</SelectItem>
-                <SelectItem value="GPT-4o">GPT-4o</SelectItem>
-                <SelectItem value="Claude 3 Opus">Claude 3 Opus</SelectItem>
-                <SelectItem value="Custom ML v2.1">Custom ML v2.1</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button variant="outline">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
+      <Card className="rounded-[22px] border-border">
+        <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <CardTitle className="text-xl">รายการงาน</CardTitle>
+            <CardDescription>เก็บไว้ในไฟล์ ml/logs/jobs.json บนเครื่องที่รันระบบ เรียงล่าสุดก่อน</CardDescription>
           </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Select value={kind} onValueChange={setKind}>
+              <SelectTrigger className="w-full sm:w-[230px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {KIND_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger className="w-full sm:w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทุกสถานะ</SelectItem>
+                <SelectItem value="done">สำเร็จ</SelectItem>
+                <SelectItem value="failed">ไม่สำเร็จ</SelectItem>
+                <SelectItem value="running">กำลังทำงาน</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <StateMessage type="error" message={state.error} />
+          {state.loading && !state.jobs.length ? (
+            <LoadingPanel label="กำลังโหลดประวัติการทำงาน" />
+          ) : jobs.length ? (
+            <div className="overflow-hidden rounded-[18px] border border-border">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="min-w-[150px]">เวลา</TableHead>
+                      <TableHead>งาน</TableHead>
+                      <TableHead>สถานะ</TableHead>
+                      <TableHead>ผู้สั่ง</TableHead>
+                      <TableHead>ใช้เวลา</TableHead>
+                      <TableHead className="min-w-[280px]">ผล</TableHead>
+                      <TableHead className="text-right">รายละเอียด</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {jobs.map((job) => (
+                      <TableRow key={job.id}>
+                        <TableCell className="font-medium text-foreground">{formatThaiDateTime(job.createdAt)}</TableCell>
+                        <TableCell>{job.label}</TableCell>
+                        <TableCell>
+                          <JobStatusBadge status={job.status} />
+                        </TableCell>
+                        <TableCell>{job.requestedBy}</TableCell>
+                        <TableCell>{formatDuration(job)}</TableCell>
+                        <TableCell className={job.status === "failed" ? "text-destructive" : "text-muted-foreground"}>{describeResult(job)}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" onClick={() => setSelected(job)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-[18px] border border-dashed border-border bg-card/70 p-6 text-center text-sm text-muted-foreground">
+              ยังไม่มีงานตามเงื่อนไขที่เลือก
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Logs Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Prediction History</CardTitle>
-          <CardDescription>
-            {filteredLogs.length} predictions found
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Match</TableHead>
-                <TableHead>Prediction</TableHead>
-                <TableHead>Confidence</TableHead>
-                <TableHead>Actual Result</TableHead>
-                <TableHead>Model</TableHead>
-                <TableHead>Response Time</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredLogs.map((log) => (
-                <TableRow key={log.id}>
-                  <TableCell className="font-mono text-sm">{log.id}</TableCell>
-                  <TableCell>
-                    <div className="font-medium">{log.homeTeam}</div>
-                    <div className="text-sm text-muted-foreground">vs {log.awayTeam}</div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{log.prediction}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className={`h-full ${
-                            log.confidence >= 70
-                              ? "bg-green-500"
-                              : log.confidence >= 60
-                              ? "bg-yellow-500"
-                              : "bg-red-500"
-                          }`}
-                          style={{ width: `${log.confidence}%` }}
-                        />
-                      </div>
-                      <span className="text-sm">{log.confidence}%</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {log.actualResult ? (
-                      <Badge variant="secondary">{log.actualResult}</Badge>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">Pending</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm">{log.model}</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm text-muted-foreground">{log.responseTime}</span>
-                  </TableCell>
-                  <TableCell>
-                    {log.correct === true && (
-                      <Badge className="bg-green-500">
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        Correct
-                      </Badge>
-                    )}
-                    {log.correct === false && (
-                      <Badge variant="destructive">
-                        <XCircle className="h-3 w-3 mr-1" />
-                        Incorrect
-                      </Badge>
-                    )}
-                    {log.correct === null && (
-                      <Badge variant="secondary">
-                        <AlertCircle className="h-3 w-3 mr-1" />
-                        Pending
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-2xl">
-                        <DialogHeader>
-                          <DialogTitle>Prediction Details</DialogTitle>
-                          <DialogDescription>
-                            {log.homeTeam} vs {log.awayTeam}
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="p-4 bg-muted/50 rounded-lg">
-                              <p className="text-sm text-muted-foreground">Prediction ID</p>
-                              <p className="font-mono">{log.id}</p>
-                            </div>
-                            <div className="p-4 bg-muted/50 rounded-lg">
-                              <p className="text-sm text-muted-foreground">Match ID</p>
-                              <p className="font-mono">{log.matchId}</p>
-                            </div>
-                            <div className="p-4 bg-muted/50 rounded-lg">
-                              <p className="text-sm text-muted-foreground">Model Used</p>
-                              <p className="font-medium">{log.model}</p>
-                            </div>
-                            <div className="p-4 bg-muted/50 rounded-lg">
-                              <p className="text-sm text-muted-foreground">Created At</p>
-                              <p className="font-medium">{log.createdAt}</p>
-                            </div>
-                          </div>
-                          <div className="p-4 bg-muted/50 rounded-lg">
-                            <p className="text-sm text-muted-foreground mb-2">AI Analysis</p>
-                            <p className="text-sm">
-                              Based on recent form, head-to-head records, and player availability,
-                              the model predicted a <strong>{log.prediction}</strong> with{" "}
-                              <strong>{log.confidence}%</strong> confidence. Key factors included
-                              home advantage, recent winning streak, and key player fitness.
-                            </p>
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <Dialog open={selected != null} onOpenChange={(open) => !open && setSelected(null)}>
+        <DialogContent className="max-w-2xl">
+          {selected ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selected.label}</DialogTitle>
+                <DialogDescription>
+                  รหัสงาน {selected.id} · สั่งโดย {selected.requestedBy}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 text-sm">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-muted-foreground">เริ่ม</p>
+                    <p className="font-medium">{formatThaiDateTime(selected.startedAt || selected.createdAt)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">เสร็จ</p>
+                    <p className="font-medium">{formatThaiDateTime(selected.finishedAt)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">สถานะ</p>
+                    <JobStatusBadge status={selected.status} />
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">ใช้เวลา</p>
+                    <p className="font-medium">{formatDuration(selected)}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">ผล</p>
+                  <p className="font-medium">{describeResult(selected)}</p>
+                </div>
+                {selected.logTail.length ? (
+                  <div>
+                    <p className="text-muted-foreground">ข้อความท้ายสุดจากโปรแกรม</p>
+                    <pre className="mt-1 max-h-60 overflow-auto rounded-[12px] bg-muted p-3 text-xs">{selected.logTail.join("\n")}</pre>
+                  </div>
+                ) : null}
+              </div>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

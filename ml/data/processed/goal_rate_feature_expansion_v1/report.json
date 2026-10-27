@@ -1,0 +1,485 @@
+{
+  "experiment": "goal_rate_feature_expansion_v1",
+  "created_utc": "2026-09-15T09:51:53.662141+00:00",
+  "primary_metric": "exact-score Top-1 under independent Poisson global argmax",
+  "baseline_reproduction": "A rates bitwise identical and Top-1 scorelines identical to Phase 3; 96/760 and fixed DC 99/760",
+  "methods": {
+    "A_baseline": {
+      "matches": 760,
+      "feature_count": 123,
+      "exact_hits": 96,
+      "exact_top1": 0.12631578947368421,
+      "dc_exact_hits": 99,
+      "home_goal_mae": 0.9745661963757716,
+      "away_goal_mae": 0.8605088600202611,
+      "combined_goal_mae": 0.9175375281980163,
+      "untruncated_poisson_joint_nll": 2.9472945642879735,
+      "lambda_dispersion": {
+        "home": {
+          "mean": 1.6080577634667095,
+          "std": 0.47435650040852,
+          "variance": 0.22501408947981824,
+          "min": 0.6581993699073792,
+          "q25": 1.262297660112381,
+          "median": 1.4940903186798096,
+          "q75": 1.8965748250484467,
+          "max": 3.2355830669403076
+        },
+        "away": {
+          "mean": 1.235995140593303,
+          "std": 0.35357333254599527,
+          "variance": 0.12501410148768094,
+          "min": 0.5189940333366394,
+          "q25": 0.9520655870437622,
+          "median": 1.2081515789031982,
+          "q75": 1.4667548835277557,
+          "max": 2.6350932121276855
+        },
+        "diff": {
+          "mean": 0.37206262287340663,
+          "std": 0.7642188492058689,
+          "variance": 0.5840304494815426,
+          "min": -1.9537038207054138,
+          "q25": -0.19471925497055054,
+          "median": 0.3190004229545593,
+          "q75": 0.9209795892238617,
+          "max": 2.3320786356925964
+        }
+      },
+      "score_counts": {
+        "1-1": 437,
+        "2-0": 116,
+        "1-0": 115,
+        "2-1": 38,
+        "0-1": 28,
+        "0-2": 12,
+        "1-2": 10,
+        "3-0": 3,
+        "3-1": 1
+      },
+      "most_common_score": "1-1",
+      "most_common_count": 437,
+      "unique_scorelines": 9,
+      "top1_entropy_nats": 1.315311813366174,
+      "count_1_1": 437,
+      "count_2_1": 38,
+      "count_1_0": 115,
+      "count_0_1": 28,
+      "count_0_0": 0,
+      "count_2_2": 0,
+      "season_exact": {
+        "2024/25": 46,
+        "2025/26": 50
+      },
+      "season_dc_exact": {
+        "2024/25": 47,
+        "2025/26": 52
+      }
+    },
+    "B_elo": {
+      "matches": 760,
+      "feature_count": 126,
+      "exact_hits": 96,
+      "exact_top1": 0.12631578947368421,
+      "dc_exact_hits": 96,
+      "home_goal_mae": 0.9679473789114701,
+      "away_goal_mae": 0.8611945725585285,
+      "combined_goal_mae": 0.9145709757349993,
+      "untruncated_poisson_joint_nll": 2.9451786300891203,
+      "lambda_dispersion": {
+        "home": {
+          "mean": 1.610641669285925,
+          "std": 0.4903775743796523,
+          "variance": 0.24047016545447142,
+          "min": 0.6877506971359253,
+          "q25": 1.2544879913330078,
+          "median": 1.4894059300422668,
+          "q75": 1.9044141471385956,
+          "max": 3.393566370010376
+        },
+        "away": {
+          "mean": 1.2371476793759748,
+          "std": 0.3745391780471006,
+          "variance": 0.1402795958921977,
+          "min": 0.583895742893219,
+          "q25": 0.9257471114397049,
+          "median": 1.189997911453247,
+          "q75": 1.463366150856018,
+          "max": 2.572669267654419
+        },
+        "diff": {
+          "mean": 0.37349398990995003,
+          "std": 0.8005332030500986,
+          "variance": 0.6408534091856503,
+          "min": -1.812640905380249,
+          "q25": -0.21662402153015137,
+          "median": 0.3240501880645752,
+          "q75": 0.9725081026554108,
+          "max": 2.659425139427185
+        }
+      },
+      "score_counts": {
+        "1-1": 416,
+        "1-0": 128,
+        "2-0": 116,
+        "2-1": 38,
+        "0-1": 30,
+        "0-2": 17,
+        "1-2": 12,
+        "3-0": 2,
+        "3-1": 1
+      },
+      "most_common_score": "1-1",
+      "most_common_count": 416,
+      "unique_scorelines": 9,
+      "top1_entropy_nats": 1.3690086954570428,
+      "count_1_1": 416,
+      "count_2_1": 38,
+      "count_1_0": 128,
+      "count_0_1": 30,
+      "count_0_0": 0,
+      "count_2_2": 0,
+      "season_exact": {
+        "2024/25": 47,
+        "2025/26": 49
+      },
+      "season_dc_exact": {
+        "2024/25": 45,
+        "2025/26": 51
+      }
+    },
+    "C_venue": {
+      "matches": 760,
+      "feature_count": 131,
+      "exact_hits": 86,
+      "exact_top1": 0.11315789473684211,
+      "dc_exact_hits": 89,
+      "home_goal_mae": 0.9685102745890617,
+      "away_goal_mae": 0.8611972575124941,
+      "combined_goal_mae": 0.9148537660507778,
+      "untruncated_poisson_joint_nll": 2.9429783973451884,
+      "lambda_dispersion": {
+        "home": {
+          "mean": 1.6114171039901282,
+          "std": 0.4675786538785799,
+          "variance": 0.21862979756290482,
+          "min": 0.7219433188438416,
+          "q25": 1.2662544548511505,
+          "median": 1.5003682971000671,
+          "q75": 1.8808696269989014,
+          "max": 3.1213266849517822
+        },
+        "away": {
+          "mean": 1.2269460845934717,
+          "std": 0.35734840825834874,
+          "variance": 0.1276978848847755,
+          "min": 0.5019807815551758,
+          "q25": 0.9309559017419815,
+          "median": 1.192297339439392,
+          "q75": 1.4365566670894623,
+          "max": 2.6723530292510986
+        },
+        "diff": {
+          "mean": 0.38447101939665645,
+          "std": 0.7600794265958752,
+          "variance": 0.5777207347343145,
+          "min": -1.8031149506568909,
+          "q25": -0.18120163679122925,
+          "median": 0.3297295570373535,
+          "q75": 0.9474917352199554,
+          "max": 2.577197313308716
+        }
+      },
+      "score_counts": {
+        "1-1": 426,
+        "1-0": 128,
+        "2-0": 116,
+        "2-1": 34,
+        "0-1": 25,
+        "1-2": 19,
+        "0-2": 8,
+        "3-0": 4
+      },
+      "most_common_score": "1-1",
+      "most_common_count": 426,
+      "unique_scorelines": 8,
+      "top1_entropy_nats": 1.3304754052520396,
+      "count_1_1": 426,
+      "count_2_1": 34,
+      "count_1_0": 128,
+      "count_0_1": 25,
+      "count_0_0": 0,
+      "count_2_2": 0,
+      "season_exact": {
+        "2024/25": 39,
+        "2025/26": 47
+      },
+      "season_dc_exact": {
+        "2024/25": 39,
+        "2025/26": 50
+      }
+    },
+    "D_opponent": {
+      "matches": 760,
+      "feature_count": 129,
+      "exact_hits": 93,
+      "exact_top1": 0.12236842105263158,
+      "dc_exact_hits": 98,
+      "home_goal_mae": 0.9696553016963758,
+      "away_goal_mae": 0.8685408378117963,
+      "combined_goal_mae": 0.919098069754086,
+      "untruncated_poisson_joint_nll": 2.9495070488198065,
+      "lambda_dispersion": {
+        "home": {
+          "mean": 1.6056989966254485,
+          "std": 0.45061134385945617,
+          "variance": 0.20305058321482505,
+          "min": 0.7785372734069824,
+          "q25": 1.2676072418689728,
+          "median": 1.4885016679763794,
+          "q75": 1.8864224255084991,
+          "max": 3.1168413162231445
+        },
+        "away": {
+          "mean": 1.2326261347061709,
+          "std": 0.3651329407862717,
+          "variance": 0.13332206444723096,
+          "min": 0.5120162963867188,
+          "q25": 0.9380176514387131,
+          "median": 1.2023549675941467,
+          "q75": 1.4601570665836334,
+          "max": 2.563602924346924
+        },
+        "diff": {
+          "mean": 0.3730728619192776,
+          "std": 0.7525612756222635,
+          "variance": 0.5663484735662084,
+          "min": -1.6453794240951538,
+          "q25": -0.18750691413879395,
+          "median": 0.3259577751159668,
+          "q75": 0.9144261628389359,
+          "max": 2.3893900513648987
+        }
+      },
+      "score_counts": {
+        "1-1": 440,
+        "1-0": 128,
+        "2-0": 111,
+        "2-1": 34,
+        "1-2": 16,
+        "0-1": 16,
+        "0-2": 10,
+        "3-0": 3,
+        "3-1": 2
+      },
+      "most_common_score": "1-1",
+      "most_common_count": 440,
+      "unique_scorelines": 9,
+      "top1_entropy_nats": 1.2934162160771105,
+      "count_1_1": 440,
+      "count_2_1": 34,
+      "count_1_0": 128,
+      "count_0_1": 16,
+      "count_0_0": 0,
+      "count_2_2": 0,
+      "season_exact": {
+        "2024/25": 44,
+        "2025/26": 49
+      },
+      "season_dc_exact": {
+        "2024/25": 47,
+        "2025/26": 51
+      }
+    },
+    "E_congestion": {
+      "matches": 760,
+      "feature_count": 129,
+      "exact_hits": 95,
+      "exact_top1": 0.125,
+      "dc_exact_hits": 101,
+      "home_goal_mae": 0.9721017739490458,
+      "away_goal_mae": 0.8693448306306413,
+      "combined_goal_mae": 0.9207233022898436,
+      "untruncated_poisson_joint_nll": 2.951919831553237,
+      "lambda_dispersion": {
+        "home": {
+          "mean": 1.6054616495966911,
+          "std": 0.4800886944712685,
+          "variance": 0.230485154559127,
+          "min": 0.6400207877159119,
+          "q25": 1.2607692182064056,
+          "median": 1.4966947436332703,
+          "q75": 1.8884212970733643,
+          "max": 3.363992214202881
+        },
+        "away": {
+          "mean": 1.233910752793676,
+          "std": 0.3769969459316724,
+          "variance": 0.14212669724180832,
+          "min": 0.45263972878456116,
+          "q25": 0.9424229860305786,
+          "median": 1.1953850388526917,
+          "q75": 1.463480681180954,
+          "max": 2.796351909637451
+        },
+        "diff": {
+          "mean": 0.3715508968030152,
+          "std": 0.785047166064497,
+          "variance": 0.6162990529458979,
+          "min": -1.983357012271881,
+          "q25": -0.21633288264274597,
+          "median": 0.3292587995529175,
+          "q75": 0.9497209042310715,
+          "max": 2.669000029563904
+        }
+      },
+      "score_counts": {
+        "1-1": 435,
+        "1-0": 121,
+        "2-0": 107,
+        "2-1": 38,
+        "0-1": 24,
+        "1-2": 17,
+        "0-2": 13,
+        "3-0": 4,
+        "3-1": 1
+      },
+      "most_common_score": "1-1",
+      "most_common_count": 435,
+      "unique_scorelines": 9,
+      "top1_entropy_nats": 1.337772937534856,
+      "count_1_1": 435,
+      "count_2_1": 38,
+      "count_1_0": 121,
+      "count_0_1": 24,
+      "count_0_0": 0,
+      "count_2_2": 0,
+      "season_exact": {
+        "2024/25": 47,
+        "2025/26": 48
+      },
+      "season_dc_exact": {
+        "2024/25": 49,
+        "2025/26": 52
+      }
+    },
+    "F_combined": {
+      "matches": 760,
+      "feature_count": 146,
+      "exact_hits": 93,
+      "exact_top1": 0.12236842105263158,
+      "dc_exact_hits": 97,
+      "home_goal_mae": 0.9668634159784568,
+      "away_goal_mae": 0.8620521361890592,
+      "combined_goal_mae": 0.914457776083758,
+      "untruncated_poisson_joint_nll": 2.942131542150168,
+      "lambda_dispersion": {
+        "home": {
+          "mean": 1.597193215473702,
+          "std": 0.4561763474704227,
+          "variance": 0.2080968599914558,
+          "min": 0.7362193465232849,
+          "q25": 1.2527034878730774,
+          "median": 1.4861488342285156,
+          "q75": 1.882847011089325,
+          "max": 3.1673200130462646
+        },
+        "away": {
+          "mean": 1.2371445356230988,
+          "std": 0.3628533786479351,
+          "variance": 0.13166257439622178,
+          "min": 0.5384636521339417,
+          "q25": 0.9424727112054825,
+          "median": 1.1963383555412292,
+          "q75": 1.4732575118541718,
+          "max": 2.566232204437256
+        },
+        "diff": {
+          "mean": 0.3600486798506034,
+          "std": 0.7595086019308924,
+          "variance": 0.5768533164070189,
+          "min": -1.7219164967536926,
+          "q25": -0.20633837580680847,
+          "median": 0.30766725540161133,
+          "q75": 0.9083503782749176,
+          "max": 2.446009933948517
+        }
+      },
+      "score_counts": {
+        "1-1": 440,
+        "1-0": 121,
+        "2-0": 112,
+        "2-1": 34,
+        "0-1": 23,
+        "1-2": 20,
+        "0-2": 8,
+        "3-0": 2
+      },
+      "most_common_score": "1-1",
+      "most_common_count": 440,
+      "unique_scorelines": 8,
+      "top1_entropy_nats": 1.295301977474285,
+      "count_1_1": 440,
+      "count_2_1": 34,
+      "count_1_0": 121,
+      "count_0_1": 23,
+      "count_0_0": 0,
+      "count_2_2": 0,
+      "season_exact": {
+        "2024/25": 45,
+        "2025/26": 48
+      },
+      "season_dc_exact": {
+        "2024/25": 49,
+        "2025/26": 48
+      }
+    }
+  },
+  "flips": {
+    "B_elo": {
+      "changed_top1": 96,
+      "gained": 9,
+      "lost": 9,
+      "wrong_to_different_wrong": 78,
+      "net_exact_hits": 0
+    },
+    "C_venue": {
+      "changed_top1": 91,
+      "gained": 4,
+      "lost": 14,
+      "wrong_to_different_wrong": 73,
+      "net_exact_hits": -10
+    },
+    "D_opponent": {
+      "changed_top1": 96,
+      "gained": 8,
+      "lost": 11,
+      "wrong_to_different_wrong": 77,
+      "net_exact_hits": -3
+    },
+    "E_congestion": {
+      "changed_top1": 97,
+      "gained": 11,
+      "lost": 12,
+      "wrong_to_different_wrong": 74,
+      "net_exact_hits": -1
+    },
+    "F_combined": {
+      "changed_top1": 104,
+      "gained": 10,
+      "lost": 13,
+      "wrong_to_different_wrong": 81,
+      "net_exact_hits": -3
+    }
+  },
+  "best_phase7_variant": "A_baseline",
+  "fixed_dc_rho": -0.034189878130936914,
+  "pretest_validation_file": "pretest_validation.csv",
+  "diagnostic_outcomes_used_to_tune": false,
+  "combined_composition_fixed": true,
+  "limitations": [
+    "2023/24 used for early stopping; not pristine prospective validation",
+    "2024/25\u20132025/26 repeatedly inspected historical diagnostics, not prospective proof",
+    "Existing legacy_v1 features retained, including previously documented H2H/context semantics"
+  ]
+}

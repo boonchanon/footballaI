@@ -1,0 +1,87 @@
+{
+  "Experiment": "direct_goal_distribution_v1",
+  "CreatedUTC": "2026-09-15T13:09:46.424713+00:00",
+  "FeatureVersion": "correctness_v2 safe subset",
+  "Features": [
+    "HomeEloPre",
+    "AwayEloPre",
+    "EloDiffPre",
+    "HomeGoalsForAvgLast5",
+    "AwayGoalsForAvgLast5",
+    "HomeGoalsAgainstAvgLast5",
+    "AwayGoalsAgainstAvgLast5"
+  ],
+  "FeatureOrder": [
+    "HomeEloPre",
+    "AwayEloPre",
+    "EloDiffPre",
+    "HomeGoalsForAvgLast5",
+    "AwayGoalsForAvgLast5",
+    "HomeGoalsAgainstAvgLast5",
+    "AwayGoalsAgainstAvgLast5"
+  ],
+  "FeatureLineageCaveat": "Phase-3 frozen 123 legacy_v1 columns cannot all be reused with verified safe semantics; seven corrected pre-match strength/form columns used for direct and matched historical Poisson folds",
+  "HomeTarget": "HomeGoals mapped 7+ to overflow class 7",
+  "AwayTarget": "AwayGoals mapped 7+ to overflow class 7",
+  "ClassPolicy": {
+    "ExactClasses": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "OverflowClass": 7,
+    "OverflowMeaning": "7+; not an exact score cell",
+    "MinimumSupportExact5And6": 30,
+    "ObservedMinimumSupport": 31,
+    "PrimaryGrid": "exact 0..6 each side",
+    "Matrix": "outer product of exact 0..6 probabilities, normalized on grid",
+    "Selection": "stable row-major global argmax; no score weighting",
+    "ClassOrder": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "ChosenFrom": "strictly pre-2024/25 training support; diagnostic outcomes excluded"
+  },
+  "Model": "two independent XGBoost multi:softprob classifiers, unweighted",
+  "Hyperparameters": {
+    "n_estimators": 180,
+    "max_depth": 4,
+    "learning_rate": 0.05,
+    "subsample": 0.9,
+    "colsample_bytree": 0.9,
+    "reg_lambda": 5,
+    "tree_method": "hist",
+    "random_state": 42,
+    "n_jobs": 4
+  },
+  "RateReference": "matched-feature XGB count:poisson on historical folds only; frozen Phase-3 independent on diagnostic",
+  "Fill": "numeric train median separately per fold; zero only if entire training column missing",
+  "Folds": [
+    "2017/18",
+    "2018/19",
+    "2019/20",
+    "2020/21",
+    "2021/22",
+    "2022/23",
+    "2023/24"
+  ],
+  "NoCalibration": true,
+  "NoDependency": true,
+  "NoOdds": true,
+  "NoPhase9Detector": true,
+  "NoScoreBoost": true,
+  "DiagnosticSeasons": [
+    "2024/25",
+    "2025/26"
+  ]
+}

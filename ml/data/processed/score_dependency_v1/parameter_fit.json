@@ -1,0 +1,37 @@
+{
+  "experiment": "score_dependency_v1",
+  "created_utc": "2026-09-15T08:52:20.545674+00:00",
+  "validation_seasons": "2023/24",
+  "validation_dates": [
+    "2023-08-11",
+    "2024-05-19"
+  ],
+  "validation_matches": 380,
+  "fitting_objective": "Minimize untruncated joint score NLL on validation only; compare zero-dependence boundary on validation only",
+  "time_decay": "none",
+  "parameterization": "DC standard tau; bivariate shared_i=q*min(lambda_home_i,lambda_away_i)",
+  "validation_input_sha256": "1dff3a9998e08ee92e463b47fbd9e988b58d3b25b1a54abb16831bf535bf80f4",
+  "test_outcomes_used": false,
+  "rho": -0.034189878130936914,
+  "shared_fraction": 0.0,
+  "dc": {
+    "bounds": [
+      -0.05,
+      0.05
+    ],
+    "nll_at_zero": 3.0938271213687982,
+    "selected_validation_nll": 3.093577182041133,
+    "optimizer_success": true,
+    "evaluations": 8
+  },
+  "bivariate": {
+    "bounds": [
+      0.0,
+      0.95
+    ],
+    "nll_at_zero": 3.0938271213687982,
+    "selected_validation_nll": 3.0938271213687982,
+    "optimizer_success": true,
+    "evaluations": 30
+  }
+}

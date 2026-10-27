@@ -7,14 +7,18 @@ import {
   downloadAdminAiFile,
   exportFixturePredictions,
   fetchAdminAiSummary,
+  fetchWeeklyHistory,
+  fetchWeeklyRefreshJob,
   predictMatchPair,
-  rebuildFromRawArchive,
+  startWeeklyRefresh,
   uploadLatestSeasonFile,
   type AdminAiStatusSummary,
   type DeleteRawFileResult,
   type ExportPipelineResult,
   type MatchPredictionResult,
   type UploadPipelineResult,
+  type WeeklyHistory,
+  type WeeklyRefreshJob,
 } from "./admin-ai-client"
 import {
   AdminAiHero,
@@ -25,6 +29,7 @@ import {
   KnownFilesSection,
   MatchPredictionSection,
   ModelEvaluationSection,
+  WeeklyRefreshSection,
   type ActionState,
   type RemoteState,
 } from "./admin-ai-sections"
@@ -80,6 +85,9 @@ function buildCanonicalTeamMap(teamOptions: string[]) {
 }
 
 function normalizeTeamName(teamName: string, canonicalTeamMap: Map<string, string>) {
+  // Names picked from the team list are already the exact names the models use.
+  const exact = canonicalTeamMap.get(normalizeLookupKey(teamName))
+  if (exact) return exact
   const normalizedKey = normalizeLookupKey(teamName)
   const aliasResolved = TEAM_ALIAS_MAP[normalizedKey] ?? teamName.trim()
   const canonical = canonicalTeamMap.get(normalizeLookupKey(aliasResolved))
@@ -265,10 +273,14 @@ export default function AdminAiPage() {
   const [homeTeam, setHomeTeam] = useState("")
   const [awayTeam, setAwayTeam] = useState("")
   const [uploadState, setUploadState] = useState<ActionState<UploadPipelineResult>>(createActionState())
-  const [rebuildState, setRebuildState] = useState<ActionState<UploadPipelineResult>>(createActionState())
   const [exportState, setExportState] = useState<ActionState<ExportPipelineResult>>(createActionState())
   const [predictState, setPredictState] = useState<ActionState<MatchPredictionResult>>(createActionState())
   const [deleteState, setDeleteState] = useState<ActionState<{ filename: string }>>(createActionState())
+  const [weeklyHistory, setWeeklyHistory] = useState<RemoteState<WeeklyHistory>>({ loading: true, error: "", data: null })
+  const [weeklyJob, setWeeklyJob] = useState<WeeklyRefreshJob | null>(null)
+  const [weeklyStarting, setWeeklyStarting] = useState(false)
+  const [weeklyStartError, setWeeklyStartError] = useState("")
+  const weeklyJobActive = weeklyJob?.status === "queued" || weeklyJob?.status === "running"
 
   const canonicalTeamMap = useMemo(
     () => buildCanonicalTeamMap(summaryState.data?.teams || []),
@@ -277,7 +289,6 @@ export default function AdminAiPage() {
 
   const clearPipelineStates = () => {
     setUploadState(createActionState())
-    setRebuildState(createActionState())
     setExportState(createActionState())
     setDeleteState(createActionState())
     setLatestFiles([])
@@ -312,9 +323,51 @@ export default function AdminAiPage() {
     return delayed ?? immediate
   }
 
+  const loadWeeklyHistory = async () => {
+    setWeeklyHistory((prev) => ({ ...prev, loading: true, error: "" }))
+    try {
+      const data = await fetchWeeklyHistory()
+      setWeeklyHistory({ loading: false, error: "", data })
+      // Pick up a refresh that is still running (e.g. started before this page was opened).
+      if (data.activeJob) setWeeklyJob(data.activeJob)
+    } catch (error) {
+      setWeeklyHistory({ loading: false, error: error instanceof Error ? error.message : "โหลดประวัติการอัปเดตไม่สำเร็จ", data: null })
+    }
+  }
+
+  const handleWeeklyRefresh = async () => {
+    setWeeklyStarting(true)
+    setWeeklyStartError("")
+    try {
+      setWeeklyJob(await startWeeklyRefresh())
+    } catch (error) {
+      setWeeklyStartError(error instanceof Error ? error.message : "เริ่มอัปเดตผลทำนายไม่สำเร็จ")
+      void loadWeeklyHistory()
+    } finally {
+      setWeeklyStarting(false)
+    }
+  }
+
   useEffect(() => {
     void loadSummary()
+    void loadWeeklyHistory()
   }, [])
+
+  // Poll the running job until it finishes, then reload the history table.
+  useEffect(() => {
+    if (!weeklyJob || !weeklyJobActive) return
+    const jobId = weeklyJob.id
+    const timer = window.setInterval(async () => {
+      try {
+        const next = await fetchWeeklyRefreshJob(jobId)
+        setWeeklyJob(next)
+        if (next.status === "done" || next.status === "failed") void loadWeeklyHistory()
+      } catch {
+        // Keep polling; a transient network error should not end the progress view.
+      }
+    }, 3000)
+    return () => window.clearInterval(timer)
+  }, [weeklyJob?.id, weeklyJobActive])
 
   useEffect(() => {
     if (summaryState.loading || !summaryState.data) return
@@ -383,33 +436,6 @@ export default function AdminAiPage() {
     }
   }
 
-  const handleRebuild = async () => {
-    setRebuildState({ ...createActionState(), loading: true })
-    try {
-      const data = await rebuildFromRawArchive()
-      const refreshed = await refreshSummaryTwice()
-      const mergedRebuildData: UploadPipelineResult = {
-        ...data,
-        latestSeason: refreshed?.latestSeason || data.latestSeason,
-        featureRows: refreshed?.totalMatches ?? data.featureRows,
-      }
-
-      setRebuildState({
-        loading: false,
-        error: "",
-        success: refreshed ? "" : "สร้างข้อมูลใหม่จากไฟล์ดิบทั้งหมดสำเร็จ แต่รีเฟรชสถานะล่าสุดไม่สำเร็จ",
-        data: mergedRebuildData,
-      })
-    } catch (error) {
-      setRebuildState({
-        loading: false,
-        error: error instanceof Error ? error.message : "สร้างข้อมูลใหม่จากไฟล์ดิบทั้งหมดไม่สำเร็จ",
-        success: "",
-        data: null,
-      })
-    }
-  }
-
   const handleDeleteFile = async (filename: string) => {
     setDeleteState({
       loading: true,
@@ -423,7 +449,6 @@ export default function AdminAiPage() {
       const refreshed = await refreshSummaryTwice()
       if (refreshed) {
         setUploadState(createActionState())
-        setRebuildState(createActionState())
       }
 
       setDeleteState({
@@ -568,17 +593,23 @@ export default function AdminAiPage() {
         onRefresh={() => void loadSummary()}
       />
 
+      <WeeklyRefreshSection
+        history={weeklyHistory}
+        job={weeklyJob}
+        startError={weeklyStartError}
+        starting={weeklyStarting}
+        onStart={() => void handleWeeklyRefresh()}
+      />
+
       <div className="grid gap-6 2xl:grid-cols-[1.1fr_0.9fr]">
         <HistoricalUpdateSection
           statusSummary={summaryState.data}
           latestFileInputKey={latestFileInputKey}
           latestFileNames={latestFiles.map((file) => file.name)}
           uploadState={uploadState}
-          rebuildState={rebuildState}
-          canUpload={latestFiles.length > 0 && !uploadState.loading && !rebuildState.loading}
+          canUpload={latestFiles.length > 0 && !uploadState.loading}
           onLatestFileChange={handleLatestFileChange}
           onUpload={() => void handleLatestUpload()}
-          onRebuild={() => void handleRebuild()}
         />
         <FixtureExportSection
           fixtureFileInputKey={fixtureFileInputKey}
@@ -594,7 +625,7 @@ export default function AdminAiPage() {
 
       <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
         <ArchiveSummarySection loading={summaryState.loading} summary={summaryState.data} />
-        <ModelEvaluationSection loading={summaryState.loading} models={summaryState.data?.models || []} />
+        <ModelEvaluationSection loading={summaryState.loading} models={summaryState.data?.models || []} info={summaryState.data?.evaluationInfo} />
       </div>
 
       <KnownFilesSection

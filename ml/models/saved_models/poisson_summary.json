@@ -1,0 +1,28 @@
+{
+  "train_rows": 11944,
+  "test_rows": 760,
+  "feature_columns": [
+    "HomeEloPre",
+    "AwayEloPre",
+    "EloDiffPre",
+    "HomeGoalsForAvgPre",
+    "AwayGoalsForAvgPre",
+    "HomeGoalsAgainstAvgPre",
+    "AwayGoalsAgainstAvgPre",
+    "HomeShotsTargetForAvgPre",
+    "AwayShotsTargetForAvgPre",
+    "HomePointsAvgLast5",
+    "AwayPointsAvgLast5",
+    "AttackRatingDiff",
+    "DefenseRatingDiff",
+    "RestDaysDiff",
+    "H2HPointsDiffPre",
+    "H2HPointsDiffLast3Pre",
+    "H2HGoalsDiffLast3Pre",
+    "H2HLastMeetingGoalDiffPre",
+    "H2HLastMeetingTotalGoalsPre",
+    "H2HLastMeetingHomePointsPre"
+  ],
+  "avg_expected_home_goals": 1.5761086723688496,
+  "avg_expected_away_goals": 1.1979812891124946
+}

@@ -1,0 +1,122 @@
+{
+  "Experiment": "direct_goal_distribution_v1",
+  "HistoricalWalkForward": {
+    "N": 2660,
+    "DirectHits": 318,
+    "DirectAccuracy": 0.11954887218045113,
+    "MatchedPoissonHits": 307,
+    "MatchedPoissonAccuracy": 0.11541353383458647,
+    "DirectTop3": 815,
+    "MatchedPoissonTop3": 811,
+    "DirectMeanActualRank": 7.783834586466165,
+    "MatchedPoissonMeanActualRank": 7.666541353383459
+  },
+  "DiagnosticSeasons": [
+    {
+      "Season": "pooled",
+      "N": 760,
+      "DirectHits": 89,
+      "BaselineHits": 96,
+      "DirectAccuracy": 0.11710526315789474,
+      "BaselineAccuracy": 0.12631578947368421,
+      "DeltaHits": -7
+    },
+    {
+      "Season": "2024/25",
+      "N": 380,
+      "DirectHits": 46,
+      "BaselineHits": 46,
+      "DirectAccuracy": 0.12105263157894737,
+      "BaselineAccuracy": 0.12105263157894737,
+      "DeltaHits": 0
+    },
+    {
+      "Season": "2025/26",
+      "N": 380,
+      "DirectHits": 43,
+      "BaselineHits": 50,
+      "DirectAccuracy": 0.11315789473684211,
+      "BaselineAccuracy": 0.13157894736842105,
+      "DeltaHits": -7
+    }
+  ],
+  "GoalGroups": [
+    {
+      "Group": "low_0-1",
+      "N": 151,
+      "BaselineExact": 13,
+      "DirectExact": 24,
+      "BaselineMeanRank": 4.781456953642384,
+      "DirectMeanRank": 4.370860927152318,
+      "BaselineMedianRank": 5.0,
+      "DirectMedianRank": 4.0,
+      "BaselineTop3": 58,
+      "DirectTop3": 70,
+      "BaselineTop5": 99,
+      "DirectTop5": 100,
+      "BaselineMeanActualProbability": 0.08310979558176484,
+      "DirectMeanActualProbability": 0.08880973116919279
+    },
+    {
+      "Group": "medium_2-3",
+      "N": 371,
+      "BaselineExact": 83,
+      "DirectExact": 65,
+      "BaselineMeanRank": 5.0431266846361185,
+      "DirectMeanRank": 5.177897574123989,
+      "BaselineMedianRank": 4.0,
+      "DirectMedianRank": 4.0,
+      "BaselineTop3": 157,
+      "DirectTop3": 167,
+      "BaselineTop5": 247,
+      "DirectTop5": 243,
+      "BaselineMeanActualProbability": 0.08196632385618763,
+      "DirectMeanActualProbability": 0.0855676012196525
+    },
+    {
+      "Group": "high_4+",
+      "N": 238,
+      "BaselineExact": 0,
+      "DirectExact": 0,
+      "BaselineMeanRank": 13.38655462184874,
+      "DirectMeanRank": 13.550420168067227,
+      "BaselineMedianRank": 12.0,
+      "DirectMedianRank": 12.0,
+      "BaselineTop3": 0,
+      "DirectTop3": 0,
+      "BaselineTop5": 7,
+      "DirectTop5": 8,
+      "BaselineMeanActualProbability": 0.03341845494098842,
+      "DirectMeanActualProbability": 0.03173117001172215
+    }
+  ],
+  "Sharpness": [
+    {
+      "Side": "Home",
+      "MeanEntropy": 1.5385524376540287,
+      "MeanMaxProbability": 0.3420517595975023,
+      "MulticlassLogLoss": 1.5119718689218695,
+      "MulticlassBrier": 0.7520789494251355
+    },
+    {
+      "Side": "Away",
+      "MeanEntropy": 1.3883775211668978,
+      "MeanMaxProbability": 0.382323962587275,
+      "MulticlassLogLoss": 1.4442204451545122,
+      "MulticlassBrier": 0.7331426778285355
+    }
+  ],
+  "ChangedTop1": 354,
+  "WrongToCorrect": 39,
+  "CorrectToWrong": 46,
+  "BaselineGridNLL": 2.935681987911427,
+  "DirectGridNLL": 2.9429347854054284,
+  "OutOfGridActual": 1,
+  "IndependentBaseline": 96,
+  "FixedDCReference": 99,
+  "EFixedDCReference": 101,
+  "Phase9DetectorIntegration": false,
+  "NoDependency": true,
+  "NoScoreBoost": true,
+  "FeatureLineageCaveat": "Phase-3 uses 123 legacy_v1 features; direct diagnostic uses seven corrected_v2 pre-match features. Historical matched-feature Poisson folds isolate architecture more fairly."
+}

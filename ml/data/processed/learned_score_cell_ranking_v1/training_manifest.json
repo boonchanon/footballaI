@@ -1,0 +1,58 @@
+[
+  {
+    "Season": "2018/19",
+    "TrainMaxDate": "2018-05-13",
+    "ValidMinDate": "2018-08-10",
+    "RankerTrainN": 760,
+    "ModelSHA256": "ef8fbe4c0cd84d079fae35de05de01566d874e77474a161425ce56050b67bd84"
+  },
+  {
+    "Season": "2019/20",
+    "TrainMaxDate": "2019-05-12",
+    "ValidMinDate": "2019-08-09",
+    "RankerTrainN": 1140,
+    "ModelSHA256": "3e4c47525c1a80b25a2e28d6455a26bed38ceab6087890550e4a411af4a75597"
+  },
+  {
+    "Season": "2020/21",
+    "TrainMaxDate": "2020-07-26",
+    "ValidMinDate": "2020-09-12",
+    "RankerTrainN": 1520,
+    "ModelSHA256": "15a859810f3b4d5cb12793e8bfc6c7c0c30d9d5d49ae413b00661f9f558c5059"
+  },
+  {
+    "Season": "2021/22",
+    "TrainMaxDate": "2021-05-23",
+    "ValidMinDate": "2021-08-13",
+    "RankerTrainN": 1900,
+    "ModelSHA256": "3ea43530b203246de99d92f855ba6609a6ec676d422ccb495d74ed29226d0890"
+  },
+  {
+    "Season": "2022/23",
+    "TrainMaxDate": "2022-05-22",
+    "ValidMinDate": "2022-08-05",
+    "RankerTrainN": 2280,
+    "ModelSHA256": "a13190d65e80bfa205ff9890a9aa3346955b5c309fdecfd3e0d2dcfff10d5ff6"
+  },
+  {
+    "Season": "2023/24",
+    "TrainMaxDate": "2023-05-28",
+    "ValidMinDate": "2023-08-11",
+    "RankerTrainN": 2660,
+    "ModelSHA256": "90ba1c85f85b0923b78efbc9d00ecb88145d6c7a2b43889862bfc46eae9558bf"
+  },
+  {
+    "Season": "2024/25",
+    "TrainMaxDate": "2024-05-19",
+    "ValidMinDate": "2024-08-16",
+    "RankerTrainN": 3040,
+    "ModelSHA256": "516cee6d7d8f4c435ffd83495f05dca1eb9eeb0223972f347015d633718d847b"
+  },
+  {
+    "Season": "2025/26",
+    "TrainMaxDate": "2024-05-19",
+    "ValidMinDate": "2025-08-15",
+    "RankerTrainN": 3040,
+    "ModelSHA256": "516cee6d7d8f4c435ffd83495f05dca1eb9eeb0223972f347015d633718d847b"
+  }
+]

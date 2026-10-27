@@ -1,0 +1,825 @@
+{
+  "experiment": "score_calibration_v1",
+  "created_utc": "2026-09-15T09:09:24.490389+00:00",
+  "fitting_period": "calibration train only",
+  "calibration_train_dates": [
+    "2023-08-11",
+    "2023-12-28"
+  ],
+  "calibration_train_matches": 188,
+  "calibration_train_grid_supported": 187,
+  "calibration_train_outside_grid": 1,
+  "calibration_validation_dates": [
+    "2023-12-30",
+    "2024-05-19"
+  ],
+  "calibration_validation_matches": 192,
+  "test_outcomes_used": false,
+  "methods": [
+    "raw",
+    "temperature",
+    "score_specific",
+    "structured"
+  ],
+  "method_design": {
+    "temperature_bounds": [
+      0.5,
+      3.0
+    ],
+    "temperature_objective": "train conditional-grid NLL",
+    "score_specific_formula": "w=(observed+10)/(expected+10) when expected>=3; otherwise w=1",
+    "score_specific_prior": 10.0,
+    "score_specific_min_expected_support": 3.0,
+    "structured_features": [
+      "is_draw",
+      "total_goals_over_4",
+      "absolute_margin_over_3",
+      "signed_margin_over_3",
+      "both_teams_score"
+    ],
+    "structured_l2": 5.0,
+    "structured_objective": "train conditional-grid NLL + 0.5*5*||beta||^2"
+  },
+  "temperature": 1.0737478232899507,
+  "score_specific_weights": [
+    [
+      0.6558750933960689,
+      0.9965253750349804,
+      1.0738982963313872,
+      1.0191007734194317,
+      1.0,
+      1.0,
+      1.0
+    ],
+    [
+      0.8482443903808613,
+      0.9339020930732677,
+      1.054898714219083,
+      1.1922040616156298,
+      1.0,
+      1.0,
+      1.0
+    ],
+    [
+      0.9193057023476352,
+      1.0672545326217737,
+      1.1480355012005619,
+      0.9995232615885665,
+      1.0,
+      1.0,
+      1.0
+    ],
+    [
+      1.0994568733480021,
+      1.1899800179779758,
+      1.1506467886996135,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    [
+      0.8623672896193032,
+      1.0105342204248922,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    [
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    [
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ]
+  ],
+  "score_specific_active_parameters": 17,
+  "score_specific_train_table": [
+    {
+      "score": "0-0",
+      "expected_calibration_count": 11.34552773990718,
+      "observed_calibration_count": 4,
+      "supported": true,
+      "multiplier": 0.6558750933960689
+    },
+    {
+      "score": "0-1",
+      "expected_calibration_count": 14.083681761899483,
+      "observed_calibration_count": 14,
+      "supported": true,
+      "multiplier": 0.9965253750349804
+    },
+    {
+      "score": "0-2",
+      "expected_calibration_count": 9.55492440181668,
+      "observed_calibration_count": 11,
+      "supported": true,
+      "multiplier": 1.0738982963313872
+    },
+    {
+      "score": "0-3",
+      "expected_calibration_count": 4.718858420320759,
+      "observed_calibration_count": 5,
+      "supported": true,
+      "multiplier": 1.0191007734194317
+    },
+    {
+      "score": "0-4",
+      "expected_calibration_count": 1.900558352276073,
+      "observed_calibration_count": 1,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "0-5",
+      "expected_calibration_count": 0.6613424103598591,
+      "observed_calibration_count": 0,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "0-6",
+      "expected_calibration_count": 0.20531143983185543,
+      "observed_calibration_count": 0,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "1-0",
+      "expected_calibration_count": 17.114827119190274,
+      "observed_calibration_count": 13,
+      "supported": true,
+      "multiplier": 0.8482443903808613
+    },
+    {
+      "score": "1-1",
+      "expected_calibration_count": 19.98172957066422,
+      "observed_calibration_count": 18,
+      "supported": true,
+      "multiplier": 0.9339020930732677
+    },
+    {
+      "score": "1-2",
+      "expected_calibration_count": 12.750999386482938,
+      "observed_calibration_count": 14,
+      "supported": true,
+      "multiplier": 1.054898714219083
+    },
+    {
+      "score": "1-3",
+      "expected_calibration_count": 5.9368690409022085,
+      "observed_calibration_count": 9,
+      "supported": true,
+      "multiplier": 1.1922040616156298
+    },
+    {
+      "score": "1-4",
+      "expected_calibration_count": 2.263744180351353,
+      "observed_calibration_count": 4,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "1-5",
+      "expected_calibration_count": 0.7498594100826378,
+      "observed_calibration_count": 0,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "1-6",
+      "expected_calibration_count": 0.22296223655075909,
+      "observed_calibration_count": 0,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "2-0",
+      "expected_calibration_count": 13.93110359678886,
+      "observed_calibration_count": 12,
+      "supported": true,
+      "multiplier": 0.9193057023476352
+    },
+    {
+      "score": "2-1",
+      "expected_calibration_count": 15.298557349457123,
+      "observed_calibration_count": 17,
+      "supported": true,
+      "multiplier": 1.0672545326217737
+    },
+    {
+      "score": "2-2",
+      "expected_calibration_count": 9.163170456831192,
+      "observed_calibration_count": 12,
+      "supported": true,
+      "multiplier": 1.1480355012005619
+    },
+    {
+      "score": "2-3",
+      "expected_calibration_count": 4.006677521190914,
+      "observed_calibration_count": 4,
+      "supported": true,
+      "multiplier": 0.9995232615885665
+    },
+    {
+      "score": "2-4",
+      "expected_calibration_count": 1.4395207444527192,
+      "observed_calibration_count": 0,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "2-5",
+      "expected_calibration_count": 0.4518072363332268,
+      "observed_calibration_count": 1,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "2-6",
+      "expected_calibration_count": 0.12817288018825354,
+      "observed_calibration_count": 0,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "3-0",
+      "expected_calibration_count": 8.190799916596243,
+      "observed_calibration_count": 10,
+      "supported": true,
+      "multiplier": 1.0994568733480021
+    },
+    {
+      "score": "3-1",
+      "expected_calibration_count": 8.487705396417148,
+      "observed_calibration_count": 12,
+      "supported": true,
+      "multiplier": 1.1899800179779758
+    },
+    {
+      "score": "3-2",
+      "expected_calibration_count": 4.774299261037612,
+      "observed_calibration_count": 7,
+      "supported": true,
+      "multiplier": 1.1506467886996135
+    },
+    {
+      "score": "3-3",
+      "expected_calibration_count": 1.9556200694583121,
+      "observed_calibration_count": 1,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "3-4",
+      "expected_calibration_count": 0.6586086011674026,
+      "observed_calibration_count": 1,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "3-5",
+      "expected_calibration_count": 0.1945428716911792,
+      "observed_calibration_count": 0,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "3-6",
+      "expected_calibration_count": 0.05229563742801377,
+      "observed_calibration_count": 0,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "4-0",
+      "expected_calibration_count": 3.915184567468307,
+      "observed_calibration_count": 2,
+      "supported": true,
+      "multiplier": 0.8623672896193032
+    },
+    {
+      "score": "4-1",
+      "expected_calibration_count": 3.8540582961292666,
+      "observed_calibration_count": 4,
+      "supported": true,
+      "multiplier": 1.0105342204248922
+    },
+    {
+      "score": "4-2",
+      "expected_calibration_count": 2.045613415845083,
+      "observed_calibration_count": 1,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "4-3",
+      "expected_calibration_count": 0.7860959694284864,
+      "observed_calibration_count": 1,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "4-4",
+      "expected_calibration_count": 0.24749556987078697,
+      "observed_calibration_count": 1,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "4-5",
+      "expected_calibration_count": 0.06834923923259431,
+      "observed_calibration_count": 0,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "4-6",
+      "expected_calibration_count": 0.017251079222825,
+      "observed_calibration_count": 0,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "5-0",
+      "expected_calibration_count": 1.6177937329831877,
+      "observed_calibration_count": 4,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "5-1",
+      "expected_calibration_count": 1.5267638197585875,
+      "observed_calibration_count": 2,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "5-2",
+      "expected_calibration_count": 0.7714266134361094,
+      "observed_calibration_count": 0,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "5-3",
+      "expected_calibration_count": 0.2800479485585845,
+      "observed_calibration_count": 0,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "5-4",
+      "expected_calibration_count": 0.08268108211071887,
+      "observed_calibration_count": 0,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "5-5",
+      "expected_calibration_count": 0.021296958564937893,
+      "observed_calibration_count": 0,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "5-6",
+      "expected_calibration_count": 0.005006751456577041,
+      "observed_calibration_count": 0,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "6-0",
+      "expected_calibration_count": 0.598424691540831,
+      "observed_calibration_count": 0,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "6-1",
+      "expected_calibration_count": 0.546838033428745,
+      "observed_calibration_count": 2,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "6-2",
+      "expected_calibration_count": 0.26595988253397795,
+      "observed_calibration_count": 0,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "6-3",
+      "expected_calibration_count": 0.09225062954637328,
+      "observed_calibration_count": 0,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "6-4",
+      "expected_calibration_count": 0.02579127971050449,
+      "observed_calibration_count": 0,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "6-5",
+      "expected_calibration_count": 0.006230753852254173,
+      "observed_calibration_count": 0,
+      "supported": false,
+      "multiplier": 1.0
+    },
+    {
+      "score": "6-6",
+      "expected_calibration_count": 0.0013626756467927863,
+      "observed_calibration_count": 0,
+      "supported": false,
+      "multiplier": 1.0
+    }
+  ],
+  "structured_beta": [
+    -0.18930405791560562,
+    0.04498067202688208,
+    0.08290887346672082,
+    0.04143491679243512,
+    0.26330766757719665
+  ],
+  "validation_results": {
+    "raw": {
+      "matches": 192,
+      "exact_hits": 24,
+      "exact_top1": 0.125,
+      "top3_hits": 53,
+      "top3_exact": 0.2760416666666667,
+      "conditional_grid_nll": 3.1514627931437134,
+      "grid_supported_matches": 192,
+      "predicted_scores": {
+        "1-1": 106,
+        "2-0": 34,
+        "1-0": 21,
+        "2-1": 12,
+        "0-2": 7,
+        "1-2": 5,
+        "0-1": 5,
+        "3-1": 1,
+        "3-0": 1
+      },
+      "top1_entropy_nats": 1.4153578565579656,
+      "top1_frequency_tv_distance": 0.6250000000000001,
+      "most_common_score": "1-1",
+      "most_common_count": 106,
+      "unique_scorelines": 9,
+      "count_1_1": 106,
+      "count_2_1": 12,
+      "predicted_draw_count": 106,
+      "predicted_draw_rate": 0.5520833333333334,
+      "actual_draw_rate": 0.23958333333333334,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 21,
+          "correct": 2,
+          "precision": 0.09523809523809523
+        },
+        "0-1": {
+          "predicted": 5,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "1-1": {
+          "predicted": 106,
+          "correct": 15,
+          "precision": 0.14150943396226415
+        },
+        "2-0": {
+          "predicted": 34,
+          "correct": 5,
+          "precision": 0.14705882352941177
+        },
+        "0-2": {
+          "predicted": 7,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "2-1": {
+          "predicted": 12,
+          "correct": 1,
+          "precision": 0.08333333333333333
+        },
+        "1-2": {
+          "predicted": 5,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 1,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "3-1": {
+          "predicted": 1,
+          "correct": 1,
+          "precision": 1.0
+        }
+      }
+    },
+    "temperature": {
+      "matches": 192,
+      "exact_hits": 24,
+      "exact_top1": 0.125,
+      "top3_hits": 53,
+      "top3_exact": 0.2760416666666667,
+      "conditional_grid_nll": 3.1396901564160835,
+      "grid_supported_matches": 192,
+      "predicted_scores": {
+        "1-1": 106,
+        "2-0": 34,
+        "1-0": 21,
+        "2-1": 12,
+        "0-2": 7,
+        "1-2": 5,
+        "0-1": 5,
+        "3-1": 1,
+        "3-0": 1
+      },
+      "top1_entropy_nats": 1.4153578565579656,
+      "top1_frequency_tv_distance": 0.6250000000000001,
+      "most_common_score": "1-1",
+      "most_common_count": 106,
+      "unique_scorelines": 9,
+      "count_1_1": 106,
+      "count_2_1": 12,
+      "predicted_draw_count": 106,
+      "predicted_draw_rate": 0.5520833333333334,
+      "actual_draw_rate": 0.23958333333333334,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 21,
+          "correct": 2,
+          "precision": 0.09523809523809523
+        },
+        "0-1": {
+          "predicted": 5,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "1-1": {
+          "predicted": 106,
+          "correct": 15,
+          "precision": 0.14150943396226415
+        },
+        "2-0": {
+          "predicted": 34,
+          "correct": 5,
+          "precision": 0.14705882352941177
+        },
+        "0-2": {
+          "predicted": 7,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "2-1": {
+          "predicted": 12,
+          "correct": 1,
+          "precision": 0.08333333333333333
+        },
+        "1-2": {
+          "predicted": 5,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 1,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "3-1": {
+          "predicted": 1,
+          "correct": 1,
+          "precision": 1.0
+        }
+      }
+    },
+    "score_specific": {
+      "matches": 192,
+      "exact_hits": 24,
+      "exact_top1": 0.125,
+      "top3_hits": 54,
+      "top3_exact": 0.28125,
+      "conditional_grid_nll": 3.133749423202112,
+      "grid_supported_matches": 192,
+      "predicted_scores": {
+        "1-1": 94,
+        "2-1": 43,
+        "2-0": 13,
+        "1-2": 12,
+        "3-0": 10,
+        "0-2": 8,
+        "0-1": 5,
+        "1-0": 4,
+        "3-1": 2,
+        "1-3": 1
+      },
+      "top1_entropy_nats": 1.5772631814871116,
+      "top1_frequency_tv_distance": 0.5625,
+      "most_common_score": "1-1",
+      "most_common_count": 94,
+      "unique_scorelines": 10,
+      "count_1_1": 94,
+      "count_2_1": 43,
+      "predicted_draw_count": 94,
+      "predicted_draw_rate": 0.4895833333333333,
+      "actual_draw_rate": 0.23958333333333334,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 4,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "0-1": {
+          "predicted": 5,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "1-1": {
+          "predicted": 94,
+          "correct": 15,
+          "precision": 0.1595744680851064
+        },
+        "2-0": {
+          "predicted": 13,
+          "correct": 2,
+          "precision": 0.15384615384615385
+        },
+        "0-2": {
+          "predicted": 8,
+          "correct": 1,
+          "precision": 0.125
+        },
+        "2-1": {
+          "predicted": 43,
+          "correct": 5,
+          "precision": 0.11627906976744186
+        },
+        "1-2": {
+          "predicted": 12,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 10,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "3-1": {
+          "predicted": 2,
+          "correct": 1,
+          "precision": 0.5
+        }
+      }
+    },
+    "structured": {
+      "matches": 192,
+      "exact_hits": 23,
+      "exact_top1": 0.11979166666666667,
+      "top3_hits": 55,
+      "top3_exact": 0.2864583333333333,
+      "conditional_grid_nll": 3.12872287101084,
+      "grid_supported_matches": 192,
+      "predicted_scores": {
+        "1-1": 67,
+        "2-1": 64,
+        "1-2": 35,
+        "2-0": 12,
+        "1-0": 6,
+        "3-0": 3,
+        "0-1": 2,
+        "3-1": 2,
+        "0-2": 1
+      },
+      "top1_entropy_nats": 1.5129226262600126,
+      "top1_frequency_tv_distance": 0.6354166666666666,
+      "most_common_score": "1-1",
+      "most_common_count": 67,
+      "unique_scorelines": 9,
+      "count_1_1": 67,
+      "count_2_1": 64,
+      "predicted_draw_count": 67,
+      "predicted_draw_rate": 0.3489583333333333,
+      "actual_draw_rate": 0.23958333333333334,
+      "score_conditional_precision": {
+        "0-0": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "1-0": {
+          "predicted": 6,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "0-1": {
+          "predicted": 2,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "1-1": {
+          "predicted": 67,
+          "correct": 10,
+          "precision": 0.14925373134328357
+        },
+        "2-0": {
+          "predicted": 12,
+          "correct": 3,
+          "precision": 0.25
+        },
+        "0-2": {
+          "predicted": 1,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "2-1": {
+          "predicted": 64,
+          "correct": 6,
+          "precision": 0.09375
+        },
+        "1-2": {
+          "predicted": 35,
+          "correct": 3,
+          "precision": 0.08571428571428572
+        },
+        "2-2": {
+          "predicted": 0,
+          "correct": 0,
+          "precision": null
+        },
+        "3-0": {
+          "predicted": 3,
+          "correct": 0,
+          "precision": 0.0
+        },
+        "3-1": {
+          "predicted": 2,
+          "correct": 1,
+          "precision": 0.5
+        }
+      }
+    }
+  },
+  "score_specific_subperiod_stability": {
+    "first_half_1_1": 0.858340123131017,
+    "second_half_1_1": 1.040837455856292,
+    "first_half_2_1": 1.024223034065921,
+    "second_half_2_1": 1.071977043895562
+  },
+  "source_sha256": {
+    "calibration_train.csv": "f4deab34537bd16e9177117f65bcb65a8b12a09f5d374965488f0cdb775acaf4",
+    "calibration_validation.csv": "1779b20cecdc6fbee575e46c7810661bdd94df3d47d10af7cbdb1550a67fdd57",
+    "calibration_raw_matrices.npy": "f8a23d1720d5904cd18bb07be63a3094d50bd28196ef3f2fe0ea3ad19e810319"
+  },
+  "note": "No hyperparameter chosen using 760 diagnostic outcomes; all three method designs and shrinkage constants are fixed"
+}

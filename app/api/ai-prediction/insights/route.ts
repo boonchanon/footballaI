@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 
 import { footballService } from "@/app/api/football/service"
 import { CsvPrediction, getDisplayTeamName, getPredictionLookupKey } from "@/lib/premier-league-predictions"
-import { loadPremierLeaguePredictions } from "@/lib/server/premier-league-predictions"
+import { loadPredictionsManifest, loadPremierLeaguePredictions } from "@/lib/server/premier-league-predictions"
 
 type Outcome = "home" | "draw" | "away"
 
@@ -11,7 +11,8 @@ type Outcome = "home" | "draw" | "away"
 // - a coarse lean (rounded to 10%) for matches that have not finished
 // - aggregate correct/total counts per matchweek for finished matches
 const CACHE_MS = 5 * 60 * 1000
-let cached: { at: number; body: unknown } | null = null
+// The cache also resets as soon as a weekly refresh publishes new predictions.
+let cached: { at: number; updatedAt: string | null; body: unknown } | null = null
 
 function predictedOutcome(prediction: CsvPrediction): Outcome | null {
   if (prediction.predictedResult === "เจ้าบ้านชนะ") return "home"
@@ -35,7 +36,9 @@ function pairKey(home: string, away: string) {
 }
 
 export async function GET() {
-  if (cached && Date.now() - cached.at < CACHE_MS) return NextResponse.json(cached.body)
+  const manifest = await loadPredictionsManifest()
+  const updatedAt = manifest?.updatedAt ?? null
+  if (cached && cached.updatedAt === updatedAt && Date.now() - cached.at < CACHE_MS) return NextResponse.json(cached.body)
 
   try {
     const [predictions, fixtures] = await Promise.all([loadPremierLeaguePredictions(), footballService.getFixtures({ type: "all" })])
@@ -74,8 +77,9 @@ export async function GET() {
 
     const record = [...weeks.entries()].sort((left, right) => left[0] - right[0]).map(([week, value]) => ({ week, ...value }))
     const season = record.reduce((sum, item) => ({ correct: sum.correct + item.correct, total: sum.total + item.total }), { correct: 0, total: 0 })
-    const body = { leans, record, season }
-    cached = { at: Date.now(), body }
+    const lastUpdate = manifest ? { updatedAt: manifest.updatedAt, lastKnownResultDate: manifest.lastKnownResultDate ?? null } : null
+    const body = { leans, record, season, lastUpdate }
+    cached = { at: Date.now(), updatedAt, body }
     return NextResponse.json(body)
   } catch (error) {
     console.error("[ai-prediction/insights] failed", error)

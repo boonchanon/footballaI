@@ -1,0 +1,97 @@
+{
+  "experiment": "input_parity_no_odds_v1",
+  "created_utc": "2026-09-15T08:23:50.862091+00:00",
+  "feature_version": "legacy_v1",
+  "path": "saved pre-match historical feature rows with odds set missing; current production classifiers and predictor score-selection functions",
+  "seasons": {
+    "train": "1993/94-2022/23",
+    "validation": "2023/24",
+    "diagnostic_test": "2024/25-2025/26"
+  },
+  "date_range": [
+    "2024-08-16",
+    "2026-05-24"
+  ],
+  "matches": 760,
+  "model_artifacts": [
+    "models\\saved_models\\poisson_model.joblib"
+  ],
+  "source_sha256": {
+    "data\\processed\\features_matches.csv": "a005ab13f6c035a7ea60c373b88c7a4fa7b96fae55ceaea1585e766f77167d94",
+    "src\\models\\predictor.py": "782aa201e00fea073ede0db98e4101cca03e2d87cceb69e6c918042692e801d8",
+    "src\\models\\poisson_model.py": "211978937aea968d05342d7b2379d5afeaee7460116710eec99d6549bc92f729",
+    "src\\features\\feature_engineering.py": "f89c3a57a9e2b820a107bfc26ea2605c5971f3e7b1c54e13c316da859fff79e0",
+    "src\\models\\model_utils.py": "b71de06c0ff8ae537d301c0e815f35427b9dcb1d4b86c97f587f0bff20b50cfe",
+    "models\\saved_models\\catboost_classifier.cbm": "974b5da1dbc7da3d257dd10dd44569c3cb9e102d89d74e42c07f07d9d8d2b89e",
+    "models\\saved_models\\catboost_metadata.joblib": "2fa81d3dd67c5d76ceb27601a9fbd24a118dee67c215932d4e922a2de9b3843a",
+    "models\\saved_models\\xgboost_classifier.json": "6f8d04599e2f66a04efd3f2c75b36342e2e28bc5029c603e740fbb077a4df18e",
+    "models\\saved_models\\xgboost_metadata.joblib": "7cac11193e8d0c00e002170d1c2cd5e9965705b33e4486540a2b477fc883296e",
+    "models\\saved_models\\poisson_model.joblib": "eb1726c8971402bba48819c49e656a7c274d802ecc3add46a01262407d1df714"
+  },
+  "baseline": {
+    "matches": 760,
+    "exact_hits": 73,
+    "exact_top1": 0.09605263157894736,
+    "outcome_accuracy": 0.4697368421052632,
+    "home_goal_mae": 0.9184210526315789,
+    "away_goal_mae": 0.9184210526315789,
+    "top3_exact": 0.2868421052631579,
+    "score_nll": 3.0697642685056428,
+    "predicted_scores": {
+      "2-1": 258,
+      "1-1": 144,
+      "2-0": 134,
+      "1-2": 126,
+      "1-0": 53,
+      "0-1": 31,
+      "0-2": 12,
+      "3-0": 2
+    },
+    "actual_scores": {
+      "1-1": 92,
+      "2-1": 70,
+      "0-1": 57,
+      "2-2": 57,
+      "1-2": 56,
+      "1-0": 51,
+      "2-0": 50,
+      "0-0": 43,
+      "0-2": 43,
+      "3-0": 38,
+      "3-1": 37,
+      "0-3": 22,
+      "3-2": 22,
+      "1-3": 20,
+      "4-1": 16,
+      "2-3": 15,
+      "4-0": 9,
+      "4-2": 9,
+      "1-4": 8,
+      "0-4": 7,
+      "4-3": 5,
+      "0-5": 4,
+      "3-3": 4,
+      "5-1": 3,
+      "2-4": 3,
+      "1-5": 3,
+      "5-0": 3,
+      "3-4": 3,
+      "5-2": 2,
+      "5-3": 1,
+      "2-6": 1,
+      "2-5": 1,
+      "3-6": 1,
+      "7-0": 1,
+      "0-6": 1,
+      "4-5": 1,
+      "4-4": 1
+    },
+    "predicted_draw_rate": 0.18947368421052632,
+    "actual_draw_rate": 0.25921052631578945
+  },
+  "limitations": [
+    "Historical feature rows, not per-fixture live builder calls.",
+    "Diagnostic seasons previously inspected; not an untouched holdout.",
+    "Historical odds availability unverified; baseline explicitly sets odds missing."
+  ]
+}

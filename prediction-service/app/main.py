@@ -1,23 +1,19 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, File, Form, UploadFile
+import threading
+
+from fastapi import FastAPI, File, Form, Header, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
+from . import ml_bridge
 from .config import settings
 from .errors import ApiError, register_error_handlers
+from .jobs import job_store
 from .models import MatchPredictionRequest
-from .pipeline import (
-    bootstrap_storage,
-    copy_existing_data_from_repo,
-    delete_raw_file,
-    export_fixture_predictions,
-    get_download_path,
-    get_pipeline_status,
-    predict_match,
-    run_full_pipeline,
-    run_upload_pipeline_batch,
-)
+from .pipeline import bootstrap_storage, copy_existing_data_from_repo
+from .training import start_training
+from .weekly import get_weekly_job, start_weekly_refresh, weekly_history
 
 
 app = FastAPI(title=settings.app_name)
@@ -33,8 +29,12 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def on_startup() -> None:
-    bootstrap_storage()
-    copy_existing_data_from_repo()
+    # ml/ is a tracked, byte-exact copy of the AI project; do not seed placeholder files into it.
+    bootstrap_storage(readme=not settings.uses_ml_dir)
+    if not settings.uses_ml_dir:
+        copy_existing_data_from_repo()
+    # Load the models and fit Dixon-Coles in the background so the first prediction is quick.
+    threading.Thread(target=ml_bridge.warm_up, daemon=True).start()
 
 
 @app.get("/health")
@@ -48,58 +48,127 @@ async def health() -> dict[str, object]:
             "data_dir": str(settings.data_dir),
             "raw_dir": str(settings.raw_dir),
             "export_dir": str(settings.export_dir),
+            "ml_dir": str(settings.ml_dir),
+            "ml_python": str(settings.ml_python),
         },
     }
 
 
+# ---------------------------------------------------------------- weekly refresh
+
+
+@app.post("/pipeline/weekly-refresh", status_code=202)
+def pipeline_weekly_refresh(x_requested_by: str = Header(default="")) -> dict[str, object]:
+    job = start_weekly_refresh(x_requested_by.strip())
+    return {"ok": True, "job_id": job["id"], "job": job}
+
+
+@app.get("/pipeline/weekly-refresh/{job_id}")
+def pipeline_weekly_refresh_status(job_id: str) -> dict[str, object]:
+    return {"ok": True, "job": get_weekly_job(job_id)}
+
+
+@app.get("/pipeline/weekly-history")
+def pipeline_weekly_history() -> dict[str, object]:
+    return {"ok": True, **weekly_history()}
+
+
+# ---------------------------------------------------------------- jobs (history for the logs page)
+
+
+@app.get("/pipeline/jobs")
+def pipeline_jobs(kind: str | None = None, limit: int = 100) -> dict[str, object]:
+    return {"ok": True, "jobs": job_store.list(limit=max(1, min(limit, 500)), kind=kind), "active_job": job_store.active()}
+
+
+@app.get("/pipeline/jobs/{job_id}")
+def pipeline_job(job_id: str) -> dict[str, object]:
+    return {"ok": True, "job": job_store.get(job_id)}
+
+
+# ---------------------------------------------------------------- data archive and training
+
+
 @app.get("/pipeline/status")
-async def pipeline_status() -> dict[str, object]:
-    return get_pipeline_status()
+def pipeline_status() -> dict[str, object]:
+    return ml_bridge.pipeline_status()
 
 
 @app.post("/pipeline/upload")
-async def pipeline_upload(file: list[UploadFile] = File(...)) -> dict[str, object]:
-    items = []
+def pipeline_upload(file: list[UploadFile] = File(...), x_requested_by: str = Header(default="")) -> dict[str, object]:
+    stored = []
     for item in file:
-        if not item.filename.lower().endswith(".csv"):
-            raise ApiError(422, f"Only CSV files are supported for upload: {item.filename}")
-        items.append((item.filename, await item.read()))
-    return run_upload_pipeline_batch(items)
+        try:
+            stored.append(ml_bridge.store_upload(item.filename or "upload.csv", item.file.read()))
+        except ApiError as error:
+            job_store.record("upload", x_requested_by, "failed", f"อัปโหลด {item.filename} ไม่ผ่านการตรวจ", error=error.message)
+            raise
+    added = [item for item in stored if item["stored_filename"]]
+    duplicates = [item["original_name"] for item in stored if item["duplicate"]]
+    message = (
+        f"เพิ่มไฟล์เข้าคลังข้อมูล {len(added)} ไฟล์ กด \"ฝึกแบบจำลองใหม่\" เพื่อนำข้อมูลไปใช้"
+        if added
+        else "ไฟล์นี้มีอยู่ในคลังข้อมูลแล้ว ไม่ได้เพิ่มซ้ำ"
+    )
+    job_store.record("upload", x_requested_by, "done", message, result={"files": stored})
+    return {
+        "ok": True,
+        "message": message,
+        "duplicate": bool(duplicates),
+        "duplicate_files": duplicates,
+        "uploaded_files": [item["stored_filename"] for item in added],
+        "processed_files": len(stored),
+        "files": stored,
+        "matches_added": sum(item["match_rows"] for item in added),
+        "latest_season": max((season for item in stored for season in item["seasons"]), default=None),
+    }
 
 
-@app.post("/pipeline/full")
-async def pipeline_full() -> dict[str, object]:
-    return run_full_pipeline()
+@app.post("/pipeline/full", status_code=202)
+def pipeline_full(x_requested_by: str = Header(default="")) -> dict[str, object]:
+    job = start_training(x_requested_by.strip())
+    return {"ok": True, "job_id": job["id"], "job": job}
 
 
 @app.delete("/pipeline/files/{filename}")
-async def pipeline_delete_file(filename: str) -> dict[str, object]:
-    return delete_raw_file(filename)
+def pipeline_delete_file(filename: str, x_requested_by: str = Header(default="")) -> dict[str, object]:
+    result = ml_bridge.delete_upload(filename)
+    job_store.record("delete_file", x_requested_by, "done", f"ลบไฟล์ {result['filename']}", result=result)
+    archive = ml_bridge.archive_summary()
+    return {**result, "raw_file_count": archive["raw_file_count"], "latest_season": archive["latest_season"], "total_matches": archive["total_matches"]}
+
+
+# ---------------------------------------------------------------- prediction
+
+
+@app.get("/teams")
+def teams() -> dict[str, object]:
+    return ml_bridge.teams_payload()
 
 
 @app.post("/predict")
-async def predict(request: MatchPredictionRequest) -> dict[str, object]:
-    return predict_match(request.home_team, request.away_team)
+def predict(request: MatchPredictionRequest) -> dict[str, object]:
+    return ml_bridge.predict_pair(request.home_team, request.away_team)
 
 
 @app.post("/predict-match")
-async def predict_match_legacy(request: MatchPredictionRequest) -> dict[str, object]:
-    return predict_match(request.home_team, request.away_team)
+def predict_match_legacy(request: MatchPredictionRequest) -> dict[str, object]:
+    return ml_bridge.predict_pair(request.home_team, request.away_team)
 
 
 @app.post("/predictions/export-fixtures")
-async def predictions_export_fixtures(
+def predictions_export_fixtures(
     season: str = Form(...),
     file: UploadFile = File(...),
 ) -> dict[str, object]:
     if not season.strip():
         raise ApiError(422, "Season is required")
-    if not file.filename.lower().endswith(".csv"):
+    if not (file.filename or "").lower().endswith(".csv"):
         raise ApiError(422, "Fixture export accepts CSV only")
-    return export_fixture_predictions(season.strip(), file.filename, await file.read())
+    return ml_bridge.export_fixture_predictions(season.strip(), file.filename or "fixtures.csv", file.file.read())
 
 
 @app.get("/predictions/download/{filename}")
-async def predictions_download(filename: str) -> FileResponse:
-    file_path = get_download_path(filename)
+def predictions_download(filename: str) -> FileResponse:
+    file_path = ml_bridge.download_path(filename)
     return FileResponse(path=file_path, filename=file_path.name, media_type="text/csv")

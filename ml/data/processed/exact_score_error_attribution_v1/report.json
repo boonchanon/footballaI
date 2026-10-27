@@ -1,0 +1,14 @@
+{
+  "Verdict": "NO USEFUL SIGNAL IN CURRENT DATA",
+  "PrimaryN": 2280,
+  "PrimaryExact": 254,
+  "DiagnosticN": 760,
+  "DiagnosticExact": 90,
+  "Pred11N": 1093,
+  "Pred11Exact": 129,
+  "HighN": 740,
+  "HighExact": 0,
+  "ProtectedSHA": "0afa806c8e26b9fa2a354b760128955ad40fa85b7b592bd11aa0fd3a2923f8e3",
+  "ProductionChanged": false,
+  "ForecastsGenerated": false
+}

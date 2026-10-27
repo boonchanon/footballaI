@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 import { denyUnlessAiAdmin } from "@/lib/server/admin-ai-auth"
-
-const PREDICTION_API_BASE_URL =
-  process.env.NEXT_PUBLIC_epl_PREDICTION_API_BASE_URL?.trim() ||
-  "https://football-epl-prediction-api.onrender.com"
+import { PREDICTION_SERVICE_URL } from "@/lib/server/prediction-service"
 
 export const maxDuration = 60
 
@@ -47,27 +44,19 @@ function normalizePercent(value: unknown) {
   return parsed <= 1 ? parsed * 100 : parsed
 }
 
+// Team names are passed through unchanged: they are the exact names the prediction models use.
 function normalizeTeamOptions(statusPayload: JsonRecord) {
-  const aliasMap = new Map<string, string>([
-    ["Bournemouth", "AFC Bournemouth"],
-    ["Coventry", "Coventry City"],
-    ["Ipswich", "Ipswich Town"],
-    ["Leeds", "Leeds United"],
-    ["Newcastle", "Newcastle United"],
-    ["Tottenham", "Tottenham Hotspur"],
-  ])
-
   const prediction = toRecord(statusPayload.prediction)
   const deduped = new Set<string>()
   for (const team of [...toStringList(statusPayload.teams), ...toStringList(prediction.teams)]) {
-    deduped.add(aliasMap.get(team) ?? team)
+    deduped.add(team)
   }
 
   return Array.from(deduped).sort((left, right) => left.localeCompare(right))
 }
 
 async function fetchUpstreamJson(path: string) {
-  const response = await fetch(`${PREDICTION_API_BASE_URL.replace(/\/+$/, "")}${path}`, {
+  const response = await fetch(`${PREDICTION_SERVICE_URL}${path}`, {
     cache: "no-store",
     headers: {
       Accept: "application/json",
@@ -104,6 +93,8 @@ export async function GET(request: NextRequest) {
         filename: toStringValue(file.filename ?? file.file_name ?? file.name, `File ${index + 1}`),
         season: toStringValue(file.season, "-"),
         matches: toNumber(file.matches ?? file.match_count ?? file.rows) ?? 0,
+        uploaded: file.uploaded === true,
+        pending: file.pending === true,
       }
     })
 
@@ -114,6 +105,8 @@ export async function GET(request: NextRequest) {
         key: toStringValue(model.key ?? model.name ?? model.label, `model-${index + 1}`),
         label: toStringValue(model.label ?? model.name ?? model.key, `Model ${index + 1}`),
         accuracy: normalizePercent(model.accuracy),
+        precisionMacro: toNumber(model.precision_macro ?? model.precisionMacro),
+        recallMacro: toNumber(model.recall_macro ?? model.recallMacro),
         f1Macro: toNumber(model.f1_macro ?? model.f1Macro),
         logLoss: toNumber(model.log_loss ?? model.logLoss),
         brierScore: toNumber(model.brier_score ?? model.brierScore),
@@ -136,6 +129,12 @@ export async function GET(request: NextRequest) {
         prediction.latestPredictionFile ?? prediction.latest_prediction_file,
         "ยังไม่มีไฟล์",
       ),
+      latestPredictionUpdatedAt: typeof prediction.latestPredictionUpdatedAt === "string" ? prediction.latestPredictionUpdatedAt : null,
+      evaluationInfo: {
+        testSeasons: toStringList(evaluation.testSeasons),
+        testMatches: toNumber(evaluation.testMatches) ?? 0,
+        evaluatedAt: typeof evaluation.evaluatedAt === "string" ? evaluation.evaluatedAt : null,
+      },
       rawFileCount: toNumber(inventory.rawFileCount ?? summary.rawFileCount) ?? files.length,
       totalMatches: toNumber(summary.totalMatches) ?? files.reduce((sum, file) => sum + file.matches, 0),
       seasonCount: toNumber(summary.seasonCount) ?? seasonsAvailable.length,

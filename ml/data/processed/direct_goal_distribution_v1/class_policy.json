@@ -1,0 +1,29 @@
+{
+  "ExactClasses": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "OverflowClass": 7,
+  "OverflowMeaning": "7+; not an exact score cell",
+  "MinimumSupportExact5And6": 30,
+  "ObservedMinimumSupport": 31,
+  "PrimaryGrid": "exact 0..6 each side",
+  "Matrix": "outer product of exact 0..6 probabilities, normalized on grid",
+  "Selection": "stable row-major global argmax; no score weighting",
+  "ClassOrder": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "ChosenFrom": "strictly pre-2024/25 training support; diagnostic outcomes excluded"
+}
