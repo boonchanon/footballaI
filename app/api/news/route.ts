@@ -311,7 +311,9 @@ async function translateArticlesWithAi(articles: RawNewsArticle[], topic: NewsTo
     })
 
     if (!response.ok) {
-      console.error("IntelSphere translation error:", response.status)
+      // The body names the cause (e.g. {"error":"Invalid model"} when the configured model is retired).
+      const detail = (await response.text().catch(() => "")).slice(0, 200)
+      console.error("IntelSphere translation error:", response.status, `model=${model}`, detail)
       return null
     }
 
