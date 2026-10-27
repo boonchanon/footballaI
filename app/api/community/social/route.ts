@@ -13,11 +13,11 @@ export async function GET(request: NextRequest) {
     const userId = toPlainId(user._id)
 
     const [incomingRequests, outgoingRequests, friendships, conversations, suggestions] = await Promise.all([
-      FriendRequest.find({ recipient: user._id, status: "pending" }).populate("requester", "name avatar favoriteTeam bio").sort({ createdAt: -1 }).limit(8),
-      FriendRequest.find({ requester: user._id, status: "pending" }).populate("recipient", "name avatar favoriteTeam bio").sort({ createdAt: -1 }).limit(8),
-      Friendship.find({ users: user._id }).populate("users", "name avatar favoriteTeam bio").sort({ updatedAt: -1 }).limit(12),
-      Conversation.find({ members: user._id }).populate("members", "name avatar favoriteTeam bio").sort({ lastMessageAt: -1, updatedAt: -1 }).limit(12),
-      User.find({ _id: { $ne: user._id } }).select("name avatar favoriteTeam bio").sort({ createdAt: -1 }).limit(16),
+      FriendRequest.find({ recipient: user._id, status: "pending" }).populate("requester", "name username avatar favoriteTeam bio").sort({ createdAt: -1 }).limit(8),
+      FriendRequest.find({ requester: user._id, status: "pending" }).populate("recipient", "name username avatar favoriteTeam bio").sort({ createdAt: -1 }).limit(8),
+      Friendship.find({ users: user._id }).populate("users", "name username avatar favoriteTeam bio").sort({ updatedAt: -1 }).limit(12),
+      Conversation.find({ members: user._id }).populate("members", "name username avatar favoriteTeam bio").sort({ lastMessageAt: -1, updatedAt: -1 }).limit(12),
+      User.find({ _id: { $ne: user._id } }).select("name username avatar favoriteTeam bio").sort({ createdAt: -1 }).limit(16),
     ])
 
     const pendingUserIds = new Set<string>()
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     const latestMessages =
       conversations.length > 0
         ? await DirectMessage.find({ conversation: { $in: conversations.map((item: any) => item._id) } })
-            .populate("sender", "name avatar favoriteTeam bio")
+            .populate("sender", "name username avatar favoriteTeam bio")
             .sort({ createdAt: -1 })
             .limit(80)
         : []

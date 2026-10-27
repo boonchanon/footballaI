@@ -4223,7 +4223,13 @@ export default function CommunityPage() {
               <CardHeader className="px-4 pb-2 pt-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base text-foreground">แนะนำให้ติดตาม</CardTitle>
+                  <Link href="/community/people" className="text-xs font-semibold text-primary hover:underline">
+                    ดูทั้งหมด
+                  </Link>
                 </div>
+                <form action="/community/people" method="get" className="pt-2">
+                  <Input name="q" placeholder="ค้นหาชื่อคนในคอมมูนิตี้..." aria-label="ค้นหาชื่อคนในคอมมูนิตี้" className="h-9 rounded-full text-sm" />
+                </form>
               </CardHeader>
               <CardContent className="space-y-3 px-4 pb-4">
                 {suggestedPeople.length ? (
