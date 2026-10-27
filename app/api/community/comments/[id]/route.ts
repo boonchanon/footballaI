@@ -1,3 +1,4 @@
+import { isValidObjectId } from "mongoose"
 import { NextRequest } from "next/server"
 
 import { requireAuthUser } from "@/lib/server/auth"
@@ -110,6 +111,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     await connectDatabase()
     const user = await requireAuthUser(request)
     const { id } = await params
+    if (!isValidObjectId(id)) return errorResponse("Comment not found", 404)
     const comment = await Comment.findById(id)
 
     if (!comment || comment.isDeleted) return errorResponse("Comment not found", 404)
@@ -120,17 +122,16 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     if (!canModerate) await assertCommunityInteractionAllowed(user._id.toString(), "comment")
 
     const wasPubliclyVisible = comment.isApproved && (!comment.moderation?.status || comment.moderation?.status === "approved")
-    comment.isDeleted = true
-    comment.deletedAt = new Date()
-    comment.deletedBy = user._id
-    comment.content = ""
-    comment.isApproved = false
-    await comment.save()
+    // Mark deleted only if still undeleted, in one step, so two simultaneous deletes count once.
+    const deleted = await Comment.findOneAndUpdate(
+      { _id: comment._id, isDeleted: { $ne: true } },
+      { $set: { isDeleted: true, deletedAt: new Date(), deletedBy: user._id, content: "", isApproved: false } },
+    )
+    if (!deleted) return errorResponse("Comment not found", 404)
 
     if (comment.targetType === "post" && wasPubliclyVisible) {
-      await CommunityPost.findByIdAndUpdate(comment.targetId, {
-        $inc: { commentsCount: -1 },
-      })
+      // Never drive the counter below zero.
+      await CommunityPost.updateOne({ _id: comment.targetId, commentsCount: { $gt: 0 } }, { $inc: { commentsCount: -1 } })
     }
 
     return ok({ message: "Comment deleted" })
