@@ -354,6 +354,20 @@ export type CommunityMatchRoomThreadResponse = {
   officialOnly: boolean
 }
 
+// A deleted comment that still has replies stays as a placeholder; otherwise it leaves the list.
+function withoutDeletedComment(current: CommunityMatchThreadDetailResponse | undefined, commentId: string) {
+  if (!current) return current
+  return {
+    ...current,
+    comments: current.comments.flatMap((item) => {
+      if (item.id === commentId) {
+        return item.replies.length ? [{ ...item, isDeleted: true, content: "ความคิดเห็นนี้ถูกลบแล้ว" }] : []
+      }
+      return [{ ...item, replies: item.replies.filter((reply) => reply.id !== commentId) }]
+    }),
+  }
+}
+
 export type CommunityMatchThreadDetailResponse = {
   fixture: CommunityMatchRoomFixture
   item: CommunityMatchRoomPost & {
@@ -5108,7 +5122,9 @@ export function MatchRoomThreadDetail({ matchId, threadId }: { matchId: string; 
     setErrorMessage("")
     try {
       await fetchJson(`/community/comments/${commentId}`, { method: "DELETE" })
-      await mutate()
+      // Reloading the whole thread takes seconds; update the list now, the same way the server shows it.
+      await mutate((current) => withoutDeletedComment(current, commentId), { revalidate: false })
+      void mutate()
     } catch (deleteError) {
       setErrorMessage(deleteError instanceof Error ? deleteError.message : "ลบความคิดเห็นไม่สำเร็จ")
     } finally {
