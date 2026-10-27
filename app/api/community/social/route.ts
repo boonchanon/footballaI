@@ -25,6 +25,9 @@ export async function GET(request: NextRequest) {
       pendingUserIds.add(toPlainId(item.requester?._id || item.requester))
       pendingUserIds.add(toPlainId(item.recipient?._id || item.recipient))
     }
+    // The lists above are capped at 8; never suggest anyone the user already follows.
+    const followedIds = await FriendRequest.distinct("recipient", { requester: user._id, status: "pending" })
+    for (const id of followedIds) pendingUserIds.add(toPlainId(id))
 
     const friendUserIds = new Set<string>()
     const friendItems = friendships

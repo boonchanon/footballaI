@@ -55,7 +55,10 @@ export async function POST(request: NextRequest) {
       }
 
       const myFollow = await FriendRequest.findOne({ requester: user._id, recipient: targetUserId })
-      if (myFollow?.status === "pending") return errorResponse("Already following", 409)
+      // Following twice is harmless (e.g. a stale button); report the current state instead of an error.
+      if (myFollow?.status === "pending") {
+        return ok({ item: { id: toPlainId(myFollow._id), status: "pending" }, mutual: false, alreadyFollowing: true })
+      }
       // An old declined/accepted record would block a new follow on the unique index; reuse it.
       const follow = myFollow
         ? await FriendRequest.findByIdAndUpdate(myFollow._id, { $set: { status: "pending" } }, { new: true })

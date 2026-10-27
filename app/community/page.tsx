@@ -2486,12 +2486,15 @@ export default function CommunityPage() {
     if (!requireLogin("กรุณาเข้าสู่ระบบเพื่อติดตาม")) return
     try {
       setSendingFriendId(targetUserId)
-      const result = await fetchJson<{ mutual?: boolean }>("/community/friends", {
+      const result = await fetchJson<{ mutual?: boolean; alreadyFollowing?: boolean }>("/community/friends", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({ action: "request", targetUserId }),
       })
-      toast({ title: result?.mutual ? "ติดตามกันแล้ว ส่งข้อความหากันได้เลย" : "ติดตามแล้ว", description: result?.mutual ? undefined : "เมื่อเขาติดตามกลับ จะส่งข้อความหากันได้" })
+      toast({
+        title: result?.mutual ? "ติดตามกันแล้ว ส่งข้อความหากันได้เลย" : result?.alreadyFollowing ? "คุณติดตามคนนี้อยู่แล้ว" : "ติดตามแล้ว",
+        description: result?.mutual ? undefined : "เมื่อเขาติดตามกลับ จะส่งข้อความหากันได้",
+      })
       await mutateSocial()
     } catch (error) {
       toast({ title: "ติดตามไม่สำเร็จ", description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด", variant: "destructive" })
