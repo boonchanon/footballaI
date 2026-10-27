@@ -5,7 +5,7 @@ import { buildPublicModeratedContentFilter } from "@/lib/server/community"
 import { mapAdminCommunityPost } from "@/lib/server/community-admin"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, ok } from "@/lib/server/http"
-import { CommunityPost, FriendRequest, Friendship, User } from "@/lib/server/models"
+import { CommunityPost, Conversation, FriendRequest, Friendship, User } from "@/lib/server/models"
 
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -30,6 +30,12 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
 
     if (!targetUser) return errorResponse("User not found", 404)
 
+    // Follow model: a pending request is a one-way follow; a friendship means both follow each other.
+    const isFriend = Boolean(friendship)
+    const iFollow = isFriend || Boolean(pendingRequest && pendingRequest.requester.toString() === viewer._id.toString())
+    const followsMe = isFriend || Boolean(pendingRequest && pendingRequest.requester.toString() === id)
+    const conversation = isFriend ? await Conversation.findOne({ members: { $all: [viewer._id, id] } }).select("_id") : null
+
     return ok({
       profile: {
         id: targetUser._id.toString(),
@@ -41,7 +47,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       },
       relationship: {
         isSelf: viewer._id.toString() === id,
-        isFriend: Boolean(friendship),
+        isFriend,
         hasPendingRequest: Boolean(pendingRequest),
         requestDirection: pendingRequest
           ? pendingRequest.requester.toString() === viewer._id.toString()
@@ -49,6 +55,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
             : "incoming"
           : null,
         requestId: pendingRequest?._id?.toString?.() || null,
+        iFollow,
+        followsMe,
+        conversationId: conversation?._id?.toString?.() || null,
       },
       posts: posts.map((post: any) => mapAdminCommunityPost(post, viewer)),
     })

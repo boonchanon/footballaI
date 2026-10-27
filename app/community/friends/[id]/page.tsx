@@ -31,22 +31,46 @@ export default function FriendProfilePage() {
     token ? [`/community/friends/${userId}`, token] : null,
     ([url, authToken]) => authFetcher<{
       profile: { id: string; name: string; avatar: string; favoriteTeam: string; bio: string }
-      relationship: { isSelf: boolean; isFriend: boolean; hasPendingRequest: boolean; requestDirection: "incoming" | "outgoing" | null; requestId: string | null }
+      relationship: {
+        isSelf: boolean
+        isFriend: boolean
+        hasPendingRequest: boolean
+        requestDirection: "incoming" | "outgoing" | null
+        requestId: string | null
+        iFollow?: boolean
+        followsMe?: boolean
+        conversationId?: string | null
+      }
       posts: Array<{ id: string; title: string; excerpt: string; timeAgo: string; categoryLabel: string; images?: string[]; likes: number; comments: number }>
     }>(url, authToken),
   )
 
-  async function sendFriendRequest() {
+  async function follow() {
     if (!token) return
     try {
-      await fetchJson("/community/friends", {
+      const result = await fetchJson<{ mutual?: boolean }>("/community/friends", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({ action: "request", targetUserId: userId }),
       })
+      if (result?.mutual) toast({ title: "ติดตามกันแล้ว", description: "ตอนนี้ส่งข้อความหากันได้แล้ว" })
       await mutate()
     } catch (error) {
-      toast({ title: "ส่งคำขอไม่สำเร็จ", description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด", variant: "destructive" })
+      toast({ title: "ติดตามไม่สำเร็จ", description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด", variant: "destructive" })
+    }
+  }
+
+  async function unfollow() {
+    if (!token || !window.confirm("เลิกติดตามคนนี้ใช่ไหม? ถ้าติดตามกันอยู่จะส่งข้อความหากันไม่ได้จนกว่าจะติดตามกันอีกครั้ง")) return
+    try {
+      await fetchJson("/community/friends", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: "unfollow", targetUserId: userId }),
+      })
+      await mutate()
+    } catch (error) {
+      toast({ title: "เลิกติดตามไม่สำเร็จ", description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด", variant: "destructive" })
     }
   }
 
@@ -60,7 +84,7 @@ export default function FriendProfilePage() {
       })
       await mutate()
     } catch (error) {
-      toast({ title: "อัปเดตคำขอไม่สำเร็จ", description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด", variant: "destructive" })
+      toast({ title: "อัปเดตการติดตามไม่สำเร็จ", description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด", variant: "destructive" })
     }
   }
 
@@ -98,42 +122,58 @@ export default function FriendProfilePage() {
                         <h1 className="text-3xl font-bold">{data.profile.name}</h1>
                         <div className="mt-2 flex flex-wrap gap-2">
                           {data.profile.favoriteTeam ? <Badge variant="outline">{data.profile.favoriteTeam}</Badge> : null}
-                          {data.relationship.isFriend ? <Badge className="bg-primary/15 text-primary hover:bg-primary/15">เพื่อนแล้ว</Badge> : null}
+                          {data.relationship.isFriend ? (
+                            <Badge className="bg-primary/15 text-primary hover:bg-primary/15">ติดตามกันแล้ว</Badge>
+                          ) : data.relationship.requestDirection === "incoming" ? (
+                            <Badge variant="outline">ติดตามคุณอยู่</Badge>
+                          ) : null}
                         </div>
                         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">{data.profile.bio || "ยังไม่มีคำอธิบายโปรไฟล์"}</p>
                       </div>
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      {data.relationship.isFriend ? (
-                        <Link href="/community/messages">
-                          <Button className="rounded-2xl">
-                            <MessageSquare className="mr-2 h-4 w-4" />
-                            ไปที่แชต
-                          </Button>
-                        </Link>
-                      ) : data.relationship.hasPendingRequest ? (
-                        data.relationship.requestDirection === "incoming" ? (
-                          <>
-                            <Button className="rounded-2xl" onClick={() => handleRequest("accept")}>
-                              <Users className="mr-2 h-4 w-4" />
-                              รับเป็นเพื่อน
+                      {data.relationship.isSelf ? null : data.relationship.isFriend ? (
+                        <>
+                          <Link
+                            href={
+                              data.relationship.conversationId
+                                ? `/community/messages?conversation=${data.relationship.conversationId}`
+                                : "/community/messages"
+                            }
+                          >
+                            <Button className="rounded-2xl">
+                              <MessageSquare className="mr-2 h-4 w-4" />
+                              ส่งข้อความ
                             </Button>
-                            <Button variant="outline" className="rounded-2xl" onClick={() => handleRequest("decline")}>
-                              ปฏิเสธ
-                            </Button>
-                          </>
-                        ) : (
-                          <Button variant="outline" className="rounded-2xl" disabled>
-                            ส่งคำขอแล้ว
+                          </Link>
+                          <Button variant="outline" className="rounded-2xl" onClick={() => void unfollow()}>
+                            เลิกติดตาม
                           </Button>
-                        )
-                      ) : !data.relationship.isSelf ? (
-                        <Button className="rounded-2xl" onClick={sendFriendRequest}>
+                        </>
+                      ) : data.relationship.requestDirection === "incoming" ? (
+                        <>
+                          <Button className="rounded-2xl" onClick={() => handleRequest("accept")}>
+                            <Users className="mr-2 h-4 w-4" />
+                            ติดตามกลับ
+                          </Button>
+                          <Button variant="outline" className="rounded-2xl" onClick={() => handleRequest("decline")}>
+                            ลบผู้ติดตาม
+                          </Button>
+                        </>
+                      ) : data.relationship.requestDirection === "outgoing" ? (
+                        <>
+                          <Button variant="outline" className="rounded-2xl" onClick={() => void unfollow()}>
+                            กำลังติดตาม · เลิกติดตาม
+                          </Button>
+                          <p className="w-full text-xs text-muted-foreground">เมื่อเขาติดตามกลับ จะส่งข้อความหากันได้</p>
+                        </>
+                      ) : (
+                        <Button className="rounded-2xl" onClick={() => void follow()}>
                           <UserPlus className="mr-2 h-4 w-4" />
-                          เพิ่มเพื่อน
+                          ติดตาม
                         </Button>
-                      ) : null}
+                      )}
                     </div>
                   </div>
                 </div>

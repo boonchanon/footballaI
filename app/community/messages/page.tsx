@@ -314,7 +314,7 @@ export default function CommunityMessagesPage() {
                 <CardContent className="py-16 text-center">
                   <MessageSquare className="mx-auto mb-4 h-12 w-12 text-muted-foreground/30" />
                   <h2 className="text-2xl font-semibold">ต้องเข้าสู่ระบบก่อน</h2>
-                  <p className="mt-2 text-sm text-muted-foreground">ล็อกอินก่อนเพื่อใช้งานแชตกับเพื่อนในคอมมูนิตี้</p>
+                  <p className="mt-2 text-sm text-muted-foreground">ล็อกอินก่อนเพื่อแชทกับคนที่ติดตามกันในคอมมูนิตี้</p>
                 </CardContent>
               </Card>
             </div>
@@ -396,7 +396,7 @@ export default function CommunityMessagesPage() {
                         </button>
                       ))
                     ) : (
-                      <div className="p-4 text-sm text-muted-foreground">ยังไม่มีบทสนทนา เริ่มจากรับเพื่อนก่อน</div>
+                      <div className="p-4 text-sm text-muted-foreground">ยังไม่มีบทสนทนา แชทได้กับคนที่ติดตามกันทั้งสองฝ่าย ลองติดตามคนในคอมมูนิตี้ หรือกดติดตามกลับคนที่ติดตามคุณ</div>
                     )}
                   </div>
                 </CardContent>
