@@ -1,324 +1,132 @@
 "use client"
 
-import React from "react"
+import { useMemo, useState } from "react"
+import { AlertTriangle, ExternalLink, Search } from "lucide-react"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { DataSourceBar, StateBox, formatThaiDateTime, useFootball } from "@/components/admin/football-data"
+import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { ArrowLeft, FileText, ImageIcon, Tag, Save, Loader2, Eye, Upload } from "lucide-react"
-import Link from "next/link"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
-const categories = [
-  { id: "transfer", name: "ข่าวซื้อขาย" },
-  { id: "match", name: "ข่าวแมตช์" },
-  { id: "injury", name: "ข่าวบาดเจ็บ" },
-  { id: "general", name: "ข่าวทั่วไป" },
-  { id: "analysis", name: "วิเคราะห์" },
-]
+type Article = { id: string; title: string; titleEn?: string; url: string; source: string; publishedAt: string; category: string; image?: string }
+type NewsResponse = { articles: Article[]; source?: string; notice?: string; lastUpdated?: string; stats?: Record<string, number> }
 
-const teams = [
-  { id: "all", name: "ทุกทีม" },
-  { id: "mancity", name: "แมนเชสเตอร์ ซิตี้" },
-  { id: "liverpool", name: "ลิเวอร์พูล" },
-  { id: "arsenal", name: "อาร์เซนอล" },
-  { id: "chelsea", name: "เชลซี" },
-  { id: "manutd", name: "แมนเชสเตอร์ ยูไนเต็ด" },
-]
+const CATEGORY_TH: Record<string, string> = { match: "แมตช์", transfer: "ย้ายทีม", preview: "พรีวิว", result: "ผลการแข่งขัน", general: "ทั่วไป" }
+const SOURCE_TH: Record<string, string> = { gnews: "GNews (ล่าสุด)", cache: "ข่าวที่บันทึกไว้ล่าสุด", fallback: "ข่าวตัวอย่าง", "news-api-disabled": "ปิดการดึงข่าว" }
 
-export default function WriteNewsPage() {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
-  const [isPreview, setIsPreview] = useState(false)
-  const [formData, setFormData] = useState({
-    title: "",
-    subtitle: "",
-    content: "",
-    category: "",
-    team: "all",
-    status: "draft",
-    featuredImage: "",
-    tags: "",
-  })
+export default function NewsPage() {
+  const [topic, setTopic] = useState<"premier-league" | "worldcup">("premier-league")
+  const news = useFootball<NewsResponse>(topic === "worldcup" ? "/api/news?topic=worldcup" : "/api/news")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [category, setCategory] = useState("all")
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    
-    alert(formData.status === "published" ? "เผยแพร่บทความสำเร็จ!" : "บันทึกฉบับร่างสำเร็จ!")
-    setIsLoading(false)
-  }
+  const articles = news.data?.articles || []
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    return articles.filter((article) => (category === "all" || article.category === category) && `${article.title} ${article.titleEn || ""} ${article.source}`.toLowerCase().includes(q))
+  }, [articles, searchQuery, category])
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/admin">
-            <Button variant="outline" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold">เขียนข่าว</h1>
-            <p className="text-muted-foreground">สร้างบทความข่าวใหม่</p>
-          </div>
+      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold md:text-3xl">จัดการข่าว</h1>
+          <p className="text-muted-foreground">ข่าวจริงจาก GNews แปลไทยอัตโนมัติ ที่หน้าข่าวของเว็บแสดงอยู่ตอนนี้</p>
         </div>
-        <Button variant="outline" onClick={() => setIsPreview(!isPreview)}>
-          <Eye className="mr-2 h-4 w-4" />
-          {isPreview ? "แก้ไข" : "ตัวอย่าง"}
-        </Button>
+        <DataSourceBar source={SOURCE_TH[news.data?.source || ""] || news.data?.source} updatedAt={news.data?.lastUpdated} refreshing={news.isValidating} onRefresh={() => void news.mutate()} />
       </div>
 
-      {isPreview ? (
-        /* Preview Mode */
-        <Card>
-          <CardContent className="pt-6">
-            <article className="prose prose-invert max-w-none">
-              {formData.featuredImage && (
-                <div className="w-full h-64 bg-muted rounded-lg mb-6 flex items-center justify-center">
-                  <ImageIcon className="h-12 w-12 text-muted-foreground" />
-                </div>
-              )}
-              <h1 className="text-3xl font-bold mb-2">{formData.title || "หัวข้อบทความ"}</h1>
-              {formData.subtitle && (
-                <p className="text-xl text-muted-foreground mb-6">{formData.subtitle}</p>
-              )}
-              <div className="flex items-center gap-4 text-sm text-muted-foreground mb-6">
-                <span>โดย Admin</span>
-                <span>•</span>
-                <span>{new Date().toLocaleDateString("th-TH")}</span>
-                {formData.category && (
-                  <>
-                    <span>•</span>
-                    <span className="bg-primary/10 text-primary px-2 py-1 rounded">
-                      {categories.find(c => c.id === formData.category)?.name}
-                    </span>
-                  </>
-                )}
-              </div>
-              <div className="whitespace-pre-wrap">
-                {formData.content || "เนื้อหาบทความจะแสดงที่นี่..."}
-              </div>
-              {formData.tags && (
-                <div className="flex flex-wrap gap-2 mt-6">
-                  {formData.tags.split(",").map((tag, index) => (
-                    <span key={index} className="bg-muted px-3 py-1 rounded-full text-sm">
-                      #{tag.trim()}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </article>
-          </CardContent>
-        </Card>
-      ) : (
-        /* Edit Mode */
-        <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Main Form */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Content */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    เนื้อหาบทความ
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="title">หัวข้อ</Label>
-                    <Input
-                      id="title"
-                      placeholder="กรอกหัวข้อบทความ"
-                      value={formData.title}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      required
-                      className="text-lg"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="subtitle">หัวข้อรอง (ถ้ามี)</Label>
-                    <Input
-                      id="subtitle"
-                      placeholder="กรอกหัวข้อรอง"
-                      value={formData.subtitle}
-                      onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="content">เนื้อหา</Label>
-                    <Textarea
-                      id="content"
-                      placeholder="เขียนเนื้อหาบทความที่นี่..."
-                      value={formData.content}
-                      onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                      required
-                      rows={15}
-                      className="resize-none"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+      {news.data?.notice ? (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          {news.data.notice}
+        </div>
+      ) : null}
 
-              {/* Featured Image */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Upload className="h-5 w-5" />
-                    รูปภาพหลัก
-                  </CardTitle>
-                  <CardDescription>อัปโหลดรูปภาพประกอบบทความ</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
-                    <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground mb-2">ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</p>
-                    <p className="text-sm text-muted-foreground">รองรับไฟล์ JPG, PNG, WebP (สูงสุด 5MB)</p>
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) {
-                          setFormData({ ...formData, featuredImage: file.name })
-                        }
-                      }}
-                    />
-                  </div>
-                  {formData.featuredImage && (
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      เลือกไฟล์: {formData.featuredImage}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+      <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        {[["ทั้งหมด", news.data?.stats?.total], ["ผลการแข่งขัน", news.data?.stats?.results], ["พรีวิว", news.data?.stats?.previews], ["ย้ายทีม", news.data?.stats?.transfers], ["แมตช์", news.data?.stats?.match], ["ทั่วไป", news.data?.stats?.general]].map(([label, value]) => (
+          <Card key={String(label)}>
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">{label}</p>
+              <p className="text-2xl font-bold">{value ?? "-"}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-            {/* Sidebar */}
-            <div className="space-y-6">
-              {/* Publish Settings */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>การเผยแพร่</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>สถานะ</Label>
-                    <Select
-                      value={formData.status}
-                      onValueChange={(value) => setFormData({ ...formData, status: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="เลือกสถานะ" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="draft">ฉบับร่าง</SelectItem>
-                        <SelectItem value="published">เผยแพร่</SelectItem>
-                        <SelectItem value="scheduled">ตั้งเวลา</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Category & Tags */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Tag className="h-5 w-5" />
-                    หมวดหมู่และแท็ก
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>หมวดหมู่</Label>
-                    <Select
-                      value={formData.category}
-                      onValueChange={(value) => setFormData({ ...formData, category: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="เลือกหมวดหมู่" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>ทีมที่เกี่ยวข้อง</Label>
-                    <Select
-                      value={formData.team}
-                      onValueChange={(value) => setFormData({ ...formData, team: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="เลือกทีม" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {teams.map((team) => (
-                          <SelectItem key={team.id} value={team.id}>
-                            {team.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tags">แท็ก</Label>
-                    <Input
-                      id="tags"
-                      placeholder="คั่นด้วยเครื่องหมาย ,"
-                      value={formData.tags}
-                      onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                    />
-                    <p className="text-xs text-muted-foreground">เช่น: พรีเมียร์ลีก, ซื้อขาย, ฮาแลนด์</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Actions */}
-              <Card>
-                <CardContent className="pt-6 space-y-3">
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        กำลังบันทึก...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="mr-2 h-4 w-4" />
-                        {formData.status === "published" ? "เผยแพร่บทความ" : "บันทึกฉบับร่าง"}
-                      </>
-                    )}
-                  </Button>
-                  <Button type="button" variant="outline" className="w-full bg-transparent" onClick={() => router.back()}>
-                    ยกเลิก
-                  </Button>
-                </CardContent>
-              </Card>
+      <Card>
+        <CardHeader className="gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <CardTitle>รายการข่าว</CardTitle>
+            <CardDescription>แสดง {filtered.length} ข่าว · กดหัวข้อเพื่อเปิดแหล่งข่าวต้นทาง</CardDescription>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Select value={topic} onValueChange={(value) => setTopic(value as typeof topic)}>
+              <SelectTrigger className="sm:w-44" aria-label="หัวข้อข่าว">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="premier-league">พรีเมียร์ลีก</SelectItem>
+                <SelectItem value="worldcup">ฟุตบอลโลก 2026</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger className="sm:w-40" aria-label="หมวดข่าว">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทุกหมวด</SelectItem>
+                {Object.entries(CATEGORY_TH).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="ค้นหาข่าว..." value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} className="pl-9 sm:w-52" />
             </div>
           </div>
-        </form>
-      )}
+        </CardHeader>
+        <CardContent>
+          <StateBox loading={news.isLoading} error={news.error} empty={!filtered.length} emptyText="ไม่พบข่าว" />
+          {filtered.length ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[320px]">หัวข้อ</TableHead>
+                    <TableHead>หมวด</TableHead>
+                    <TableHead>แหล่งข่าว</TableHead>
+                    <TableHead>เผยแพร่</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((article) => (
+                    <TableRow key={article.id}>
+                      <TableCell>
+                        <a href={article.url} target="_blank" rel="noreferrer" className="group inline-flex items-start gap-1 font-medium hover:text-primary">
+                          {article.title}
+                          <ExternalLink className="mt-1 h-3.5 w-3.5 shrink-0 opacity-60 group-hover:opacity-100" />
+                        </a>
+                        {article.titleEn ? <p className="mt-0.5 text-xs text-muted-foreground">{article.titleEn}</p> : null}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{CATEGORY_TH[article.category] || article.category}</Badge>
+                      </TableCell>
+                      <TableCell>{article.source}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatThaiDateTime(article.publishedAt)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
     </div>
   )
 }
