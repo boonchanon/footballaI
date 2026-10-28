@@ -2483,17 +2483,21 @@ export default function CommunityPage() {
   }
 
   async function sendFriendRequest(targetUserId: string) {
-    if (!requireLogin("กรุณาเข้าสู่ระบบเพื่อเพิ่มเพื่อน")) return
+    if (!requireLogin("กรุณาเข้าสู่ระบบเพื่อติดตาม")) return
     try {
       setSendingFriendId(targetUserId)
-      await fetchJson("/community/friends", {
+      const result = await fetchJson<{ mutual?: boolean; alreadyFollowing?: boolean }>("/community/friends", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({ action: "request", targetUserId }),
       })
+      toast({
+        title: result?.mutual ? "ติดตามกันแล้ว ส่งข้อความหากันได้เลย" : result?.alreadyFollowing ? "คุณติดตามคนนี้อยู่แล้ว" : "ติดตามแล้ว",
+        description: result?.mutual ? undefined : "เมื่อเขาติดตามกลับ จะส่งข้อความหากันได้",
+      })
       await mutateSocial()
     } catch (error) {
-      toast({ title: "ส่งคำขอไม่สำเร็จ", description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด", variant: "destructive" })
+      toast({ title: "ติดตามไม่สำเร็จ", description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด", variant: "destructive" })
     } finally {
       setSendingFriendId(null)
     }
@@ -2508,9 +2512,10 @@ export default function CommunityPage() {
         headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({ action, requestId }),
       })
+      if (action === "accept") toast({ title: "ติดตามกันแล้ว ส่งข้อความหากันได้เลย" })
       await mutateSocial()
     } catch (error) {
-      toast({ title: "อัปเดตคำขอไม่สำเร็จ", description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด", variant: "destructive" })
+      toast({ title: "อัปเดตการติดตามไม่สำเร็จ", description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด", variant: "destructive" })
     } finally {
       setHandlingRequestId(null)
     }
@@ -2571,7 +2576,7 @@ export default function CommunityPage() {
                 {incomingRequests.length ? (
                   <div className="rounded-2xl border border-white/10 bg-background/40 p-4">
                     <div className="mb-3 flex items-center justify-between gap-3">
-                      <p className="text-sm font-semibold text-foreground">คำขอเป็นเพื่อนที่รอดำเนินการ</p>
+                      <p className="text-sm font-semibold text-foreground">ผู้ติดตามใหม่</p>
                       <Badge className="rounded-full bg-primary/15 px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary/15">
                         {incomingRequests.length}
                       </Badge>
@@ -2593,7 +2598,7 @@ export default function CommunityPage() {
                             disabled={handlingRequestId === request.id}
                             className="rounded-full px-3"
                           >
-                            รับ
+                            ติดตามกลับ
                           </Button>
                         </div>
                       ))}
@@ -4197,13 +4202,13 @@ export default function CommunityPage() {
                       </Avatar>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm text-muted-foreground">
-                          <span className="font-semibold text-foreground">{request.user.name}</span> ส่งคำขอเป็นเพื่อน
+                          <span className="font-semibold text-foreground">{request.user.name}</span> เริ่มติดตามคุณ
                         </p>
                         <p className="text-xs text-muted-foreground">{request.timeAgo}</p>
                       </div>
                       <div className="flex gap-2">
                         <Button size="sm" onClick={() => handleFriendRequest(request.id, "accept")} disabled={handlingRequestId === request.id} className="h-8 rounded-full px-3">
-                          รับ
+                          ติดตามกลับ
                         </Button>
                       </div>
                     </div>
@@ -4218,7 +4223,13 @@ export default function CommunityPage() {
               <CardHeader className="px-4 pb-2 pt-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base text-foreground">แนะนำให้ติดตาม</CardTitle>
+                  <Link href="/community/people" className="text-xs font-semibold text-primary hover:underline">
+                    ดูทั้งหมด
+                  </Link>
                 </div>
+                <form action="/community/people" method="get" className="pt-2">
+                  <Input name="q" placeholder="ค้นหาชื่อคนในคอมมูนิตี้..." aria-label="ค้นหาชื่อคนในคอมมูนิตี้" className="h-9 rounded-full text-sm" />
+                </form>
               </CardHeader>
               <CardContent className="space-y-3 px-4 pb-4">
                 {suggestedPeople.length ? (
@@ -4241,7 +4252,7 @@ export default function CommunityPage() {
                         disabled={sendingFriendId === person.id}
                         className="rounded-full px-3 text-primary hover:bg-primary/10 hover:text-primary"
                       >
-                        {sendingFriendId === person.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Follow"}
+                        {sendingFriendId === person.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "ติดตาม"}
                       </Button>
                     </div>
                   ))

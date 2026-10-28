@@ -1,3 +1,4 @@
+import { isValidObjectId } from "mongoose"
 import { NextRequest } from "next/server"
 
 import { requireAuthUser } from "@/lib/server/auth"
@@ -5,7 +6,18 @@ import { sortUserIds, toPlainId } from "@/lib/server/community-social"
 import { assertCommunityInteractionAllowed } from "@/lib/server/content-moderation"
 import { connectDatabase } from "@/lib/server/db"
 import { errorResponse, ok } from "@/lib/server/http"
-import { Conversation, FriendRequest, Friendship } from "@/lib/server/models"
+import { Conversation, FriendRequest, Friendship, User } from "@/lib/server/models"
+
+// Mutual followers are stored as a Friendship and get a conversation, so they can chat.
+async function makeMutual(users: string[]) {
+  await Friendship.updateOne({ users }, { $setOnInsert: { users } }, { upsert: true })
+  const conversation = await Conversation.findOneAndUpdate(
+    { members: users },
+    { $setOnInsert: { members: users, lastMessageText: "", lastMessageAt: new Date() } },
+    { upsert: true, new: true },
+  )
+  return toPlainId(conversation?._id)
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,24 +40,50 @@ export async function POST(request: NextRequest) {
         return errorResponse("Already friends", 409)
       }
 
-      const existingRequest = await FriendRequest.findOne({
-        $or: [
-          { requester: user._id, recipient: targetUserId },
-          { requester: targetUserId, recipient: user._id },
-        ],
-        status: "pending",
-      })
-
-      if (existingRequest) {
-        return errorResponse("Friend request already exists", 409)
+      if (!isValidObjectId(targetUserId) || !(await User.exists({ _id: targetUserId }))) {
+        return errorResponse("User not found", 404)
       }
 
-      const created = await FriendRequest.create({
-        requester: user._id,
-        recipient: targetUserId,
-      })
+      // A pending request is a one-way follow. Following someone who already follows you makes
+      // the follow mutual: you become friends and can chat.
+      const theyFollowMe = await FriendRequest.findOne({ requester: targetUserId, recipient: user._id, status: "pending" })
+      if (theyFollowMe) {
+        theyFollowMe.status = "accepted"
+        await theyFollowMe.save()
+        const conversationId = await makeMutual(friendshipKey)
+        return ok({ item: { id: toPlainId(theyFollowMe._id), status: "mutual" }, mutual: true, conversationId }, { status: 201 })
+      }
 
-      return ok({ item: { id: toPlainId(created._id), status: created.status } }, { status: 201 })
+      const myFollow = await FriendRequest.findOne({ requester: user._id, recipient: targetUserId })
+      // Following twice is harmless (e.g. a stale button); report the current state instead of an error.
+      if (myFollow?.status === "pending") {
+        return ok({ item: { id: toPlainId(myFollow._id), status: "pending" }, mutual: false, alreadyFollowing: true })
+      }
+      // An old declined/accepted record would block a new follow on the unique index; reuse it.
+      const follow = myFollow
+        ? await FriendRequest.findByIdAndUpdate(myFollow._id, { $set: { status: "pending" } }, { new: true })
+        : await FriendRequest.create({ requester: user._id, recipient: targetUserId })
+
+      return ok({ item: { id: toPlainId(follow!._id), status: "pending" }, mutual: false }, { status: 201 })
+    }
+
+    if (action === "unfollow") {
+      if (!targetUserId || !isValidObjectId(targetUserId)) return errorResponse("Invalid target user", 422)
+      const users = sortUserIds([user._id, targetUserId])
+      const friendship = await Friendship.findOne({ users })
+      await FriendRequest.deleteOne({ requester: user._id, recipient: targetUserId })
+      if (friendship) {
+        // They still follow me: keep that as a one-way follow. The conversation history stays,
+        // but new messages need the follow to be mutual again.
+        await Friendship.deleteOne({ _id: friendship._id })
+        await FriendRequest.updateOne(
+          { requester: targetUserId, recipient: user._id },
+          { $set: { status: "pending" } },
+          { upsert: true },
+        )
+        return ok({ success: true, wasMutual: true })
+      }
+      return ok({ success: true, wasMutual: false })
     }
 
     if (action === "accept" || action === "decline") {
@@ -62,18 +100,12 @@ export async function POST(request: NextRequest) {
         return ok({ success: true })
       }
 
+      // Accepting = following back.
       friendRequest.status = "accepted"
       await friendRequest.save()
 
-      const users = sortUserIds([friendRequest.requester, friendRequest.recipient])
-      await Friendship.updateOne({ users }, { $setOnInsert: { users } }, { upsert: true })
-      await Conversation.updateOne(
-        { members: users },
-        { $setOnInsert: { members: users, lastMessageText: "", lastMessageAt: new Date() } },
-        { upsert: true },
-      )
-
-      return ok({ success: true })
+      const conversationId = await makeMutual(sortUserIds([friendRequest.requester, friendRequest.recipient]))
+      return ok({ success: true, mutual: true, conversationId })
     }
 
     return errorResponse("Unsupported action", 422)

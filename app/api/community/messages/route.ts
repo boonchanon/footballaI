@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
 
     const members = sortUserIds([user._id, targetUserId])
     const friendship = await Friendship.findOne({ users: members })
-    if (!friendship) return errorResponse("You can only message friends", 403)
+    if (!friendship) return errorResponse("ส่งข้อความได้เมื่อติดตามกันทั้งสองฝ่าย", 403)
 
     const conversation =
       (await Conversation.findOne({ members })) ||

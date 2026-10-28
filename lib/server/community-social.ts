@@ -25,7 +25,9 @@ export function sortUserIds(ids: unknown[]) {
 export function mapSocialUser(user: any) {
   return {
     id: toPlainId(user?._id),
-    name: user?.name || "ผู้ใช้งาน",
+    // Older accounts keep their display name in `username` (not in the current schema, so it is only
+    // present on lean results or the raw document).
+    name: user?.name || user?.username || user?._doc?.username || "ผู้ใช้งาน",
     avatar: sanitizeCommunityAssetUrl(user?.avatar || ""),
     favoriteTeam: user?.favoriteTeam || "",
     bio: user?.bio || "",
