@@ -1,337 +1,124 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
+import { Calendar, Search, Trophy, Users } from "lucide-react"
+
+import { DataSourceBar, StateBox, TeamCell, useFootball, type Fixture, type StandingRow } from "@/components/admin/football-data"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Search, Plus, MoreHorizontal, Globe, Upload, Calendar, Trophy } from "lucide-react"
-import Image from "next/image"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
-const leagues = [
-  {
-    id: 1,
-    name: "Premier League",
-    country: "England",
-    logo: "/premier-league-match.png",
-    teams: 20,
-    status: "active",
-    currentSeason: "2024/25",
-  },
-  {
-    id: 2,
-    name: "La Liga",
-    country: "Spain",
-    logo: "/premier-league-match.png",
-    teams: 20,
-    status: "active",
-    currentSeason: "2024/25",
-  },
-  {
-    id: 3,
-    name: "Serie A",
-    country: "Italy",
-    logo: "/premier-league-match.png",
-    teams: 20,
-    status: "active",
-    currentSeason: "2024/25",
-  },
-  {
-    id: 4,
-    name: "Bundesliga",
-    country: "Germany",
-    logo: "/premier-league-match.png",
-    teams: 18,
-    status: "active",
-    currentSeason: "2024/25",
-  },
-  {
-    id: 5,
-    name: "Ligue 1",
-    country: "France",
-    logo: "/premier-league-match.png",
-    teams: 18,
-    status: "active",
-    currentSeason: "2024/25",
-  },
-]
-
-const statusColors: Record<string, string> = {
-  active: "bg-green-500/10 text-green-500",
-  inactive: "bg-gray-500/10 text-gray-500",
-  upcoming: "bg-blue-500/10 text-blue-500",
-}
+type StandingsResponse = { data: StandingRow[]; season?: string; source?: string; lastUpdated?: string }
+type FixturesResponse = { data: Fixture[]; totalMatches?: number; expectedMatches?: number; rounds?: unknown[] }
 
 export default function LeaguesPage() {
+  const standings = useFootball<StandingsResponse>("/api/football/standings")
+  const fixtures = useFootball<FixturesResponse>("/api/football/fixtures?type=all&limit=380")
   const [searchQuery, setSearchQuery] = useState("")
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
 
-  const filteredLeagues = leagues.filter(
-    (league) =>
-      league.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      league.country.toLowerCase().includes(searchQuery.toLowerCase())
+  const rows = standings.data?.data || []
+  const matches = fixtures.data?.data || []
+  const finished = matches.filter((match) => match.status?.isFinished)
+  const lastRound = finished.reduce((max, match) => Math.max(max, match.roundNumber || 0), 0)
+  const goals = finished.reduce((sum, match) => sum + (match.goals.home || 0) + (match.goals.away || 0), 0)
+  const filtered = useMemo(
+    () => rows.filter((row) => `${row.team.name} ${row.team.nameEn || ""}`.toLowerCase().includes(searchQuery.trim().toLowerCase())),
+    [rows, searchQuery],
   )
+
+  const stats = [
+    { label: "ฤดูกาล", value: standings.data?.season || "-", icon: Calendar },
+    { label: "ทีม", value: rows.length ? String(rows.length) : "-", icon: Users },
+    { label: "แข่งแล้ว", value: matches.length ? `${finished.length} / ${fixtures.data?.expectedMatches || matches.length} นัด` : "-", icon: Trophy },
+    { label: "นัดล่าสุดที่แข่งจบ", value: lastRound ? `Matchweek ${lastRound}` : "-", icon: Calendar },
+    { label: "ประตูรวม", value: finished.length ? `${goals} (${(goals / finished.length).toFixed(2)}/นัด)` : "-", icon: Trophy },
+  ]
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">League Management</h1>
-          <p className="text-muted-foreground">Manage football leagues and competitions</p>
+          <h1 className="text-2xl font-bold md:text-3xl">จัดการลีก</h1>
+          <p className="text-muted-foreground">พรีเมียร์ลีก ข้อมูลจริงที่ซิงก์จากผู้ให้บริการข้อมูลฟุตบอล</p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add League
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Add New League</DialogTitle>
-              <DialogDescription>
-                Create a new league or competition.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">League Name</Label>
-                <Input id="name" placeholder="e.g. Premier League" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="country">Country</Label>
-                <Input id="country" placeholder="e.g. England" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="teams">Number of Teams</Label>
-                <Input id="teams" type="number" placeholder="20" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="season">Current Season</Label>
-                <Input id="season" placeholder="e.g. 2024/25" />
-              </div>
-              <div className="space-y-2">
-                <Label>League Logo</Label>
-                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors">
-                  <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">Click to upload or drag and drop</p>
-                  <p className="text-xs text-muted-foreground mt-1">PNG, JPG up to 2MB</p>
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={() => setIsAddDialogOpen(false)}>
-                Create League
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <DataSourceBar
+          source={standings.data?.source}
+          updatedAt={standings.data?.lastUpdated}
+          refreshing={standings.isValidating || fixtures.isValidating}
+          onRefresh={() => {
+            void standings.mutate()
+            void fixtures.mutate()
+          }}
+        />
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-primary/10 rounded-lg">
-                <Globe className="h-6 w-6 text-primary" />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        {stats.map((item) => (
+          <Card key={item.label}>
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="rounded-lg bg-primary/10 p-2 text-primary">
+                <item.icon className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{leagues.length}</p>
-                <p className="text-sm text-muted-foreground">Total Leagues</p>
+                <p className="text-xs text-muted-foreground">{item.label}</p>
+                <p className="font-bold">{item.value}</p>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-green-500/10 rounded-lg">
-                <Trophy className="h-6 w-6 text-green-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{leagues.filter(l => l.status === "active").length}</p>
-                <p className="text-sm text-muted-foreground">Active Leagues</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-500/10 rounded-lg">
-                <Calendar className="h-6 w-6 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">96</p>
-                <p className="text-sm text-muted-foreground">Total Teams</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-purple-500/10 rounded-lg">
-                <Globe className="h-6 w-6 text-purple-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">5</p>
-                <p className="text-sm text-muted-foreground">Countries</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Search and Filter */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search leagues..."
-                className="pl-9"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Select>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Country" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Countries</SelectItem>
-                  <SelectItem value="england">England</SelectItem>
-                  <SelectItem value="spain">Spain</SelectItem>
-                  <SelectItem value="italy">Italy</SelectItem>
-                  <SelectItem value="germany">Germany</SelectItem>
-                  <SelectItem value="france">France</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+        <CardHeader className="gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <CardTitle>ตารางคะแนนพรีเมียร์ลีก</CardTitle>
+            <CardDescription>อันดับ แต้ม และผลงานของทุกทีมในฤดูกาลปัจจุบัน</CardDescription>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Leagues Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>All Leagues</CardTitle>
-          <CardDescription>
-            {filteredLeagues.length} leagues found
-          </CardDescription>
+          <div className="relative w-full md:w-64">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="ค้นหาทีม..." value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} className="pl-9" />
+          </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>League</TableHead>
-                <TableHead>Country</TableHead>
-                <TableHead>Teams</TableHead>
-                <TableHead>Season</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredLeagues.map((league) => (
-                <TableRow key={league.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="relative h-10 w-10 rounded-lg overflow-hidden bg-muted">
-                        <Image
-                          src={league.logo || "/placeholder.svg"}
-                          alt={league.name}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                      <span className="font-medium">{league.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{league.country}</TableCell>
-                  <TableCell>{league.teams}</TableCell>
-                  <TableCell>{league.currentSeason}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className={statusColors[league.status]}>
-                      {league.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem>View Details</DropdownMenuItem>
-                        <DropdownMenuItem>Edit League</DropdownMenuItem>
-                        <DropdownMenuItem>Manage Seasons</DropdownMenuItem>
-                        <DropdownMenuItem>View Standings</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-500">
-                          Delete League
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <StateBox loading={standings.isLoading} error={standings.error} empty={!filtered.length} emptyText="ไม่พบทีม" />
+          {filtered.length ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">#</TableHead>
+                    <TableHead>ทีม</TableHead>
+                    <TableHead className="text-right">แข่ง</TableHead>
+                    <TableHead className="text-right">ชนะ</TableHead>
+                    <TableHead className="text-right">เสมอ</TableHead>
+                    <TableHead className="text-right">แพ้</TableHead>
+                    <TableHead className="text-right">ได้</TableHead>
+                    <TableHead className="text-right">เสีย</TableHead>
+                    <TableHead className="text-right">+/-</TableHead>
+                    <TableHead className="text-right">แต้ม</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((row) => (
+                    <TableRow key={row.team.id}>
+                      <TableCell className="font-semibold">{row.rank}</TableCell>
+                      <TableCell>
+                        <TeamCell team={row.team} />
+                      </TableCell>
+                      <TableCell className="text-right">{row.all.played}</TableCell>
+                      <TableCell className="text-right">{row.all.win}</TableCell>
+                      <TableCell className="text-right">{row.all.draw}</TableCell>
+                      <TableCell className="text-right">{row.all.lose}</TableCell>
+                      <TableCell className="text-right">{row.all.goals.for}</TableCell>
+                      <TableCell className="text-right">{row.all.goals.against}</TableCell>
+                      <TableCell className="text-right">{row.goalsDiff > 0 ? `+${row.goalsDiff}` : row.goalsDiff}</TableCell>
+                      <TableCell className="text-right font-bold">{row.points}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
     </div>

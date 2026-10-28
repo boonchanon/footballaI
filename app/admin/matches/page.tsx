@@ -1,430 +1,170 @@
 "use client"
 
-import React from "react"
+import Link from "next/link"
+import { useMemo, useState } from "react"
+import { ExternalLink, Search } from "lucide-react"
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { DataSourceBar, StateBox, TeamCell, formatThaiDateTime, useFootball, type Fixture } from "@/components/admin/football-data"
 import { Badge } from "@/components/ui/badge"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Search, Plus, MoreHorizontal, Calendar, Clock, Play, CheckCircle, Pause } from "lucide-react"
-import Image from "next/image"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
-const matches = [
-  {
-    id: 1,
-    homeTeam: "Liverpool",
-    homeLogo: "/liverpool-logo.png",
-    awayTeam: "Arsenal",
-    awayLogo: "/arsenal-logo.png",
-    homeScore: 2,
-    awayScore: 1,
-    date: "2025-01-25",
-    time: "15:00",
-    venue: "Anfield",
-    status: "completed",
-    league: "Premier League",
-    matchweek: 20,
-  },
-  {
-    id: 2,
-    homeTeam: "Manchester City",
-    homeLogo: "/manchester-city-logo.png",
-    awayTeam: "Chelsea",
-    awayLogo: "/chelsea-football-club-crest.png",
-    homeScore: 0,
-    awayScore: 0,
-    date: "2025-01-26",
-    time: "17:30",
-    venue: "Etihad Stadium",
-    status: "live",
-    league: "Premier League",
-    matchweek: 20,
-  },
-  {
-    id: 3,
-    homeTeam: "Tottenham",
-    homeLogo: "/tottenham-logo.png",
-    awayTeam: "Newcastle",
-    awayLogo: "/newcastle-united-logo.png",
-    homeScore: null,
-    awayScore: null,
-    date: "2025-01-28",
-    time: "20:00",
-    venue: "Tottenham Hotspur Stadium",
-    status: "scheduled",
-    league: "Premier League",
-    matchweek: 21,
-  },
-  {
-    id: 4,
-    homeTeam: "Aston Villa",
-    homeLogo: "/aston-villa-logo.png",
-    awayTeam: "Brighton",
-    awayLogo: "/brighton-logo.png",
-    homeScore: null,
-    awayScore: null,
-    date: "2025-01-29",
-    time: "19:45",
-    venue: "Villa Park",
-    status: "scheduled",
-    league: "Premier League",
-    matchweek: 21,
-  },
-]
+type FixturesResponse = { data: Fixture[]; source?: string; season?: string; totalMatches?: number; expectedMatches?: number }
+type StatusFilter = "all" | "finished" | "upcoming" | "live"
 
-const statusColors: Record<string, string> = {
-  scheduled: "bg-blue-500/10 text-blue-500",
-  live: "bg-green-500/10 text-green-500",
-  completed: "bg-gray-500/10 text-gray-500",
-  postponed: "bg-yellow-500/10 text-yellow-500",
-  cancelled: "bg-red-500/10 text-red-500",
+function statusOf(match: Fixture): Exclude<StatusFilter, "all"> {
+  if (match.status?.isLive) return "live"
+  if (match.status?.isFinished) return "finished"
+  return "upcoming"
 }
 
-const statusIcons: Record<string, React.ReactNode> = {
-  scheduled: <Clock className="h-3 w-3" />,
-  live: <Play className="h-3 w-3" />,
-  completed: <CheckCircle className="h-3 w-3" />,
-  postponed: <Pause className="h-3 w-3" />,
+const STATUS_BADGE: Record<Exclude<StatusFilter, "all">, { label: string; className: string }> = {
+  finished: { label: "จบแล้ว", className: "bg-muted text-foreground" },
+  upcoming: { label: "ยังไม่แข่ง", className: "bg-primary/10 text-primary" },
+  live: { label: "กำลังแข่ง", className: "bg-red-500/15 text-red-600" },
 }
 
-export default function MatchesAdminPage() {
+export default function MatchesPage() {
+  const fixtures = useFootball<FixturesResponse>("/api/football/fixtures?type=all&limit=380")
   const [searchQuery, setSearchQuery] = useState("")
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [status, setStatus] = useState<StatusFilter>("all")
+  const [round, setRound] = useState("all")
 
-  const filteredMatches = matches.filter(
-    (match) =>
-      match.homeTeam.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      match.awayTeam.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const matches = fixtures.data?.data || []
+  const rounds = useMemo(() => [...new Set(matches.map((match) => match.roundNumber).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [matches])
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    return matches.filter((match) => {
+      if (status !== "all" && statusOf(match) !== status) return false
+      if (round !== "all" && String(match.roundNumber) !== round) return false
+      if (!q) return true
+      return `${match.teams.home.name} ${match.teams.home.nameEn || ""} ${match.teams.away.name} ${match.teams.away.nameEn || ""}`.toLowerCase().includes(q)
+    })
+  }, [matches, searchQuery, status, round])
+  const counts = {
+    total: matches.length,
+    finished: matches.filter((match) => statusOf(match) === "finished").length,
+    upcoming: matches.filter((match) => statusOf(match) === "upcoming").length,
+    live: matches.filter((match) => statusOf(match) === "live").length,
+  }
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Match Management</h1>
-          <p className="text-muted-foreground">Manage fixtures, scores, and match events</p>
+          <h1 className="text-2xl font-bold md:text-3xl">จัดการแมตช์</h1>
+          <p className="text-muted-foreground">
+            โปรแกรมและผลการแข่งขันพรีเมียร์ลีก {fixtures.data?.season || ""} ทั้งหมด {counts.total}
+            {fixtures.data?.expectedMatches ? ` จาก ${fixtures.data.expectedMatches}` : ""} นัด
+          </p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Match
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Add New Match</DialogTitle>
-              <DialogDescription>
-                Schedule a new match fixture.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Home Team</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select team" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="liverpool">Liverpool</SelectItem>
-                      <SelectItem value="arsenal">Arsenal</SelectItem>
-                      <SelectItem value="man-city">Manchester City</SelectItem>
-                      <SelectItem value="chelsea">Chelsea</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Away Team</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select team" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="liverpool">Liverpool</SelectItem>
-                      <SelectItem value="arsenal">Arsenal</SelectItem>
-                      <SelectItem value="man-city">Manchester City</SelectItem>
-                      <SelectItem value="chelsea">Chelsea</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>League</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select league" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="premier-league">Premier League</SelectItem>
-                    <SelectItem value="fa-cup">FA Cup</SelectItem>
-                    <SelectItem value="league-cup">League Cup</SelectItem>
-                    <SelectItem value="ucl">Champions League</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Date</Label>
-                  <Input type="date" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Time</Label>
-                  <Input type="time" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Venue</Label>
-                <Input placeholder="Enter stadium name" />
-              </div>
-              <div className="space-y-2">
-                <Label>Matchweek</Label>
-                <Input type="number" placeholder="e.g. 21" />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={() => setIsAddDialogOpen(false)}>
-                Create Match
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <DataSourceBar source={fixtures.data?.source} refreshing={fixtures.isValidating} onRefresh={() => void fixtures.mutate()} />
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-primary/10 rounded-lg">
-                <Calendar className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{matches.length}</p>
-                <p className="text-sm text-muted-foreground">Total Matches</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-green-500/10 rounded-lg">
-                <Play className="h-6 w-6 text-green-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{matches.filter(m => m.status === "live").length}</p>
-                <p className="text-sm text-muted-foreground">Live Now</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-500/10 rounded-lg">
-                <Clock className="h-6 w-6 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{matches.filter(m => m.status === "scheduled").length}</p>
-                <p className="text-sm text-muted-foreground">Scheduled</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-gray-500/10 rounded-lg">
-                <CheckCircle className="h-6 w-6 text-gray-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{matches.filter(m => m.status === "completed").length}</p>
-                <p className="text-sm text-muted-foreground">Completed</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 sm:grid-cols-4">
+        {[
+          { label: "ทั้งหมด", value: counts.total },
+          { label: "จบแล้ว", value: counts.finished },
+          { label: "ยังไม่แข่ง", value: counts.upcoming },
+          { label: "กำลังแข่ง", value: counts.live },
+        ].map((item) => (
+          <Card key={item.label}>
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">{item.label}</p>
+              <p className="text-2xl font-bold">{item.value}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Search and Filters */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search matches..."
-                className="pl-9"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Select>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="League" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Leagues</SelectItem>
-                  <SelectItem value="premier-league">Premier League</SelectItem>
-                  <SelectItem value="fa-cup">FA Cup</SelectItem>
-                  <SelectItem value="ucl">Champions League</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select>
-                <SelectTrigger className="w-36">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="scheduled">Scheduled</SelectItem>
-                  <SelectItem value="live">Live</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="postponed">Postponed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+        <CardHeader className="gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <CardTitle>รายการแมตช์</CardTitle>
+            <CardDescription>แสดง {filtered.length} นัด</CardDescription>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Matches Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>All Matches</CardTitle>
-          <CardDescription>
-            {filteredMatches.length} matches found
-          </CardDescription>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="ค้นหาทีม..." value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} className="pl-9 sm:w-52" />
+            </div>
+            <Select value={status} onValueChange={(value) => setStatus(value as StatusFilter)}>
+              <SelectTrigger className="sm:w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทุกสถานะ</SelectItem>
+                <SelectItem value="finished">จบแล้ว</SelectItem>
+                <SelectItem value="upcoming">ยังไม่แข่ง</SelectItem>
+                <SelectItem value="live">กำลังแข่ง</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={round} onValueChange={setRound}>
+              <SelectTrigger className="sm:w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทุก Matchweek</SelectItem>
+                {rounds.map((value) => (
+                  <SelectItem key={String(value)} value={String(value)}>
+                    Matchweek {value}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Match</TableHead>
-                <TableHead>Score</TableHead>
-                <TableHead>Date & Time</TableHead>
-                <TableHead>Venue</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredMatches.map((match) => (
-                <TableRow key={match.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <div className="relative h-8 w-8 rounded overflow-hidden bg-muted">
-                          <Image
-                            src={match.homeLogo || "/placeholder.svg"}
-                            alt={match.homeTeam}
-                            fill
-                            className="object-contain"
-                          />
-                        </div>
-                        <span className="font-medium text-sm">{match.homeTeam}</span>
-                      </div>
-                      <span className="text-muted-foreground text-sm">vs</span>
-                      <div className="flex items-center gap-2">
-                        <div className="relative h-8 w-8 rounded overflow-hidden bg-muted">
-                          <Image
-                            src={match.awayLogo || "/placeholder.svg"}
-                            alt={match.awayTeam}
-                            fill
-                            className="object-contain"
-                          />
-                        </div>
-                        <span className="font-medium text-sm">{match.awayTeam}</span>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {match.homeScore !== null ? (
-                      <span className="font-bold">
-                        {match.homeScore} - {match.awayScore}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="text-sm">{new Date(match.date).toLocaleDateString()}</p>
-                      <p className="text-xs text-muted-foreground">{match.time}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm">{match.venue}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className={`${statusColors[match.status]} flex items-center gap-1 w-fit`}>
-                      {statusIcons[match.status]}
-                      {match.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem>View Details</DropdownMenuItem>
-                        <DropdownMenuItem>Edit Match</DropdownMenuItem>
-                        <DropdownMenuItem>Update Score</DropdownMenuItem>
-                        <DropdownMenuItem>Manage Events</DropdownMenuItem>
-                        <DropdownMenuItem>Set Lineups</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-500">
-                          Delete Match
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <StateBox loading={fixtures.isLoading} error={fixtures.error} empty={!filtered.length} emptyText="ไม่พบแมตช์ตามเงื่อนไข" />
+          {filtered.length ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>วันเวลา</TableHead>
+                    <TableHead>MW</TableHead>
+                    <TableHead>เจ้าบ้าน</TableHead>
+                    <TableHead className="text-center">ผล</TableHead>
+                    <TableHead>ทีมเยือน</TableHead>
+                    <TableHead>สนาม</TableHead>
+                    <TableHead>สถานะ</TableHead>
+                    <TableHead className="text-right">ดู</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((match) => {
+                    const state = statusOf(match)
+                    return (
+                      <TableRow key={String(match.id)}>
+                        <TableCell className="whitespace-nowrap">{formatThaiDateTime(match.date)}</TableCell>
+                        <TableCell>{match.roundNumber || "-"}</TableCell>
+                        <TableCell>
+                          <TeamCell team={match.teams.home} />
+                        </TableCell>
+                        <TableCell className="text-center font-bold">
+                          {state === "upcoming" || match.goals.home == null ? "vs" : `${match.goals.home} - ${match.goals.away}`}
+                        </TableCell>
+                        <TableCell>
+                          <TeamCell team={match.teams.away} />
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{match.venue?.name || "-"}</TableCell>
+                        <TableCell>
+                          <Badge className={STATUS_BADGE[state].className}>{STATUS_BADGE[state].label}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Link href={`/matches/${match.id}`} target="_blank" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+                            รายละเอียด <ExternalLink className="h-3.5 w-3.5" />
+                          </Link>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
     </div>
